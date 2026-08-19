@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.8)
+project(openamrobot_upperbody_gazebo)
+find_package(ament_cmake REQUIRED)
+install(DIRECTORY worlds models launch DESTINATION share/openamrobot_upperbody_gazebo)
+ament_package()

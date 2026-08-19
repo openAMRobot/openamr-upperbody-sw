@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_control</name>
+  <version>0.0.0</version>
+  <description>ros2_control config and controllers for lift and arm.</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>ros2_controllers</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

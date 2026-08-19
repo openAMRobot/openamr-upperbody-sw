@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_bringup</name>
+  <version>0.0.0</version>
+  <description>Launch files composing base + lift + arm in simulation.</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>openamrobot_upperbody_description</exec_depend>
+  <exec_depend>openamrobot_upperbody_control</exec_depend>
+  <exec_depend>openamrobot_upperbody_gazebo</exec_depend>
+  <exec_depend>openamrobot_upperbody_moveit</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_description</name>
+  <version>0.0.0</version>
+  <description>Combined base + lift + arm description (URDF/xacro).</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>
