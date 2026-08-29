@@ -2,7 +2,9 @@
 
 Upper-body software for the OpenAMRobot mobile manipulator: the arm and lift mounted on the mobile base. Turns `openamr-platform` (the base) into a full mobile manipulator.
 
-**Status:** planning / early development (v0.2 cycle, simulation first).
+> **Status:** Planned, no code yet
+
+The v0.2 cycle is simulation first. The ROS 2 packages here are scaffolding: manifests and empty directories, no source yet.
 
 ## What lives here
 - **Combined description:** base + lift + arm as one URDF/xacro, arm attached through a standard mounting-plate frame.
