@@ -1,6 +1,6 @@
 # openamr-upperbody-sw
 
-Upper-body software for the OpenAMRobot mobile manipulator: the arm and lift mounted on the mobile base. Turns `openamr-platform` (the base) into a full mobile manipulator.
+Upper-body software for the OpenAMRobot mobile manipulator: the arm on the 2.0 fixed mast; lift in 3.0. Turns `openamr-platform` (the base) into a full mobile manipulator.
 
 > **Status:** Planned, no code yet
 
@@ -8,7 +8,7 @@ The v0.2 cycle is simulation first. The ROS 2 packages here are scaffolding: man
 
 ## What lives here
 - **Combined description:** base + lift + arm as one URDF/xacro, arm attached through a standard mounting-plate frame.
-- **Lift control:** ros2_control configuration and controllers for the vertical lift.
+- **Lift control:** planned for 3.0; 2.0 uses a fixed mast.
 - **MoveIt:** planning groups for the arm and for arm + lift on the combined model.
 - **Bringup:** launch files that compose base, lift, and an arm pulled from `openamrobot-manipulation`.
 
@@ -18,12 +18,12 @@ The v0.2 cycle is simulation first. The ROS 2 packages here are scaffolding: man
 3. MoveIt planning and execution on the combined model.
 4. Whole-body state published for demonstration capture: arm state, lift height, base odometry.
 
-Physical lift build and hardware bring-up follow next cycle. This cycle is simulation only.
+Lift deferred to 3.0; hardware bring-up follows next cycle. This cycle is simulation only.
 
 ## Depends on
 - `openamr-platform-sw` (the mobile base).
 - `openamrobot-manipulation` (the arm and manipulation server).
-- `openamr-upperbody-hw` / `-fw` (lift mechanics and firmware, next cycle).
+- `openamr-upperbody-hw` / `-fw` (lift mechanics and firmware, in 3.0).
 
 ## Design rule
 The lift is a first-class subsystem, not an accessory. Its height is recorded state and enters the URDF, simulation, MoveIt, and the demonstration schema from day one.
