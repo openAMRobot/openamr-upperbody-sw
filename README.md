@@ -7,16 +7,16 @@ Upper-body software for the OpenAMRobot mobile manipulator: the arm on the 2.0 f
 The v0.2 cycle is simulation first. The ROS 2 packages here are scaffolding: manifests and empty directories, no source yet.
 
 ## What lives here
-- **Combined description:** base + lift + arm as one URDF/xacro, arm attached through a standard mounting-plate frame.
+- **Combined description:** base + fixed mast + arm in one URDF/xacro via standard mounting-plate frame; lift in 3.0.
 - **Lift control:** planned for 3.0; 2.0 uses a fixed mast.
-- **MoveIt:** planning groups for the arm and for arm + lift on the combined model.
-- **Bringup:** launch files that compose base, lift, and an arm pulled from `openamrobot-manipulation`.
+- **MoveIt:** arm planning group on the base + fixed mast model; arm + lift in 3.0.
+- **Bringup:** launch files for base + fixed mast (lift in 3.0) + arm from `openamrobot-manipulation`.
 
 ## What we are building (v0.2, simulation)
 1. Combined URDF/xacro with a correct TF tree and collision meshes.
-2. Lift and arm actuated in Gazebo through ros2_control.
+2. Arm actuated in Gazebo via ros2_control; lift in 3.0.
 3. MoveIt planning and execution on the combined model.
-4. Whole-body state published for demonstration capture: arm state, lift height, base odometry.
+4. Whole-body state for demonstration capture: arm state, base odometry; lift height in 3.0.
 
 Lift deferred to 3.0; hardware bring-up follows next cycle. This cycle is simulation only.
 
@@ -26,7 +26,7 @@ Lift deferred to 3.0; hardware bring-up follows next cycle. This cycle is simula
 - `openamr-upperbody-hw` / `-fw` (lift mechanics and firmware, in 3.0).
 
 ## Design rule
-The lift is a first-class subsystem, not an accessory. Its height is recorded state and enters the URDF, simulation, MoveIt, and the demonstration schema from day one.
+Design so the 3.0 lift can be added without restructuring: mast height is recorded state in the URDF, simulation, MoveIt, and the demonstration schema from day one.
 
 Part of the OpenAMRobot ecosystem: https://github.com/openAMRobot
 
