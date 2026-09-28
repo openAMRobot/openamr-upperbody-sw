@@ -20,9 +20,9 @@ Upper-body software for OpenAMRobot 2.0: the combined mobile base, fixed mast an
 Simulation is an integration stage, not a blanket deferral of physical OpenAMRobot 2.0 work. Model, simulation and hardware acceptance must be recorded separately.
 
 ## Mast configuration
-The preliminary OpenArm 2.0 shoulder-axis height is **1400 mm above the floor**, configuration `mast_1400`, with 50 mm indexed adjustments. **Maximum assembled robot height is 1700 mm**, including the head camera and other mounted equipment. Shoulder height and assembled height are different dimensions.
+OpenAMRobot 2.0 uses a fixed mast with four indexed shoulder-axis positions, 1300, 1350, 1400 and 1450 mm above the floor. The release configuration is `mast_1350`, a **1350 mm shoulder-axis height**. The mast top is 1500 mm above the floor. **1700 mm is the assembled robot-height envelope**, including the head camera and other mounted equipment, not the shoulder-axis height. The other three positions are mechanical provision and engineering-analysis options, not release configurations. Decision of record: P-03 Decision Addendum revision 18.2, 28 September 2026.
 
-The mast is a custom COTS-profile/sheet-metal structure; the OpenArm supplier body is not installed. The combined model must use the approved custom mast geometry and inertials, preserving the official arm attachment frames and kinematics. A4 confirms the final shoulder position using reach, TCP orientation, stand-off, collision, payload and F2S evidence. Candidate `mast_*` IDs are not evidence that every position is physically admissible.
+The mast is one MISUMI HFS6-60120 aluminium profile on the platform centre bracket; the OpenArm supplier body is not installed. The combined model uses the approved mast geometry and inertials, preserving the official arm attachment frames and kinematics. A4 provides the reach, TCP orientation, stand-off, collision, payload and F2S evidence for the release configuration; the three other index positions are analysis options only.
 
 ## Depends on
 - `openamr-platform-sw`: mobile-base model and software.
@@ -31,7 +31,7 @@ The mast is a custom COTS-profile/sheet-metal structure; the OpenArm supplier bo
 - `openamr-upperbody-fw`: any separately agreed non-lift firmware integration; lift firmware is OpenAMRobot 3.0 scope.
 
 ## Design rule
-OpenAMRobot 2.0 mast height is **versioned configuration metadata**, not runtime lift state. Keep the selected configuration consistent across URDF/Xacro, MoveIt, TF/camera calibration, the robot configuration hash and dataset metadata. Repositioning requires the affected calibration and readiness checks. Represent the assembled mast with fixed joints; do not introduce a locked actuated lift as the current baseline.
+OpenAMRobot 2.0 mast height is **versioned configuration metadata**, not runtime lift state. Keep the selected configuration consistent across URDF/Xacro, MoveIt, TF/camera calibration, the robot configuration hash and dataset metadata. Changing the index position is a configuration change that requires the affected calibration and readiness checks and a recorded decision. Represent the assembled mast with fixed joints; do not introduce a locked actuated lift as the current baseline.
 
 Package descriptions and model semantics are tracked in [issue #7](https://github.com/openAMRobot/openamr-upperbody-sw/issues/7).
 
