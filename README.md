@@ -1,32 +1,39 @@
 # openamr-upperbody-sw
 
-Upper-body software for the OpenAMRobot mobile manipulator: the arm and lift mounted on the mobile base. Turns `openamr-platform` (the base) into a full mobile manipulator.
+Upper-body software for OpenAMRobot 2.0: the combined mobile base, fixed mast and OpenArm 2.0 arms. An actuated lift is deferred to OpenAMRobot 3.0.
 
-> **Status:** Planned, no code yet
-
-The v0.2 cycle is simulation first. The ROS 2 packages here are scaffolding: manifests and empty directories, no source yet.
+> **Status:** Development scaffold. The ROS 2 packages contain manifests and empty directories; the combined model and integration are not yet implemented.
 
 ## What lives here
-- **Combined description:** base + lift + arm as one URDF/xacro, arm attached through a standard mounting-plate frame.
-- **Lift control:** ros2_control configuration and controllers for the vertical lift.
-- **MoveIt:** planning groups for the arm and for arm + lift on the combined model.
-- **Bringup:** launch files that compose base, lift, and an arm pulled from `openamrobot-manipulation`.
+- **Combined description:** base + custom fixed mast + arms in one URDF/Xacro, using the official OpenArm arm-mount frames.
+- **MoveIt:** arm planning groups and collision configuration on the combined model. No actuated lift planning group in OpenAMRobot 2.0.
+- **Bringup:** launch files composing the base, fixed mast and arm integration from `openamrobot-manipulation`.
+- **Configuration metadata:** selected mast position, model/configuration identity and calibration references.
+- **Lift control:** future OpenAMRobot 3.0 scope.
 
-## What we are building (v0.2, simulation)
-1. Combined URDF/xacro with a correct TF tree and collision meshes.
-2. Lift and arm actuated in Gazebo through ros2_control.
+## Current development scope
+1. Combined URDF/Xacro with a correct TF tree, collision geometry and documented mounting transforms.
+2. Arm simulation through ros2_control, followed by physical integration under the approved work packages and acceptance gates.
 3. MoveIt planning and execution on the combined model.
-4. Whole-body state published for demonstration capture: arm state, lift height, base odometry.
+4. Demonstration capture of arm state, base odometry and versioned mast/configuration identity.
 
-Physical lift build and hardware bring-up follow next cycle. This cycle is simulation only.
+Simulation is an integration stage, not a blanket deferral of physical OpenAMRobot 2.0 work. Model, simulation and hardware acceptance must be recorded separately.
+
+## Mast configuration
+OpenAMRobot 2.0 uses a fixed mast with four indexed shoulder-axis positions, 1300, 1350, 1400 and 1450 mm above the floor. The release configuration is `mast_1350`, a **1350 mm shoulder-axis height**. The mast top is 1500 mm above the floor. **1700 mm is the maximum complete assembled robot height**, including the head camera and other mounted equipment; the robot may be lower, never higher. It is not the shoulder-axis height. The other three positions are available for A4 reach tests and engineering analysis, not installed release configurations without a recorded decision. Decision of record: P-03 Decision Addendum revision 18.2, 28 September 2026.
+
+The mast is one MISUMI HFS6-60120 aluminium profile on the platform centre bracket; the OpenArm supplier body is not installed. The combined model uses the approved mast geometry and inertials, preserving the official arm attachment frames and kinematics. A4 provides the reach, TCP orientation, stand-off, collision, payload and F2S evidence for the release configuration; the three other index positions are analysis options only.
 
 ## Depends on
-- `openamr-platform-sw` (the mobile base).
-- `openamrobot-manipulation` (the arm and manipulation server).
-- `openamr-upperbody-hw` / `-fw` (lift mechanics and firmware, next cycle).
+- `openamr-platform-sw`: mobile-base model and software.
+- `openamrobot-manipulation`: arm integration and manipulation server.
+- `openamr-upperbody-hw`: custom mast geometry, mounting interfaces and as-built measurements.
+- `openamr-upperbody-fw`: any separately agreed non-lift firmware integration; lift firmware is OpenAMRobot 3.0 scope.
 
 ## Design rule
-The lift is a first-class subsystem, not an accessory. Its height is recorded state and enters the URDF, simulation, MoveIt, and the demonstration schema from day one.
+OpenAMRobot 2.0 mast height is **versioned configuration metadata**, not runtime lift state. Keep the selected configuration consistent across URDF/Xacro, MoveIt, TF/camera calibration, the robot configuration hash and dataset metadata. Changing the index position is a configuration change that requires the affected calibration and readiness checks and a recorded decision. Represent the assembled mast with fixed joints; do not introduce a locked actuated lift as the current baseline.
+
+Package descriptions and model semantics are tracked in [issue #7](https://github.com/openAMRobot/openamr-upperbody-sw/issues/7).
 
 Part of the OpenAMRobot ecosystem: https://github.com/openAMRobot
 
