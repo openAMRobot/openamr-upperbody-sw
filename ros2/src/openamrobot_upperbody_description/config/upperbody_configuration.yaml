@@ -1,0 +1,78 @@
+# OpenAMRobot 2.0 upper-body configuration (option B).
+# Decision of record: P-03 revision 18.9 item 18, 9 October 2026.
+# Heights from the floor (Z = 0); x forward, y left, z up; metres and degrees.
+#
+# This file is the single source of the configuration IDs used by the
+# description (xacro arguments), by the tests and as the configuration-hash
+# input set. A value of null is pending supplier data and must not be guessed.
+
+configuration_axes:
+  column: [dold_v4_350, tl3_400]
+  base_plate: [bp000, bp050]
+  head_pitch: [hp15, hp20, hp25, hp30, hp35]
+  base_tilt: [bt05, bt10, bt15]
+
+baseline:
+  column: dold_v4_350
+  base_plate: bp000
+  head_pitch: hp25
+  base_tilt: bt10
+
+# Lift column. retracted_length is the column length at lift 0; the lift
+# height (0 .. stroke) is joint state of lift_joint.
+column:
+  dold_v4_350:
+    description: DOLD Hexalift V4, 350 mm, mounted with its 240 mm side fore-aft
+    retracted_length: 0.530
+    extended_length: 0.880
+    stroke: 0.350
+  tl3_400:
+    description: TiMOTION TL3 400 mm (fallback)
+    retracted_length: null  # pending supplier data
+    extended_length: null   # pending supplier data
+    stroke: null            # pending supplier data
+
+# Column-axis offset relative to bp000 (the existing mast position).
+base_plate:
+  bp000: {column_axis_offset_x: 0.000}
+  bp050: {column_axis_offset_x: 0.050}
+
+# Head-camera pitch, degrees down, rotating about the lens line.
+head_pitch:
+  hp15: {pitch_down_deg: 15}
+  hp20: {pitch_down_deg: 20}
+  hp25: {pitch_down_deg: 25}
+  hp30: {pitch_down_deg: 30}
+  hp35: {pitch_down_deg: 35}
+
+# Base-camera up-tilt. Recorded as a configuration ID only; the base camera
+# frame belongs to the mobile-base description (openamr-platform-sw).
+base_tilt:
+  bt05: {tilt_up_deg: 5}
+  bt10: {tilt_up_deg: 10}
+  bt15: {tilt_up_deg: 15}
+
+# Lift calibration stops (calibration IDs, not configuration IDs): shoulder
+# height in metres at each stop for dold_v4_350.
+lift_calibration_stops:
+  L1000: 1.000
+  L1175: 1.175
+  L1350: 1.350
+
+geometry:
+  base_plate_top_z: 0.304             # 294 mm deck + 10 mm aluminium plate
+  adapter_plate_thickness: 0.010      # on the column top
+  arm_profile:                        # MISUMI HFS6-60120, 340 mm long
+    size_x: 0.120
+    size_y: 0.060
+    length: 0.340
+    center_x_from_column_axis: 0.180
+  arm_mount:                          # OpenArm J1_A, frame openarm_{side}_base_link
+    x_from_column_axis: 0.180
+    y: 0.031
+    z_above_column_top: 0.166         # shoulder = 0.304 + column length + 0.166
+  head_camera_lens:                   # ZED Mini on the lift carriage
+    x_ahead_of_arm_mount: 0.022
+    z_above_arm_mount: 0.223
+    y: 0.0
+  max_assembled_height: 1.700

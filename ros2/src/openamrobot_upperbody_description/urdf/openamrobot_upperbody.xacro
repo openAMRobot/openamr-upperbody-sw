@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<!--
+  OpenAMRobot 2.0 upper body, option B (P-03 revision 18.9 item 18, 9 October 2026).
+
+  Lift column on the base plate, prismatic lift joint, lift carriage carrying the
+  arm profile, the OpenArm arm mount points (openarm_{left,right}_base_link) and
+  the head-camera frames. The upstream openarm_body_link0 is not used; the
+  OpenArm arm chains attach at openarm_{side}_base_link.
+
+  All values come from config/upperbody_configuration.yaml. No masses, inertias
+  or supplier outlines are modelled: they are pending supplier CAD.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="openamrobot_upperbody"
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000">
+
+    <xacro:property name="cfg" lazy_eval="false"
+        value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
+
+    <!-- Reject unknown configuration IDs. -->
+    <xacro:if value="${column not in cfg['configuration_axes']['column']}">
+      ${xacro.fatal("unknown column '" + column + "'; expected one of " + str(cfg['configuration_axes']['column']))}
+    </xacro:if>
+    <xacro:if value="${base_plate not in cfg['configuration_axes']['base_plate']}">
+      ${xacro.fatal("unknown base_plate '" + base_plate + "'; expected one of " + str(cfg['configuration_axes']['base_plate']))}
+    </xacro:if>
+    <xacro:if value="${head_pitch not in cfg['configuration_axes']['head_pitch']}">
+      ${xacro.fatal("unknown head_pitch '" + head_pitch + "'; expected one of " + str(cfg['configuration_axes']['head_pitch']))}
+    </xacro:if>
+    <xacro:if value="${base_tilt not in cfg['configuration_axes']['base_tilt']}">
+      ${xacro.fatal("unknown base_tilt '" + base_tilt + "'; expected one of " + str(cfg['configuration_axes']['base_tilt']))}
+    </xacro:if>
+
+    <xacro:property name="col" value="${cfg['column'][column]}" lazy_eval="false"/>
+    <xacro:if value="${col['retracted_length'] is None or col['stroke'] is None}">
+      ${xacro.fatal("column '" + column + "': retracted length and stroke are pending supplier data; this configuration cannot be built yet")}
+    </xacro:if>
+
+    <xacro:property name="geo" value="${cfg['geometry']}" lazy_eval="false"/>
+    <xacro:property name="column_x" lazy_eval="false"
+        value="${float(column_axis_x_bp000) + cfg['base_plate'][base_plate]['column_axis_offset_x']}"/>
+    <xacro:property name="pitch_rad" lazy_eval="false"
+        value="${radians(cfg['head_pitch'][head_pitch]['pitch_down_deg'])}"/>
+    <xacro:property name="mount" value="${geo['arm_mount']}" lazy_eval="false"/>
+    <xacro:property name="lens" value="${geo['head_camera_lens']}" lazy_eval="false"/>
+    <xacro:property name="profile" value="${geo['arm_profile']}" lazy_eval="false"/>
+
+    <!-- Column axis on the base-plate top face (height reference, 304 mm). -->
+    <link name="lift_column_base_link"/>
+    <joint name="lift_column_base_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="lift_column_base_link"/>
+      <origin xyz="${column_x} 0 ${geo['base_plate_top_z']}" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Lift carriage: origin on the column axis at the column top. The lift
+         height is joint state. Effort and velocity limits are pending: they are
+         set to 0 so the model cannot be used to command the lift. -->
+    <link name="lift_carriage_link"/>
+    <joint name="lift_joint" type="prismatic">
+      <parent link="lift_column_base_link"/>
+      <child link="lift_carriage_link"/>
+      <origin xyz="0 0 ${col['retracted_length']}" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
+      <limit lower="0.0" upper="${col['stroke']}" effort="0.0" velocity="0.0"/>
+    </joint>
+
+    <!-- Arm profile (MISUMI HFS6-60120) on the adapter plate. -->
+    <link name="arm_profile_link">
+      <visual>
+        <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
+      </visual>
+      <collision>
+        <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
+      </collision>
+    </link>
+    <joint name="arm_profile_joint" type="fixed">
+      <parent link="lift_carriage_link"/>
+      <child link="arm_profile_link"/>
+      <origin xyz="${profile['center_x_from_column_axis']} 0 ${geo['adapter_plate_thickness'] + profile['length'] / 2}" rpy="0 0 0"/>
+    </joint>
+
+    <!-- OpenArm J1_A arm mount points. -->
+    <xacro:macro name="openamrobot_arm_mount" params="side sign">
+      <link name="openarm_${side}_base_link"/>
+      <joint name="openarm_${side}_base_link_mount_joint" type="fixed">
+        <parent link="lift_carriage_link"/>
+        <child link="openarm_${side}_base_link"/>
+        <origin xyz="${mount['x_from_column_axis']} ${sign * mount['y']} ${mount['z_above_column_top']}" rpy="0 0 0"/>
+      </joint>
+    </xacro:macro>
+    <xacro:openamrobot_arm_mount side="left" sign="1"/>
+    <xacro:openamrobot_arm_mount side="right" sign="-1"/>
+
+    <!-- Head camera (ZED Mini). head_camera_mount_link is the pitch pivot on the
+         lens line; head_camera_link is pitched down by head_pitch about y. -->
+    <link name="head_camera_mount_link"/>
+    <joint name="head_camera_mount_joint" type="fixed">
+      <parent link="lift_carriage_link"/>
+      <child link="head_camera_mount_link"/>
+      <origin xyz="${mount['x_from_column_axis'] + lens['x_ahead_of_arm_mount']} ${lens['y']} ${mount['z_above_column_top'] + lens['z_above_arm_mount']}" rpy="0 0 0"/>
+    </joint>
+    <link name="head_camera_link"/>
+    <joint name="head_camera_pitch_joint" type="fixed">
+      <parent link="head_camera_mount_link"/>
+      <child link="head_camera_link"/>
+      <origin xyz="0 0 0" rpy="0 ${pitch_rad} 0"/>
+    </joint>
+    <link name="head_camera_optical_frame"/>
+    <joint name="head_camera_optical_joint" type="fixed">
+      <parent link="head_camera_link"/>
+      <child link="head_camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi / 2} 0 ${-pi / 2}"/>
+    </joint>
+  </xacro:macro>
+</robot>

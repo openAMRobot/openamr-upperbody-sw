@@ -2,11 +2,21 @@
 <package format="3">
   <name>openamrobot_upperbody_description</name>
   <version>0.0.0</version>
-  <description>Combined base + lift + arm description (URDF/xacro).</description>
+  <description>OpenAMRobot 2.0 upper-body description (URDF/xacro): lift column on a two-position base plate, prismatic lift joint, arm profile, OpenArm arm mount points and head camera.</description>
   <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
   <license>MIT</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>ament_index_python</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>tf2_ros_py</test_depend>
+  <test_depend>ros2run</test_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>
