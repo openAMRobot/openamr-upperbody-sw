@@ -7,17 +7,16 @@
   openamr-platform-sw owns base_footprint and base_link; this file only adds
   the upper body above it.
 
-  column_axis_x_bp000 is the column axis x at bp000, the existing mast
-  position. Its default 0.0 places the column on the drive axle, as in the
-  OpenAMRobot 2.0 general arrangement (openamrobot-docs, 28 September 2026:
-  "mast on the drive axle").
+  column_axis_x_bp000 is the column axis x at bp000. Its default 0.060
+  places the column axis 330 mm behind the chassis front edge and 60 mm
+  ahead of the drive axle (P-03 rev19.0 item 19).
 -->
 <robot name="openamrobot_upperbody" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="column" default="dold_v4_350"/>
   <xacro:arg name="base_plate" default="bp000"/>
   <xacro:arg name="head_pitch" default="hp25"/>
   <xacro:arg name="base_tilt" default="bt10"/>
-  <xacro:arg name="column_axis_x_bp000" default="0.0"/>
+  <xacro:arg name="column_axis_x_bp000" default="0.060"/>
 
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/openamrobot_upperbody.xacro"/>
 

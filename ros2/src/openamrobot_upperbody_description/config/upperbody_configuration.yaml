@@ -32,7 +32,8 @@ column:
     extended_length: null   # pending supplier data
     stroke: null            # pending supplier data
 
-# Column-axis offset relative to bp000 (the existing mast position).
+# Column-axis offset relative to bp000 (330 mm behind the chassis front edge, x +0.060 from base_link).
+# front edge at x +0.390; x +0.060 at bp000, +0.110 at bp050; P-03 rev19.0 item 19 D2
 base_plate:
   bp000: {column_axis_offset_x: 0.000}
   bp050: {column_axis_offset_x: 0.050}

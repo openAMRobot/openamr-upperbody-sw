@@ -25,7 +25,7 @@ Decision of record: P-03 revision 18.9 item 18, 9 October 2026. Heights are from
 | Item | Value |
 |---|---|
 | Lift | DOLD Hexalift V4, 350 mm (530 mm retracted, 880 mm extended), 240 mm side fore-aft |
-| Base plate | 10 mm aluminium on the 294 mm deck, top face 304 mm; column axis at `bp000` (existing mast position) or `bp050` (+0.050 m) |
+| Base plate | 10 mm aluminium on the 294 mm deck, top face 304 mm; column axis at `bp000` (x +0.060 from base_link, 330 mm behind the chassis front edge) or `bp050` (+0.050 m) |
 | Arm profile | MISUMI HFS6-60120, 340 mm, on a 10 mm adapter plate on the column top; 844 to 1184 mm at the retracted lift |
 | Arm mount point | `openarm_{side}_base_link` at x = column axis + 0.180 m, y = ±0.031 m, roll/pitch/yaw 0 |
 | Shoulder height | 1.000 m at lift 0 (0.304 + 0.530 + 0.166), 1.350 m at lift 0.350 (0.304 + 0.880 + 0.166) |
@@ -48,7 +48,7 @@ Every configuration ID must stay consistent across URDF/Xacro, MoveIt, TF/camera
 | `launch/upperbody_description.launch.py` | `robot_state_publisher` with the configuration IDs as launch arguments |
 | `test/` | Every configuration combination (xacro and frame poses) and every buildable combination through TF |
 
-`column_axis_x_bp000` (default 0.0) is the column axis x at `bp000` relative to `base_footprint`; the default follows the 2.0 general arrangement, which places the mast on the drive axle.
+`column_axis_x_bp000` (default 0.060) is the column axis x at `bp000` relative to `base_footprint`; the column axis is 330 mm behind the chassis front edge and 60 mm ahead of the drive axle (P-03 rev19.0 item 19).
 
 Commands (Ubuntu 24.04, ROS 2 Jazzy, `rosdep` initialised; run from a workspace whose `src/` contains this repository's `ros2/src` packages):
 

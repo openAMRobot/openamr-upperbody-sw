@@ -39,8 +39,11 @@ def buildable(combo):
     return col['retracted_length'] is not None and col['stroke'] is not None
 
 
-def expand(column_axis_x_bp000='0.0', **combo):
-    mappings = dict(combo, column_axis_x_bp000=str(column_axis_x_bp000))
+def expand(column_axis_x_bp000=None, **combo):
+    """Expand the standalone model; column_axis_x_bp000=None keeps its xacro default."""
+    mappings = dict(combo)
+    if column_axis_x_bp000 is not None:
+        mappings['column_axis_x_bp000'] = str(column_axis_x_bp000)
     return xacro.process_file(XACRO_FILE, mappings=mappings).toprettyxml(indent='  ')
 
 

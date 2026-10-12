@@ -4,7 +4,9 @@
 
 Option B values (P-03 revision 18.9 item 18): arm mount point at column axis
 +0.180 m and y +/-0.031 m; shoulder z 1.000 m at lift 0 and 1.350 m at lift
-0.350 m; head camera at or below 1.700 m at full lift.
+0.350 m; head camera at or below 1.700 m at full lift. Default column axis x
++0.060 m at bp000 and +0.110 m at bp050, so J1_A x is +0.240 m and +0.290 m
+(P-03 rev19.0 item 19).
 """
 
 import math
@@ -17,6 +19,9 @@ from upperbody_model import (AXES, CONFIG, EXPECTED_FRAMES, buildable,
                              combinations, expand, frame_poses)
 
 TOL = 1e-9
+# Default column axis x and OpenArm J1_A x per base plate (P-03 rev19.0 item 19).
+COLUMN_AXIS_X = {'bp000': 0.060, 'bp050': 0.110}
+J1_A_X = {'bp000': 0.240, 'bp050': 0.290}
 ALL = list(combinations())
 BUILDABLE = [c for c in ALL if buildable(c)]
 PENDING = [c for c in ALL if not buildable(c)]
@@ -50,7 +55,7 @@ def test_combination(combo):
     assert float(lift.find('limit').get('lower')) == 0.0
     assert math.isclose(float(lift.find('limit').get('upper')), 0.350)
 
-    column_x = CONFIG['base_plate'][combo['base_plate']]['column_axis_offset_x']
+    column_x = COLUMN_AXIS_X[combo['base_plate']]
     pitch = math.radians(CONFIG['head_pitch'][combo['head_pitch']]['pitch_down_deg'])
     for q, shoulder_z in ((0.0, 1.000), (stroke, 1.350)):
         poses = frame_poses(urdf, {'lift_joint': q})
@@ -61,6 +66,7 @@ def test_combination(combo):
         for side, y in (('left', 0.031), ('right', -0.031)):
             r, t = poses[f'openarm_{side}_base_link']
             assert abs(t[0] - (axis_x + 0.180)) < TOL, (side, t)
+            assert abs(t[0] - J1_A_X[combo['base_plate']]) < TOL, (side, t)
             assert abs(t[1] - y) < TOL, (side, t)
             assert abs(t[2] - shoulder_z) < TOL, (side, q, t)
             assert all(abs(r[i][j] - (i == j)) < TOL for i in range(3) for j in range(3))
