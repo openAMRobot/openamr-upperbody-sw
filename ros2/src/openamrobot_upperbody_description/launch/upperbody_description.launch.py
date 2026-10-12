@@ -32,7 +32,7 @@ def generate_launch_description():
         for axis, ids in axes.items()
     ]
     args.append(DeclareLaunchArgument(
-        'column_axis_x_bp000', default_value='0.0',
+        'column_axis_x_bp000', default_value='0.060',
         description='Column axis x at bp000 relative to base_footprint (m)'))
 
     xacro_file = os.path.join(share, 'urdf', 'openamrobot_upperbody.urdf.xacro')
