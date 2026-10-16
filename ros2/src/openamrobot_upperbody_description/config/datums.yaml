@@ -1,0 +1,136 @@
+# datums.yaml - every number the combined description uses that is not upstream-owned (ADR-002).
+# Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
+# Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
+schema_version: 1
+revision: "2026-10-15.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+units: {length: m, angle: rad, mass: kg}
+
+# Datums that are reported but never feed the model (DATUMS.md rule 1).
+report_only:
+  - base_link_height_above_floor
+  - drive_wheel_radius
+  - envelope_max_height
+  - envelope_max_width
+  - envelope_max_depth
+  - gross_mass_limit
+  - f2s_vehicle_mass_estimate
+  - joint_rest_margin_rad
+
+# Datums whose xacro consumer has not been written yet: <datum>: <step that will consume it>.
+# The step that adds the consumer deletes the entry in the same commit; T13 fails if it does not.
+# Empty since S4 (the camera poses are now consumed by upper_sensors.xacro); kept so the mechanism stays visible.
+pending_reference: {}
+
+datums:
+  base_link_height_above_floor:
+    value: 0.098
+    source: plan
+    status: provisional
+    ref: "P-03 rev19.0 item 19 (Alex, 12 Oct 2026; register FRAMES-REP105): base_link at the drive-axle midpoint, 98 mm above the floor; base_footprint on the floor. platform-sw 935efc7 has the same 0.098 in base_footprint_joint"
+    owner: "Alex (decision) / platform-sw (base frames)"
+    note: "A placeholder from S3 to P14 (0.0635, read off the SolidWorks export origin and a 0.110 m wheel) because nobody had defined it. It is a decision record, not a measurement, so provisional. T04 (test_t04_optb_composition) asserts it equals the base_footprint -> base_link joint of the expansion, so a platform-sw change cannot leave it behind."
+
+  drive_wheel_radius:
+    value: 0.100
+    source: supplier
+    status: provisional
+    ref: "P-00 s3.2: ZLLG80ASM250-L-B 200 mm hub wheel; F2A pending. platform-sw 935efc7 models radius 0.100 (Alex decision 2026-10-12)"
+    owner: "Alex (F2A)"
+    note: "Not used by the base model (platform-sw owns its wheels). Recorded so a mismatch with the base model is visible."
+
+  column_axis_x_bp000:
+    value: 0.060
+    source: plan
+    status: provisional
+    ref: "P-03 rev19.0 item 19 D2 (Alex, 12 Oct 2026): the column axis is 330 mm behind the 780 mm chassis front edge (front edge x +0.390), x +0.060 from base_link at bp000; bp050 is +0.050 further (x +0.110), from upperbody_configuration.yaml base_plate. option B drawing sheet 2 rev A"
+    owner: "Alex (option B drawing)"
+    note: "Not on the drive axle (ADR-010 never said so). Passed to option B's macro as column_axis_x_bp000; its standalone wrapper has the same 0.060 default and T04 (test_t04_optb_composition) asserts the two agree."
+
+  lift_mass_dold_v4_350:
+    value: 11.7
+    source: supplier
+    status: provisional
+    ref: "DOLD Hexalift V4 350, catalogue mass 11.7 kg (Alex, 12 Oct 2026; P-03 rev19.0). Replaces mast_mass (3.0 kg, placeholder)"
+    owner: "Alex (F2S)"
+    note: "A catalogue figure for the whole column assembly, not weighed here. The split between the fixed outer part and the moving stage is not in the catalogue, so all of it is carried on lift_column_base_link at mid-height of the retracted column (a model choice, not a measurement)."
+    density_band:
+      min: 100.0
+      max: 1200.0
+      reason: "A lifting column is aluminium extrusions (2700 kg/m3 solid), a motor and a spindle inside a hollow housing: roughly 5 to 40 per cent fill of the bounding box, 135 to 1080 kg/m3, rounded outwards. The estimate is the datum author's, not a supplier figure."
+      bounding_box: "lift_column_section x column retracted_length (upperbody_configuration.yaml)"
+
+  lift_mass_tl3_400:
+    value: null
+    source: placeholder
+    status: placeholder
+    ref: "TiMOTION TL3 400 mm (the fallback column): no supplier mass. Null on purpose, like its lengths in upperbody_configuration.yaml"
+    owner: "Alex (F2S)"
+    note: "HARD-FAIL: a null datum stops the expansion and names the datum (an expansion that cannot be built is stronger than a placeholder that expands and warns). Reclassified in P15; the datum is new."
+
+  lift_column_section:
+    value: [0.240, 0.240]
+    axis_convention: {x: fore_aft, y: lateral}
+    source: placeholder
+    status: placeholder
+    ref: "x = 0.240 is option B's own statement that the DOLD column is mounted with its 240 mm side fore-aft (upperbody_configuration.yaml, a description string, not a number field). y, the lateral side, is in no document we hold: it is set equal to x only so the placeholder inertia and the density bound can be evaluated"
+    owner: "Alex (supplier drawing)"
+    note: "The one invented number of the lift. It reaches only the inertia tensor of the column (no collision, no visual, no joint), and it is the datum to replace first when the supplier drawing arrives. Not made a hard-fail because that would remove the lift's mass from every expansion; see the P15 report."
+
+  left_wrist_camera_pose:
+    value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Relative to openarm_left_ee_base_link. Kit datum unknown (B-01 Q-15 era)"
+    owner: "Alex / Om (kit datum)"
+
+  right_wrist_camera_pose:
+    value: {xyz: [0.0, -0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Mirror of left_wrist_camera_pose, relative to openarm_right_ee_base_link"
+    owner: "Alex / Om (kit datum)"
+
+  envelope_max_height:
+    value: 1.700
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+    note: "Used by a WARN test."
+
+  envelope_max_width:
+    value: 0.600
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  envelope_max_depth:
+    value: 0.800
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  gross_mass_limit:
+    value: 120.0
+    source: plan
+    status: verified
+    ref: "P-00 s3.1 platform-level requirement"
+    owner: "Alex (P-00)"
+
+  f2s_vehicle_mass_estimate:
+    value: 93.0
+    source: f2s
+    status: provisional
+    ref: "Alex, F2S design proposal, 28 Sep 2026 (gross mass about 93 kg vs the 120 kg cap); second-hand via DESIGN_UPDATE_2026-10-05 s1, the F2S document is not in this repo"
+    owner: "Alex (F2S)"
+    note: "Vehicle level, not per link. T10 prints it next to the modelled total so 22 kg against 120 kg is not read as headroom; it feeds nothing."
+
+  joint_rest_margin_rad:
+    value: 1.0e-3
+    source: placeholder
+    status: placeholder
+    ref: "M07 (VERIFICATION.md, rev19.0 pass, 14 Oct 2026): no joint's rest position may sit within this many radians of either of its limits. Chosen from what was measured in P17 (evidence/m02_bisect/RESULTS.md, 'Finger torque at rest'): the rest position of one joint differs between runs of an unchanged tree by up to 2.8e-4 rad (left_finger_joint1; 9e-6 for the right finger), and the arm joint4s rest 9.3e-5 to 1.0e-4 inside their lower limit. A margin below the between-run scatter makes M07 pass in one run and fail in the next; 1e-3 is 3.6 times the largest scatter seen and about 0.057 degrees."
+    owner: "architecture chat (M07) / Tushar"
+    note: "A margin, not a hardware number: it feeds no model and no xacro (report_only). Replace it with a figure someone has a reason for (a joint's mechanical stop clearance, a controller deadband) when one exists. It is not tuned to any outcome: at 1e-3 the check FAILS on four joints (both finger_joint1 and both joint4), and it would fail the old body on the same four, because in both bodies the open and zero poses ARE limits. Changing the value changes M07's verdict and nothing else."

@@ -1,0 +1,12 @@
+# The one bridge this package adds to platform-sw's openamrobot_gazebo/config/gz_bridge.yaml (used by reference).
+#
+# Platform-sw's file has the base's joint states commented out, so with it alone the two wheel joints never reach ROS (its own
+# launch papers over that with a joint_state_publisher that publishes zeros). The model's JointStatePublisher plugin writes
+# gz topic /joint_states, scoped by its own <joint_name> list to left_wheel_joint and right_wheel_joint. They are bridged
+# onto /base/joint_states, NOT /joint_states: /joint_states has exactly one publisher, the joint_state_publisher that merges
+# this with the arms' /arm/joint_states (see the README).
+- ros_topic_name: "/base/joint_states"
+  gz_topic_name: "/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS

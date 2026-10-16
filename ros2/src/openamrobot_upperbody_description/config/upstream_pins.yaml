@@ -1,0 +1,12 @@
+# The upstream commits this description is built against (ADR-001). Every pin is a FULL 40-hex commit hash in quotes:
+# unquoted, YAML reads an all-digit hash as a number (and drops leading zeros), and a prefix cannot be compared exactly.
+# C02 checks the format of every entry, and for each entry whose checkout exists under src/upstream/ and is clean its HEAD
+# must equal the pin; with no checkout that pin is not compared and C02 says so.
+# openarm_description is read by scripts/print_config_id.py ONLY when there is no git checkout to read the commit from
+# (CI, an installed package without sources); a git checkout always wins, and a checkout with local changes is an error,
+# never a fallback. C01 fails if the pins and the manipulation baseline (openarm_v2.dev.repos) disagree. So a pin cannot
+# rot unnoticed. Change a pin in the same commit that moves its checkout.
+schema_version: 1
+pins:
+  openarm_description: "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831"
+  openarm_ros2: "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"

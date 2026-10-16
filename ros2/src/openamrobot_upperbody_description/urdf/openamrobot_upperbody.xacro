@@ -9,11 +9,23 @@
 
   All values come from config/upperbody_configuration.yaml. No masses, inertias
   or supplier outlines are modelled: they are pending supplier CAD.
+
+  Two opt-in parameters let the combined robot (combined_robot.xacro) compose this
+  model with the upstream OpenArm macro. Both default to this file's own behaviour:
+    emit_arm_mounts  true: declare openarm_{left,right}_base_link and their mount
+                     joints (frames only, as before). false: declare neither. The
+                     upstream arm macro emits a link and a joint of exactly those
+                     names, with the arm's own geometry, so declaring them here as
+                     well would duplicate them; the combined robot sets false and
+                     gives the upstream macro the same parent and origin.
+    column_inertial  '' (none): lift_column_base_link carries no inertial. A dict
+                     {mass, com_z, ixx, iyy, izz}: it carries that inertial (the
+                     combined robot supplies the sourced catalogue mass).
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -47,7 +59,15 @@
     <xacro:property name="profile" value="${geo['arm_profile']}" lazy_eval="false"/>
 
     <!-- Column axis on the base-plate top face (height reference, 304 mm). -->
-    <link name="lift_column_base_link"/>
+    <link name="lift_column_base_link">
+      <xacro:unless value="${column_inertial == ''}">
+        <inertial>
+          <origin xyz="0 0 ${column_inertial['com_z']}" rpy="0 0 0"/>
+          <mass value="${column_inertial['mass']}"/>
+          <inertia ixx="${column_inertial['ixx']}" ixy="0" ixz="0" iyy="${column_inertial['iyy']}" iyz="0" izz="${column_inertial['izz']}"/>
+        </inertial>
+      </xacro:unless>
+    </link>
     <joint name="lift_column_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="lift_column_base_link"/>
@@ -90,8 +110,10 @@
         <origin xyz="${mount['x_from_column_axis']} ${sign * mount['y']} ${mount['z_above_column_top']}" rpy="0 0 0"/>
       </joint>
     </xacro:macro>
-    <xacro:openamrobot_arm_mount side="left" sign="1"/>
-    <xacro:openamrobot_arm_mount side="right" sign="-1"/>
+    <xacro:if value="${emit_arm_mounts}">
+      <xacro:openamrobot_arm_mount side="left" sign="1"/>
+      <xacro:openamrobot_arm_mount side="right" sign="-1"/>
+    </xacro:if>
 
     <!-- Head camera (ZED Mini). head_camera_mount_link is the pitch pivot on the
          lens line; head_camera_link is pitched down by head_pitch about y. -->

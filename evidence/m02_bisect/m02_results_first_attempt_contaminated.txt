@@ -1,0 +1,37 @@
+base1 PASS msgs 1535 act 1796 ep 70 max 9.6342887445644e-07 openarm_left_joint4 joints {'openarm_left_finger_joint1': (8, 1, 1.2434417195913527e-17), 'openarm_left_finger_joint2': (8, 1, 1.2434417195913527e-17), 'openarm_left_joint4': (14, 3, 9.6342887445644e-07), 'openarm_right_finger_joint1': (873, 29, 2.8594516265911807e-07), 'openarm_right_finger_joint2': (873, 29, 2.8594516265911807e-07), 'openarm_right_joint4': (20, 7, 3.803806976065971e-07)}
+old_oldbase_1 PASS msgs 1540 act 212 ep 17 max 8.355090130862664e-07 openarm_left_joint4 joints {'openarm_left_joint4': (44, 4, 8.355090130862664e-07), 'openarm_right_joint4': (168, 13, 3.5658473507282906e-07)}
+old_newbase_1 PASS msgs 1515 act 188 ep 20 max 7.887634296821489e-07 openarm_left_joint4 joints {'openarm_left_joint4': (16, 4, 7.887634296821489e-07), 'openarm_right_joint4': (172, 16, 3.5022264910367085e-07)}
+old_newbase_2 PASS msgs 1519 act 216 ep 23 max 8.355849558938644e-07 openarm_left_joint4 joints {'openarm_left_joint4': (47, 7, 8.355849558938644e-07), 'openarm_right_joint4': (169, 16, 2.883121226204821e-07)}
+nochange_1 NO SIDECAR
+NOTE nochange_1: gz left over: 18515 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+b_mass3_1 NO SIDECAR
+c_y060_1 NO SIDECAR
+NOTE c_y060_1: gz left over: 20052 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+c_x000_1 NO SIDECAR
+a_acm_all_disabled_1 NO SIDECAR
+NOTE a_acm_all_disabled_1: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+d_open_inside_1 NO SIDECAR
+NOTE d_open_inside_1: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+nochange_2 NO SIDECAR
+NOTE nochange_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+b_mass3_2 NO SIDECAR
+NOTE b_mass3_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+c_y060_2 NO SIDECAR
+NOTE c_y060_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+c_x000_2 NO SIDECAR
+NOTE c_x000_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+a_acm_all_disabled_2 NO SIDECAR
+NOTE a_acm_all_disabled_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+24264 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+d_open_inside_2 NO SIDECAR
+NOTE d_open_inside_2: gz left over: 21544 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+21736 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+24264 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+24432 gz sim -r -s -v 2 --physics-engine gz-physics-bullet-f
+ALLDONE

@@ -2,4 +2,36 @@ cmake_minimum_required(VERSION 3.8)
 project(openamrobot_upperbody_bringup)
 find_package(ament_cmake REQUIRED)
 install(DIRECTORY launch config DESTINATION share/openamrobot_upperbody_bringup)
+install(PROGRAMS
+  scripts/base_joint_states_stub.py
+  scripts/build_a7_evidence.py
+  scripts/run_a7_regression.sh
+  DESTINATION lib/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(launch_testing_ament_cmake REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
+  # H01: every test file is registered, and every launch test checks that its processes started and exited cleanly (static, over all five packages).
+  ament_add_pytest_test(h01_harness_guards test/test_h01_harness_guards.py TIMEOUT 120)
+  # the two numbers M02 gates the clamp on, and that counts gate nothing (P17); no ROS graph
+  ament_add_pytest_test(a7_clamp_gate test/test_a7_clamp_gate.py TIMEOUT 120)
+  # M02's wait for the controllers to be active, and its FAIL when they never are, against a fake controller manager (P17)
+  ament_add_pytest_test(a7_controller_wait test/test_a7_controller_wait.py TIMEOUT 180)
+  # L01 starts a real controller_manager: it picks its own ROS_DOMAIN_ID (see the test), so it cannot see or be seen by
+  # another stack on the machine.
+  add_launch_test(test/test_l01_mock_controllers.py TIMEOUT 60)
+  # M01 (A7): every named pose plans and executes on mock through move_group, once per lift calibration stop (option B's L1000, L1175,
+  # L1350: positions of lift_joint, not configuration IDs). Each run starts the whole mock stack in its own ROS_DOMAIN_ID (see the test)
+  # and records its own sidecar.
+  foreach(stop L1000 L1175 L1350)
+    add_launch_test(test/test_m01_mock_named_poses.py TARGET m01_mock_${stop} ARGS "lift_stop:=${stop}" TIMEOUT 240)
+  endforeach()
+  # M02: the same in Gazebo at the baseline configuration (lift_joint at its default zero, L1000). It starts a headless Gazebo server and
+  # picks its own ROS_DOMAIN_ID and GZ_PARTITION, like G01 and G02; startup alone is about a minute, so the budget is large.
+  add_launch_test(test/test_m02_gazebo_named_poses.py TARGET m02_gazebo_L1000 TIMEOUT 600)
+  # M07 (P17): at rest in Gazebo no joint sits within the joint_rest_margin_rad datum of a limit. Starts its own headless server like M02,
+  # on its own domain and partition; FAILs by design while the right finger rests on its open limit.
+  add_launch_test(test/test_m07_rest_position_margin.py TARGET m07_rest_position_margin TIMEOUT 300)
+endif()
+
 ament_package()

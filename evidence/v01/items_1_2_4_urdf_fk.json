@@ -1,0 +1,218 @@
+{
+ "bp000": {
+  "column_base": [
+   0.06,
+   0.0,
+   0.304
+  ],
+  "left_base@L1000": [
+   0.24,
+   0.031,
+   1.0
+  ],
+  "right_base@L1000": [
+   0.24,
+   -0.031,
+   1.0
+  ],
+  "head_mount@L1000": [
+   0.262,
+   0.0,
+   1.223
+  ],
+  "left_base@L1175": [
+   0.24,
+   0.031,
+   1.175
+  ],
+  "right_base@L1175": [
+   0.24,
+   -0.031,
+   1.175
+  ],
+  "head_mount@L1175": [
+   0.262,
+   0.0,
+   1.3980000000000001
+  ],
+  "left_base@L1350": [
+   0.24,
+   0.031,
+   1.3499999999999999
+  ],
+  "right_base@L1350": [
+   0.24,
+   -0.031,
+   1.3499999999999999
+  ],
+  "head_mount@L1350": [
+   0.262,
+   0.0,
+   1.573
+  ],
+  "carriage_to_left_base": [
+   0.18,
+   0.031,
+   0.16599999999999993
+  ],
+  "carriage_to_right_base": [
+   0.18,
+   -0.031,
+   0.16599999999999993
+  ],
+  "head_optical_rpy_in_mount_deg": [
+   -115.0,
+   1.4826947434433058e-15,
+   -90.0
+  ],
+  "head_link_rpy_in_mount_deg": [
+   0.0,
+   25.0,
+   0.0
+  ],
+  "wrist_left": [
+   0.0,
+   0.05000000000000002,
+   -0.030000000000000027
+  ],
+  "wrist_right": [
+   0.0,
+   -0.05000000000000002,
+   -0.030000000000000027
+  ],
+  "arm_profile_visual": [
+   [
+    "0.12 0.06 0.34",
+    "0 0 0"
+   ]
+  ],
+  "arm_profile_collision": [
+   [
+    "0.12 0.06 0.34",
+    "0 0 0"
+   ]
+  ],
+  "arm_profile_in_carriage": [
+   0.18,
+   0.0,
+   0.17999999999999994
+  ],
+  "column_links_with_visual": [],
+  "column_links_with_collision": [],
+  "lift_links": [
+   "lift_column_base_link",
+   "lift_carriage_link"
+  ],
+  "lift_joint": {
+   "lift_joint": "prismatic"
+  }
+ },
+ "bp050": {
+  "column_base": [
+   0.11,
+   0.0,
+   0.304
+  ],
+  "left_base@L1000": [
+   0.29,
+   0.031,
+   1.0
+  ],
+  "right_base@L1000": [
+   0.29,
+   -0.031,
+   1.0
+  ],
+  "head_mount@L1000": [
+   0.312,
+   0.0,
+   1.223
+  ],
+  "left_base@L1175": [
+   0.29,
+   0.031,
+   1.175
+  ],
+  "right_base@L1175": [
+   0.29,
+   -0.031,
+   1.175
+  ],
+  "head_mount@L1175": [
+   0.312,
+   0.0,
+   1.3980000000000001
+  ],
+  "left_base@L1350": [
+   0.29,
+   0.031,
+   1.3499999999999999
+  ],
+  "right_base@L1350": [
+   0.29,
+   -0.031,
+   1.3499999999999999
+  ],
+  "head_mount@L1350": [
+   0.312,
+   0.0,
+   1.573
+  ],
+  "carriage_to_left_base": [
+   0.18,
+   0.031,
+   0.16599999999999993
+  ],
+  "carriage_to_right_base": [
+   0.18,
+   -0.031,
+   0.16599999999999993
+  ],
+  "head_optical_rpy_in_mount_deg": [
+   -115.0,
+   1.4826947434433058e-15,
+   -90.0
+  ],
+  "head_link_rpy_in_mount_deg": [
+   0.0,
+   25.0,
+   0.0
+  ],
+  "wrist_left": [
+   0.0,
+   0.05000000000000002,
+   -0.030000000000000027
+  ],
+  "wrist_right": [
+   0.0,
+   -0.05000000000000002,
+   -0.030000000000000027
+  ],
+  "arm_profile_visual": [
+   [
+    "0.12 0.06 0.34",
+    "0 0 0"
+   ]
+  ],
+  "arm_profile_collision": [
+   [
+    "0.12 0.06 0.34",
+    "0 0 0"
+   ]
+  ],
+  "arm_profile_in_carriage": [
+   0.18,
+   0.0,
+   0.17999999999999994
+  ],
+  "column_links_with_visual": [],
+  "column_links_with_collision": [],
+  "lift_links": [
+   "lift_column_base_link",
+   "lift_carriage_link"
+  ],
+  "lift_joint": {
+   "lift_joint": "prismatic"
+  }
+ }
+}

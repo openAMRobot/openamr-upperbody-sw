@@ -1,0 +1,10 @@
+schema_version: 1
+mast_ids:
+  mast_1300: {shoulder_height: 1.300, class: analysis}
+  mast_1350: {shoulder_height: 1.350, class: release}     # installed configuration
+  mast_1400: {shoulder_height: 1.400, class: analysis}
+  mast_1450: {shoulder_height: 1.450, class: analysis}
+default: mast_1350
+mast_top_height: 1.500        # mast top above floor
+max_assembled_height: 1.700   # whole robot incl. head camera; NOT a shoulder height
+source: "P-03 Decision Addendum rev 18.2, 28 Sep 2026 (four indexed positions; mast_1350 installed). Supersedes rev 18.1 mast_1400 and the nine-position reading of P-00 §20.2."

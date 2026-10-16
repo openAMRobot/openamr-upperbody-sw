@@ -1,0 +1,144 @@
+# frame_contract.yaml - machine-readable twin of 10_architecture/FRAMES.md (names/parents), as of P15 (13 Oct 2026): the base is
+# platform-sw's REP 105 base (base_footprint root), the upper body is option B's lift model, and there is no mast.
+# Tests read this file; FRAMES.md explains it. Values (poses, masses) are NOT part of the contract: see datums.yaml.
+#
+# Fields
+#   name       link or joint name
+#   kind       link | joint
+#   type       joint: the URDF joint type.
+#              link: the type of the joint that attaches it to its parent; `root` for a link with no parent joint.
+#   parent     parent link (for a joint: the link it connects from). null for a root link.
+#   variants   instead of type + parent, for an entry whose type and parent depend on an arg: a list of
+#              {when, type, parent}. `when` has the same form as `condition`. Exactly one variant must match every
+#              expansion (T04 fails on none or on several), so the contract cannot be silently wrong in one of the
+#              model's own expansions.
+#   req        R  required in every expansion
+#              C  conditional on `condition`
+#              W  expected but provided by another owner; missing is a WARN, not a FAIL (no entry uses it since P15)
+#   condition  null, or `<arg> == <value>` over the xacro args (string comparison, as xacro stores the args)
+#   owner      who may change the name or parent
+#   collision_free        true: the link carries a visual at most and no <collision> (T04 checks it)
+#   collision_free_reason why
+#   note       optional, for humans
+# Only names FRAMES.md gives are listed: base joints other than the drive-wheel joints, and the joints of the
+# optical, so101 and grasp frames, are not part of the contract.
+#
+# `consumed_from:` (below the entries) lists frames this repository does NOT declare and does not check: they are another
+# owner's contract and we take them from there (Alex, 12 Oct: "take them from there and do not declare your own"). They
+# have no entry, so a rename or a late arrival on that side is theirs to announce and cannot fail or warn here; T04 only
+# reports, in its sidecar, which of them the expansion contains.
+schema_version: 1
+entries:
+
+  # Base - owned by openamr-platform-sw. Existing names, unchanged (ADR-005). Since platform-sw 935efc7 (Alex decision 2026-10-12,
+  # FRAMES-REP105) the root is base_footprint, on the floor under the drive-axle midpoint, and base_link hangs 0.098 m above it.
+  - name: base_footprint
+    kind: link
+    variants:
+      - {when: "enable_planar_base == false", type: root, parent: null}
+      - {when: "enable_planar_base == true", type: planar, parent: world}
+    req: R
+    condition: null
+    owner: platform-sw
+    note: "REP 105: on the floor. The root of the tree by default; with enable_planar_base == true the root is world and base_footprint hangs from base_planar_joint."
+  - name: base_link
+    kind: link
+    type: fixed
+    parent: base_footprint
+    req: R
+    condition: null
+    owner: platform-sw
+    note: "Nav2 robot_base_frame (ADR-005). At the drive-axle midpoint, 0.098 m above base_footprint (datum base_link_height_above_floor, asserted against the expansion by T04)."
+  - {name: left_wheel_joint, kind: joint, type: continuous, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: left_wheel_link, kind: link, type: continuous, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: right_wheel_joint, kind: joint, type: continuous, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: right_wheel_link, kind: link, type: continuous, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: fl_caster_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw, note: "Casters are fixed in the current model."}
+  - {name: fr_caster_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw, note: "Casters are fixed in the current model."}
+  - {name: bl_caster_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw, note: "Casters are fixed in the current model."}
+  - {name: br_caster_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw, note: "Casters are fixed in the current model."}
+  - {name: fl_wheel_link, kind: link, type: fixed, parent: fl_caster_link, req: R, condition: null, owner: platform-sw}
+  - {name: fr_wheel_link, kind: link, type: fixed, parent: fr_caster_link, req: R, condition: null, owner: platform-sw}
+  - {name: bl_wheel_link, kind: link, type: fixed, parent: bl_caster_link, req: R, condition: null, owner: platform-sw}
+  - {name: br_wheel_link, kind: link, type: fixed, parent: br_caster_link, req: R, condition: null, owner: platform-sw}
+  - {name: lidar_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: camera_link, kind: link, type: fixed, parent: base_link, req: R, condition: null, owner: platform-sw}
+  - {name: camera_optical_frame, kind: link, type: fixed, parent: camera_link, req: R, condition: null, owner: platform-sw}
+
+  # Upper body - option B's lift model (Alex, merged on main), consumed unchanged. Frame names and poses are his; he models no
+  # masses, so the lift column's inertial is ours (datum lift_mass_<column>, on lift_column_base_link) and is not a frame.
+  - {name: lift_column_base_joint, kind: joint, type: fixed, parent: base_footprint, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)"}
+  - {name: lift_column_base_link, kind: link, type: fixed, parent: base_footprint, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "Column axis on the base-plate top face, 0.304 m above the floor. Carries the lift's placeholder inertial (11.7 kg catalogue) and no geometry.", collision_free: true, collision_free_reason: "The column body's lateral extent is not sourced, so it has no collision geometry; the arms can plan through it. A gap of the model, stated, not a design intent."}
+  - {name: lift_joint, kind: joint, type: prismatic, parent: lift_column_base_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "0 to 0.350 m; effort 0 and velocity 0 on purpose: we have no authority to command the lift."}
+  - {name: lift_carriage_link, kind: link, type: prismatic, parent: lift_column_base_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "The shoulder height is its position: calibration stops L1000 / L1175 / L1350 are joint positions, not arguments."}
+  - {name: arm_profile_joint, kind: joint, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)"}
+  - {name: arm_profile_link, kind: link, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "MISUMI HFS6-60120, 340 mm, 120 mm fore-aft; the one collision body of the upper structure."}
+  - {name: head_camera_mount_joint, kind: joint, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)"}
+  - {name: head_camera_mount_link, kind: link, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "Pitch pivot on the lens line.", collision_free: true, collision_free_reason: "A frame: no collision, no inertial."}
+  - {name: head_camera_pitch_joint, kind: joint, type: fixed, parent: head_camera_mount_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)"}
+  - {name: head_camera_link, kind: link, type: fixed, parent: head_camera_mount_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "ZED Mini, pitched down by head_pitch about y. Option B's frame replaces A6's head_camera_pose placeholder.", collision_free: true, collision_free_reason: "A frame: no collision, no inertial."}
+  - {name: head_camera_optical_joint, kind: joint, type: fixed, parent: head_camera_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)"}
+  - {name: head_camera_optical_frame, kind: link, type: fixed, parent: head_camera_link, req: R, condition: null, owner: "Alex (option B, openamrobot_upperbody.xacro)", note: "REP-103 optical convention."}
+  - {name: openarm_left_base_link_mount_joint, kind: joint, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B); declared by the upstream macro at the same pose when arm_package == openarm", note: "x 0.18, y +0.031, z 0.166 from the carriage (option B's arm_mount). Present in every expansion: option B declares it as a frame, the upstream arm macro as the arm's mount (ADR-008, P15)."}
+  - {name: openarm_right_base_link_mount_joint, kind: joint, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B); declared by the upstream macro at the same pose when arm_package == openarm", note: "x 0.18, y -0.031, z 0.166 from the carriage."}
+  - {name: openarm_left_base_link, kind: link, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B); declared by the upstream macro (with the arm's own geometry) when arm_package == openarm", note: "J1_A, the arm mount point option B declares for exactly this. Option B's name IS the upstream arm's base link name."}
+  - {name: openarm_right_base_link, kind: link, type: fixed, parent: lift_carriage_link, req: R, condition: null, owner: "Alex (option B); declared by the upstream macro (with the arm's own geometry) when arm_package == openarm", note: "J1_A, mirrored."}
+  - {name: left_wrist_camera_joint, kind: joint, type: fixed, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)"}
+  - {name: left_wrist_camera_link, kind: link, type: fixed, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)", note: "Placeholder pose until the kit datum is known.", collision_free: true, collision_free_reason: "Marker box visual only: no collision, no inertial. The box shows where the frame is; it is not a model of the sensor, so nothing may plan around it."}
+  - {name: left_wrist_camera_optical_frame, kind: link, type: fixed, parent: left_wrist_camera_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)", note: "REP-103 optical convention."}
+  - {name: right_wrist_camera_joint, kind: joint, type: fixed, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)"}
+  - {name: right_wrist_camera_link, kind: link, type: fixed, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)", note: "Placeholder pose until the kit datum is known.", collision_free: true, collision_free_reason: "Marker box visual only: no collision, no inertial. The box shows where the frame is; it is not a model of the sensor, so nothing may plan around it."}
+  - {name: right_wrist_camera_optical_frame, kind: link, type: fixed, parent: right_wrist_camera_link, req: C, condition: "arm_package == openarm", owner: "A6 (openamr-upperbody-sw)", note: "REP-103 optical convention."}
+  - {name: so101_mount_link, kind: link, type: fixed, parent: lift_carriage_link, req: C, condition: "arm_package == so101", owner: "A6 (openamr-upperbody-sw)", note: "Stub only. A9 (Jonathan) owns everything below it."}
+  - {name: world, kind: link, type: root, parent: null, req: C, condition: "enable_planar_base == true", owner: "A6 (openamr-upperbody-sw)", note: "Becomes the root only when the planar base joint is enabled."}
+  - {name: base_planar_joint, kind: joint, type: planar, parent: world, req: C, condition: "enable_planar_base == true", owner: "A6 (openamr-upperbody-sw)", note: "world -> base_footprint. Present in source, disabled by default."}
+
+  # Upper body - OpenArm v2.0, owned by upstream (names as expanded from 14ff67b). openarm_body_link0 is NOT instantiated (ADR-008). The two arm mount links and joints are listed with option B's, above: same names, same pose.
+  - {name: openarm_left_joint1, kind: joint, type: revolute, parent: openarm_left_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link1, kind: link, type: revolute, parent: openarm_left_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint2, kind: joint, type: revolute, parent: openarm_left_link1, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link2, kind: link, type: revolute, parent: openarm_left_link1, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint3, kind: joint, type: revolute, parent: openarm_left_link2, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link3, kind: link, type: revolute, parent: openarm_left_link2, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint4, kind: joint, type: revolute, parent: openarm_left_link3, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link4, kind: link, type: revolute, parent: openarm_left_link3, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint5, kind: joint, type: revolute, parent: openarm_left_link4, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link5, kind: link, type: revolute, parent: openarm_left_link4, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint6, kind: joint, type: revolute, parent: openarm_left_link5, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_link6, kind: link, type: revolute, parent: openarm_left_link5, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_joint7, kind: joint, type: revolute, parent: openarm_left_link6, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "joint7 goes from link6 to ee_base_link; there is no link7."}
+  - {name: openarm_left_ee_base_link, kind: link, type: revolute, parent: openarm_left_link6, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_finger_joint1, kind: joint, type: revolute, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_ee_link1, kind: link, type: revolute, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_finger_joint2, kind: joint, type: revolute, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "Passive / mimic of finger_joint1."}
+  - {name: openarm_left_ee_link2, kind: link, type: revolute, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_left_grasp_frame, kind: link, type: fixed, parent: openarm_left_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "Emitted with emit_grasp_frame:=true. Not validated as the OpenAMRobot TCP (A13)."}
+  - {name: openarm_right_joint1, kind: joint, type: revolute, parent: openarm_right_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link1, kind: link, type: revolute, parent: openarm_right_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint2, kind: joint, type: revolute, parent: openarm_right_link1, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link2, kind: link, type: revolute, parent: openarm_right_link1, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint3, kind: joint, type: revolute, parent: openarm_right_link2, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link3, kind: link, type: revolute, parent: openarm_right_link2, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint4, kind: joint, type: revolute, parent: openarm_right_link3, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link4, kind: link, type: revolute, parent: openarm_right_link3, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint5, kind: joint, type: revolute, parent: openarm_right_link4, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link5, kind: link, type: revolute, parent: openarm_right_link4, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint6, kind: joint, type: revolute, parent: openarm_right_link5, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_link6, kind: link, type: revolute, parent: openarm_right_link5, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_joint7, kind: joint, type: revolute, parent: openarm_right_link6, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "joint7 goes from link6 to ee_base_link; there is no link7."}
+  - {name: openarm_right_ee_base_link, kind: link, type: revolute, parent: openarm_right_link6, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_finger_joint1, kind: joint, type: revolute, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_ee_link1, kind: link, type: revolute, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_finger_joint2, kind: joint, type: revolute, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "Passive / mimic of finger_joint1."}
+  - {name: openarm_right_ee_link2, kind: link, type: revolute, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
+  - {name: openarm_right_grasp_frame, kind: link, type: fixed, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "Emitted with emit_grasp_frame:=true. Not validated as the OpenAMRobot TCP (A13)."}
+
+# Not ours, not checked: another owner's contract, consumed here (see the header). Alex, 12 Oct 2026 (P-03 rev19.0, register
+# NEAR-FIELD-FRAMES): "take them from there, do not declare your own". The layout is 4 x MaxBotix MB7060 ultrasonic and 2 x TF-Luna
+# cliff sensors, the reverse of the 7 Oct counts; platform-sw declares them in 935efc7 (Alex decision 2026-10-12, STEP MMP.00.00.00.000),
+# merged on its main, and they come in with the included base file. The six frames this file used to list under other names
+# (tof_front_left_link ... ultrasonic_rear_link, req W) were declared-but-absent and are DELETED, not renamed.
+consumed_from:
+  - owner: platform-sw
+    contract: "openamr-platform-sw 935efc7: robo_urdf.urdf.xacro, near_field_frame macro (parent base_link); P-03 rev19.0, register NEAR-FIELD-FRAMES"
+    frames: [us_front_left, us_front_right, us_rear_left, us_rear_right, tof_front, tof_rear]

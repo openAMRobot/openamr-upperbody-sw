@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OpenAMRobot 2.0 MoveIt semantic description (A7, ADR-007, ADR-009). The robot name matches combined_robot.xacro.
+
+  Sections, in order. How each was made, and how to redo it, is in this package's README ("The SRDF").
+    1. Imported from upstream  groups, group states `home` and `hands_up`, end effectors, passive joints and the
+                               arm-internal disable_collisions. Copied, with attribution, from
+                               enactic/openarm_ros2 @ 4e837e1 (the commit in config/upstream_pins.yaml), file
+                               openarm_bimanual_moveit_config/config/openarm_v2.0/openarm_bimanual.srdf, Apache-2.0,
+                               Copyright 2026 Enactic, Inc. Changed from upstream: the robot name, and one
+                               disable_collisions pair dropped (openarm_body_link0 / openarm_right_link1) because this
+                               model has no OpenArm body (ADR-008). Test: test_srdf_import.py diffs these elements against
+                               the checkout at the pinned commit.
+    2. Ours                    the fixed virtual joint, the `park` pose, and the gripper `open` / `closed` states.
+    3. Derived                 the rest of the self-collision matrix, between the BEGIN/END markers at the end: pairs of
+                               structural neighbours (`Adjacent`) and pairs with no movable joint between them whose
+                               relative transform is a constant and that are clear in the one evaluation that settles it
+                               (`ConstantTransform`). A pair is disabled only for a reason that can be shown: declared by
+                               upstream (section 1), Adjacent, or ConstantTransform. Everything else is ENABLED: sampling
+                               falsifies and never certifies, and the Setup Assistant's sampled `Never` pairs are gone.
+-->
+<robot name="openamrobot">
+
+    <!-- ===== 1. Imported from upstream (openarm_ros2 @ 4e837e1) ===================================================== -->
+    <group name="left_arm">
+        <joint name="openarm_left_joint1"/>
+        <joint name="openarm_left_joint2"/>
+        <joint name="openarm_left_joint3"/>
+        <joint name="openarm_left_joint4"/>
+        <joint name="openarm_left_joint5"/>
+        <joint name="openarm_left_joint6"/>
+        <joint name="openarm_left_joint7"/>
+    </group>
+    <group name="right_arm">
+        <joint name="openarm_right_joint1"/>
+        <joint name="openarm_right_joint2"/>
+        <joint name="openarm_right_joint3"/>
+        <joint name="openarm_right_joint4"/>
+        <joint name="openarm_right_joint5"/>
+        <joint name="openarm_right_joint6"/>
+        <joint name="openarm_right_joint7"/>
+    </group>
+    <group name="left_gripper">
+        <joint name="openarm_left_finger_joint1"/>
+    </group>
+    <group name="right_gripper">
+        <joint name="openarm_right_finger_joint1"/>
+    </group>
+
+    <group_state name="home" group="left_arm">
+        <joint name="openarm_left_joint1" value="0"/>
+        <joint name="openarm_left_joint2" value="0"/>
+        <joint name="openarm_left_joint3" value="0"/>
+        <joint name="openarm_left_joint4" value="0"/>
+        <joint name="openarm_left_joint5" value="0"/>
+        <joint name="openarm_left_joint6" value="0"/>
+        <joint name="openarm_left_joint7" value="0"/>
+    </group_state>
+    <group_state name="home" group="right_arm">
+        <joint name="openarm_right_joint1" value="0"/>
+        <joint name="openarm_right_joint2" value="0"/>
+        <joint name="openarm_right_joint3" value="0"/>
+        <joint name="openarm_right_joint4" value="0"/>
+        <joint name="openarm_right_joint5" value="0"/>
+        <joint name="openarm_right_joint6" value="0"/>
+        <joint name="openarm_right_joint7" value="0"/>
+    </group_state>
+
+    <group_state name="hands_up" group="left_arm">
+        <joint name="openarm_left_joint1" value="0"/>
+        <joint name="openarm_left_joint2" value="0"/>
+        <joint name="openarm_left_joint3" value="0"/>
+        <joint name="openarm_left_joint4" value="1.5"/>
+        <joint name="openarm_left_joint5" value="0"/>
+        <joint name="openarm_left_joint6" value="0"/>
+        <joint name="openarm_left_joint7" value="0"/>
+    </group_state>
+    <group_state name="hands_up" group="right_arm">
+        <joint name="openarm_right_joint1" value="0"/>
+        <joint name="openarm_right_joint2" value="0"/>
+        <joint name="openarm_right_joint3" value="0"/>
+        <joint name="openarm_right_joint4" value="1.5"/>
+        <joint name="openarm_right_joint5" value="0"/>
+        <joint name="openarm_right_joint6" value="0"/>
+        <joint name="openarm_right_joint7" value="0"/>
+    </group_state>
+
+    <end_effector name="left_ee" parent_link="openarm_left_ee_base_link" group="left_gripper"/>
+    <end_effector name="right_ee" parent_link="openarm_right_ee_base_link" group="right_gripper"/>
+
+    <passive_joint name="openarm_left_finger_joint2"/>
+    <passive_joint name="openarm_right_finger_joint2"/>
+
+    <disable_collisions link1="openarm_left_base_link" link2="openarm_left_link1" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_base_link" link2="openarm_right_link1" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link1" link2="openarm_left_link2" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link2" link2="openarm_left_link3" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link3" link2="openarm_left_link4" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link4" link2="openarm_left_link5" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link5" link2="openarm_left_link6" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_link6" link2="openarm_left_ee_base_link" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link1" link2="openarm_right_link2" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link2" link2="openarm_right_link3" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link3" link2="openarm_right_link4" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link4" link2="openarm_right_link5" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link5" link2="openarm_right_link6" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_link6" link2="openarm_right_ee_base_link" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_ee_base_link" link2="openarm_left_ee_link1" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_ee_base_link" link2="openarm_left_ee_link2" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_ee_base_link" link2="openarm_right_ee_link1" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_ee_base_link" link2="openarm_right_ee_link2" reason="Adjacent"/>
+    <disable_collisions link1="openarm_left_ee_link1" link2="openarm_left_ee_link2" reason="Adjacent"/>
+    <disable_collisions link1="openarm_right_ee_link1" link2="openarm_right_ee_link2" reason="Adjacent"/>
+
+    <!-- ===== 2. Ours ================================================================================================ -->
+    <!-- The base does not move during manipulation (AD-30), so the world is joined to the root, base_footprint (platform-sw 935efc7,
+         REP 105: on the floor, base_link 0.098 m above it), by a FIXED virtual joint. It is not the planar one on purpose (W02):
+         KDL has no planar joint, and robot_state_publisher has already turned base_planar_joint into a fixed joint, so planning
+         against a planar root would be planning against a joint that the rest of the stack does not see. Base motion in
+         simulation comes from Gazebo's odom -> base_footprint. lift_joint (prismatic, 0 to 0.350 m, effort 0: we have no authority
+         to command it) is in no planning group on purpose: MoveIt sees it as part of the robot state, at whatever the stack
+         reports (a calibration stop), and plans the arms from there. -->
+    <virtual_joint name="world_to_base" type="fixed" parent_frame="world" child_link="base_footprint"/>
+
+    <!-- `park` is a PLACEHOLDER: a copy of upstream's `home` (all arm joints zero) and nothing more. It stays that way until
+         Adnan's safe-pose definition lands under the manipulation action contract. It was deliberately not given a shape that
+         looks safer: a placeholder that looks deliberate gets trusted. -->
+    <group_state name="park" group="left_arm">
+        <joint name="openarm_left_joint1" value="0"/>
+        <joint name="openarm_left_joint2" value="0"/>
+        <joint name="openarm_left_joint3" value="0"/>
+        <joint name="openarm_left_joint4" value="0"/>
+        <joint name="openarm_left_joint5" value="0"/>
+        <joint name="openarm_left_joint6" value="0"/>
+        <joint name="openarm_left_joint7" value="0"/>
+    </group_state>
+    <group_state name="park" group="right_arm">
+        <joint name="openarm_right_joint1" value="0"/>
+        <joint name="openarm_right_joint2" value="0"/>
+        <joint name="openarm_right_joint3" value="0"/>
+        <joint name="openarm_right_joint4" value="0"/>
+        <joint name="openarm_right_joint5" value="0"/>
+        <joint name="openarm_right_joint6" value="0"/>
+        <joint name="openarm_right_joint7" value="0"/>
+    </group_state>
+
+    <!-- Gripper states, one value PER HAND, never one number for both (ADR-009 point 5). The two hands take opposite-signed
+         GripperCommand positions, upstream's convention: left finger_joint1 range [0, 0.7854], right [-0.7854, 0]. `open` is the
+         end both ranges share (0). `closed` is the FAR END of each hand's own range, read from the URDF limits: not a grasp
+         aperture, and not a statement about what the gripper closes on. A single "close" value would be outside the right
+         hand's range (or the left hand's) without any error at the point it is written; test_gripper_sign.py is what catches it. -->
+    <group_state name="open" group="left_gripper">
+        <joint name="openarm_left_finger_joint1" value="0"/>
+    </group_state>
+    <group_state name="closed" group="left_gripper">
+        <joint name="openarm_left_finger_joint1" value="0.7854"/>
+    </group_state>
+    <group_state name="open" group="right_gripper">
+        <joint name="openarm_right_finger_joint1" value="0"/>
+    </group_state>
+    <group_state name="closed" group="right_gripper">
+        <joint name="openarm_right_finger_joint1" value="-0.7854"/>
+    </group_state>
+
+    <!-- ===== 3. Derived: self-collision matrix (README, "The SRDF") ================================================= -->
+    <!-- BEGIN GENERATED ACM -->
+    <!-- Derived by scripts/derive_acm.py (P12A) from the model's kinematic tree at bp000, lift_joint at 0: no sampling, no seed. A pair is
+         disabled for exactly three reasons, upstream-declared (section 1), `Adjacent` (a structural neighbour) and
+         `ConstantTransform` (no movable joint between the links, clear in the one evaluation that settles every configuration):
+         18 Adjacent and 45 ConstantTransform pairs here, none of them from a sampler.
+         Every other pair is enabled. Record: config/acm/acm_generation.yaml; the way to redo it: scripts/regenerate_acm.sh. -->
+    <disable_collisions link1="arm_profile_link" link2="base_link" reason="Adjacent"/>
+    <disable_collisions link1="arm_profile_link" link2="openarm_left_base_link" reason="Adjacent"/>
+    <disable_collisions link1="arm_profile_link" link2="openarm_right_base_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="bl_caster_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="bl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="base_link" link2="br_caster_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="br_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="base_link" link2="camera_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="fl_caster_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="base_link" link2="fr_caster_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="base_link" link2="left_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="lidar_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="openarm_left_base_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="openarm_right_base_link" reason="Adjacent"/>
+    <disable_collisions link1="base_link" link2="right_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="bl_caster_link" link2="bl_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="bl_caster_link" link2="br_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="br_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="camera_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="fl_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_caster_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="br_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="br_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="camera_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="fl_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="bl_wheel_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="br_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="br_caster_link" link2="camera_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="fl_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_caster_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="camera_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="fl_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="br_wheel_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="camera_link" link2="fl_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="camera_link" link2="fl_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="camera_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="camera_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="camera_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_caster_link" link2="fl_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="fl_caster_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_caster_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_caster_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_wheel_link" link2="fr_caster_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_wheel_link" link2="fr_wheel_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fl_wheel_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fr_caster_link" link2="fr_wheel_link" reason="Adjacent"/>
+    <disable_collisions link1="fr_caster_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="fr_wheel_link" link2="lidar_link" reason="ConstantTransform"/>
+    <disable_collisions link1="openarm_left_base_link" link2="openarm_right_base_link" reason="Adjacent"/>
+    <!-- END GENERATED ACM -->
+
+</robot>

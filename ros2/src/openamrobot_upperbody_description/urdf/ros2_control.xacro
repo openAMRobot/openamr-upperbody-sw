@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<!--
+  Arm ros2_control profiles (ADR-003, ARCHITECTURE.md s6). The base never gets a <ros2_control> block.
+
+    openamr_arm_ros2_control(hardware_profile)
+
+      mock    upstream openarm_bimanual_ros2_control, use_fake_hardware=true   -> mock_components/GenericSystem
+      real    upstream openarm_bimanual_ros2_control, use_fake_hardware=false  -> openarm_hardware/OpenArmHW (CAN-FD)
+      gazebo  our own system block                                             -> gz_ros2_control/GazeboSimSystem
+
+  mock and real call the upstream macro exactly as upstream's own top-level file does
+  (openarm_description assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro @ 14ff67b): same gains file, same
+  finger-mimic multiplier file, same arm_type / ee_type / prefixes. The CAN interfaces and can_fd are not passed, so
+  they take upstream's defaults, as they do in that file. Only use_fake_hardware differs: it follows the profile.
+
+  The arm joints are openarm_{left,right}_joint1..7 and openarm_{left,right}_finger_joint1. Upstream leaves
+  openarm_*_finger_joint2 out of <ros2_control> (its declaration is commented out in the macro); the URDF <mimic> on
+  finger_joint2 stays, so robot_state_publisher still moves it. The gazebo block does the same.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find openarm_description)/assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro"/>
+
+  <!-- The finger-mimic multiplier is READ from upstream's joint_mimics.yaml, never written in here (the same expression
+       upstream's openarm_v20.urdf.xacro uses). File scope, not inside a macro, so every profile sees one value and
+       test_t15_finger_mimic_multiplier.py can read it: in mock and real upstream only uses it in a commented-out joint,
+       so nothing in an expansion would otherwise show a hard-coded replacement. -->
+  <xacro:property name="pinch_mimics_file" value="$(find openarm_description)/assets/end_effector/pinch_gripper/config/joint/joint_mimics.yaml"/>
+  <xacro:property name="pinch_mimics_dict" value="${xacro.load_yaml(pinch_mimics_file)}"/>
+  <xacro:property name="pinch_finger_mimic_multiplier" value="${pinch_mimics_dict['joint2']['multiplier'] if 'joint2' in pinch_mimics_dict else 1.0}"/>
+
+  <!-- One joint with the interfaces the upstream macro declares (openarm.bimanual.ros2_control.xacro,
+       configure_joint): position, velocity and effort commands; position, velocity and effort state, all starting at 0.
+       Upstream's comment there says the gz_ros2_control velocity and position command interfaces had a bug
+       (ros-controls/gz_ros2_control#343) but keeps all three, so this does too. -->
+  <xacro:macro name="openamr_gazebo_arm_joint" params="joint_name">
+    <joint name="${joint_name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="effort"/>
+      <state_interface name="position">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="velocity">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+      <state_interface name="effort">
+        <param name="initial_value">0.0</param>
+      </state_interface>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="openamr_arm_ros2_control" params="hardware_profile controllers_file:=''">
+    <xacro:if value="${hardware_profile in ['mock', 'real']}">
+      <!-- What upstream's openarm_v20.urdf.xacro does before it calls the macro. -->
+      <xacro:property name="openarm_robot_root" value="$(find openarm_description)/assets/robot/openarm_v2.0"/>
+      <xacro:property name="gains_file" value="${openarm_robot_root + '/config/arm/control/control_gains.yaml'}"/>
+      <xacro:property name="gains_dict" value="${xacro.load_yaml(gains_file)}"/>
+
+      <xacro:openarm_bimanual_ros2_control
+        arm_type="v20"
+        control_gains="${gains_dict}"
+        use_fake_hardware="${hardware_profile == 'mock'}"
+        ee_type="pinch_gripper"
+        left_arm_prefix="left_"
+        right_arm_prefix="right_"
+        left_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"
+        right_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"/>
+    </xacro:if>
+
+    <xacro:if value="${hardware_profile == 'gazebo'}">
+      <!-- The Gazebo side of gz_ros2_control: a MODEL plugin that loads a controller manager next to the model and
+           hands it the controller parameters. A model plugin and not a world plugin: the library refuses anything else
+           ("is not a model. Please make sure that Gazebo ROS 2 Control is attached to a valid model"). A <gazebo> element
+           with no reference becomes a plugin of the model when ros_gz_sim converts the URDF to SDF. Filename and class were
+           read from the installed Jazzy gz_ros2_control 1.2.20, not from documentation: libgz_ros2_control-system.so
+           registers gz_ros2_control::GazeboSimROS2ControlPlugin (libgz_hardware_plugins.so registers GazeboSimSystem).
+           The controllers are the same file every profile uses (ADR-003), but this description does not know where it lives:
+           the path comes in as the controllers_file arg, and with the arg empty (the default) there is no <parameters> at all.
+           The launch that starts the simulation supplies it, so this package does not resolve the control package's path
+           (it would be an undeclared dependency, or a cycle: control test-depends on this package). The world, physics,
+           sensors and the launch that spawns this model are simulation bringup and live in openamrobot_upperbody_gazebo. -->
+      <gazebo>
+        <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+          <xacro:if value="${controllers_file != ''}">
+            <parameters>${controllers_file}</parameters>
+          </xacro:if>
+        </plugin>
+      </gazebo>
+
+      <ros2_control name="openamr_arms_gazebo" type="system">
+        <hardware>
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </hardware>
+        <!-- openarm_{left,right}_finger_joint2 is left out, as upstream leaves it out of ros2_control (decided P09, measured
+             in Gazebo Harmonic 8.15 with gz_ros2_control 1.2.20):
+               - the URDF <mimic> becomes an SDF mimic constraint, which the Bullet-Featherstone engine honours and the
+                 DART engine does not ("chosen physics engine does not support mimic constraints"). With
+                 Bullet-Featherstone finger_joint2 follows finger_joint1 on its own; openamrobot_upperbody_gazebo's launch
+                 defaults to DART (platform-sw's engine) and takes Bullet-Featherstone as its physics_engine argument.
+               - declaring finger_joint2 here the way upstream's commented-out block does cannot load: this ros2_control
+                 refuses "Activated mimic joints cannot have command interfaces", and with <param name="mimic"> and no
+                 command interface it adds nothing the physics does not already do.
+             So nothing is declared for it. The multiplier it follows is the URDF's own, from the same yaml as
+             pinch_finger_mimic_multiplier above. -->
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint1"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint2"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint3"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint4"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint5"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint6"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_joint7"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_left_finger_joint1"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint1"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint2"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint3"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint4"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint5"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint6"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint7"/>
+        <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_finger_joint1"/>
+      </ros2_control>
+    </xacro:if>
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenAMRobot datums.yaml (schema v1)",
+  "description": "ADR-002 / DATUMS.md. Every number the combined description uses that is not upstream-owned lives in datums.yaml with provenance. Structural rules that need the xacro (T13: referenced / report_only / pending_reference) are tests, not schema.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "revision",
+    "units",
+    "datums"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "revision": {
+      "description": "Bumped on every change to this file; goes into config_id.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}\\.[a-z]+$"
+    },
+    "units": {
+      "type": "object",
+      "required": [
+        "length",
+        "angle",
+        "mass"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "length": {
+          "const": "m"
+        },
+        "angle": {
+          "const": "rad"
+        },
+        "mass": {
+          "const": "kg"
+        }
+      }
+    },
+    "report_only": {
+      "description": "Datums that are reported and never feed the model.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/datum_name"
+      },
+      "uniqueItems": true
+    },
+    "pending_reference": {
+      "description": "<datum>: <step that will consume it>. A datum whose xacro consumer has not been written yet. The entry is deleted in the commit that references the datum (T13).",
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/datum_name"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^S[0-9]+$"
+      }
+    },
+    "datums": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/datum_name"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/datum"
+      }
+    }
+  },
+  "$defs": {
+    "datum_name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "number_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "number"
+      }
+    },
+    "xyz_rpy": {
+      "type": "object",
+      "required": [
+        "xyz",
+        "rpy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "xyz": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "rpy": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "datum": {
+      "type": "object",
+      "required": [
+        "value",
+        "source",
+        "status",
+        "ref",
+        "owner"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/number_list"
+            },
+            {
+              "$ref": "#/$defs/xyz_rpy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "enum": [
+            "measured",
+            "contractor_m01",
+            "f2s",
+            "supplier",
+            "plan",
+            "upstream",
+            "derived",
+            "placeholder"
+          ]
+        },
+        "status": {
+          "enum": [
+            "placeholder",
+            "provisional",
+            "verified"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "axis_convention": {
+          "$ref": "#/$defs/axis_convention"
+        },
+        "density_band": {
+          "$ref": "#/$defs/density_band"
+        }
+      },
+      "allOf": [
+        {
+          "description": "status: verified => an evidenced source and a non-empty ref.",
+          "if": {
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "enum": [
+                  "measured",
+                  "contractor_m01",
+                  "f2s",
+                  "supplier",
+                  "plan"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "\\S"
+              }
+            }
+          }
+        },
+        {
+          "description": "source: placeholder => status: placeholder.",
+          "if": {
+            "properties": {
+              "source": {
+                "const": "placeholder"
+              }
+            },
+            "required": [
+              "source"
+            ]
+          },
+          "then": {
+            "properties": {
+              "status": {
+                "const": "placeholder"
+              }
+            }
+          }
+        },
+        {
+          "description": "value: null (supplier data that does not exist yet) => source: placeholder and status: placeholder, and the xacro that reads it stops (xacro.fatal naming the datum). Nothing is guessed in its place.",
+          "if": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "const": "placeholder"
+              },
+              "status": {
+                "const": "placeholder"
+              }
+            }
+          }
+        },
+        {
+          "description": "a list of two or three dimensions declares its axis convention (T12 asserts the assignment).",
+          "if": {
+            "properties": {
+              "value": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          },
+          "then": {
+            "required": [
+              "axis_convention"
+            ]
+          }
+        }
+      ]
+    },
+    "axis_role": {
+      "enum": [
+        "fore_aft",
+        "lateral",
+        "vertical"
+      ]
+    },
+    "axis_convention": {
+      "description": "Which physical axis each entry of a dimension list lies along (ADR/V01-F1: a pair of dimensions with no stated axes is a defect in the datum, not in the xacro). Keys x, y (and z for a triple); the assignment is asserted against the expansion by a test (T12).",
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/axis_role"
+        },
+        "y": {
+          "$ref": "#/$defs/axis_role"
+        },
+        "z": {
+          "$ref": "#/$defs/axis_role"
+        }
+      }
+    },
+    "density_band": {
+      "description": "The implied density (mass over the bounding box named in bounding_box) a placeholder or provisional mass of OURS is expected to have, declared by the datum's author, who alone knows whether it describes a solid extrusion or a thin shell. A value outside the band is a WARN, never a derived value (T10). Upstream's inertials are not ours to judge.",
+      "type": "object",
+      "required": [
+        "min",
+        "max",
+        "reason",
+        "bounding_box"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bounding_box": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

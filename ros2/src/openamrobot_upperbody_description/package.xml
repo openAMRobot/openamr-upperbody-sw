@@ -8,9 +8,15 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>openamrobot_description</exec_depend>
+  <exec_depend>openarm_description</exec_depend>
+  <!-- upperbody_description.launch.py (option B, main); view.launch.py moved to openamrobot_upperbody_bringup with its rviz2 and joint_state_publisher_gui depends -->
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <!-- T15 reads the plugin names out of the installed gz_ros2_control. The controller yaml's package is not resolved by this
+       package at all: the gazebo profile takes its path as the controllers_file xacro arg (P10), supplied by the launch -->
+  <test_depend>gz_ros2_control</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>ament_cmake_ros</test_depend>
   <test_depend>ament_index_python</test_depend>
@@ -18,5 +24,12 @@
   <test_depend>sensor_msgs</test_depend>
   <test_depend>tf2_ros_py</test_depend>
   <test_depend>ros2run</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>python3-yaml</test_depend>
+  <test_depend>python3-jsonschema</test_depend>
+  <!-- urdf_utils.py (T05, E01) -->
+  <test_depend>python3-numpy</test_depend>
+  <!-- check_urdf (T02, W02) -->
+  <test_depend>liburdfdom-tools</test_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

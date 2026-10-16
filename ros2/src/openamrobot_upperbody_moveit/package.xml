@@ -6,7 +6,40 @@
   <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
   <license>MIT</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
   <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_kinematics</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+  <!-- scripts/derive_acm.py and scripts/validate_acm.py (M03) use moveit_py; the Setup Assistant's collision-matrix tool is no longer used (P12A) -->
+  <exec_depend>moveit_py</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <!-- joint_state_clamp.py and move_group_client.py: ROS core packages the workspace already has, declared where they are used -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
   <exec_depend>openamrobot_upperbody_description</exec_depend>
+  <exec_depend>openamrobot_upperbody_control</exec_depend>
+  <!-- M03 and M04 (collision sampling and planning, no controllers) are tests of this package. M01 and M02 start the mock bringup
+       and the simulator, so they are tests of openamrobot_upperbody_bringup, which depends on this package: a test_depend back would
+       be a colcon cycle (the same one the description once had with control). -->
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>moveit_msgs</test_depend>
+  <test_depend>python3-numpy</test_depend>
+  <test_depend>joint_state_publisher</test_depend>
+  <test_depend>moveit_msgs</test_depend>
+  <test_depend>shape_msgs</test_depend>
+  <test_depend>geometry_msgs</test_depend>
+  <test_depend>std_msgs</test_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

@@ -1,0 +1,106 @@
+# OpenAMRobot joint limits for MoveIt (A7, ADR-009).
+#
+# Upstream OpenArm v2.0 declares NO acceleration limits: enactic/openarm_ros2
+# openarm_bimanual_moveit_config/config/openarm_v2.0/joint_limits.yaml (@ 4e837e1, ADR-007) sets `has_acceleration_limits: false`
+# and `max_acceleration: 0.0` on every joint, and MoveIt 2.12's time parameterisation rejects a plan without them
+# (openamrobot-manipulation issue #10, which records three strict xfail tests for exactly this). Alex's instruction is not to
+# add invented limits to upstream's files and to report the gap to Enactic, and that stays true: this file is OURS, in this
+# package, and does not touch or republish upstream's. Both issues stay open upstream (ADR-009 point 1).
+#
+# Every acceleration entry below is therefore tagged:
+#     source: engineering_default     status: placeholder
+# It is a number chosen so that planning can run. It is NOT vendor data, and no payload, torque, inertia or controller analysis
+# stands behind it. The rule that produced it, so a reviewer can see it is a rule and not a measurement:
+#     max_acceleration = max_velocity / 2 s      (a joint reaches its velocity limit from rest in two seconds)
+# where max_velocity is the joint's own URDF velocity limit (the same figures upstream's yaml carries for the arm joints).
+# Every A7 claim made with these reads "plans and executes in simulation under declared OpenAMRobot limits", never "validated
+# limits" (ADR-009 point 3). scripts/limits_sensitivity.py shows whether the named-pose plans depend on the VALUES or only need
+# SOME values to exist.
+#
+# Velocity and position limits are not repeated here: they come from the URDF, which is upstream's.
+
+# For beginners, as upstream: scale requests down unless they ask for more.
+default_velocity_scaling_factor: 0.1
+default_acceleration_scaling_factor: 0.1
+
+joint_limits:
+  openarm_left_joint1:
+    has_acceleration_limits: true
+    max_acceleration: 8.38
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint2:
+    has_acceleration_limits: true
+    max_acceleration: 8.38
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint3:
+    has_acceleration_limits: true
+    max_acceleration: 2.72
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint4:
+    has_acceleration_limits: true
+    max_acceleration: 2.72
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint5:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint6:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_left_joint7:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_left_finger_joint1:
+    has_acceleration_limits: true
+    max_acceleration: 2.5
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint1:
+    has_acceleration_limits: true
+    max_acceleration: 8.38
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint2:
+    has_acceleration_limits: true
+    max_acceleration: 8.38
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint3:
+    has_acceleration_limits: true
+    max_acceleration: 2.72
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint4:
+    has_acceleration_limits: true
+    max_acceleration: 2.72
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint5:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint6:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_right_joint7:
+    has_acceleration_limits: true
+    max_acceleration: 10.47
+    source: engineering_default
+    status: placeholder
+  openarm_right_finger_joint1:
+    has_acceleration_limits: true
+    max_acceleration: 2.5
+    source: engineering_default
+    status: placeholder

@@ -1,0 +1,362 @@
+[
+ {
+  "check": "G01",
+  "run": 1,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [36262]"
+ },
+ {
+  "check": "G01",
+  "run": 2,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [39803]"
+ },
+ {
+  "check": "G01",
+  "run": 3,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.34,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [43389]"
+ },
+ {
+  "check": "G01",
+  "run": 4,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [46972]"
+ },
+ {
+  "check": "G01",
+  "run": 5,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [50529]"
+ },
+ {
+  "check": "G01",
+  "run": 6,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [54104]"
+ },
+ {
+  "check": "G01",
+  "run": 7,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [57712]"
+ },
+ {
+  "check": "G01",
+  "run": 8,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [61302]"
+ },
+ {
+  "check": "G01",
+  "run": 9,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.32,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [64909]"
+ },
+ {
+  "check": "G01",
+  "run": 10,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [68603]"
+ },
+ {
+  "check": "G01",
+  "run": 11,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [72252]"
+ },
+ {
+  "check": "G01",
+  "run": 12,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [75893]"
+ },
+ {
+  "check": "G02",
+  "run": 1,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [37367]"
+ },
+ {
+  "check": "G02",
+  "run": 2,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [40943]"
+ },
+ {
+  "check": "G02",
+  "run": 3,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [44519]"
+ },
+ {
+  "check": "G02",
+  "run": 4,
+  "result": "FAIL",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [48114]"
+ },
+ {
+  "check": "G02",
+  "run": 5,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.34,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [51662]"
+ },
+ {
+  "check": "G02",
+  "run": 6,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.33,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [55273]"
+ },
+ {
+  "check": "G02",
+  "run": 7,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [58874]"
+ },
+ {
+  "check": "G02",
+  "run": 8,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [62462]"
+ },
+ {
+  "check": "G02",
+  "run": 9,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [66132]"
+ },
+ {
+  "check": "G02",
+  "run": 10,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [69757]"
+ },
+ {
+  "check": "G02",
+  "run": 11,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.32,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [73409]"
+ },
+ {
+  "check": "G02",
+  "run": 12,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [77040]"
+ },
+ {
+  "check": "M02",
+  "run": 1,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [38456]"
+ },
+ {
+  "check": "M02",
+  "run": 2,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [42039]"
+ },
+ {
+  "check": "M02",
+  "run": 3,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [45609]"
+ },
+ {
+  "check": "M02",
+  "run": 4,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [49188]"
+ },
+ {
+  "check": "M02",
+  "run": 5,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.44,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [52764]"
+ },
+ {
+  "check": "M02",
+  "run": 6,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [56371]"
+ },
+ {
+  "check": "M02",
+  "run": 7,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [59971]"
+ },
+ {
+  "check": "M02",
+  "run": 8,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [63560]"
+ },
+ {
+  "check": "M02",
+  "run": 9,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [67241]"
+ },
+ {
+  "check": "M02",
+  "run": 10,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [70888]"
+ },
+ {
+  "check": "M02",
+  "run": 11,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.43,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [74524]"
+ },
+ {
+  "check": "M02",
+  "run": 12,
+  "result": "PASS",
+  "survivors_seen_by_the_detector": 0,
+  "stop_helper_state": "stopped",
+  "stop_elapsed_s": 1.42,
+  "retried_with_service": false,
+  "interrupt": "SIGINT to [78178]"
+ }
+]

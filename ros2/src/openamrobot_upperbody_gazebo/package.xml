@@ -2,11 +2,36 @@
 <package format="3">
   <name>openamrobot_upperbody_gazebo</name>
   <version>0.0.0</version>
-  <description>Gazebo simulation of the combined model.</description>
+  <description>Gazebo Harmonic simulation of the combined model: the base on its DiffDrive plugin, both arms on gz_ros2_control.</description>
   <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
   <license>MIT</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>gz_ros2_control</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>rviz2</exec_depend>
   <exec_depend>openamrobot_upperbody_description</exec_depend>
+  <exec_depend>openamrobot_upperbody_control</exec_depend>
+  <!-- platform-sw's bridge config is used by reference, and its world is available through the world argument -->
+  <exec_depend>openamrobot_gazebo</exec_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>control_msgs</test_depend>
+  <test_depend>controller_manager_msgs</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>geometry_msgs</test_depend>
+  <test_depend>nav_msgs</test_depend>
+  <test_depend>tf2_msgs</test_depend>
+  <test_depend>trajectory_msgs</test_depend>
+  <test_depend>builtin_interfaces</test_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

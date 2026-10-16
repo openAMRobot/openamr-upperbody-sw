@@ -1,0 +1,38 @@
+# Where each mass group's figure really comes from (DATUMS.md, "Mass reporting", decided 6 Oct; built in P10).
+#
+# T10 reports the modelled mass over four groups. The base and arm masses are not datums (they are not ours to declare:
+# ADR-005, ADR-008), so datums.yaml's status field cannot say what they are; this map does, over all four groups, in three
+# states and no others:
+#
+#   placeholder       no source: a number chosen so the model would expand (or no mass modelled at all)
+#   external_nominal  a real figure from another owner's model, not verified by us (the base CAD export, the upstream arm
+#                     nominals). Most of this robot's modelled mass is in this state; a two-state scheme cannot express it
+#   verified          measured, with a document: `document` is required, and names it
+#
+# T10 prints "per-link masses still placeholders" whenever any group is `placeholder`, and a separate line naming the
+# `external_nominal` groups. The map must agree with datums.yaml where a group draws its mass from a datum (the lift, from
+# `lift_mass_dold_v4_350`): test_t10_mass_provenance checks it, so a datum that reaches `verified` cannot leave the map behind.
+# A group is `verified` only here and only with a document; nothing infers it.
+schema_version: 1
+groups:
+  base:
+    state: external_nominal
+    source: "platform-sw's CAD export: the inertials of openamrobot_description's urdf, included unchanged"
+    owner: platform-sw
+    note: "Not verified by us, and not a datum (ADR-005: the base is platform-sw's). W01: KDL drops base_link's own inertia."
+  lift:
+    state: external_nominal
+    source: "datum lift_mass_dold_v4_350: the DOLD Hexalift V4 350 catalogue mass, 11.7 kg (Alex, rev19.0, 12 Oct 2026), on a placeholder box inertial (section lift_column_section, whose lateral side is not sourced) at mid-height of the retracted column; the catalogue does not split the mass between the fixed part and the moving stage"
+    owner: "Alex (F2S) for the figure; A6 (this repo) for the box"
+    datum: lift_mass_dold_v4_350
+    note: "The mass is a supplier catalogue figure, not weighed here: another owner's number, not verified by us. The shape it sits on is a placeholder, which is why the datum lift_column_section stays placeholder."
+  openarm:
+    state: external_nominal
+    source: "upstream openarm_description's nominal link masses at the pinned commit (config/upstream_pins.yaml); arms and grippers, no body (ADR-008)"
+    owner: "upstream:openarm_description"
+    note: "A vendor nominal, not verified by us and not a measurement of the arms we will buy."
+  sensors:
+    state: placeholder
+    source: "none: the upper-sensor frames carry no <inertial> by design, so the modelled mass of the cameras is zero"
+    owner: "A6 (this repo)"
+    note: "Zero is a figure chosen so the model expands, so this group is a placeholder until the cameras are weighed."

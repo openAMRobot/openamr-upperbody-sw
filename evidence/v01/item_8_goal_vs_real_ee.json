@@ -1,0 +1,80 @@
+{
+ "left_arm/hands_up": {
+  "goal_state_ee": [
+   0.45546,
+   0.1535,
+   0.76472
+  ],
+  "real_ee": [
+   0.45552,
+   0.15379,
+   0.76485
+  ],
+  "max_axis_diff_m": 0.00029
+ },
+ "right_arm/hands_up": {
+  "goal_state_ee": [
+   0.45546,
+   -0.1535,
+   0.76472
+  ],
+  "real_ee": [
+   0.4555,
+   -0.15363,
+   0.76459
+  ],
+  "max_axis_diff_m": 0.00013
+ },
+ "left_arm/home": {
+  "goal_state_ee": [
+   0.24,
+   0.1535,
+   0.564
+  ],
+  "real_ee": [
+   0.23995,
+   0.15357,
+   0.564
+  ],
+  "max_axis_diff_m": 7e-05
+ },
+ "right_arm/home": {
+  "goal_state_ee": [
+   0.24,
+   -0.1535,
+   0.564
+  ],
+  "real_ee": [
+   0.24042,
+   -0.15359,
+   0.564
+  ],
+  "max_axis_diff_m": 0.00042
+ },
+ "left_arm/park": {
+  "goal_state_ee": [
+   0.24,
+   0.1535,
+   0.564
+  ],
+  "real_ee": [
+   0.24047,
+   0.15369,
+   0.564
+  ],
+  "max_axis_diff_m": 0.00047
+ },
+ "right_arm/park": {
+  "goal_state_ee": [
+   0.24,
+   -0.1535,
+   0.564
+  ],
+  "real_ee": [
+   0.24031,
+   -0.15356,
+   0.564
+  ],
+  "max_axis_diff_m": 0.00031
+ }
+}

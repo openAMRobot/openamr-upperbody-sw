@@ -1,0 +1,57 @@
+# Deliberately invalid datums file: T12 asserts that the schema REJECTS it, and that each rule below fires.
+# Do not "fix" this file. One violation per datum, named for the rule it breaks.
+schema_version: 1
+revision: "2026-10-08.a"
+units: {length: m, angle: rad, mass: kg}
+
+pending_reference:
+  bad_pending_step: soon                 # step must look like S<n>
+
+datums:
+  verified_with_derived_source:          # status verified needs source in {measured, contractor_m01, f2s, supplier, plan}
+    value: 1.0
+    source: derived
+    status: verified
+    ref: "has a ref, but the source cannot be verified"
+    owner: "nobody"
+
+  verified_with_empty_ref:               # status verified needs a non-empty ref
+    value: 1.0
+    source: measured
+    status: verified
+    ref: ""
+    owner: "nobody"
+
+  placeholder_source_not_placeholder_status:   # source placeholder => status placeholder
+    value: 1.0
+    source: placeholder
+    status: provisional
+    ref: "x"
+    owner: "nobody"
+
+  source_not_in_enum:
+    value: 1.0
+    source: guessed
+    status: placeholder
+    ref: "x"
+    owner: "nobody"
+
+  status_not_in_enum:
+    value: 1.0
+    source: plan
+    status: approved
+    ref: "x"
+    owner: "nobody"
+
+  missing_owner:
+    value: 1.0
+    source: plan
+    status: provisional
+    ref: "x"
+
+  pose_without_rpy:
+    value: {xyz: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "x"
+    owner: "nobody"
