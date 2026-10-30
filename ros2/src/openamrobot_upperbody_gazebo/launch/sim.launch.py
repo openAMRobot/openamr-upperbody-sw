@@ -32,7 +32,7 @@ here is enable_planar_base:=false.
 Args
   column       dold_v4_350 | tl3_400   (default dold_v4_350; tl3_400 has no supplier data and does not expand)
   base_plate   bp000 | bp050             (default bp000: option B's baseline; column axis x +0.060 / +0.110 from base_link)
-  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp25)
+  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp30)
   base_tilt    bt05 | bt10 | bt15        (default bt10)
   world     path to a Gazebo world .sdf                       (default: worlds/empty.sdf in this package; platform-sw's is
             $(ros2 pkg prefix --share openamrobot_gazebo)/worlds/walled_world.sdf)
@@ -402,7 +402,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("column", default_value="dold_v4_350", description="dold_v4_350 | tl3_400 (no supplier data: refused)"),
         DeclareLaunchArgument("base_plate", default_value="bp000", description="bp000 | bp050"),
-        DeclareLaunchArgument("head_pitch", default_value="hp25", description="hp15 | hp20 | hp25 | hp30 | hp35"),
+        DeclareLaunchArgument("head_pitch", default_value="hp30", description="hp15 | hp20 | hp25 | hp30 | hp35"),
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("world", default_value=os.path.join(gazebo_share, "worlds", "empty.sdf"),
                               description="Path to the Gazebo world .sdf"),

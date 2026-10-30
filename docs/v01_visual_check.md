@@ -231,7 +231,7 @@ Our section is **0.240 x 0.240 m, aspect ratio 1.00 : 1** (fore-aft : lateral), 
 number of the lift"; since `b45d8f6` it also sizes both collision boxes). The P25 prompt reports that Alex's published dark-store render (docs.openamrobot.ai,
 "Shoulder height 1000 mm, DOLD Hexalift V4") shows a column visibly narrower laterally than it is deep; **I did not look at that render**, and I derived no number
 from it. A render is evidence of intent, that the lateral side is probably less than 240 mm; it is not a dimension, and the datum stays `placeholder` until the
-supplier drawing gives one. **This is the same failure mode as the HFS6-60120 mast section** (DESIGN_LOG, DATUMS.md: `mast_section` was `[0.08, 0.08]`, a square
+supplier drawing gives one. **This is the same failure mode as the earlier, superseded HFS6-60120 mast section** (DESIGN_LOG, DATUMS.md: `mast_section` was `[0.08, 0.08]`, a square
 invented for a profile whose part number says 60 x 120): a section drawn square because one side was known or assumed and the other was invented as equal. The
 difference is that for the mast neither side was sourced; here one is, which makes the invented side harder to notice. V01 found the mast by looking; the
 renders are what made this one visible.

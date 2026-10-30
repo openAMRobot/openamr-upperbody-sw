@@ -276,7 +276,7 @@ def test_summary_and_exit_status_follow_the_checks(tmp_path):
     assert by_id["AUX"] == "FAIL"                                          # the three steps were never run
     assert by_id["H02"] == "NOT_RUN"                                       # and nothing was registered to account for: that is not a pass either
     assert set(doc["config_ids"]) and all(ev.SHA256_RE.match(v) for v in doc["config_ids"].values())
-    assert len(doc["config_ids"]) == 14 and "dold_v4_350/bp000/hp25/bt10/openarm/mock" in doc["config_ids"]
+    assert len(doc["config_ids"]) == 14 and "dold_v4_350/bp000/hp30/bt10/openarm/mock" in doc["config_ids"]
     assert not [k for k in doc["config_ids"] if "mast" in k]
     # the inputs of the id and the calibration IDs are stated beside the ids, apart from them
     assert doc["config_id_inputs"]["members"] == ["canonical_urdf", "column", "base_plate", "head_pitch", "base_tilt", "arm_package",
@@ -378,7 +378,7 @@ def test_the_gazebo_profile_writes_a_simulation_report_and_never_a_physical_clai
     assert by_id["G01"] == "NOT_RUN" and by_id["G02"] == "NOT_RUN"                 # nothing ran: no result is not a pass
     v01 = next(c for c in doc["checks"] if c["id"] == "V01")
     assert by_id["V01"] == "WARN" and [f["id"] for f in v01["details"]["findings"]] == ["V01-F1", "V01-F2"]
-    assert set(doc["config_ids"]) == {"dold_v4_350/bp000/hp25/bt10/openarm/gazebo", "dold_v4_350/bp050/hp25/bt10/openarm/gazebo"}
+    assert set(doc["config_ids"]) == {"dold_v4_350/bp000/hp30/bt10/openarm/gazebo", "dold_v4_350/bp050/hp30/bt10/openarm/gazebo"}
     assert set(doc["simulator"]) == {"gz_sim", "gz_ros2_control", "ros_gz_sim"}
     assert_simulation_only_contract(doc["limitations"])
 

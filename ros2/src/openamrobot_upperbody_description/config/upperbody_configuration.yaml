@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 # OpenAMRobot 2.0 upper-body configuration (option B).
-# Decision of record: P-03 revision 18.9 item 18, 9 October 2026.
+# Decision of record: P-03 revision 18.9 item 18, 9 October 2026; head-camera lens and baseline pitch per
+# P-03 revision 20.0 items 15, 17 and 18 (28 October 2026 corrections).
 # Heights from the floor (Z = 0); x forward, y left, z up; metres and degrees.
 #
 # This file is the single source of the configuration IDs used by the
@@ -16,7 +17,7 @@ configuration_axes:
 baseline:
   column: dold_v4_350
   base_plate: bp000
-  head_pitch: hp25
+  head_pitch: hp30  # P-03 rev20.0 item 17; was hp25 (P-03 rev18.9 item 17), decision-allow: CONFIG-IDS history
   base_tilt: bt10
 
 # Lift column. retracted_length is the column length at lift 0; the lift
@@ -74,7 +75,7 @@ geometry:
     y: 0.031
     z_above_column_top: 0.166         # shoulder = 0.304 + column length + 0.166
   head_camera_lens:                   # ZED Mini on the lift carriage
-    x_ahead_of_arm_mount: 0.022
+    x_ahead_of_arm_mount: 0.042       # P-03 rev20.0 item 18; was 0.022 (P-03 rev18.9 item 18), decision-allow: HEAD-CAMERA-IDENTITY history
     z_above_arm_mount: 0.223
     y: 0.0
   max_assembled_height: 1.700

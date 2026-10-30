@@ -13,7 +13,7 @@
 Args
   column       dold_v4_350 | tl3_400   (default dold_v4_350; tl3_400 has no supplier data and does not expand)
   base_plate   bp000 | bp050             (default bp000: option B's baseline; column axis x +0.060 / +0.110 from base_link)
-  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp25)
+  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp30)
   base_tilt    bt05 | bt10 | bt15        (default bt10)
   lift_position   sim:=mock only. m, the position of lift_joint the stub reports: 0.0 / 0.175 / 0.350 are the calibration stops
                   L1000 / L1175 / L1350 (default 0.0: every joint at zero). With sim:=gazebo the merger's default is the same 0.0
@@ -68,7 +68,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("column", default_value="dold_v4_350", description="dold_v4_350 | tl3_400 (no supplier data: refused)"),
         DeclareLaunchArgument("base_plate", default_value="bp000", description="bp000 | bp050"),
-        DeclareLaunchArgument("head_pitch", default_value="hp25", description="hp15 | hp20 | hp25 | hp30 | hp35"),
+        DeclareLaunchArgument("head_pitch", default_value="hp30", description="hp15 | hp20 | hp25 | hp30 | hp35"),
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("lift_position", default_value="0.0",
                               description="sim:=mock only: lift_joint position (m) the stub reports; 0.0 / 0.175 / 0.350 = L1000 / L1175 / L1350"),

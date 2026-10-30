@@ -66,7 +66,7 @@ commit of `config/upstream_pins.yaml` (C02); the preset files keep upstream's ze
 |---|---|---|---|
 | `column` | `dold_v4_350`, `tl3_400` | `dold_v4_350` | Option B's lift column. `tl3_400` has `null` supplier data and **does not expand** (a configuration that cannot expand, not a placeholder that does). |
 | `base_plate` | `bp000`, `bp050` | `bp000` | Option B's two base-plate positions: the column axis at x +0.060 m or +0.110 m from `base_link` (330 mm behind the chassis front edge; not on the drive axle). |
-| `head_pitch` | `hp15`, `hp20`, `hp25`, `hp30`, `hp35` | `hp25` | Head-camera pitch down, degrees. |
+| `head_pitch` | `hp15`, `hp20`, `hp25`, `hp30`, `hp35` | `hp30` | Head-camera pitch down, degrees. |
 | `base_tilt` | `bt05`, `bt10`, `bt15` | `bt10` | Base-camera up-tilt, degrees: the same arg platform-sw's base file reads for `base_camera_link`. |
 | `arm_package` | `openarm`, `so101`, `none` | `openarm` | `openarm`: two upstream OpenArm v2.0 arms. `so101`: a single `so101_mount_link` stub on `lift_carriage_link`, nothing below it. `none`: base and upper structure only. Option B's mount frames are there with every package. |
 | `hardware_profile` | `mock`, `gazebo`, `real` | `mock` | Selects the arm `ros2_control` plugin (ADR-003): `mock` = `mock_components/GenericSystem` and `real` = `openarm_hardware/OpenArmHW`, both through the upstream bimanual macro; `gazebo` = our own block with `gz_ros2_control/GazeboSimSystem`. Part of the configuration id. See [ros2_control](#ros2_control). |
@@ -263,7 +263,7 @@ Result vocabulary: `PASS`, `FAIL`, `WARN`, `SKIP`. **`SKIP` and `WARN` are not `
 
 ### Configuration id
 
-`ros2 run openamrobot_upperbody_description print_config_id.py column:=dold_v4_350 base_plate:=bp000 head_pitch:=hp25 base_tilt:=bt10 arm_package:=openarm hardware_profile:=mock`
+`ros2 run openamrobot_upperbody_description print_config_id.py column:=dold_v4_350 base_plate:=bp000 head_pitch:=hp30 base_tilt:=bt10 arm_package:=openarm hardware_profile:=mock`
 prints the id of one expansion: `sha256:` followed by the SHA-256 (64 hex characters) of the canonicalised expanded URDF, the
 six args, the datum revision and **every** upstream pin (`config/upstream_pins.yaml`). A 12-character prefix is for log lines
 only and is labelled as a prefix wherever it is shown. `hardware_profile` is part of the id because the id names the
