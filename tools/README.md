@@ -69,3 +69,11 @@ recorded. It is allowed only while the text on the claim's line says OBSERVED-NO
 ## `compare_option_b_wrapper.sh`
 
 The byte-level comparison of option B's wrapper against `upstream/main` that the PR body cites.
+
+## `count_ci_tests.py`: the test counts and zero-executed gate of the Model tests workflow
+
+Called by both jobs of `.github/workflows/model-tests.yml` after `verify_a6.sh` or `run_a7_regression.sh`; it changes neither script's exit status.
+It counts `<testcase>` elements in `build/<pkg>/test_results/<pkg>/*.xml` as discovered, skipped, executed (discovered minus skipped) and failed, and
+exits 1 when nothing executed (no result file, no case, or every case skipped), 2 when a result file cannot be read. `colcon test-result`'s total is
+discovered plus one entry per registered CTest test; the script prints both. `tests/test_count_ci_tests.py` covers the empty, all-skipped and mixed
+cases, and each job runs it before counting. CI bookkeeping only, not evidence of anything beyond the run it counts.

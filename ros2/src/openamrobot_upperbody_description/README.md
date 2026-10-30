@@ -304,7 +304,9 @@ fresh.
 | `a6` | every pull request, every push to `main` | `verify_a6.sh` headless (60 min limit) | `a6-evidence`: `evidence/<ts>_dev.json`, the test XML |
 | `a7` | on demand | Gazebo Harmonic from `rosdep`, headless server with software rendering; `run_a7_regression.sh` once (120 min limit) | `a7-evidence`: `evidence/<ts>_a7.json`, the test XML, the colcon logs |
 
-A job fails if its script exits non-zero (a `FAIL`, evidence that cannot be assembled, a dirty tree) or if it executed zero tests. To start A7:
+A job fails if its script exits non-zero (a `FAIL`, evidence that cannot be assembled, a dirty tree) or if no test case executed: nothing
+found, or every case skipped (`tools/count_ci_tests.py`). The job summary lists test cases per package as discovered / skipped / executed / failed;
+`colcon test-result` prints a larger total because it also counts each registered CTest test once, and the summary prints that sum too. To start A7:
 **Actions** tab, **Model tests**, **Run workflow** (pick the branch), or add the label `run-a7` to a pull request (it then runs again on every
 push while the label stays). The jobs use no secrets and reach no hardware endpoint.
 

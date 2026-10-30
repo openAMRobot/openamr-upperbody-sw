@@ -105,6 +105,11 @@ jobs:
           echo "$paths"
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y
 
+      - name: Self-test of the test counter
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m pytest -q -p no:cacheprovider ws/src/openamr-upperbody-sw/tools/tests/test_count_ci_tests.py
+
       - name: ROS, MoveIt and Gazebo package versions
         run: |
           dpkg-query -W -f='${Package} ${Version}\n' \
@@ -130,34 +135,15 @@ jobs:
           ros2 run openamrobot_upperbody_description verify_a6.sh
           echo "VERIFY_RC=$?" >> "$GITHUB_ENV"
 
+      # Counts test cases, not suite attributes: discovered, skipped, executed (discovered minus skipped) and failed. Zero executed
+      # fails the job (nothing found, or everything skipped). tools/count_ci_tests.py says how its total relates to colcon test-result's.
       - name: Test counts and evidence summary
         if: always()
         working-directory: ws
         run: |
-          python3 - openamrobot_upperbody_description openamrobot_upperbody_control openamrobot_upperbody_bringup <<'EOF'
-          import collections, glob, json, os, sys
-          import xml.etree.ElementTree as ET
-          tests = failures = errors = skipped = 0
-          for pkg in sys.argv[1:]:
-              for path in glob.glob(f"build/{pkg}/test_results/{pkg}/*.xml"):
-                  root = ET.parse(path).getroot()
-                  for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
-                      tests += int(suite.get("tests", 0)); failures += int(suite.get("failures", 0))
-                      errors += int(suite.get("errors", 0)); skipped += int(suite.get("skipped", 0))
-          lines = [f"### A6 (static+mock): tests {tests}, failures {failures}, errors {errors}, skipped {skipped}"]
-          for report in sorted(glob.glob("evidence/*_dev.json")):
-              data = json.load(open(report))
-              counts = collections.Counter(c["result"] for c in data["checks"])
-              lines.append(f"{os.path.basename(report)}: git {data['git_hash']}, evidence_class {data['evidence_class']}, "
-                           + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
-              lines += [f"- {c['id']} {c['result']}" for c in data["checks"] if c["result"] != "PASS"]
-          lines.append(f"verify_a6.sh exit status: {os.environ.get('VERIFY_RC', 'not run')}")
-          lines.append("CI results are A6 evidence only: not hardware, physical acceptance or safety evidence.")
-          print("\n".join(lines))
-          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
-          if tests == 0:
-              sys.exit("zero tests executed: a suite that runs no test fails")
-          EOF
+          python3 src/openamr-upperbody-sw/tools/count_ci_tests.py --label A6 --evidence-glob 'evidence/*_dev.json' \
+            --exit-status "${VERIFY_RC:-not run}" --summary "$GITHUB_STEP_SUMMARY" \
+            openamrobot_upperbody_description openamrobot_upperbody_control openamrobot_upperbody_bringup
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -252,6 +238,11 @@ jobs:
           echo "$paths"
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y
 
+      - name: Self-test of the test counter
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m pytest -q -p no:cacheprovider ws/src/openamr-upperbody-sw/tools/tests/test_count_ci_tests.py
+
       - name: ROS, MoveIt and Gazebo package versions
         run: |
           dpkg-query -W -f='${Package} ${Version}\n' \
@@ -278,35 +269,15 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x1024x24" ros2 run openamrobot_upperbody_bringup run_a7_regression.sh
           echo "A7_RC=$?" >> "$GITHUB_ENV"
 
+      # Counts test cases, not suite attributes: discovered, skipped, executed (discovered minus skipped) and failed. Zero executed
+      # fails the job (nothing found, or everything skipped). tools/count_ci_tests.py says how its total relates to colcon test-result's.
       - name: Test counts and evidence summary
         if: always()
         working-directory: ws
         run: |
-          python3 - openamrobot_upperbody_gazebo openamrobot_upperbody_moveit openamrobot_upperbody_bringup <<'EOF'
-          import collections, glob, json, os, sys
-          import xml.etree.ElementTree as ET
-          tests = failures = errors = skipped = 0
-          for pkg in sys.argv[1:]:
-              for path in glob.glob(f"build/{pkg}/test_results/{pkg}/*.xml"):
-                  root = ET.parse(path).getroot()
-                  for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
-                      tests += int(suite.get("tests", 0)); failures += int(suite.get("failures", 0))
-                      errors += int(suite.get("errors", 0)); skipped += int(suite.get("skipped", 0))
-          lines = [f"### A7 (simulation): tests {tests}, failures {failures}, errors {errors}, skipped {skipped}"]
-          for report in sorted(glob.glob("evidence/*_a7.json")):
-              data = json.load(open(report))
-              counts = collections.Counter(c["result"] for c in data["checks"])
-              lines.append(f"{os.path.basename(report)}: git {data['git_hash']}, evidence_class {data['evidence_class']}, "
-                           + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
-              lines += [f"- {c['id']} {c['result']}" for c in data["checks"] if c["result"] != "PASS"]
-          lines.append(f"run_a7_regression.sh exit status: {os.environ.get('A7_RC', 'not run')}")
-          lines.append("Hosted runner: no GPU, software rendering, slower than real time. CI results are A7 evidence only: "
-                       "not hardware, physical acceptance or safety evidence.")
-          print("\n".join(lines))
-          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
-          if tests == 0:
-              sys.exit("zero tests executed: a suite that runs no test fails")
-          EOF
+          python3 src/openamr-upperbody-sw/tools/count_ci_tests.py --label A7 --evidence-glob 'evidence/*_a7.json' \
+            --exit-status "${A7_RC:-not run}" --summary "$GITHUB_STEP_SUMMARY" \
+            openamrobot_upperbody_gazebo openamrobot_upperbody_moveit openamrobot_upperbody_bringup
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
