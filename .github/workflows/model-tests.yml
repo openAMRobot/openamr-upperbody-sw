@@ -1,0 +1,325 @@
+# SPDX-License-Identifier: MIT
+# Builds the combined model in ROS 2 Jazzy and runs A6 (static+mock) on every pull request and push to main, and A7
+# (simulation, Gazebo Harmonic, headless) on demand: Actions > Model tests > Run workflow, or the run-a7 label on a PR.
+# CI results are A6 or A7 evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+# Workspace: ws/src/openamr-upperbody-sw (this repo), ws/src/openamr-platform-sw (platform pin), and the upstream pins of
+# config/upstream_pins.yaml under ws/src/upstream/, where C02 compares them with the pins.
+name: Model tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PLATFORM_PIN_DEFAULT: dfd44a55457bf5c2d4f81966b862a0865fd52aca
+  PINS_FILE: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml
+  PACKAGES: >-
+    openamrobot_upperbody_description openamrobot_upperbody_control openamrobot_upperbody_gazebo
+    openamrobot_upperbody_moveit openamrobot_upperbody_bringup
+
+jobs:
+  a6:
+    name: a6 (static+mock)
+    # A label added to the PR is not a code change; only run-a7 acts on it (job a7).
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'labeled')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    concurrency:
+      group: model-tests-a6-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PINS_FILE" "$PLATFORM_PIN_DEFAULT" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          values = {"openarm_description": pins["openarm_description"], "openarm_ros2": pins["openarm_ros2"],
+                    "platform": pins.get("openamr_platform_sw", sys.argv[2])}
+          for key, value in values.items():
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      # The dependencies' build only (platform-sw and openarm packages), keyed on the three pins. This repository's packages
+      # are always built fresh, so I01 (installed package matches the source tree) never reads a cached install.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ws/build
+            ws/install
+            !ws/build/openamrobot_upperbody_*
+            !ws/install/openamrobot_upperbody_*
+          key: colcon-jazzy-${{ runner.os }}-platform-${{ steps.pins.outputs.platform }}-desc-${{ steps.pins.outputs.openarm_description }}-ros2-${{ steps.pins.outputs.openarm_ros2 }}
+
+      # rosdep reads the packages the build needs (colcon's --packages-up-to closure), not all of src: openarm_ros2's
+      # openarm_hardware needs openarm_can and platform-sw's robot packages need keys that are not in rosdep, and neither
+      # is part of the combined model (description README, Build). Test dependencies are included (rosdep's default).
+      - name: rosdep
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sudo apt-get update
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to $PACKAGES --paths-only)
+          echo "$paths"
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y
+
+      - name: ROS, MoveIt and Gazebo package versions
+        run: |
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|ros-core|rclcpp|rclpy|moveit|ros-gz|gz-|ros2-control|controller-manager|xacro|urdfdom)|gz-|libgz-sim)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: colcon build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          for p in $PACKAGES; do rm -rf "build/$p" "install/$p"; done
+          colcon build --packages-up-to $PACKAGES --event-handlers console_cohesion+
+
+      - name: verify_a6.sh
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set +e
+          ros2 run openamrobot_upperbody_description verify_a6.sh
+          echo "VERIFY_RC=$?" >> "$GITHUB_ENV"
+
+      - name: Test counts and evidence summary
+        if: always()
+        working-directory: ws
+        run: |
+          python3 - openamrobot_upperbody_description openamrobot_upperbody_control openamrobot_upperbody_bringup <<'EOF'
+          import collections, glob, json, os, sys
+          import xml.etree.ElementTree as ET
+          tests = failures = errors = skipped = 0
+          for pkg in sys.argv[1:]:
+              for path in glob.glob(f"build/{pkg}/test_results/{pkg}/*.xml"):
+                  root = ET.parse(path).getroot()
+                  for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
+                      tests += int(suite.get("tests", 0)); failures += int(suite.get("failures", 0))
+                      errors += int(suite.get("errors", 0)); skipped += int(suite.get("skipped", 0))
+          lines = [f"### A6 (static+mock): tests {tests}, failures {failures}, errors {errors}, skipped {skipped}"]
+          for report in sorted(glob.glob("evidence/*_dev.json")):
+              data = json.load(open(report))
+              counts = collections.Counter(c["result"] for c in data["checks"])
+              lines.append(f"{os.path.basename(report)}: git {data['git_hash']}, evidence_class {data['evidence_class']}, "
+                           + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+              lines += [f"- {c['id']} {c['result']}" for c in data["checks"] if c["result"] != "PASS"]
+          lines.append(f"verify_a6.sh exit status: {os.environ.get('VERIFY_RC', 'not run')}")
+          lines.append("CI results are A6 evidence only: not hardware, physical acceptance or safety evidence.")
+          print("\n".join(lines))
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
+          if tests == 0:
+              sys.exit("zero tests executed: a suite that runs no test fails")
+          EOF
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: a6-evidence
+          path: |
+            ws/evidence/
+            ws/build/openamrobot_upperbody_*/test_results/
+            versions.txt
+          if-no-files-found: warn
+
+      - name: Result
+        run: |
+          echo "verify_a6.sh exit status: $VERIFY_RC (0 pass, 1 a check FAILed, 2 no evidence, 3 dirty tree)"
+          exit "$VERIFY_RC"
+
+  a7:
+    name: a7 (simulation)
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-a7') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'run-a7'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PINS_FILE" "$PLATFORM_PIN_DEFAULT" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          values = {"openarm_description": pins["openarm_description"], "openarm_ros2": pins["openarm_ros2"],
+                    "platform": pins.get("openamr_platform_sw", sys.argv[2])}
+          for key, value in values.items():
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ws/build
+            ws/install
+            !ws/build/openamrobot_upperbody_*
+            !ws/install/openamrobot_upperbody_*
+          key: colcon-jazzy-${{ runner.os }}-platform-${{ steps.pins.outputs.platform }}-desc-${{ steps.pins.outputs.openarm_description }}-ros2-${{ steps.pins.outputs.openarm_ros2 }}
+
+      # Gazebo Harmonic comes from rosdep (ros_gz_sim, gz_ros2_control). xvfb and Mesa give the headless server a software
+      # OpenGL context for its rendering-based sensors; they are runner tools, not dependencies of the packages.
+      - name: rosdep
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to $PACKAGES --paths-only)
+          echo "$paths"
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y
+
+      - name: ROS, MoveIt and Gazebo package versions
+        run: |
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|ros-core|rclcpp|rclpy|moveit|ros-gz|gz-|ros2-control|controller-manager|xacro|urdfdom)|gz-|libgz-sim)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: colcon build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          for p in $PACKAGES; do rm -rf "build/$p" "install/$p"; done
+          colcon build --packages-up-to $PACKAGES --event-handlers console_cohesion+
+
+      - name: run_a7_regression.sh (once)
+        working-directory: ws
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set +e
+          xvfb-run -a -s "-screen 0 1280x1024x24" ros2 run openamrobot_upperbody_bringup run_a7_regression.sh
+          echo "A7_RC=$?" >> "$GITHUB_ENV"
+
+      - name: Test counts and evidence summary
+        if: always()
+        working-directory: ws
+        run: |
+          python3 - openamrobot_upperbody_gazebo openamrobot_upperbody_moveit openamrobot_upperbody_bringup <<'EOF'
+          import collections, glob, json, os, sys
+          import xml.etree.ElementTree as ET
+          tests = failures = errors = skipped = 0
+          for pkg in sys.argv[1:]:
+              for path in glob.glob(f"build/{pkg}/test_results/{pkg}/*.xml"):
+                  root = ET.parse(path).getroot()
+                  for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
+                      tests += int(suite.get("tests", 0)); failures += int(suite.get("failures", 0))
+                      errors += int(suite.get("errors", 0)); skipped += int(suite.get("skipped", 0))
+          lines = [f"### A7 (simulation): tests {tests}, failures {failures}, errors {errors}, skipped {skipped}"]
+          for report in sorted(glob.glob("evidence/*_a7.json")):
+              data = json.load(open(report))
+              counts = collections.Counter(c["result"] for c in data["checks"])
+              lines.append(f"{os.path.basename(report)}: git {data['git_hash']}, evidence_class {data['evidence_class']}, "
+                           + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+              lines += [f"- {c['id']} {c['result']}" for c in data["checks"] if c["result"] != "PASS"]
+          lines.append(f"run_a7_regression.sh exit status: {os.environ.get('A7_RC', 'not run')}")
+          lines.append("Hosted runner: no GPU, software rendering, slower than real time. CI results are A7 evidence only: "
+                       "not hardware, physical acceptance or safety evidence.")
+          print("\n".join(lines))
+          open(os.environ["GITHUB_STEP_SUMMARY"], "a").write("\n".join(lines) + "\n")
+          if tests == 0:
+              sys.exit("zero tests executed: a suite that runs no test fails")
+          EOF
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: a7-evidence
+          path: |
+            ws/evidence/
+            ws/build/openamrobot_upperbody_*/test_results/
+            ws/log/
+            versions.txt
+          if-no-files-found: warn
+
+      - name: Result
+        run: |
+          echo "run_a7_regression.sh exit status: $A7_RC (0 pass, 1 a check FAILed or NOT_RUN, 2 no evidence, 3 dirty tree)"
+          exit "$A7_RC"
