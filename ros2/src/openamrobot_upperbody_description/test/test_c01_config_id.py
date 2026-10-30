@@ -160,7 +160,7 @@ def test_c01_the_lift_stop_is_a_calibration_id_and_not_an_input():
     import inspect
     assert "stop" not in str(inspect.signature(pci.config_id)) and "stop" not in str(inspect.signature(pci.config_id_of))
     assert not [k for k in ev.ROW_KEYS if "lift" in k or "stop" in k or k == "mast_id"]  # decision-allow: CONFIG-IDS negative test: mast_id must be absent or rejected
-    out = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",
+    out = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",
                "hardware_profile:=mock", "lift_stop:=L1350")
     assert out.returncode != 0 and "unrecognised argument" in out.stderr
 
@@ -239,7 +239,7 @@ def _run(*args):
 
 
 def test_c01_command_prints_exactly_the_full_id_and_matches_the_function():
-    result = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",
+    result = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",
                   "hardware_profile:=mock", "--upstream-commit", COMMIT)
     assert result.returncode == 0, result.stderr
     # the command reads every OTHER pin from the workspace, so the library call does too
@@ -250,7 +250,7 @@ def test_c01_command_prints_exactly_the_full_id_and_matches_the_function():
 
 
 def test_c01_command_labels_the_short_form_as_a_prefix():
-    result = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",
+    result = _run("column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",
                   "hardware_profile:=mock", "--upstream-commit", COMMIT, "--explain")
     assert result.returncode == 0, result.stderr
     full = result.stdout.strip().split(":")[1]
@@ -258,13 +258,13 @@ def test_c01_command_labels_the_short_form_as_a_prefix():
 
 
 @pytest.mark.parametrize("args,needle", [
-    (["column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm"],
+    (["column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm"],
      "missing: hardware_profile:=..."),
-    (["column:=dold_v4_350", "base_plate:=bp100", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",
+    (["column:=dold_v4_350", "base_plate:=bp100", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",
       "hardware_profile:=mock"], "Accepted values"),
-    (["column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",
+    (["column:=dold_v4_350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",
       "hardware_profile:=mock", "bogus:=1"], "unrecognised argument"),
-    (["mast_id:=mast_1350", "base_plate:=bp000", "head_pitch:=hp25", "base_tilt:=bt10", "arm_package:=openarm",  # decision-allow: CONFIG-IDS negative test: mast_id must be absent or rejected
+    (["mast_id:=mast_1350", "base_plate:=bp000", "head_pitch:=hp30", "base_tilt:=bt10", "arm_package:=openarm",  # decision-allow: CONFIG-IDS negative test: mast_id must be absent or rejected
       "hardware_profile:=mock", "column:=dold_v4_350"], "unrecognised argument"),
 ])
 def test_c01_command_fails_loudly_on_bad_input(args, needle):
