@@ -215,6 +215,10 @@ def git_dirty(path):
 
 
 def upstream_checkout(workspace, name):
+    # Model tests checks the platform out beside this repository, not under src/upstream/.
+    # Keep its metadata key unchanged while comparing the checkout that actually feeds the model.
+    if name == "openamr_platform_sw":
+        return os.path.join(workspace, "src", "openamr-platform-sw")
     return os.path.join(workspace, UPSTREAM_DIR, name)
 
 
