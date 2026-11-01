@@ -292,11 +292,13 @@ jobs:
 
       # V01 RViz captures: the six V01 configurations (L1000, L1175, L1350 x bp000, bp050), the mock MoveIt stack with RViz2 on a virtual display,
       # one window capture each (evidence/renders/rviz/capture_rviz.py, run in place). Pictures for a person to look at: not A6 or A7 evidence,
-      # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only).
+      # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only). Bounded twice so a hung
+      # capture cannot run the job into its 120-minute limit before Result: `timeout` ends the script at 40 min (each shot takes about 3 to 4 min,
+      # at most about 5), timeout-minutes ends the step at 45; the upload below then keeps whatever shots and logs exist.
       - name: V01 RViz captures (pictures, not evidence)
-        timeout-minutes: 15
         if: always()
         continue-on-error: true
+        timeout-minutes: 45
         working-directory: ws
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
@@ -306,13 +308,15 @@ jobs:
           source install/setup.bash
           Xvfb :0 -screen 0 1600x1200x24 > xvfb_captures.log 2>&1 &
           sleep 3
-          DISPLAY=:0 python3 src/openamr-upperbody-sw/evidence/renders/rviz/capture_rviz.py v01_rviz_captures
+          DISPLAY=:0 timeout --kill-after=60s 40m python3 src/openamr-upperbody-sw/evidence/renders/rviz/capture_rviz.py v01_rviz_captures
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: v01-rviz-captures
-          path: ws/v01_rviz_captures/
+          path: |
+            ws/v01_rviz_captures/
+            ws/xvfb_captures.log
           if-no-files-found: warn
 
       - name: Result

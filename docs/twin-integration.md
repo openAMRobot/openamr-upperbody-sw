@@ -1,6 +1,6 @@
 # Full robot twin — Proposed integration, 1 November 2026
 
-The twin normally merges official equipment PR #26 (`4316ef09bb6117b12c6a84482538047896b6847c`) into the tested descendant of PR #22. Both histories, including the complete PR #14 feature implementation, remain intact. One canonical combined Xacro consumes platform-sw through `config/upstream_pins.yaml`; OpenArm pins are unchanged. P-03 rev20.2 is in force.
+The twin normally merges official equipment PR #26 (equipment `4316ef09bb6117b12c6a84482538047896b6847c`, review follow-up `a0b2b279276d1aaec8afd637096069ba0ce59ac7`) into the tested descendant of PR #22. Both histories, including the complete PR #14 feature implementation, remain intact. One canonical combined Xacro consumes platform-sw through `config/upstream_pins.yaml`; OpenArm pins are unchanged. P-03 rev20.2 is in force.
 
 After building and sourcing the workspace, launch explicitly in simulation:
 
