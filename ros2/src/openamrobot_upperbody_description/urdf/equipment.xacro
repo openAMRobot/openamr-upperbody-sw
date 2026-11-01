@@ -71,6 +71,11 @@
     <xacro:property name="diameter" value="${dt['lift_sensor_diameter']['value']}"/>
     <xacro:property name="leg" value="${dt['lift_sensor_bracket_leg']['value']}"/>
     <xacro:property name="thick" value="${dt['lift_sensor_bracket_thickness']['value']}"/>
+    <xacro:property name="reach" value="${dt['lift_sensor_bracket_face_reach']['value']}"/>
+    <!-- Overall supplier reach includes the mounting sheet. Start the flat
+         sensor face above that sheet; otherwise its rectangular envelope
+         touches the column through the bend and creates a false collision. -->
+    <xacro:property name="span" value="${reach-thick}"/>
     <xacro:property name="bh" value="${dt['lift_sensor_bracket_height']['value']}"/>
     <xacro:property name="bx" value="${face + length - dt['lift_sensor_bracket_at']['value']}"/>
     <xacro:macro name="lift_stop_sensor" params="name z">
@@ -87,15 +92,15 @@
       </link>
       <joint name="${name}_joint" type="fixed">
         <parent link="${name}_bracket_face"/><child link="${name}"/>
-        <origin xyz="${face - bx + thick/2} ${ys-y0-leg/2} 0"/>
+        <origin xyz="${face - bx + thick/2} ${ys-y0-(reach+thick)/2} 0"/>
       </joint>
       <xacro:equipment_box name="${name}_bracket_mount" parent="lift_column_base_link"
           size="${[leg, thick, bh]}" xyz="${[bx-leg/2, y0+thick/2, z]}" rgba="0.55 0.56 0.57 1"/>
       <!-- Four rectangles leave a square aperture enclosing the supplier's
            12.2 mm bore. This collision approximation omits the bore's corners;
-           the surrounding 40 mm envelope remains the D8 drawing placeholder. -->
+           supplier outside dimensions are used; corner chamfers and slots are omitted. -->
       <xacro:property name="bore" value="${dt['lift_sensor_bracket_aperture']['value']}"/>
-      <xacro:property name="hy" value="${ys-y0-leg/2}"/>
+      <xacro:property name="hy" value="${ys-y0-(reach+thick)/2}"/>
       <link name="${name}_bracket_face">
         <xacro:macro name="aperture_piece" params="size xyz">
           <visual>
@@ -108,14 +113,14 @@
             <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
           </collision>
         </xacro:macro>
-        <xacro:aperture_piece size="${[thick,leg,(bh-bore)/2]}" xyz="${[0,0,(bh+bore)/4]}"/>
-        <xacro:aperture_piece size="${[thick,leg,(bh-bore)/2]}" xyz="${[0,0,-(bh+bore)/4]}"/>
-        <xacro:aperture_piece size="${[thick,leg/2+hy-bore/2,bore]}" xyz="${[0,(-leg/2+hy-bore/2)/2,0]}"/>
-        <xacro:aperture_piece size="${[thick,leg/2-hy-bore/2,bore]}" xyz="${[0,(leg/2+hy+bore/2)/2,0]}"/>
+        <xacro:aperture_piece size="${[thick,span,(bh-bore)/2]}" xyz="${[0,0,(bh+bore)/4]}"/>
+        <xacro:aperture_piece size="${[thick,span,(bh-bore)/2]}" xyz="${[0,0,-(bh+bore)/4]}"/>
+        <xacro:aperture_piece size="${[thick,span/2+hy-bore/2,bore]}" xyz="${[0,(-span/2+hy-bore/2)/2,0]}"/>
+        <xacro:aperture_piece size="${[thick,span/2-hy-bore/2,bore]}" xyz="${[0,(span/2+hy+bore/2)/2,0]}"/>
       </link>
       <joint name="${name}_bracket_face_joint" type="fixed">
         <parent link="${name}_bracket_mount"/><child link="${name}_bracket_face"/>
-        <origin xyz="${(leg-thick)/2} ${(leg-thick)/2} 0"/>
+        <origin xyz="${(leg-thick)/2} ${reach/2} 0"/>
       </joint>
     </xacro:macro>
     <xacro:lift_stop_sensor name="lift_stop_l1000_link" z="${dt['lift_sensor_z_l1000']['value']}"/>

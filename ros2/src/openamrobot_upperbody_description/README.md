@@ -357,3 +357,7 @@ Nothing in this package is a measured value or a hardware result. In particular:
   `JointStatePublisher` is scoped to the wheels, so on Gazebo `joint_state_publisher` reports it at zero and on mock a stub
   reports the operating point (`lift_position`).
 - **No physical evidence.** Static expansion and forward kinematics in this package's report; a simulator in the Gazebo report.
+
+### Selected equipment envelopes (1 November 2026)
+
+`datums.yaml` revision `2026-11-01.b` uses the selected manufacturer dimensions for the Falcon FLDL-i150x15-W and SICK BEF-WN-M12 / 5308447. Sources: [Falcon Rev 1.6, pp1–2](https://www.falconillumination.de/datasheet/FLDL-i150x15.pdf) and [SICK drawing, p2](https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf). These replace the roadmap's smaller light and oversized bracket illustration. The tablet-to-light edge gap remains 30 mm. Bracket corners/slots and the bore are simplified collision geometry, not fabrication drawings. M-09 still owns mounting placement, interfaces and portrait-tablet clearance. No dynamic lift controller is provided.

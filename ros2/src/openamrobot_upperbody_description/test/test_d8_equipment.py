@@ -49,3 +49,42 @@ def test_sensor_body_passes_through_the_bracket_aperture(stop):
         center = (poses[bracket] @ joint_origin(collision))[:3,3]
         size = np.array([float(v) for v in collision.find('geometry/box').get('size').split()])
         assert abs(axis[1]-center[1]) > size[1]/2+radius or abs(axis[2]-center[2]) > size[2]/2+radius
+
+
+def test_selected_falcon_housing_and_illumination_area_match_supplier_drawing():
+    """FLDL-i150x15-W Rev 1.6 p1/p2; reject the smaller roadmap envelope."""
+    root = expand()
+    housing = root.find("link[@name='head_light_link']/collision/geometry/box")
+    assert [float(v) for v in housing.get('size').split()] == pytest.approx([.020, .158, .0175])
+    window = root.find("link[@name='head_light_window_link']/visual/geometry/box")
+    assert [float(v) for v in window.get('size').split()][1:] == pytest.approx([.150, .015])
+    assert float(root.find("link[@name='head_light_link']/inertial/mass").get('value')) == .110
+    poses = zero_pose_poses(root)
+    tablet_bottom = poses['getac_tablet_link'][2, 3]-.1498/2
+    light_top = poses['head_light_link'][2, 3]+.0175/2
+    assert tablet_bottom-light_top == pytest.approx(.030)
+
+
+@pytest.mark.parametrize('stop', ['l1000', 'l1175', 'l1350'])
+def test_selected_sick_bracket_envelope_and_bore_location_match_supplier_drawing(stop):
+    """5308447 drawing p2: 30 mm width/foot, 26.5 mm face, 1.5 mm sheet, 15 mm bore datum."""
+    root = expand()
+    poses = zero_pose_poses(root)
+    mount = f'lift_stop_{stop}_link_bracket_mount'
+    face = f'lift_stop_{stop}_link_bracket_face'
+    size = [float(v) for v in root.find(f"link[@name='{mount}']/collision/geometry/box").get('size').split()]
+    assert size == pytest.approx([.030, .0015, .030])
+    lows, highs = [], []
+    for collision in root.findall(f"link[@name='{face}']/collision"):
+        center = (poses[face] @ joint_origin(collision))[:3, 3]
+        half = np.array([float(v) for v in collision.find('geometry/box').get('size').split()])/2
+        lows.append(center-half)
+        highs.append(center+half)
+    low, high = np.min(lows, axis=0), np.max(highs, axis=0)
+    assert high-low == pytest.approx([.0015, .0265-.0015, .030])
+    mount_low_y = poses[mount][1, 3]-.0015/2
+    assert low[1]-mount_low_y == pytest.approx(.0015)
+    assert high[1]-mount_low_y == pytest.approx(.0265)
+    sensor = poses[f'lift_stop_{stop}_link'][:3, 3]
+    assert sensor[1]-mount_low_y == pytest.approx(.015)
+    assert sensor[2] == pytest.approx((low[2]+high[2])/2)

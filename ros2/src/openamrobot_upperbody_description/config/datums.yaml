@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-11-01.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-01.b"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -182,28 +182,21 @@ datums:
     note: Roadmap static top is retracted column top minus COL.HEAD (12 mm) and 6 mm; retained as an illustration
       pending supplier CAD.
   head_light_size:
-    value:
-    - 0.02
-    - 0.158
-    - 0.017
+    value: [0.020, 0.158, 0.0175]
     source: supplier
     status: provisional
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 and BOM 7.14 component specification.'
+    ref: "Falcon FLDL-i150x15 Rev 1.6, mechanical table p1 and illumination area p2; selected -W variant in BOM 7.14. https://www.falconillumination.de/datasheet/FLDL-i150x15.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Envelope dimensions only; uniform-box inertia is an approximation.
-    axis_convention:
-      x: fore_aft
-      y: lateral
-      z: vertical
+    note: "Falcon FLDL-i150x15-W nominal housing envelope, depth x width x height; no optional mounting bracket. Supplier mass unchanged; uniform-box inertia remains approximate."
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
   head_light_z:
-    value: 0.1326
+    value: 0.13235
     source: placeholder
     status: placeholder
     ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
       (29 Oct 2026). Positions remain placeholders until M-09. '
     owner: M-09 mechanical owner / robot-description owner
-    note: Centre height above lift_carriage_link (retracted column top).
+    note: "Centre height above lift_carriage_link, derived from tablet centre 0.246 - tablet half-height 0.0749 - approved 0.030 gap - supplier light half-height 0.00875. This preserves the D8 30 mm edge gap with the corrected housing; mounting remains provisional."
   getac_tablet_size:
     value:
     - 0.0176
@@ -228,21 +221,19 @@ datums:
     owner: M-09 mechanical owner / robot-description owner
     note: Centre height above lift_carriage_link (retracted column top).
   head_light_window_width:
-    value: 0.148
+    value: 0.150
     source: supplier
     status: provisional
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. Falcon FLDL-i150x15 datasheet rev1.6.'
+    ref: "Falcon FLDL-i150x15 Rev 1.6, mechanical table p1 and illumination area p2; selected -W variant in BOM 7.14. https://www.falconillumination.de/datasheet/FLDL-i150x15.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Lit area width.
+    note: "Supplier illumination area width."
   head_light_window_height:
-    value: 0.013
+    value: 0.015
     source: supplier
     status: provisional
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. Falcon FLDL-i150x15 datasheet rev1.6.'
+    ref: "Falcon FLDL-i150x15 Rev 1.6, mechanical table p1 and illumination area p2; selected -W variant in BOM 7.14. https://www.falconillumination.de/datasheet/FLDL-i150x15.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Lit area height.
+    note: "Supplier illumination area height."
   head_light_mass:
     value: 0.11
     source: supplier
@@ -379,21 +370,19 @@ datums:
     owner: M-09 mechanical owner / robot-description owner
     note: Near lateral face offset from +y static column face.
   lift_sensor_bracket_leg:
-    value: 0.04
-    source: placeholder
-    status: placeholder
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    value: 0.030
+    source: supplier
+    status: provisional
+    ref: "SICK BEF-WN-M12 / 5308447, dimensional drawing p2, 2026-07-24; selected in BOM 7.14 LFT-003. https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Illustrative L bracket leg envelope.
+    note: "BEF-WN-M12 mounting leg length; mounting pose remains the D8 estimate."
   lift_sensor_bracket_thickness:
-    value: 0.004
-    source: placeholder
-    status: placeholder
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    value: 0.0015
+    source: supplier
+    status: provisional
+    ref: "SICK BEF-WN-M12 / 5308447, dimensional drawing p2, 2026-07-24; selected in BOM 7.14 LFT-003. https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Illustrative L bracket sheet thickness.
+    note: "Supplier sheet thickness."
   lift_sensor_bracket_at:
     value: 0.028
     source: placeholder
@@ -403,13 +392,12 @@ datums:
     owner: M-09 mechanical owner / robot-description owner
     note: Bracket offset from the rear of the sensor body.
   lift_sensor_bracket_height:
-    value: 0.025
-    source: placeholder
-    status: placeholder
-    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
-      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    value: 0.030
+    source: supplier
+    status: provisional
+    ref: "SICK BEF-WN-M12 / 5308447, dimensional drawing p2, 2026-07-24; selected in BOM 7.14 LFT-003. https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: Illustrative bracket height, not a supplied drawing dimension.
+    note: "Supplier bracket width along robot z for the provisional side-mounted orientation."
   lift_rod_corner_thickness:
     value: 0.003
     source: placeholder
@@ -454,6 +442,13 @@ datums:
     value: 0.0122
     source: supplier
     status: provisional
-    ref: "SICK BEF-WN-M12 5308447 data sheet, dimensional drawing page 2, 2026-07-24; https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
+    ref: "SICK BEF-WN-M12 / 5308447, dimensional drawing p2, 2026-07-24; selected in BOM 7.14 LFT-003. https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
     owner: M-09 mechanical owner / robot-description owner
-    note: "Supplier bore diameter. Collision uses a square opening around this bore; corner material omitted. Supplier bracket is 30 mm, 1.5 mm sheet, whereas LIFT-SNS-01 / roadmap draws 40 mm legs, 4 mm sheet: outer envelope stays provisional pending owner reconciliation."
+    note: "Supplier bore diameter. Four collision boxes leave a square aperture around the bore; rounded/chamfered corners and mounting slots are omitted, not manufacturing CAD."
+  lift_sensor_bracket_face_reach:
+    value: 0.0265
+    source: supplier
+    status: provisional
+    ref: "SICK BEF-WN-M12 / 5308447, dimensional drawing p2, 2026-07-24; https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
+    owner: M-09 mechanical owner / robot-description owner
+    note: "Sensor-carrying leg reach from the mounting face, along robot y in the provisional orientation; bore axis remains 15 mm from that face. Mount placement remains provisional until M-09."
