@@ -407,7 +407,7 @@ def classify(rows, margin):
     return failing, warned
 
 
-def evaluate_m07(raw_readings, expected, limits, margin, min_samples):
+def evaluate_m07(raw_readings, expected, limits, margin, min_samples, not_measured=()):
     """The whole M07 verdict from raw `/arm/joint_states` positions, as a pure function (the launch test records what it returns; P27).
 
     Order, and why: (1) split off the non-finite readings, (2) count coverage on the finite ones only, (3) take extrema and distances on the finite
@@ -419,7 +419,11 @@ def evaluate_m07(raw_readings, expected, limits, margin, min_samples):
     "valid_samples_per_joint", "problems"}."""
     valid, invalid = split_finite(raw_readings)
     coverage = coverage_problems(valid, expected, min_samples)
-    rows = rest_rows(valid, limits, margin)
+    # The joints M07 lists as not measured (`not_measured`, its NOT_MEASURED: lift_joint) are taken out BEFORE the margin is judged (owner
+    # decision, 1 Nov 2026: since issue #17 lift_joint is on /arm/joint_states, resting on its lower stop by construction). Only the margin
+    # judgement: their non-finite readings above still FAIL, and every other joint is judged exactly as before.
+    excluded = sorted(j for j in valid if j in set(not_measured))
+    rows = rest_rows({j: v for j, v in valid.items() if j not in set(not_measured)}, limits, margin)
     failing_rows, warned_rows = classify(rows, margin)
     incomplete = bool(coverage["missing"] or coverage["too_few_samples"])
     problems = []
@@ -442,6 +446,7 @@ def evaluate_m07(raw_readings, expected, limits, margin, min_samples):
         if warned:
             problems.append("joints at an upstream limit at rest (WARN): " + ", ".join(sorted(warned)))
     return {"result": result, "rows": rows, "failing_joints": failing, "warned_joints": warned, "coverage": coverage,
+            "not_measured_excluded_from_margin": excluded,
             "invalid_readings": invalid, "raw_samples_per_joint": {j: len(raw_readings.get(j, [])) for j in expected},
             "valid_samples_per_joint": {j: len(valid.get(j, [])) for j in expected}, "problems": problems}
 
