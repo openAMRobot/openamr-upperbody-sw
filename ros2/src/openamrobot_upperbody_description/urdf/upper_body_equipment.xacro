@@ -16,6 +16,8 @@
     Moving (below lift_joint):
       arm_profile_link  -> getac_tablet_link       Getac ZX80, landscape, screen forward, rear face on the profile front face
                         -> head_light_link         Falcon FLDL-i150x15-W, top edge head_light_gap_below_tablet below the tablet
+      head_camera_link (option B's frame)          Stereolabs ZED Mini body box, pitched with the frame
+      head_camera_mount_link -> head_camera_bracket_link   placeholder for the OpenArm-supplied mount, profile top to lens line
       adapter_plate_link -> lift_flag_rod_link     MISUMI 20 x 20 rod hanging from the plate underside (frame at its top end)
                             -> lift_flag_link      SS400 flag, lift_flag_gap from the sensor faces
     Static (children of lift_column_base_link):
@@ -50,6 +52,23 @@
       <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}" rpy="0 0 0"/>
       <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
     </collision>
+  </xacro:macro>
+
+  <!-- Stereolabs ZED Mini body on head_camera_link (option B's frame on the lens line, pitched by head_pitch), so the box pitches with it:
+       datums head_camera_size (x along the optical axis, y across, z up in head_camera_link), head_camera_body_x_from_lens_line, head_camera_mass.
+       Called by openamrobot_upperbody.xacro inside its head_camera_link when the combined robot passes the datums. -->
+  <xacro:macro name="openamrobot_head_camera_body" params="datums">
+    <xacro:property name="cam" lazy_eval="false" value="${datums['datums']['head_camera_size']['value']}"/>
+    <xacro:property name="cam_x" lazy_eval="false" value="${datums['datums']['head_camera_body_x_from_lens_line']['value']}"/>
+    <xacro:property name="cam_m" lazy_eval="false" value="${datums['datums']['head_camera_mass']['value']}"/>
+    <inertial>
+      <origin xyz="${cam_x} 0 0" rpy="0 0 0"/>
+      <mass value="${cam_m}"/>
+      <inertia ixx="${cam_m * (cam[1] * cam[1] + cam[2] * cam[2]) / 12}" ixy="0" ixz="0"
+               iyy="${cam_m * (cam[0] * cam[0] + cam[2] * cam[2]) / 12}" iyz="0"
+               izz="${cam_m * (cam[0] * cam[0] + cam[1] * cam[1]) / 12}"/>
+    </inertial>
+    <xacro:openamrobot_equipment_box name="placeholder_head_camera_body" size="${cam}" xyz="${[cam_x, 0, 0]}"/>
   </xacro:macro>
 
   <xacro:macro name="openamrobot_upper_body_equipment" params="datums col geo">
@@ -146,6 +165,27 @@
     <xacro:openamrobot_lift_stop_sensor stop="l1000" z="${eq['lift_stop_sensor_z_l1000']['value']}"/>
     <xacro:openamrobot_lift_stop_sensor stop="l1175" z="${eq['lift_stop_sensor_z_l1175']['value']}"/>
     <xacro:openamrobot_lift_stop_sensor stop="l1350" z="${eq['lift_stop_sensor_z_l1350']['value']}"/>
+
+    <!-- ===== Head camera mount (moving): placeholder for the OpenArm-supplied mount between the camera and the arm-profile top. Its
+         dimensions are not stated by any supplier; the values are the docs model's drawing (datums head_camera_bracket_*, placeholder). A foot
+         plate on the profile top and a post up to the lens line. It hangs from head_camera_mount_link (the pivot on the lens line, no geometry),
+         so it is the camera body's structural neighbour: the drawn post reaches into the pitched body. Frame: foot plate underside centre. ===== -->
+    <xacro:property name="arm_mount" lazy_eval="false" value="${geo['arm_mount']}"/>
+    <xacro:property name="lens_z" lazy_eval="false" value="${arm_mount['z_above_column_top'] + geo['head_camera_lens']['z_above_arm_mount']}"/>
+    <xacro:property name="profile_top" lazy_eval="false" value="${plate_t + profile['length']}"/>
+    <xacro:property name="foot" lazy_eval="false" value="${eq['head_camera_bracket_foot_size']['value']}"/>
+    <xacro:property name="post" lazy_eval="false" value="${eq['head_camera_bracket_post_section']['value']}"/>
+    <link name="head_camera_bracket_link">
+      <xacro:openamrobot_equipment_box name="placeholder_head_camera_bracket_foot" size="${foot}" xyz="${[0, 0, foot[2] / 2]}"/>
+      <xacro:openamrobot_equipment_box name="placeholder_head_camera_bracket_post" size="${[post[0], post[1], lens_z - profile_top]}"
+                                       xyz="${[0, 0, (lens_z - profile_top) / 2]}"/>
+    </link>
+    <xacro:openamrobot_placeholder_gazebo_material link="head_camera_bracket_link"/>
+    <joint name="head_camera_bracket_joint" type="fixed">
+      <parent link="head_camera_mount_link"/>
+      <child link="head_camera_bracket_link"/>
+      <origin xyz="${-eq['head_camera_bracket_x_behind_lens']['value']} 0 ${profile_top - lens_z}" rpy="0 0 0"/>
+    </joint>
 
     <!-- ===== Flag rod and flag (moving), hanging from the adapter plate underside ===== -->
     <xacro:property name="flag" lazy_eval="false" value="${eq['lift_flag_size']['value']}"/>

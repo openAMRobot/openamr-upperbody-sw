@@ -34,9 +34,9 @@ groups:
     note: "A vendor nominal, not verified by us and not a measurement of the arms we will buy."
   sensors:
     state: placeholder
-    source: "none: the upper-sensor frames carry no <inertial> by design, so the modelled mass of the cameras is zero"
+    source: "none for the wrist cameras: their frames carry no <inertial> by design. The head camera (head_camera_link) carries datum head_camera_mass, 0.0629 kg, the ZED Mini datasheet figure, read second-hand (1 Nov 2026)"
     owner: "A6 (this repo)"
-    note: "Zero is a figure chosen so the model expands, so this group is a placeholder until the cameras are weighed."
+    note: "Zero is a figure chosen so the model expands, so this group is a placeholder until the cameras are weighed. The head camera's datasheet mass was not read first-hand (the Stereolabs pages were not reachable), so it does not lift the group out of placeholder."
   equipment:
     state: external_nominal
     source: "datums getac_tablet_mass (Getac ZX80, 0.590 kg) and head_light_mass (Falcon FLDL-i150x15-W, at most 0.110 kg): supplier figures, each on a uniform box of its datum size (P-03 item 24)"
@@ -46,4 +46,4 @@ groups:
     state: placeholder
     source: none
     owner: "A6 (this repo)"
-    note: "P-03 item 24 parts with no stated mass carry no <inertial>, so their modelled mass is zero: second_estop_link, lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link (sensors and brackets), lift_flag_rod_link, lift_flag_link."
+    note: "P-03 item 24 parts with no stated mass carry no <inertial>, so their modelled mass is zero: second_estop_link, lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link (sensors and brackets), lift_flag_rod_link, lift_flag_link, head_camera_bracket_link."

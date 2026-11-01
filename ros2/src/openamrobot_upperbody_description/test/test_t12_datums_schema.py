@@ -296,6 +296,14 @@ def _getac_tablet_portrait_size_assertion(tmp_path):
     assert _box(root, "getac_tablet_link", "collision") == pytest.approx(tuple(land)), "the drawn tablet is the landscape box"
 
 
+def _head_camera_bracket_post_section_assertion(tmp_path):
+    """x fore-aft first, y lateral second, on the mount post's box; its height is derived (lens line minus profile top), not this datum."""
+    x, y = 0.031, 0.057
+    root = _expansion_with("head_camera_bracket_post_section", (x, y), tmp_path)
+    box = root.find("link[@name='head_camera_bracket_link']/collision[@name='placeholder_head_camera_bracket_post']/geometry/box")
+    assert tuple(float(v) for v in box.get("size").split())[:2] == pytest.approx((x, y))
+
+
 # one entry per dimension list in datums.yaml: how the xacro consumes it, asserted against an expansion. A list with no entry here
 # FAILS (test_t12_every_dimension_list_has_its_assignment_asserted): a pair of dimensions whose axes are only a note in prose is
 # the V01-F1 defect (the 90 degree mast profile, wrong for six steps and not seen by one test).
@@ -310,7 +318,11 @@ AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_
                                                                         "placeholder_second_estop_collar"),
                    "second_estop_contact_block_size": _equipment_box_assertion("second_estop_contact_block_size", "second_estop_link",
                                                                                "placeholder_second_estop_contact_block"),
-                   "lift_flag_size": _equipment_box_assertion("lift_flag_size", "lift_flag_link", "placeholder_lift_flag")}
+                   "lift_flag_size": _equipment_box_assertion("lift_flag_size", "lift_flag_link", "placeholder_lift_flag"),
+                   "head_camera_size": _equipment_box_assertion("head_camera_size", "head_camera_link", "placeholder_head_camera_body"),
+                   "head_camera_bracket_foot_size": _equipment_box_assertion("head_camera_bracket_foot_size", "head_camera_bracket_link",
+                                                                             "placeholder_head_camera_bracket_foot"),
+                   "head_camera_bracket_post_section": _head_camera_bracket_post_section_assertion}
 AXES_BY_LENGTH = {2: ("x", "y"), 3: ("x", "y", "z")}
 
 

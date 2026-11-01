@@ -24,7 +24,7 @@ import subprocess
 import sys
 import tempfile
 
-MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link"]
+MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link", "head_camera_link", "head_camera_bracket_link"]
 BASE_PLATES = ["bp000", "bp050"]
 ORIENTATIONS = ["landscape", "portrait"]
 PIVOT_ASSUMPTION = ("portrait box centred where the landscape box is centred (pivot not stated: datum getac_tablet_portrait_pivot is null); "
@@ -123,7 +123,7 @@ def main(argv=None):
     print(f"portrait: {PIVOT_ASSUMPTION}")
     for result in results:
         print(f"\n{result['orientation']} {result['base_plate']}: tablet box {result['tablet_box']}, {result['pairs_checked']} pairs "
-              f"(4 moving equipment links x {len(result['arm_links'])} arm links)")
+              f"({len(MOVING_EQUIPMENT)} moving equipment links x {len(result['arm_links'])} arm links)")
         for row in result["rows"]:
             hits = ", ".join(f"{a} <-> {b}" for a, b in row["colliding"]) or "none"
             other = ", ".join(f"{a} <-> {b}" for a, b in row["other_links_colliding"]) or "none"

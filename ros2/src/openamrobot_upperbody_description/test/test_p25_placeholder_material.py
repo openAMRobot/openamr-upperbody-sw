@@ -22,7 +22,9 @@ from conftest import MATRIX, expand, expand_xml
 LINKS = ["lift_column_base_link", "lift_carriage_link", "adapter_plate_link", "arm_profile_link",
          # P-03 item 24 equipment (upper_body_equipment.xacro): placeholder geometry in the column's placeholder material
          "getac_tablet_link", "head_light_link", "second_estop_link", "lift_stop_sensor_l1000_link", "lift_stop_sensor_l1175_link",
-         "lift_stop_sensor_l1350_link", "lift_flag_rod_link", "lift_flag_link"]
+         "lift_stop_sensor_l1350_link", "lift_flag_rod_link", "lift_flag_link",
+         # the ZED Mini body on option B's head_camera_link and the OpenArm mount placeholder (1 Nov 2026)
+         "head_camera_link", "head_camera_bracket_link"]
 MATERIAL = "placeholder_geometry"
 
 
