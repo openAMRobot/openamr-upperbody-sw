@@ -5,19 +5,20 @@ The test lists every named pose and joint with its margin (printed, smallest fir
 joint below 0.05 rad, at both base plates. The rule is in rad: lift_joint's states are the calibration stops L1000 / L1175 / L1350 and two of
 them ARE the ends of the stroke (register ARM-MOUNT, CONFIG-IDS), so the lift is listed with its margin in m and is not held to it.
 
-KEPT_ON_A_LIMIT names the named-pose joints that another recorded decision and its check pin ON a limit, each with that check. They are not
-moved here, because moving them means changing that check (M05, or ADR-007's import comparison) and that is not this test's to decide;
-`test_the_exceptions_are_exactly_the_joints_below_the_margin` fails if one of them is moved off its limit (a stale entry) or if any other
-joint falls below the margin. They are reported in the pull request for issue #17 as the part of its acceptance that is not met."""
+EXEMPT names the named-pose joints that stay ON a limit by owner decision (Alex Reznichenko, 1 Nov 2026), each with its reason and ADR:
+upstream `home` (joint 4 = 0, both arms; ADR-007, the imported pose equals upstream's) and the gripper `open` / `closed` states (both hands;
+ADR-009 point 5, M05). Any other revolute pose and joint below 0.05 rad fails, and so does a stale exemption
+(`test_the_exemptions_are_exactly_the_joints_below_the_margin`)."""
 import pytest
 
 from conftest import BASE_PLATES, srdf_text, urdf_text
 from openamrobot_upperbody_moveit.named_poses import MIN_POSE_MARGIN_RAD, below_margin, pose_margins, read_group_states, urdf_joint_limits, urdf_joint_types
 
-UPSTREAM_HOME = "upstream's `home`, imported verbatim (ADR-007; test_srdf_import.py compares it with openarm_ros2 @ the pin): joint4 at its lower limit 0"
-M05_OPEN = "M05 / ADR-009 point 5 (test_gripper_sign.py): `open` is the end both hands' finger ranges share, 0"
-M05_CLOSED = "M05 / ADR-009 point 5 (test_gripper_sign.py): `closed` is each hand's own far limit"
-KEPT_ON_A_LIMIT = {
+OWNER = "owner decision, Alex Reznichenko, 1 Nov 2026"
+UPSTREAM_HOME = f"ADR-007: upstream's `home`, imported verbatim (test_srdf_import.py compares it with openarm_ros2 @ the pin): joint4 at its lower limit 0 ({OWNER})"
+M05_OPEN = f"ADR-009 point 5 / M05 (test_gripper_sign.py): `open` is the end both hands' finger ranges share, 0 ({OWNER})"
+M05_CLOSED = f"ADR-009 point 5 / M05 (test_gripper_sign.py): `closed` is each hand's own far limit ({OWNER})"
+EXEMPT = {
     ("left_arm", "home", "openarm_left_joint4"): UPSTREAM_HOME,
     ("right_arm", "home", "openarm_right_joint4"): UPSTREAM_HOME,
     ("left_gripper", "open", "openarm_left_finger_joint1"): M05_OPEN,
@@ -35,25 +36,32 @@ def margins(base_plate="bp000"):
 def table(rows):
     return "\n".join(f"  {r['group']:<13} {r['pose']:<9} {r['joint']:<28} {r['value']:+.4f} {r['unit']:<3} margin "
                      + (f"{r['margin']:+.4f} {r['unit']}" if r["margin"] is not None else "NO LIMIT")
-                     + (f"   kept on a limit: {KEPT_ON_A_LIMIT[(r['group'], r['pose'], r['joint'])]}"
-                        if (r["group"], r["pose"], r["joint"]) in KEPT_ON_A_LIMIT else "") for r in rows)
+                     + (f"   exempt: {EXEMPT[(r['group'], r['pose'], r['joint'])]}"
+                        if (r["group"], r["pose"], r["joint"]) in EXEMPT else "") for r in rows)
 
 
 @pytest.mark.parametrize("base_plate", BASE_PLATES)
 def test_every_named_pose_joint_is_at_least_0_05_rad_inside_both_limits(base_plate):
     rows = margins(base_plate)
     print(f"\nnamed-pose margins at {base_plate}, smallest first (rule: >= {MIN_POSE_MARGIN_RAD} rad for revolute joints):\n{table(rows)}")
-    failing = [r for r in below_margin(rows) if (r["group"], r["pose"], r["joint"]) not in KEPT_ON_A_LIMIT]
+    failing = [r for r in below_margin(rows) if (r["group"], r["pose"], r["joint"]) not in EXEMPT]
     assert not failing, f"named-pose joints closer than {MIN_POSE_MARGIN_RAD} rad to a limit:\n{table(failing)}\n\nall:\n{table(rows)}"
-    gated = [r for r in rows if r["unit"] == "rad" and (r["group"], r["pose"], r["joint"]) not in KEPT_ON_A_LIMIT]
+    gated = [r for r in rows if r["unit"] == "rad" and (r["group"], r["pose"], r["joint"]) not in EXEMPT]
     assert gated and min(r["margin"] for r in gated) >= MIN_POSE_MARGIN_RAD
 
 
-def test_the_exceptions_are_exactly_the_joints_below_the_margin():
-    """No stale exception (a pinned joint moved off its limit must leave the list) and no silent new one."""
+def test_the_exemptions_are_exactly_the_joints_below_the_margin():
+    """No stale exemption (an exempt joint moved off its limit must leave the list) and no silent new one."""
     below = {(r["group"], r["pose"], r["joint"]) for r in below_margin(margins())}
-    assert below == set(KEPT_ON_A_LIMIT), {"below but not listed": sorted(below - set(KEPT_ON_A_LIMIT)),
-                                           "listed but not below": sorted(set(KEPT_ON_A_LIMIT) - below)}
+    assert below == set(EXEMPT), {"below but not listed": sorted(below - set(EXEMPT)),
+                                           "listed but not below": sorted(set(EXEMPT) - below)}
+
+
+def test_the_smallest_margin_over_the_non_exempt_poses():
+    rows = [r for r in margins() if r["unit"] == "rad" and (r["group"], r["pose"], r["joint"]) not in EXEMPT]
+    smallest = min(rows, key=lambda r: r["margin"])
+    print(f"\nsmallest non-exempt margin: {smallest['margin']:.4f} rad ({smallest['group']}/{smallest['pose']} {smallest['joint']})")
+    assert smallest["margin"] >= MIN_POSE_MARGIN_RAD
 
 
 def test_park_both_arms_park_and_hands_up_meet_the_margin():
