@@ -50,24 +50,32 @@ ros2 launch openamrobot_upperbody_bringup moveit.launch.py [base_plate:=bp000] [
 | Argument | Default | |
 |---|---|---|
 | `column`, `base_plate`, `head_pitch`, `base_tilt` | `dold_v4_350`, `bp000`, `hp30`, `bt10` | option B's configuration IDs (its baseline); `column:=tl3_400` does not expand (no supplier data) |
-| `lift_position` | `0.0` | `sim:=mock` only: the position (m) of `lift_joint` the stub reports; `0.0` / `0.175` / `0.350` are the calibration stops `L1000` / `L1175` / `L1350` |
-| `sim` | `mock` | `mock`: `mock.launch.py`, a stub for the wheel and lift joints, then `move_group`. `gazebo`: the gazebo package's `sim.launch.py`, then `move_group` on the simulator's clock |
+| `lift_position` | `0.0` | `sim:=mock` only: where `lift_controller` takes `lift_joint` after start-up (one trajectory from 0, sent only when non-zero; a viewing aid, not the A7 scenario); `0.0` / `0.175` / `0.350` are the calibration stops `L1000` / `L1175` / `L1350` |
+| `sim` | `mock` | `mock`: `mock.launch.py`, a stub for the wheel joints, then `move_group`. `gazebo`: the gazebo package's `sim.launch.py`, then `move_group` on the simulator's clock |
 | `rviz` | `false` | RViz2 with the MotionPlanning display (`openamrobot_upperbody_moveit/config/moveit.rviz`). With `sim:=gazebo` it replaces the simulator's own RViz |
 | `headless` | `false` | `sim:=gazebo` only: `true` runs `gz sim -s`, as the checks do |
 | `physics_engine` | empty | `sim:=gazebo` only, passed to `sim.launch.py`. Empty means that launch's own default, **DART**, on which a `closed` gripper pose may not close. Pass `gz-physics-bullet-featherstone-plugin` for the grippers to close (M02 does) |
 
-`base_joint_states_stub.py` publishes the base's two wheel joints at zero and `lift_joint` at `lift_position` on `/joint_states`, for
-`mock` only: neither the base nor the lift is under `ros2_control` (ADR-003; the lift is a joint we have no authority to command), so
-nothing there reports them, MoveIt would warn every second that the robot's state is incomplete, and `robot_state_publisher` publishes
-nothing above the lift. The base does not move during manipulation (AD-30), so zero is the true state of the wheels. The lift is not at
-zero by nature: its position is the operating point of the run (a calibration stop, a calibration ID and not a configuration ID). In
-Gazebo the wheel states come from the simulator and `lift_joint` from `joint_state_publisher`'s default, zero, which is the simulator's
-own resting state (the unactuated carriage sits on its lower limit) but is not read from the physics.
+`base_joint_states_stub.py` publishes the base's two wheel joints at zero on `/joint_states`, for `mock` only: the base is not under
+`ros2_control` (ADR-003), so nothing there reports them and MoveIt would warn every second that the robot's state is incomplete. The base
+does not move during manipulation (AD-30), so zero is the true state of the wheels. In Gazebo the wheel states come from the simulator.
+
+**The lift is a planned joint in the simulated profiles (issue #17).** In `mock` and `gazebo`, `lift_joint` has its own `ros2_control`
+system (a position command interface; DOLD V4 limits 800 N and 0.018 m/s, register LIFT), `lift_controller` (a
+JointTrajectoryController) is spawned after `joint_state_broadcaster` with the arm controllers, and MoveIt plans it in group `lift`
+(named states `L1000`, `L1175`, `L1350`: calibration stops, not configuration IDs). Its state starts at 0 (`L1000`) and comes from
+`joint_state_broadcaster`, in Gazebo from the physics. The `real` profile has no command or state interface for the lift: the lift node
+firmware owns it (CTL-017), and the register LIFT rule (lift motion only in the stowed or carry pose with the base stopped) is enforced
+there, not here.
 
 ## A7 tests
 
-`test/test_m01_mock_named_poses.py` (**M01**, once per lift stop `L1000`, `L1175`, `L1350`: 3 runs, the stub's `lift_position` set from
-the stop) and `test/test_m02_gazebo_named_poses.py` (**M02**, the baseline, lift at `L1000`)
+`test/test_m01_mock_named_poses.py` (**M01**, once per lift stop `L1000`, `L1175`, `L1350`: 3 runs) and
+`test/test_m02_gazebo_named_poses.py` (**M02**, the baseline, lift at `L1000`) run scenario S8 with the lift planned (issue #17,
+`a7_support.run_s8`): both arms to `park` (group `both_arms`), the lift PLANNED from `L1000` to the run's stop (from `L1000` to `L1000` it goes
+to `L1175` and back), the twelve poses there, then the lift planned back to `L1000`. A lift goal is sent only between the stops and only with
+both arms reading `park`: the register LIFT rule as scenario design, not an interlock. Every lift and park move must succeed too (lift final
+error under 2 mm). Then they
 send every SRDF named pose to `move_group` (both arms: `hands_up`, `home`, `hands_up`, `park`; both grippers: `closed`, `open`, each with its
 own value), which plans and executes through the trajectory execution manager into the real controllers, and require a **final joint error
 under 0.01 rad** after a one second settle. The record (a sidecar per run) holds every pose's outcome, planning and wall time and error, and
@@ -92,6 +100,7 @@ evidence cannot be assembled; 0 otherwise. `A7_M01_STOPS=L1000,L1350` reduces M0
 ## Not here
 
 - The Gazebo launch alone is `ros2 launch openamrobot_upperbody_gazebo sim.launch.py` (the simulator and the base are started there).
-- No lift controller: the lift is option B's prismatic joint, with effort 0 and velocity 0, and nothing here commands it.
+- No lift controller for the `real` profile: there the lift is option B's prismatic joint with effort 0 and velocity 0 and no interface;
+  the lift node firmware owns it (CTL-017). `lift_controller` exists for `mock` and `gazebo` only (issue #17).
 
 See [`openamrobot_upperbody_description`](../openamrobot_upperbody_description/README.md).

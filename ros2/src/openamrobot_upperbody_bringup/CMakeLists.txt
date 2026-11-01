@@ -32,13 +32,15 @@ if(BUILD_TESTING)
   add_launch_test(test/test_l01_mock_controllers.py TIMEOUT 60)
   # M01 (A7): every named pose plans and executes on mock through move_group, once per lift calibration stop (option B's L1000, L1175,
   # L1350: positions of lift_joint, not configuration IDs). Each run starts the whole mock stack in its own ROS_DOMAIN_ID (see the test)
-  # and records its own sidecar.
+  # and records its own sidecar. Since issue #17 each run also PLANS the lift to its stop and back (at most 0.35 m each way at half the
+  # DOLD no-load speed, about 40 s of motion each way), so the budget is 480 s, not 240.
   foreach(stop L1000 L1175 L1350)
-    add_launch_test(test/test_m01_mock_named_poses.py TARGET m01_mock_${stop} ARGS "lift_stop:=${stop}" TIMEOUT 240)
+    add_launch_test(test/test_m01_mock_named_poses.py TARGET m01_mock_${stop} ARGS "lift_stop:=${stop}" TIMEOUT 480)
   endforeach()
-  # M02: the same in Gazebo at the baseline configuration (lift_joint at its default zero, L1000). It starts a headless Gazebo server and
-  # picks its own ROS_DOMAIN_ID and GZ_PARTITION, like G01 and G02; startup alone is about a minute, so the budget is large.
-  add_launch_test(test/test_m02_gazebo_named_poses.py TARGET m02_gazebo_L1000 TIMEOUT 600)
+  # M02: the same in Gazebo at the baseline configuration (L1000), the lift planned to L1175 and back first (issue #17). It starts a headless
+  # Gazebo server and picks its own ROS_DOMAIN_ID and GZ_PARTITION, like G01 and G02; startup alone is about a minute, and the two lift moves
+  # are about 20 s of simulated time each, so the budget is 900 s (600 before the lift was planned).
+  add_launch_test(test/test_m02_gazebo_named_poses.py TARGET m02_gazebo_L1000 TIMEOUT 900)
   # M07 (P17): at rest in Gazebo no joint sits within the joint_rest_margin_rad datum of a limit. Starts its own headless server like M02,
   # on its own domain and partition; FAILs by design while the right finger rests on its open limit.
   add_launch_test(test/test_m07_rest_position_margin.py TARGET m07_rest_position_margin TIMEOUT 300)

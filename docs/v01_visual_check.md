@@ -43,10 +43,12 @@ running), RViz would draw two models and `/tf` would carry two sources. A separa
 this run to itself.
 
 That opens the Gazebo window and RViz beside it (fixed frame `odom`, RobotModel and TF displays). The first start takes about a
-minute; wait until `ros2 control list_controllers` in another terminal shows five controllers `active`.
+minute; wait until `ros2 control list_controllers` in another terminal shows six controllers `active` (the five arm and gripper ones and
+`lift_controller`, issue #17).
 
-For items 1 to 4 the lift has to be moved, and in the simulator nothing moves it (no controller, effort 0). Use the model viewer, whose
-`joint_state_publisher_gui` has a slider for `lift_joint`:
+For items 1 to 4 the lift has to be moved. In the simulator `lift_controller` moves it (plan group `lift` to `L1175` or `L1350` in RViz's
+MotionPlanning panel with both arms in `park`, item 8's setup), or use the model viewer, whose `joint_state_publisher_gui` has a slider for
+`lift_joint`:
 
     ros2 launch openamrobot_upperbody_bringup view.launch.py base_plate:=bp000
 
@@ -57,7 +59,8 @@ For item 8 (MoveIt) start MoveIt with RViz instead, which opens the MotionPlanni
     ros2 launch openamrobot_upperbody_bringup moveit.launch.py sim:=gazebo rviz:=true physics_engine:=gz-physics-bullet-featherstone-plugin
 
 (same `ROS_DOMAIN_ID` and `GZ_PARTITION` as above; `physics_engine` is passed so a gripper pose can close: the launch's own default is DART,
-where it may not. `sim:=mock rviz:=true lift_position:=0.175` shows the same preview with no Gazebo window and the lift at its middle stop.)
+where it may not. `sim:=mock rviz:=true lift_position:=0.175` shows the same preview with no Gazebo window, `lift_controller` taking the lift to its middle
+stop after start-up.)
 
 ## Items
 
@@ -101,7 +104,7 @@ Look at both windows for each item. Gazebo shows what the physics built; RViz sh
    Planning tab, set the Goal State to `hands_up`, press **Plan** and then **Execute**. Record the final `openarm_left_joint4`
    (**1.5**, within 0.01) of the real robot (the Gazebo window, and the Scene Robot in RViz), and that the Scene Robot's
    `openarm_left_ee_base_link` and the real one's differ by **less than 0.01 m** (`tf2_echo`). Repeat with `right_arm`, then `home` and
-   `park` (`park` is a placeholder copy of `home`: its joint values should be identical to `home`'s), then the grippers
+   `park` (`park` is a placeholder: `home` with joint 4 at **0.1** instead of 0, off its lower limit, issue #17), then the grippers
    (`left_gripper` / `right_gripper`, `closed` at **+0.7854 / -0.7854** and `open` at 0: the two hands take opposite-signed values).
    *If RViz says "Planning failed" right after the arm has been at `home`:* that should not happen any more. In Gazebo `home` sets elbow
    joint 4 exactly on its lower limit (0) and the simulator reads it a hair past it, which MoveIt refuses; `move_group` plans from a

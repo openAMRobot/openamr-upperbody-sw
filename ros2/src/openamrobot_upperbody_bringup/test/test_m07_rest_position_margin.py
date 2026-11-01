@@ -38,8 +38,8 @@ simulated time. For every joint with limits the result keeps the lowest and high
 The margin is a datum, `joint_rest_margin_rad` in datums.yaml, with its source and status there: not a literal here. The test reads it from the
 installed description package and records the value it used.
 
-What it does not cover, said so in the sidecar and never silently skipped: `lift_joint` (not under ros2_control; its state is
-joint_state_publisher's default zero, which is its lower stop by construction, so there is no physics rest position to read) and the wheels
+What it does not cover, said so in the sidecar and never silently skipped: `lift_joint` (prismatic, in m; it rests on its
+lower stop L1000 by construction, held there by lift_controller since issue #17, and the rad margin datum is not a margin for it) and the wheels
 (continuous, no limits).
 
 `simulation` class: how this model rests in this simulator on this machine. It says nothing about a physical robot or its limits.
@@ -81,8 +81,9 @@ MIN_SAMPLES_PER_JOINT = 50    # the same, per expected joint: a joint read fewer
 DATUM = "joint_rest_margin_rad"
 EXPECTED_PROCESSES = ["gazebo", "robot_state_publisher", "parameter_bridge", "create", "joint_state_publisher", "spawner"]
 NOT_MEASURED = {
-    "lift_joint": "not under ros2_control: its state is joint_state_publisher's default zero (= its lower stop L1000 by construction), "
-                          "not a physics reading, so there is no rest position of the simulator to compare with its limits",
+    "lift_joint": "a prismatic joint (m) whose rest is its lower stop L1000 by construction: the stroke's end and a calibration stop, where "
+                  "lift_controller holds it (under ros2_control in the simulated profiles since issue #17). The margin datum is in rad and is "
+                  "for the revolute joints, so there is no rest margin of the lift to compare with it",
 }
 
 

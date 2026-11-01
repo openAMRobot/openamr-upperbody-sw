@@ -26,6 +26,29 @@ ARM_SEQUENCE = ("hands_up", "home", "hands_up", "park")
 GRIPPER_SEQUENCE = ("closed", "open")
 
 
+# The lift (issue #17, S8 with the lift planned). lift_joint is a planned joint in the simulated profiles: MoveIt group `lift`, lift_controller.
+# Every run moves it ONLY between the calibration stops (the SRDF's L1000 / L1175 / L1350) and ONLY with both arms in `park`: the register LIFT
+# rule (lift motion only in the stowed or carry pose with the base stopped) as scenario design. It is not an interlock: on the robot the rule is
+# the lift node firmware's (CTL-017), and nothing here is a safety function. A lift goal is not sent unless the arms READ `park` (within
+# TOLERANCE) just before it; a run that cannot show that FAILs instead.
+LIFT_GROUP = "lift"
+BOTH_ARMS_GROUP = "both_arms"
+PARK = "park"
+LIFT_JOINT = "lift_joint"
+LIFT_CONTROLLER = "lift_controller"
+LIFT_STOPS = ("L1000", "L1175", "L1350")
+LIFT_TOLERANCE_M = 0.002        # m: the final lift_joint error a lift move must stay under (A7 scenario, simulation only)
+LIFT_RESULT_TIMEOUT_S = 300.0   # s for one lift move: 0.175 m at half the DOLD no-load speed is about 20 s of the node's clock
+
+
+def lift_route(stop, start="L1000"):
+    """The calibration stops the lift visits to reach `stop` from `start`, each one a planned move: never a stop it is already at, and from
+    L1000 to L1000 the lift goes to L1175 and back, so every run plans and executes the lift at least twice (once up, once down)."""
+    if stop not in LIFT_STOPS or start not in LIFT_STOPS:
+        raise ValueError(f"lift stop {stop!r} / {start!r}: accepted {', '.join(LIFT_STOPS)}")
+    return ["L1175", "L1000"] if stop == start == "L1000" else ([stop] if stop != start else [])
+
+
 def description_scripts():
     from ament_index_python.packages import get_package_prefix
     path = os.path.join(get_package_prefix("openamrobot_upperbody_description"), "lib", "openamrobot_upperbody_description")
@@ -68,13 +91,47 @@ def run_sequence(client, plan, result_timeout=120.0, start_wait=60.0):
     """Plan and execute every pose through move_group; return (rows, failures, start). A row is one pose: the outcome, the largest joint
     error after settling, and whether it is under TOLERANCE. `start` records the wait for a valid start state (see
     MoveGroupClient.wait_inside_limits) and what it saw, so the start-up transient is on the record."""
-    inside, transient = client.wait_inside_limits(controlled_limits(), start_wait, tolerance=EPSILON)
-    start = {"start_state_inside_limits": inside, "out_of_limit_readings_seen_while_waiting":
-             [{"joint": j, "value": v, "lower": lo, "upper": hi} for j, v, lo, hi in transient]}
-    rows, failures = [], []
+    inside, start = start_gate(client, start_wait)
     if not inside:
-        failures.append(f"the joint states never stayed inside the URDF limits for 1 s within {start_wait:.0f} s: {start}")
-        return rows, failures, start
+        return [], [f"the joint states never stayed inside the URDF limits for 1 s within {start_wait:.0f} s: {start}"], start
+    rows, failures = run_poses(client, plan, result_timeout)
+    return rows, failures, start
+
+
+def start_gate(client, start_wait=60.0):
+    """(inside, record): wait for a valid start state (MoveGroupClient.wait_inside_limits) and say what was seen on the way."""
+    inside, transient = client.wait_inside_limits(controlled_limits(), start_wait, tolerance=EPSILON)
+    return inside, {"start_state_inside_limits": inside, "out_of_limit_readings_seen_while_waiting":
+                    [{"joint": j, "value": v, "lower": lo, "upper": hi} for j, v, lo, hi in transient]}
+
+
+def run_s8(client, stop, plan, result_timeout=120.0, start_wait=60.0):
+    """S8 with the lift planned (issue #17), one run at calibration stop `stop`: the start gate, both arms to `park`, the lift planned from L1000
+    to `stop` (lift_route), the named-pose sequence `plan` at that stop (unchanged: twelve poses, the arms end in `park`), then the lift planned
+    back to L1000 when it is not there. -> (pose rows, lift record, failures, start). Lift goals are sent only with the arms reading `park`."""
+    inside, start = start_gate(client, start_wait)
+    if not inside:
+        return [], lift_scenario_record([]), [f"the joint states never stayed inside the URDF limits for 1 s within {start_wait:.0f} s: {start}"], start
+    moves, failures = [], []
+    row, failure = park_both_arms(client)
+    moves.append(row)
+    if failure:
+        return [], lift_scenario_record(moves), [failure], start
+    lift_rows, failures = move_lift(client, lift_route(stop))
+    moves += lift_rows
+    if failures:
+        return [], lift_scenario_record(moves), failures, start
+    rows, failures = run_poses(client, plan, result_timeout)
+    if stop != "L1000":
+        back, back_failures = move_lift(client, ["L1000"])
+        moves += back
+        failures += back_failures
+    return rows, lift_scenario_record(moves), failures, start
+
+
+def run_poses(client, plan, result_timeout=120.0):
+    """Plan and execute every pose of `plan` through move_group. -> (rows, failures)."""
+    rows, failures = [], []
     for group, pose, goal in plan:
         outcome = client.move(group, goal, execute=True, velocity_scaling=VELOCITY_SCALING,
                               acceleration_scaling=ACCELERATION_SCALING, result_timeout=result_timeout)
@@ -85,7 +142,68 @@ def run_sequence(client, plan, result_timeout=120.0, start_wait=60.0):
                      "final_max_joint_error_rad": round(error, 5), "under_tolerance": bool(error < TOLERANCE), "ok": ok})
         if not ok:
             failures.append(f"{group}/{pose}: {outcome.name}, final error {error:.4f} rad (limit {TOLERANCE})")
-    return rows, failures, start
+    return rows, failures
+
+
+def park_goal():
+    states = read_group_states(open(srdf_path()).read())
+    return states[(BOTH_ARMS_GROUP, PARK)]
+
+
+def lift_goal(stop):
+    return read_group_states(open(srdf_path()).read())[(LIFT_GROUP, stop)]
+
+
+def _lift_row(client, group, pose, goal, outcome, tolerance):
+    client.settle(SETTLE_SECONDS)
+    error = client.max_error(goal) if all(j in client.joint_states for j in goal) else float("nan")
+    ok = outcome is not None and outcome.success and error < tolerance
+    return {"group": group, "pose": pose, "goal": {j: round(v, 4) for j, v in goal.items()},
+            **(outcome.as_dict() if outcome is not None else {"accepted": False, "error_name": "NOT_SENT"}),
+            "final_max_joint_error": round(error, 5), "tolerance": tolerance, "under_tolerance": bool(error < tolerance), "ok": ok}
+
+
+def park_both_arms(client):
+    """Both arms to `park` in one plan (group both_arms). -> (row, failure or None)."""
+    goal = park_goal()
+    outcome = client.move(BOTH_ARMS_GROUP, goal, execute=True, velocity_scaling=VELOCITY_SCALING, acceleration_scaling=ACCELERATION_SCALING,
+                          result_timeout=120.0)
+    row = _lift_row(client, BOTH_ARMS_GROUP, PARK, goal, outcome, TOLERANCE)
+    return row, None if row["ok"] else f"{BOTH_ARMS_GROUP}/{PARK}: {row['error_name']}, final error {row['final_max_joint_error']} (limit {TOLERANCE})"
+
+
+def move_lift(client, stops):
+    """Plan and execute the lift through `stops` (calibration stops), each only after the arms read `park`. -> (rows, failures). A lift goal
+    whose precondition does not hold is not sent: its row says NOT_SENT and the run fails (scenario design, not an interlock)."""
+    rows, failures, park = [], [], park_goal()
+    for stop in stops:
+        arms_error = client.max_error(park) if all(j in client.joint_states for j in park) else float("nan")
+        goal = lift_goal(stop)
+        if not arms_error < TOLERANCE:
+            row = _lift_row(client, LIFT_GROUP, stop, goal, None, LIFT_TOLERANCE_M)
+            row["arms_in_park_error_rad"] = round(arms_error, 5)
+            rows.append(row)
+            failures.append(f"{LIFT_GROUP}/{stop}: not sent, the arms are not in `park` (largest error {arms_error:.4f} rad)")
+            break
+        outcome = client.move(LIFT_GROUP, goal, execute=True, velocity_scaling=VELOCITY_SCALING, acceleration_scaling=ACCELERATION_SCALING,
+                              result_timeout=LIFT_RESULT_TIMEOUT_S)
+        row = _lift_row(client, LIFT_GROUP, stop, goal, outcome, LIFT_TOLERANCE_M)
+        row["arms_in_park_error_rad"] = round(arms_error, 5)
+        rows.append(row)
+        if not row["ok"]:
+            failures.append(f"{LIFT_GROUP}/{stop}: {row['error_name']}, final error {row['final_max_joint_error']} m (limit {LIFT_TOLERANCE_M})")
+            break
+    return rows, failures
+
+
+def lift_scenario_record(rows):
+    """The lift part of a run, for the sidecar: every planned lift and both-arms move, and the counts."""
+    lift = [r for r in rows if r["group"] == LIFT_GROUP]
+    return {"rule": "lift moves only between the calibration stops, with both arms in `park` (register LIFT, as scenario design; on the robot "
+                    "the lift node firmware enforces it, CTL-017: this is not an interlock)",
+            "moves": rows, "lift_moves_run": len(lift), "lift_moves_ok": sum(1 for r in lift if r["ok"]),
+            "moves_run": len(rows), "moves_ok": sum(1 for r in rows if r["ok"]),
+            "worst_lift_final_error_m": max((r["final_max_joint_error"] for r in lift), default=None)}
 
 
 CLAMP_DIAGNOSTIC_LABEL = ("DIAGNOSTIC ONLY: gates nothing. P16 measured 646-1054 activations inside one unchanged configuration, so a count "
@@ -135,6 +253,7 @@ def clamp_record(client):
 
 
 ARM_CONTROLLERS = ("joint_state_broadcaster", "left_arm_controller", "right_arm_controller", "left_gripper_controller", "right_gripper_controller")
+SIM_CONTROLLERS = ARM_CONTROLLERS + (LIFT_CONTROLLER,)      # what M01 and M02 wait for since issue #17: the five above and lift_controller
 CONTROLLERS_ACTIVE_WITHIN_S = 120.0     # wall s from the call; the controller manager of a headless server is up in 10-25 s on this machine
 
 
