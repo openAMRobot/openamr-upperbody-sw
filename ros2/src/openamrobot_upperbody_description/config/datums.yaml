@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-10-30.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-01.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -153,3 +153,307 @@ datums:
     ref: "M07 (VERIFICATION.md, rev19.0 pass, 14 Oct 2026): no joint's rest position may sit within this many radians of either of its limits. Chosen from what was measured in P17 (evidence/m02_bisect/RESULTS.md, 'Finger torque at rest'): the rest position of one joint differs between runs of an unchanged tree by up to 2.8e-4 rad (left_finger_joint1; 9e-6 for the right finger), and the arm joint4s rest 9.3e-5 to 1.0e-4 inside their lower limit. A margin below the between-run scatter makes M07 pass in one run and fail in the next; 1e-3 is 3.6 times the largest scatter seen and about 0.057 degrees."
     owner: "architecture chat (M07) / Tushar"
     note: "A margin, not a hardware number: it feeds no model and no xacro (report_only). Replace it with a figure someone has a reason for (a joint's mechanical stop clearance, a controller deadband) when one exists. It is not tuned to any outcome: at 1e-3 the check FAILS on four joints (both finger_joint1 and both joint4), and it would fail the old body on the same four, because in both bodies the open and zero poses ARE limits. Changing the value changes M07's verdict and nothing else."
+
+  # P-03 rev20.1 D8 equipment. These datums supersede roadmap numbers as the implementation source.
+  second_estop_below_static_top:
+    value: 0.04
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Below the illustrated static profile cap; not a measured mount.
+  second_estop_panel_offset:
+    value: 0.048
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Rearward offset from static column rear face to button mounting plane; clearance for the existing contact-block
+      envelope.
+  static_column_cap_recess:
+    value: 0.018
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Roadmap static top is retracted column top minus COL.HEAD (12 mm) and 6 mm; retained as an illustration
+      pending supplier CAD.
+  head_light_size:
+    value:
+    - 0.02
+    - 0.158
+    - 0.017
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 and BOM 7.14 component specification.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Envelope dimensions only; uniform-box inertia is an approximation.
+    axis_convention:
+      x: fore_aft
+      y: lateral
+      z: vertical
+  head_light_z:
+    value: 0.1326
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Centre height above lift_carriage_link (retracted column top).
+  getac_tablet_size:
+    value:
+    - 0.0176
+    - 0.234
+    - 0.1498
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 and BOM 7.14 component specification.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Envelope dimensions only; uniform-box inertia is an approximation.
+    axis_convention:
+      x: fore_aft
+      y: lateral
+      z: vertical
+  getac_tablet_z:
+    value: 0.246
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Centre height above lift_carriage_link (retracted column top).
+  head_light_window_width:
+    value: 0.148
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Falcon FLDL-i150x15 datasheet rev1.6.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Lit area width.
+  head_light_window_height:
+    value: 0.013
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Falcon FLDL-i150x15 datasheet rev1.6.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Lit area height.
+  head_light_mass:
+    value: 0.11
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Falcon FLDL-i150x15 datasheet rev1.6.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Manufacturer catalogue mass; not weighed. Uniform-box inertia is an explicit approximation.
+  getac_tablet_mass:
+    value: 0.59
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Getac ZX80 product specification / BOM 7.14 UI-001.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Tablet only; dock, adapter and cable mass unknown and excluded, not silently counted twice.
+  lift_sensor_z_l1000:
+    value: 0.12
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 / LIFT-SNS-01 rev1.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Sensor axis height from lift_column_base_link.
+  lift_sensor_z_l1175:
+    value: 0.295
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 / LIFT-SNS-01 rev1.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Sensor axis height from lift_column_base_link.
+  lift_sensor_z_l1350:
+    value: 0.47
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. P-03 rev20.0 item 24 / LIFT-SNS-01 rev1.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Sensor axis height from lift_column_base_link.
+  lift_sensor_axis_offset:
+    value: 0.015
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Lateral offset outside the left (+y) static column face; the choice of side is illustrative.
+  lift_sensor_diameter:
+    value: 0.012
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: M12 sensor envelope diameter.
+  lift_sensor_length:
+    value: 0.048
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Sensor envelope length, including threaded body; connector/cable not modelled.
+  lift_sensor_face_x:
+    value: -0.095
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Sensor faces rearward (-x), in the static column frame.
+  lift_sensor_gap:
+    value: 0.002
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Air gap from steel flag to sensing face.
+  lift_flag_size:
+    value:
+    - 0.002
+    - 0.045
+    - 0.02
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: SS400 flag envelope, without the two mounting holes.
+    axis_convention:
+      x: fore_aft
+      y: lateral
+      z: vertical
+  lift_flag_y_offset:
+    value: 0.005
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Near lateral edge relative to the +y static column face.
+  lift_flag_below_plate:
+    value: 0.41
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Flag centre below plate underside at lift_carriage_link.
+  lift_flag_rod_width:
+    value: 0.02
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Nominal 20-square MISUMI extrusion envelope; no mass from arbitrary density.
+  lift_flag_rod_length:
+    value: 0.43
+    source: plan
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Hanging length from adapter underside; provisional until DOLD STEP.
+  lift_flag_rod_offset:
+    value: 0.03
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Near lateral face offset from +y static column face.
+  lift_sensor_bracket_leg:
+    value: 0.04
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Illustrative L bracket leg envelope.
+  lift_sensor_bracket_thickness:
+    value: 0.004
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Illustrative L bracket sheet thickness.
+  lift_sensor_bracket_at:
+    value: 0.028
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Bracket offset from the rear of the sensor body.
+  lift_sensor_bracket_height:
+    value: 0.025
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Illustrative bracket height, not a supplied drawing dimension.
+  lift_rod_corner_thickness:
+    value: 0.003
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. LIFT-SNS-01 rev1 / P-03 rev20.0 item 24 where applicable.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Roadmap corner bracket envelope thickness, illustration only.
+  head_camera_body_size:
+    value:
+    - 0.0265
+    - 0.1245
+    - 0.0305
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Stereolabs ZED Mini specification: https://docs.stereolabs.com/docs/products/cameras/zed/specifications'
+    owner: M-09 mechanical owner / robot-description owner
+    note: ZED Mini housing envelope, dimensions x depth, y width, z height.
+    axis_convention:
+      x: fore_aft
+      y: lateral
+      z: vertical
+  head_camera_body_x:
+    value: -0.013
+    source: placeholder
+    status: placeholder
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. '
+    owner: M-09 mechanical owner / robot-description owner
+    note: Illustrated housing centre relative to lens-line frame; vendor mounting CAD not yet aligned.
+  head_camera_body_mass:
+    value: 0.0629
+    source: supplier
+    status: provisional
+    ref: 'P-03 rev20.1 item 25 D8: import openamrobot-docs 7b038b544d62bfa5d41d3b746edc42f7686c9935 model/model.js
+      (29 Oct 2026). Positions remain placeholders until M-09. Stereolabs product specification (62.9 g); older 3D
+      models page says 60 g.'
+    owner: M-09 mechanical owner / robot-description owner
+    note: Manufacturer specification mass, camera only; no mount or cable. Uniform-box inertia is approximate.
+  lift_sensor_bracket_aperture:
+    value: 0.0122
+    source: supplier
+    status: provisional
+    ref: "SICK BEF-WN-M12 5308447 data sheet, dimensional drawing page 2, 2026-07-24; https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf"
+    owner: M-09 mechanical owner / robot-description owner
+    note: "Supplier bore diameter. Collision uses a square opening around this bore; corner material omitted. Supplier bracket is 30 mm, 1.5 mm sheet, whereas LIFT-SNS-01 / roadmap draws 40 mm legs, 4 mm sheet: outer envelope stays provisional pending owner reconciliation."

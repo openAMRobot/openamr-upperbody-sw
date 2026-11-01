@@ -271,8 +271,22 @@ def _adapter_plate_section_assertion(tmp_path):
 # one entry per dimension list in datums.yaml: how the xacro consumes it, asserted against an expansion. A list with no entry here
 # FAILS (test_t12_every_dimension_list_has_its_assignment_asserted): a pair of dimensions whose axes are only a note in prose is
 # the V01-F1 defect (the 90 degree mast profile, wrong for six steps and not seen by one test).
+def _equipment_section_assertion(datum, link):
+    def check(tmp_path):
+        # Distinct dimensions catch swapped axes; the consumer must use all three.
+        size = (0.011, 0.027, 0.043)
+        root = _expansion_with(datum, size, tmp_path)
+        for kind in ("visual", "collision"):
+            assert _box(root, link, kind) == pytest.approx(size)
+    return check
+
+
 AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_inner_section": _lift_inner_section_assertion,
-                   "adapter_plate_section": _adapter_plate_section_assertion}
+                   "adapter_plate_section": _adapter_plate_section_assertion,
+                   "getac_tablet_size": _equipment_section_assertion("getac_tablet_size", "getac_tablet_link"),
+                   "head_camera_body_size": _equipment_section_assertion("head_camera_body_size", "head_camera_housing_link"),
+                   "head_light_size": _equipment_section_assertion("head_light_size", "head_light_link"),
+                   "lift_flag_size": _equipment_section_assertion("lift_flag_size", "lift_flag_link")}
 AXES_BY_LENGTH = {2: ("x", "y"), 3: ("x", "y", "z")}
 
 

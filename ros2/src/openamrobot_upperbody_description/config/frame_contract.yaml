@@ -137,6 +137,45 @@ entries:
   - {name: openarm_right_ee_link2, kind: link, type: revolute, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description"}
   - {name: openarm_right_grasp_frame, kind: link, type: fixed, parent: openarm_right_ee_base_link, req: C, condition: "arm_package == openarm", owner: "upstream: enactic/openarm_description", note: "Emitted with emit_grasp_frame:=true. Not validated as the OpenAMRobot TCP (A13)."}
 
+  # D8 equipment geometry: Proposed additive frame declarations, pending owner adoption.
+  # Existing control/sensor/optical frames and their parents are unchanged.
+  - {name: getac_tablet_link, kind: link, type: fixed, parent: arm_profile_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: getac_tablet_link_joint, kind: joint, type: fixed, parent: arm_profile_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: head_light_link, kind: link, type: fixed, parent: arm_profile_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: head_light_link_joint, kind: joint, type: fixed, parent: arm_profile_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: head_light_window_link, kind: link, type: fixed, parent: head_light_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority", collision_free: true, collision_free_reason: "Visual diffuser marker only"}
+  - {name: head_light_window_joint, kind: joint, type: fixed, parent: head_light_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: second_estop_link, kind: link, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: second_estop_joint, kind: joint, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: head_camera_housing_link, kind: link, type: fixed, parent: head_camera_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: head_camera_housing_link_joint, kind: joint, type: fixed, parent: head_camera_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link, kind: link, type: fixed, parent: lift_stop_l1000_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link_joint, kind: joint, type: fixed, parent: lift_stop_l1000_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link_bracket_mount, kind: link, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link_bracket_mount_joint, kind: joint, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link_bracket_face, kind: link, type: fixed, parent: lift_stop_l1000_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1000_link_bracket_face_joint, kind: joint, type: fixed, parent: lift_stop_l1000_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link, kind: link, type: fixed, parent: lift_stop_l1175_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link_joint, kind: joint, type: fixed, parent: lift_stop_l1175_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link_bracket_mount, kind: link, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link_bracket_mount_joint, kind: joint, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link_bracket_face, kind: link, type: fixed, parent: lift_stop_l1175_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1175_link_bracket_face_joint, kind: joint, type: fixed, parent: lift_stop_l1175_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link, kind: link, type: fixed, parent: lift_stop_l1350_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link_joint, kind: joint, type: fixed, parent: lift_stop_l1350_link_bracket_face, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link_bracket_mount, kind: link, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link_bracket_mount_joint, kind: joint, type: fixed, parent: lift_column_base_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link_bracket_face, kind: link, type: fixed, parent: lift_stop_l1350_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_stop_l1350_link_bracket_face_joint, kind: joint, type: fixed, parent: lift_stop_l1350_link_bracket_mount, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_flag_rod_link, kind: link, type: fixed, parent: lift_rod_corner_side_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_flag_rod_link_joint, kind: joint, type: fixed, parent: lift_rod_corner_side_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_flag_link, kind: link, type: fixed, parent: lift_flag_rod_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_flag_link_joint, kind: joint, type: fixed, parent: lift_flag_rod_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_rod_corner_top_link, kind: link, type: fixed, parent: adapter_plate_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_rod_corner_top_link_joint, kind: joint, type: fixed, parent: adapter_plate_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_rod_corner_side_link, kind: link, type: fixed, parent: lift_rod_corner_top_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+  - {name: lift_rod_corner_side_link_joint, kind: joint, type: fixed, parent: lift_rod_corner_top_link, req: R, condition: null, owner: "upperbody description owner", note: "Proposed D8 geometry frame; no control authority"}
+
 # Not ours, not checked: another owner's contract, consumed here (see the header). Alex, 12 Oct 2026 (P-03 rev19.0, register
 # NEAR-FIELD-FRAMES): "take them from there, do not declare your own". The layout is 4 x MaxBotix MB7060 ultrasonic and 2 x TF-Luna
 # cliff sensors, the reverse of the 7 Oct counts; platform-sw declares them in 935efc7 (Alex decision 2026-10-12, STEP MMP.00.00.00.000),

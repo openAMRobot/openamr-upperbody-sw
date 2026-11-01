@@ -1,0 +1,141 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- P-03 rev20.1 item 25 D8. Provisional envelopes/positions, never a fabrication release.
+     Numeric engineering values live in datums.yaml. The button geometry belongs to platform-sw. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find openamrobot_description)/urdf/component_geometry.xacro"/>
+
+  <xacro:macro name="equipment_box" params="name parent size xyz rgba mass:=0">
+    <link name="${name}">
+      <visual>
+        <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
+        <material name="${name}_finish"><color rgba="${rgba}"/></material>
+      </visual>
+      <collision><geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry></collision>
+      <xacro:if value="${mass > 0}">
+        <!-- Uniform-box approximation using a supplier mass, never mesh volume times arbitrary density. -->
+        <inertial>
+          <mass value="${mass}"/>
+          <inertia ixx="${mass*(size[1]**2+size[2]**2)/12}" ixy="0" ixz="0"
+                   iyy="${mass*(size[0]**2+size[2]**2)/12}" iyz="0"
+                   izz="${mass*(size[0]**2+size[1]**2)/12}"/>
+        </inertial>
+      </xacro:if>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="${parent}"/><child link="${name}"/>
+      <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:macro name="openamr_equipment" params="datums upperbody column">
+    <xacro:property name="dt" value="${datums['datums']}"/>
+    <xacro:property name="profile" value="${upperbody['geometry']['arm_profile']}"/>
+    <xacro:property name="front" value="${profile['center_x_from_column_axis'] + profile['size_x']/2}"/>
+    <xacro:property name="section" value="${dt['lift_column_section']['value']}"/>
+    <xacro:property name="h" value="${upperbody['column'][column]['retracted_length']}"/>
+    <xacro:property name="tablet" value="${dt['getac_tablet_size']['value']}"/>
+    <xacro:property name="light" value="${dt['head_light_size']['value']}"/>
+    <xacro:equipment_box name="getac_tablet_link" parent="arm_profile_link" size="${tablet}"
+        xyz="${[profile['size_x']/2 + tablet[0]/2, 0, dt['getac_tablet_z']['value'] - upperbody['geometry']['adapter_plate_thickness'] - profile['length']/2]}" rgba="0.05 0.06 0.07 1"
+        mass="${dt['getac_tablet_mass']['value']}"/>
+    <xacro:equipment_box name="head_light_link" parent="arm_profile_link" size="${light}"
+        xyz="${[profile['size_x']/2 + light[0]/2, 0, dt['head_light_z']['value'] - upperbody['geometry']['adapter_plate_thickness'] - profile['length']/2]}" rgba="0.6 0.62 0.65 1"
+        mass="${dt['head_light_mass']['value']}"/>
+    <!-- Visualization constant: thickness of the material marker over the housing face; it affects only a visual. -->
+    <xacro:property name="openamr_light_window_thickness" value="0.001"/>
+    <link name="head_light_window_link">
+      <visual>
+        <geometry><box size="${openamr_light_window_thickness} ${dt['head_light_window_width']['value']} ${dt['head_light_window_height']['value']}"/></geometry>
+        <material name="light_diffuser"><color rgba="0.91 0.94 0.95 1"/></material>
+      </visual>
+    </link>
+    <joint name="head_light_window_joint" type="fixed">
+      <parent link="head_light_link"/><child link="head_light_window_link"/>
+      <origin xyz="${light[0]/2} 0 0"/>
+    </joint>
+    <link name="second_estop_link"><xacro:openamr_estop_geometry/></link>
+    <joint name="second_estop_joint" type="fixed">
+      <parent link="lift_column_base_link"/><child link="second_estop_link"/>
+      <origin xyz="${-section[0]/2 - dt['second_estop_panel_offset']['value']} 0 ${h - dt['static_column_cap_recess']['value'] - dt['second_estop_below_static_top']['value']}" rpy="0 0 ${pi}"/>
+    </joint>
+    <xacro:equipment_box name="head_camera_housing_link" parent="head_camera_link"
+        size="${dt['head_camera_body_size']['value']}" xyz="${[dt['head_camera_body_x']['value'], 0, 0]}"
+        rgba="0.05 0.05 0.06 1" mass="${dt['head_camera_body_mass']['value']}"/>
+
+    <!-- Three fixed M12 sensors; moving flag/rod. No lift controller or electronic switching model. -->
+    <xacro:property name="y0" value="${section[1]/2}"/>
+    <xacro:property name="ys" value="${y0 + dt['lift_sensor_axis_offset']['value']}"/>
+    <xacro:property name="face" value="${dt['lift_sensor_face_x']['value']}"/>
+    <xacro:property name="length" value="${dt['lift_sensor_length']['value']}"/>
+    <xacro:property name="diameter" value="${dt['lift_sensor_diameter']['value']}"/>
+    <xacro:property name="leg" value="${dt['lift_sensor_bracket_leg']['value']}"/>
+    <xacro:property name="thick" value="${dt['lift_sensor_bracket_thickness']['value']}"/>
+    <xacro:property name="bh" value="${dt['lift_sensor_bracket_height']['value']}"/>
+    <xacro:property name="bx" value="${face + length - dt['lift_sensor_bracket_at']['value']}"/>
+    <xacro:macro name="lift_stop_sensor" params="name z">
+      <link name="${name}">
+        <visual>
+          <origin xyz="${length/2} 0 0" rpy="0 ${pi/2} 0"/>
+          <geometry><cylinder radius="${diameter/2}" length="${length}"/></geometry>
+          <material name="sensor_steel"><color rgba="0.55 0.56 0.57 1"/></material>
+        </visual>
+        <collision>
+          <origin xyz="${length/2} 0 0" rpy="0 ${pi/2} 0"/>
+          <geometry><cylinder radius="${diameter/2}" length="${length}"/></geometry>
+        </collision>
+      </link>
+      <joint name="${name}_joint" type="fixed">
+        <parent link="${name}_bracket_face"/><child link="${name}"/>
+        <origin xyz="${face - bx + thick/2} ${ys-y0-leg/2} 0"/>
+      </joint>
+      <xacro:equipment_box name="${name}_bracket_mount" parent="lift_column_base_link"
+          size="${[leg, thick, bh]}" xyz="${[bx-leg/2, y0+thick/2, z]}" rgba="0.55 0.56 0.57 1"/>
+      <!-- Four rectangles leave a square aperture enclosing the supplier's
+           12.2 mm bore. This collision approximation omits the bore's corners;
+           the surrounding 40 mm envelope remains the D8 drawing placeholder. -->
+      <xacro:property name="bore" value="${dt['lift_sensor_bracket_aperture']['value']}"/>
+      <xacro:property name="hy" value="${ys-y0-leg/2}"/>
+      <link name="${name}_bracket_face">
+        <xacro:macro name="aperture_piece" params="size xyz">
+          <visual>
+            <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}"/>
+            <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
+            <material name="bracket_steel"><color rgba="0.55 0.56 0.57 1"/></material>
+          </visual>
+          <collision>
+            <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}"/>
+            <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
+          </collision>
+        </xacro:macro>
+        <xacro:aperture_piece size="${[thick,leg,(bh-bore)/2]}" xyz="${[0,0,(bh+bore)/4]}"/>
+        <xacro:aperture_piece size="${[thick,leg,(bh-bore)/2]}" xyz="${[0,0,-(bh+bore)/4]}"/>
+        <xacro:aperture_piece size="${[thick,leg/2+hy-bore/2,bore]}" xyz="${[0,(-leg/2+hy-bore/2)/2,0]}"/>
+        <xacro:aperture_piece size="${[thick,leg/2-hy-bore/2,bore]}" xyz="${[0,(leg/2+hy+bore/2)/2,0]}"/>
+      </link>
+      <joint name="${name}_bracket_face_joint" type="fixed">
+        <parent link="${name}_bracket_mount"/><child link="${name}_bracket_face"/>
+        <origin xyz="${(leg-thick)/2} ${(leg-thick)/2} 0"/>
+      </joint>
+    </xacro:macro>
+    <xacro:lift_stop_sensor name="lift_stop_l1000_link" z="${dt['lift_sensor_z_l1000']['value']}"/>
+    <xacro:lift_stop_sensor name="lift_stop_l1175_link" z="${dt['lift_sensor_z_l1175']['value']}"/>
+    <xacro:lift_stop_sensor name="lift_stop_l1350_link" z="${dt['lift_sensor_z_l1350']['value']}"/>
+    <xacro:property name="rod_w" value="${dt['lift_flag_rod_width']['value']}"/>
+    <xacro:property name="rod_l" value="${dt['lift_flag_rod_length']['value']}"/>
+    <xacro:property name="flag" value="${dt['lift_flag_size']['value']}"/>
+    <xacro:property name="gap" value="${dt['lift_sensor_gap']['value']}"/>
+    <xacro:property name="rx" value="${face-gap-flag[0]-rod_w/2}"/>
+    <xacro:property name="ry" value="${y0+dt['lift_flag_rod_offset']['value']+rod_w/2}"/>
+    <xacro:equipment_box name="lift_flag_rod_link" parent="lift_rod_corner_side_link" size="${[rod_w,rod_w,rod_l]}"
+        xyz="${[0,(rod_w+dt['lift_rod_corner_thickness']['value'])/2,-rod_l/2+dt['lift_rod_corner_thickness']['value']+rod_w/2]}" rgba="0.60 0.62 0.65 1"/>
+    <xacro:equipment_box name="lift_flag_link" parent="lift_flag_rod_link" size="${flag}"
+        xyz="${[face-gap-flag[0]/2-rx,y0+dt['lift_flag_y_offset']['value']+flag[1]/2-ry,rod_l/2-dt['lift_flag_below_plate']['value']]}"
+        rgba="0.55 0.56 0.57 1"/>
+    <xacro:property name="ct" value="${dt['lift_rod_corner_thickness']['value']}"/>
+    <xacro:equipment_box name="lift_rod_corner_top_link" parent="adapter_plate_link" size="${[rod_w,rod_w,ct]}"
+        xyz="${[rx-(-section[0]/2+dt['adapter_plate_section']['value'][0]/2),ry-rod_w,-ct/2-upperbody['geometry']['adapter_plate_thickness']/2]}" rgba="0.60 0.62 0.65 1"/>
+    <xacro:equipment_box name="lift_rod_corner_side_link" parent="lift_rod_corner_top_link" size="${[rod_w,ct,rod_w]}"
+        xyz="${[0,(rod_w-ct)/2,-(ct+rod_w)/2]}" rgba="0.60 0.62 0.65 1"/>
+  </xacro:macro>
+</robot>

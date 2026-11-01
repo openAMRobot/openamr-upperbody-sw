@@ -134,6 +134,9 @@
                                column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], inner_x=lift_inner[0], inner_y=lift_inner[1])}"
                                adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 + plate_section[0] / 2)}"/>
 
+  <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/equipment.xacro"/>
+  <xacro:openamr_equipment datums="${datums}" upperbody="${upperbody}" column="${column}"/>
+
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.
        none: the upper body only. -->
   <xacro:if value="${arm_package == 'so101'}">
@@ -184,4 +187,8 @@
     <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"/>
   </xacro:if>
 
+  <xacro:if value="${hardware_profile == 'gazebo'}">
+    <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/simulation_cameras.xacro"/>
+    <xacro:openamr_simulation_cameras arm_package="${arm_package}"/>
+  </xacro:if>
 </robot>

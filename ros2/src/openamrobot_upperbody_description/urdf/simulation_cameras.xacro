@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="openamr_ideal_camera" params="name spec profile">
+    <gazebo reference="${spec['link']}">
+      <sensor name="${name}_ideal" type="camera">
+        <pose relative_to="${spec['link']}">0 0 0 0 0 0</pose>
+        <always_on>true</always_on><update_rate>${profile['rate_hz']}</update_rate>
+        <topic>${spec['image']}</topic><gz_frame_id>${spec['optical_frame']}</gz_frame_id>
+        <camera><horizontal_fov>${profile['horizontal_fov_rad']}</horizontal_fov>
+          <image><width>${profile['width']}</width><height>${profile['height']}</height><format>R8G8B8</format></image>
+          <clip><near>${profile['near_m']}</near><far>${profile['far_m']}</far></clip>
+          <camera_info_topic>${spec['camera_info']}</camera_info_topic>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+  <xacro:macro name="openamr_simulation_cameras" params="arm_package">
+    <xacro:property name="sc" value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/simulation_cameras.yaml')}"/>
+    <xacro:openamr_ideal_camera name="head_camera" spec="${sc['cameras']['head_camera']}" profile="${sc['profile']}"/>
+    <xacro:if value="${arm_package == 'openarm'}">
+      <xacro:openamr_ideal_camera name="left_wrist_camera" spec="${sc['cameras']['left_wrist_camera']}" profile="${sc['profile']}"/>
+      <xacro:openamr_ideal_camera name="right_wrist_camera" spec="${sc['cameras']['right_wrist_camera']}" profile="${sc['profile']}"/>
+    </xacro:if>
+  </xacro:macro>
+</robot>

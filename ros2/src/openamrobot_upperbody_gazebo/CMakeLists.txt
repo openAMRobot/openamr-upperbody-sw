@@ -11,6 +11,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(sim_launch_shutdown test/test_sim_launch_shutdown.py TIMEOUT 120)
   # how sim.launch.py starts the controllers: the broadcaster's switch timeout and the chain on its exit code (16 Oct); no Gazebo
   ament_add_pytest_test(sim_launch_spawners test/test_sim_launch_spawners.py TIMEOUT 120)
+  ament_add_pytest_test(spawn_clearance test/test_spawn_clearance.py TIMEOUT 60)
+  ament_add_pytest_test(floor_contact test/test_floor_contact.py TIMEOUT 30)
   # G01 starts a real Gazebo server and a controller manager. It picks its own ROS_DOMAIN_ID and GZ_PARTITION (see the test),
   # so it cannot see or be seen by another stack or simulator on the machine. 90 s is the budget for startup and every assertion.
   add_launch_test(test/test_g01_gazebo_smoke.py TIMEOUT 90)

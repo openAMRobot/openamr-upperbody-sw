@@ -34,6 +34,6 @@ groups:
     note: "A vendor nominal, not verified by us and not a measurement of the arms we will buy."
   sensors:
     state: placeholder
-    source: "none: the upper-sensor frames carry no <inertial> by design, so the modelled mass of the cameras is zero"
+    source: "D8: head camera 0.0629 kg, Getac ZX80 0.590 kg, Falcon FLDL-i150x15-W 0.110 kg from supplier specifications, in datums.yaml; uniform-box inertias. Wrist cameras, mounts, lift-stop sensors and cables have no mass yet."
     owner: "A6 (this repo)"
-    note: "Zero is a figure chosen so the model expands, so this group is a placeholder until the cameras are weighed."
+    note: "Group stays placeholder because equipment is incomplete and none is weighed. The three sourced masses are each counted once on the moving assembly; the catalogue lift mass is retained separately on the fixed column pending a supplier moving/fixed split."
