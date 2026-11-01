@@ -25,6 +25,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(joint_state_clamp_logic test/test_joint_state_clamp_logic.py TIMEOUT 600)
   # How the clamp ends: exit 0 on SIGINT and SIGTERM (a crash of a node this repo owns is fixed, not allow-listed).
   ament_add_pytest_test(joint_state_clamp_shutdown test/test_joint_state_clamp_shutdown.py TIMEOUT 600)
+  # Issue #18: the clamp's default follows the profile (on for mock and gazebo, off on hardware); fails on the old default `true`
+  ament_add_pytest_test(joint_state_clamp_default test/test_joint_state_clamp_default.py TIMEOUT 120)
   ament_add_pytest_test(gripper_sign test/test_gripper_sign.py TIMEOUT 600)
   # named poses that coincide with a joint limit: a helper that produces evidence/w03/, not an A7 check (P19)
   ament_add_pytest_test(named_poses_on_limits test/test_named_poses_on_limits.py TIMEOUT 600)
