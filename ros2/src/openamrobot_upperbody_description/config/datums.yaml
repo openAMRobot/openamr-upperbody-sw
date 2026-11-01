@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-11-01.b"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-01.c"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -436,17 +436,17 @@ datums:
     axis_convention: {x: fore_aft, y: lateral, z: vertical}
     source: supplier
     status: provisional
-    ref: "Stereolabs ZED Mini datasheet, outer dimensions 124.5 x 30.5 x 26.5 mm, weight 62.9 g: https://www.stereolabs.com/products/zed-mini ; Stereolabs comparison table https://support.stereolabs.com/hc/en-us/articles/24824513333015-Where-can-I-find-a-comparison-table-for-the-ZED-Stereo-Cameras ; datasheet copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf. NOT READ FIRST-HAND: these hosts are blocked by the network policy of the session that wrote this datum (1 Nov 2026); the figures were taken from a web search summary of those pages. Axis assignment as openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() draws it: box(zed, .0265, .1245, .0305, ...) in the pitched head-camera group"
+    ref: "Stereolabs product page https://www.stereolabs.com/en-in/store/products/zed-mini (124.5 x 30.5 x 26.5 mm, 60 g) and the Stereolabs ZED Mini datasheet, Mouser copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf (124.5 x 30.5 x 26.5 mm, 62.9 g, baseline 63 mm); both read first-hand by the project owner on 1 Nov 2026. Neither source labels the axes; the axis assignment is the one openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() draws: box(zed, .0265, .1245, .0305, ...) in the pitched head-camera group"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "In head_camera_link: x along the optical axis (26.5), y across (124.5), z up (30.5). DISCREPANCY, not resolved: Stereolabs zed_description 0.1.5 (zed_macro.urdf.xacro, model zedm) gives height 0.0265, and its zedm.stl measures 29.5 (x) x 125.2 (y) x 26.6 (z) mm, i.e. 26.5 is the height there, not the depth. The docs model assignment is kept so the description equals the docs model; the docs owner should confirm which side is 30.5."
+    note: "In head_camera_link: x along the optical axis (26.5), y across (124.5), z up (30.5). DISCREPANCY, not resolved: Stereolabs zed_description 0.1.5 (zed_macro.urdf.xacro, model zedm) gives height 0.0265, and its zedm.stl measures 29.5 (x) x 125.2 (y) x 26.6 (z) mm, i.e. 26.5 is the height there, not the depth. The docs model assignment is kept so the description equals the docs model; the docs owner should confirm which side is 30.5. The supplier sources (product page and datasheet) give 124.5 x 30.5 x 26.5 mm with no axes, so they settle the sizes, not the assignment."
 
   head_camera_mass:
     value: 0.0629
     source: supplier
     status: provisional
-    ref: "Stereolabs ZED Mini datasheet, outer dimensions 124.5 x 30.5 x 26.5 mm, weight 62.9 g: https://www.stereolabs.com/products/zed-mini ; Stereolabs comparison table https://support.stereolabs.com/hc/en-us/articles/24824513333015-Where-can-I-find-a-comparison-table-for-the-ZED-Stereo-Cameras ; datasheet copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf. NOT READ FIRST-HAND: these hosts are blocked by the network policy of the session that wrote this datum (1 Nov 2026); the figures were taken from a web search summary of those pages"
+    ref: "Stereolabs product page https://www.stereolabs.com/en-in/store/products/zed-mini (124.5 x 30.5 x 26.5 mm, 60 g) and the Stereolabs ZED Mini datasheet, Mouser copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf (124.5 x 30.5 x 26.5 mm, 62.9 g, baseline 63 mm); both read first-hand by the project owner on 1 Nov 2026"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "The camera alone, no mount or cable. Carried as a uniform box of head_camera_size on head_camera_link. Not read first-hand (see ref)."
+    note: "The camera alone, no mount or cable: the datasheet figure, 62.9 g. The product page gives 60 g; the datasheet value is kept. Carried as a uniform box of head_camera_size on head_camera_link."
 
   head_camera_body_x_from_lens_line:
     value: -0.013
