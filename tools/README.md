@@ -113,3 +113,13 @@ Reads the expanded URDF (poses, box and cylinder sizes) and prints the two block
 static column's rear face and the stop sensors on its left face are in view. It reuses the P19 script `evidence/renders/rviz/capture_rviz.py`
 unchanged, pointed at this directory (`capture.launch.py` with `rear_capture.rviz`; `xgrab.py` runs the P19 grabber). The a7 job runs it after
 the six P19 views and uploads both with the artifact `v01-rviz-captures` (rear views under `rear/`). Pictures for a person, not evidence.
+
+### `report_hand_clearance.py`: REPORT ONLY, hand to base top cover at L1000, rest pose
+
+```bash
+python3 tools/report_hand_clearance.py [--json out.json]
+```
+
+bp000 and bp050, lift at 0 (L1000), every arm and finger joint at 0 (the stack's initial state: SRDF `home` + `open`). For each hand (the gripper
+links with collision geometry) it reports the minimum distance to the base top cover twice: MoveIt's distance to base_link's collision box (top
+0.295 m, what planning sees; SRDF not consulted) and a mesh distance to the visual cover mesh `base_covers.stl`. Exit 0 whatever it finds.
