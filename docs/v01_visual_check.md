@@ -5,9 +5,9 @@ Numeric checks are not visual ones: the 80 mm square mast section passed every t
 **"Looks fine" does not clear it.** Answer each of the eight items below with what you **measured or counted**, not with how it looked:
 every item names the number to read and where to read it from, and the number it should be.
 
-## Status: WARN by design. The owner accepted the visual check on 30 Oct 2026 (last section); the report builders keep V01 WARN while `lift_mass_tl3_400` is null
+## Status: WARN by design. The owner accepted the visual check on 1 Nov 2026 (last section); the report builders keep V01 WARN while `lift_mass_tl3_400` is null
 
-*1 Nov 2026: Alex Reznichenko, the owner, accepted the visual check on the six configurations of the final model on 30 Oct 2026 (P-03 rev20.1 item 25), at main `58a5cf8`. The record and its limits are the last section, "Recorded: owner acceptance". V01 still reads `WARN` in A6 and A7, by design: the reason is in that section. The notes below are the state before the acceptance.*
+*1 Nov 2026: Alex Reznichenko, the owner, accepted the visual check on the six configurations of the final model on 1 Nov 2026 (P-03 rev20.1 item 25), at main `58a5cf8`; the six-configuration renders were made on 30 Oct 2026. The record and its limits are the last section, "Recorded: owner acceptance". V01 still reads `WARN` in A6 and A7, by design: the reason is in that section. The notes below are the state before the acceptance.*
 
 *28 Oct 2026 (P28): Alex answered the column geometry on 22 Oct and the geometry items are answered in the last section: three close (the lateral side, the arm profile on its adapter plate, the carriage no longer a copy of the outer box), one does not (the two stages still overlap in volume), and V01 stays `WARN` because `lift_mass_tl3_400` is still null and because nobody has looked at a screen and answered the checklist. Read the P25 text below as the state before that answer.*
 
@@ -359,7 +359,7 @@ The six captures are in `evidence/p28/rviz/` (`rviz_<stop>_<plate>.png`, 1500 x 
 
 Also for a person, and not answerable from a still: whether the stages, the plate and the profile look like the supplier's parts (they are boxes, and the two stages still overlap in volume), and whether the colour you see in RViz is the colour you see in Gazebo (P25 finding; Gazebo's is greyer and darker).
 
-## Recorded: owner acceptance (30 Oct 2026)
+## Recorded: owner acceptance (1 Nov 2026)
 
 | Field | Value |
 |---|---|
@@ -367,7 +367,8 @@ Also for a person, and not answerable from a still: whether the stages, the plat
 | Decision | accepted |
 | Accepted by (owner) | Alex Reznichenko |
 | Reviewer | Alex Reznichenko |
-| Date | 30 Oct 2026 |
+| Date | 1 Nov 2026 (the owner decision recorded on #26) |
+| Renders looked at | the six-configuration renders, made on 30 Oct 2026 |
 | Source | P-03 rev20.1 item 25 |
 | Model | the final model, `main` at `58a5cf8` (the squash merge of #26; its PR head was `7ebeb3d`) |
 | Configurations | the six: L1000, L1175 and L1350, each on `bp000` and `bp050` |
