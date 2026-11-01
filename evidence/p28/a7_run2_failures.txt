@@ -1,0 +1,14 @@
+A7 run 2 of P28 (20261028T004705Z_a7.json), code a14a3ff: the two FAILs, as the run printed them. Nothing is allow-listed and nothing was changed after.
+
+== G02: test_g02_processes_started_and_exited_cleanly
+901:4: AssertionError: Proc parameter_bridge-3 exited with code -11
+936:    AssertionError: Proc parameter_bridge-3 exited with code -11
+
+== AUX: test_zz_a_reading_beyond_the_epsilon_is_not_hidden (test_joint_state_clamp_loop.py:146)
+1757:15: AssertionError: 42 != 41 : nothing beyond the epsilon is counted as a clamp
+1844:    AssertionError: 42 != 41 : nothing beyond the epsilon is counted as a clamp
+
+== the report's own result lines
+5518:  FAIL  G02  grippers close in Gazebo and finger_joint2 follows finger_joint1 in the physics (Bul  [3 tests]  -- failing: test_g02_processes_started_and_exited_cleanly
+5532:  FAIL  AUX  supporting tests and steps (SRDF, imported elements, ACM record, config files, harne  [136 tests]  -- failing: test_zz_a_reading_beyond_the_epsilon_is_not_hidden
+5542:Result: FAIL  (12 PASS, 2 WARN, 0 SKIP, 2 FAIL, 0 NOT_RUN)

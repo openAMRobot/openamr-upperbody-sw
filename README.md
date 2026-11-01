@@ -2,7 +2,7 @@
 
 Upper-body software for OpenAMRobot 2.0: the combined mobile base, lift column and OpenArm 2.0 arms.
 
-> **Status:** Development. `openamrobot_upperbody_description` provides the option B upper-body description and its tests; the combined base + upper body + arm model, MoveIt and bringup are not yet implemented.
+> **Status:** Development. `openamrobot_upperbody_description` provides the option B upper-body description and its tests. The combined base + upper body + arm model (option B's lift model on platform-sw's `base_footprint`, two OpenArm v2.0 arms rooted on its mount frames), the `ros2_control` profiles, the Gazebo, MoveIt and bringup packages and their verification are implemented and verified in simulation and on mock hardware only: see [`docs/verification.md`](docs/verification.md) and the package READMEs. Nothing here is a hardware result.
 
 ## What lives here
 - **Combined description:** base + lift column + arm profile + arms in one URDF/Xacro, using the official OpenArm arm-mount frames.

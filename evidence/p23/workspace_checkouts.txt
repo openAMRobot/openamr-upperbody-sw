@@ -1,0 +1,17 @@
+# Checkouts of the workspace the P19 to P23 runs used (captured 20 Oct 2026, P23)
+## openamrobot-manipulation: git reflog of the local checkout
+795143e HEAD@{2026-10-05 09:43:36 +0200}: clone: from https://github.com/openAMRobot/openamrobot-manipulation.git
+HEAD: 795143e55fb98faf60e259f4323c52d374514b38
+## is 095e6c7 (the SHA in Alex's evidence block) in the local checkout?
+fatal: git cat-file: could not get object info
+## GitHub API compare 795143e...095e6c7 (openAMRobot/openamrobot-manipulation, 20 Oct)
+status ahead ahead_by 2 behind_by 0
+files ['AGENTS.md', 'README.md', 'integration/README.md', 'integration/openarm_v2_combined_model_inventory.md']
+34aac0c 2026-10-12T21:39:00Z docs: align upper-body wording with P-03 rev18.9 (#21)
+095e6c7 2026-10-13T23:17:52Z docs: align manipulation inventory and rules with P-03 rev19.0 (lift column, option B) (#22)
+## other checkouts
+openamrobot-manifest 8111c48e48f93c20f2142534ffc340857234bf7a 8111c48 HEAD@{2026-10-05 09:43:42 +0200}: clone: from https://github.com/openAMRobot/opena
+openamr-platform-sw dfd44a55457bf5c2d4f81966b862a0865fd52aca 12de3ef HEAD@{2026-10-05 09:43:34 +0200}: clone: from https://github.com/openAMRobot/opena
+upstream/openarm_description 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831 c103041 HEAD@{2026-10-05 09:43:51 +0200}: clone: from https://github.com/enactic/openarm_d
+upstream/openarm_ros2 4e837e1d0dae692ff67b560b69d8d281d7a8d4ed 831367a HEAD@{2026-10-05 09:44:01 +0200}: clone: from https://github.com/enactic/openarm_r
+openamrobot-interfaces fa7c438e33bd807c174fa0747119d7d627faa3bf fa7c438 HEAD@{2026-10-05 09:43:38 +0200}: clone: from https://github.com/openAMRobot/opena

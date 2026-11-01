@@ -1,0 +1,18 @@
+# python3 tools/check_evidence_backing.py --canary
+# repository commit 8ad3bf6, 2026-10-19T15:23:59Z; register openAMRobot/.github decisions.yaml @ 9109d3e1a8fc07151e500e83b32b7ce6ccab6af6; design folder /mnt/c/Users/slash/Downloads/openARM/10_architecture
+baseline (the real documents and reports): PASS   {'UNBACKED': 67, 'BACKED': 56, 'RECORDED': 17}
+OK      a clean document: every claim backed: statuses ['BACKED']
+CAUGHT  a rate nothing backs, planted in the body (the 'about 1 in 7' shape): statuses ['BACKED', 'UNBACKED!']
+CAUGHT  a verdict count no report has: statuses ['BACKED', 'UNBACKED!']
+CAUGHT  a percentage nothing backs: statuses ['BACKED', 'UNBACKED!']
+CAUGHT  a rate in words with a count noun: statuses ['BACKED', 'UNBACKED!']
+CAUGHT  a rate whose ledger entry counts something else: statuses ['BACKED', 'MISMATCH']
+CAUGHT  a record that is not in the file it names: statuses ['BACKED', 'MISMATCH']
+CAUGHT  a record that points outside evidence/: statuses ['BACKED', 'MISMATCH']
+CAUGHT  a ledger entry for a claim that is no longer in the document: statuses ['BACKED', 'UNUSED']
+OK      an acknowledged UNBACKED claim is still printed as UNBACKED and does not fail: statuses ['BACKED', 'UNBACKED']
+CAUGHT  a report index row whose counts differ from the report it names (3 PASS against 2): statuses ['BACKED', 'MISMATCH']
+OK      the same row with the report's own counts is clean: statuses ['BACKED']
+CAUGHT  a number planted in a generated report's prose: statuses ['BACKED', 'UNBACKED!']
+canary: every planted number caught; the real documents are clean, which is a separate question
+# exit status 0

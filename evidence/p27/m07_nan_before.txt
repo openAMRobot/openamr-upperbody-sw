@@ -1,0 +1,4 @@
+code: ba5b4ea logic (rest_rows + coverage_problems + classify)
+a) 50 NaN per expected joint                     -> PASS
+b) 49 finite (mid-range) + 1 NaN last, per joint -> PASS
+b') 1 NaN first + 49 finite, per joint            -> PASS

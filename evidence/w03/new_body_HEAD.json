@@ -1,0 +1,84 @@
+{
+ "tolerance_rad": 1e-06,
+ "poses_on_a_limit": [
+  {
+   "group": "left_arm",
+   "pose": "home",
+   "joint": "openarm_left_joint4",
+   "value_rad": 0.0,
+   "limit": "lower",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "left_arm",
+   "pose": "park",
+   "joint": "openarm_left_joint4",
+   "value_rad": 0.0,
+   "limit": "lower",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "left_gripper",
+   "pose": "closed",
+   "joint": "openarm_left_finger_joint1",
+   "value_rad": 0.7854,
+   "limit": "upper",
+   "limit_rad": 0.7854,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "left_gripper",
+   "pose": "open",
+   "joint": "openarm_left_finger_joint1",
+   "value_rad": 0.0,
+   "limit": "lower",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "right_arm",
+   "pose": "home",
+   "joint": "openarm_right_joint4",
+   "value_rad": 0.0,
+   "limit": "lower",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "right_arm",
+   "pose": "park",
+   "joint": "openarm_right_joint4",
+   "value_rad": 0.0,
+   "limit": "lower",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "right_gripper",
+   "pose": "closed",
+   "joint": "openarm_right_finger_joint1",
+   "value_rad": -0.7854,
+   "limit": "lower",
+   "limit_rad": -0.7854,
+   "distance_rad": 0.0
+  },
+  {
+   "group": "right_gripper",
+   "pose": "open",
+   "joint": "openarm_right_finger_joint1",
+   "value_rad": 0.0,
+   "limit": "upper",
+   "limit_rad": 0.0,
+   "distance_rad": 0.0
+  }
+ ],
+ "joints_on_a_limit": [
+  "openarm_left_finger_joint1",
+  "openarm_left_joint4",
+  "openarm_right_finger_joint1",
+  "openarm_right_joint4"
+ ],
+ "named_pose_joints_without_a_urdf_limit": []
+}

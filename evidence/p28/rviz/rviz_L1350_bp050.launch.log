@@ -1,0 +1,332 @@
+[INFO] [launch]: All log files can be found below /home/slash/.ros/log/2026-10-28-02-01-33-838446-Jaxx-53669
+[INFO] [launch]: Default logging verbosity is set to INFO
+WARNING:root:[33;21mCannot infer URDF from `/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/share/openamrobot_upperbody_moveit`. -- using config/openamrobot.urdf[0m
+WARNING:root:[33;21mCannot infer SRDF from `/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/share/openamrobot_upperbody_moveit`. -- using config/openamrobot.srdf[0m
+WARNING:root:[33;21mCannot infer URDF from `/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/share/openamrobot_upperbody_moveit`. -- using config/openamrobot.urdf[0m
+WARNING:root:[33;21mCannot infer SRDF from `/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/share/openamrobot_upperbody_moveit`. -- using config/openamrobot.srdf[0m
+[INFO] [robot_state_publisher-1]: process started with pid [53680]
+[INFO] [ros2_control_node-2]: process started with pid [53681]
+[INFO] [spawner-3]: process started with pid [53682]
+[INFO] [base_joint_states_stub.py-4]: process started with pid [53683]
+[INFO] [move_group-5]: process started with pid [53706]
+[INFO] [joint_state_clamp.py-6]: process started with pid [53707]
+[INFO] [rviz2-7]: process started with pid [53708]
+[robot_state_publisher-1] [WARN] [1793149295.819143679] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[robot_state_publisher-1] [WARN] [1793149295.819154143] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[ros2_control_node-2] [WARN] [1793149295.826558503] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[ros2_control_node-2] [WARN] [1793149295.826566901] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[robot_state_publisher-1] [INFO] [1793149295.834210499] [robot_state_publisher]: Robot initialized
+[ros2_control_node-2] [INFO] [1793149295.842693280] [controller_manager]: Using Steady (Monotonic) clock for triggering controller manager cycles.
+[ros2_control_node-2] [INFO] [1793149295.845722385] [controller_manager]: Subscribing to '/robot_description' topic for robot description.
+[ros2_control_node-2] [INFO] [1793149295.845916361] [controller_manager]: update rate is 100 Hz
+[ros2_control_node-2] [INFO] [1793149295.845929911] [controller_manager]: Overruns handling is : enabled
+[ros2_control_node-2] [INFO] [1793149295.845934280] [controller_manager]: Spawning controller_manager RT thread with scheduler priority: 50
+[ros2_control_node-2] [WARN] [1793149295.846116090] [controller_manager]: Could not enable FIFO RT scheduling policy: with error number <1>(Operation not permitted). See [https://control.ros.org/master/doc/ros2_control/controller_manager/doc/userdoc.html] for details on how to enable realtime scheduling.
+[ros2_control_node-2] [INFO] [1793149295.847726656] [controller_manager]: Received robot description from topic.
+[ros2_control_node-2] [INFO] [1793149295.847834091] [controller_manager]: Enforcing command limits is disabled. Command limits from URDF will be ignored.
+[ros2_control_node-2] [INFO] [1793149295.853002431] [controller_manager]: Loading hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.853468663] [controller_manager]: Loaded hardware 'openarm_left_hardware_interface' from plugin 'mock_components/GenericSystem'
+[ros2_control_node-2] [INFO] [1793149295.853554007] [controller_manager]: Initialize hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.856389305] [controller_manager]: Successful initialization of hardware 'openarm_left_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.856593160] [controller_manager]: Loading hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.856609163] [controller_manager]: Loaded hardware 'openarm_right_hardware_interface' from plugin 'mock_components/GenericSystem'
+[ros2_control_node-2] [INFO] [1793149295.856668734] [controller_manager]: Initialize hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.859425592] [controller_manager]: Successful initialization of hardware 'openarm_right_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.859638107] [controller_manager]: Activating component 'openarm_right_hardware_interface'.
+[ros2_control_node-2] [INFO] [1793149295.859648563] [resource_manager]: 'configure' hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.859658275] [resource_manager]: Successful 'configure' of hardware 'openarm_right_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.859666951] [resource_manager]: 'activate' hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.859672486] [resource_manager]: Successful 'activate' of hardware 'openarm_right_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.859694792] [controller_manager]: Activating component 'openarm_left_hardware_interface'.
+[ros2_control_node-2] [INFO] [1793149295.859698504] [resource_manager]: 'configure' hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.859705433] [resource_manager]: Successful 'configure' of hardware 'openarm_left_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.859712273] [resource_manager]: 'activate' hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149295.859714557] [resource_manager]: Successful 'activate' of hardware 'openarm_left_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149295.859728628] [controller_manager]: Registering statistics for : openarm_right_hardware_interface
+[ros2_control_node-2] [INFO] [1793149295.859770681] [controller_manager]: Registering statistics for : openarm_left_hardware_interface
+[ros2_control_node-2] [INFO] [1793149295.859802143] [controller_manager]: Resource Manager has been successfully initialized. Starting Controller Manager services...
+[move_group-5] [WARN] [1793149295.868342500] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[move_group-5] [WARN] [1793149295.868372483] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[rviz2-7] [WARN] [1793149295.874247231] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[rviz2-7] [WARN] [1793149295.874268519] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[move_group-5] [INFO] [1793149295.890270454] [move_group.moveit.moveit.ros.rdf_loader]: Loaded robot model in 0.00474828 seconds
+[move_group-5] [INFO] [1793149295.890360619] [move_group.moveit.moveit.core.robot_model]: Loading robot model 'openamrobot'...
+[move_group-5] [WARN] [1793149295.890400954] [move_group.moveit.moveit.core.robot_model]: Link base_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890435418] [move_group.moveit.moveit.core.robot_model]: Link tof_front has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890442646] [move_group.moveit.moveit.core.robot_model]: Link tof_rear has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890449094] [move_group.moveit.moveit.core.robot_model]: Link us_front_left has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890455407] [move_group.moveit.moveit.core.robot_model]: Link us_front_right has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890461672] [move_group.moveit.moveit.core.robot_model]: Link us_rear_left has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.890467686] [move_group.moveit.moveit.core.robot_model]: Link us_rear_right has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.896202998] [move_group.moveit.moveit.core.robot_model]: Link left_wrist_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [WARN] [1793149295.905238895] [move_group.moveit.moveit.core.robot_model]: Link right_wrist_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[move_group-5] [INFO] [1793149295.910275607] [move_group.moveit.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'left_arm': 1 1 1 1 1 1 1
+[move_group-5] [INFO] [1793149295.910674158] [move_group.moveit.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'right_arm': 1 1 1 1 1 1 1
+[move_group-5] [INFO] [1793149295.978527920] [move_group.moveit.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[move_group-5] [INFO] [1793149295.978783469] [move_group.moveit.moveit.ros.moveit_cpp]: Listening to 'joint_states' for joint states
+[move_group-5] [INFO] [1793149295.979275613] [move_group.moveit.moveit.ros.current_state_monitor]: Listening to joint states on topic 'joint_states'
+[move_group-5] [INFO] [1793149295.979771083] [move_group.moveit.moveit.ros.planning_scene_monitor]: Listening to '/attached_collision_object' for attached collision objects
+[move_group-5] [INFO] [1793149295.979799662] [move_group.moveit.moveit.ros.planning_scene_monitor]: Stopping existing planning scene publisher.
+[move_group-5] [INFO] [1793149295.980074017] [move_group.moveit.moveit.ros.planning_scene_monitor]: Stopped publishing maintained planning scene.
+[move_group-5] [INFO] [1793149295.980743924] [move_group.moveit.moveit.ros.planning_scene_monitor]: Publishing maintained planning scene on 'monitored_planning_scene'
+[move_group-5] [INFO] [1793149295.980867492] [move_group.moveit.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[move_group-5] [INFO] [1793149295.981573820] [move_group.moveit.moveit.ros.planning_scene_monitor]: Listening to '/planning_scene'
+[move_group-5] [INFO] [1793149295.981605119] [move_group.moveit.moveit.ros.planning_scene_monitor]: Starting world geometry update monitor for collision objects, attached objects, octomap updates.
+[move_group-5] [INFO] [1793149295.981922840] [move_group.moveit.moveit.ros.planning_scene_monitor]: Listening to 'collision_object'
+[move_group-5] [INFO] [1793149295.982336807] [move_group.moveit.moveit.ros.planning_scene_monitor]: Listening to 'planning_scene_world' for planning scene world geometry
+[move_group-5] [WARN] [1793149295.982546650] [move_group.moveit.moveit.ros.occupancy_map_monitor]: Resolution not specified for Octomap. Assuming resolution = 0.1 instead
+[move_group-5] [ERROR] [1793149295.982559885] [move_group.moveit.moveit.ros.occupancy_map_monitor]: No 3D sensor plugin(s) defined for octomap updates
+[rviz2-7] [INFO] [1793149295.993574356] [rviz2]: Stereo is NOT SUPPORTED
+[rviz2-7] [INFO] [1793149295.993647402] [rviz2]: OpenGl version: 4.5 (GLSL 4.5)
+[move_group-5] [INFO] [1793149296.002673400] [move_group.moveit.moveit.ros.planning_pipeline]: Successfully loaded planner 'OMPL'
+[move_group-5] [INFO] [1793149296.003857990] [move_group]: Try loading adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[move_group-5] [INFO] [1793149296.004640179] [move_group]: Loaded adapter 'default_planning_request_adapters/ResolveConstraintFrames'
+[move_group-5] [INFO] [1793149296.004679968] [move_group]: Try loading adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[move_group-5] [INFO] [1793149296.005019718] [move_group]: Loaded adapter 'default_planning_request_adapters/ValidateWorkspaceBounds'
+[move_group-5] [INFO] [1793149296.005083841] [move_group]: Try loading adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[move_group-5] [INFO] [1793149296.005131414] [move_group]: Loaded adapter 'default_planning_request_adapters/CheckStartStateBounds'
+[move_group-5] [INFO] [1793149296.005141312] [move_group]: Try loading adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[move_group-5] [INFO] [1793149296.005158427] [move_group]: Loaded adapter 'default_planning_request_adapters/CheckStartStateCollision'
+[move_group-5] [INFO] [1793149296.006038260] [move_group]: Try loading adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[move_group-5] [INFO] [1793149296.008059723] [move_group]: Loaded adapter 'default_planning_response_adapters/AddTimeOptimalParameterization'
+[move_group-5] [INFO] [1793149296.008087866] [move_group]: Try loading adapter 'default_planning_response_adapters/ValidateSolution'
+[move_group-5] [INFO] [1793149296.009026953] [move_group]: Loaded adapter 'default_planning_response_adapters/ValidateSolution'
+[move_group-5] [INFO] [1793149296.009054710] [move_group]: Try loading adapter 'default_planning_response_adapters/DisplayMotionPath'
+[move_group-5] [INFO] [1793149296.010020727] [move_group]: Loaded adapter 'default_planning_response_adapters/DisplayMotionPath'
+[rviz2-7] [INFO] [1793149296.028292486] [rviz2]: Stereo is NOT SUPPORTED
+[move_group-5] [INFO] [1793149296.052486930] [move_group.moveit.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for left_arm_controller
+[move_group-5] [INFO] [1793149296.054165570] [move_group.moveit.moveit.plugins.simple_controller_manager]: Added FollowJointTrajectory controller for right_arm_controller
+[move_group-5] [INFO] [1793149296.054213882] [move_group.moveit.moveit.plugins.simple_controller_manager]: left_gripper_controller will command a max effort of: 0
+[move_group-5] [INFO] [1793149296.055580619] [move_group.moveit.moveit.plugins.simple_controller_manager]: Added GripperCommand controller for left_gripper_controller
+[move_group-5] [INFO] [1793149296.055625495] [move_group.moveit.moveit.plugins.simple_controller_manager]: right_gripper_controller will command a max effort of: 0
+[move_group-5] [INFO] [1793149296.056690826] [move_group.moveit.moveit.plugins.simple_controller_manager]: Added GripperCommand controller for right_gripper_controller
+[move_group-5] [INFO] [1793149296.056875280] [move_group.moveit.moveit.plugins.simple_controller_manager]: Returned 4 controllers in list
+[move_group-5] [INFO] [1793149296.056902458] [move_group.moveit.moveit.plugins.simple_controller_manager]: Returned 4 controllers in list
+[move_group-5] [INFO] [1793149296.057149175] [move_group.moveit.moveit.ros.trajectory_execution_manager]: Trajectory execution is not managing controllers
+[move_group-5] [INFO] [1793149296.057179254] [move_group]: MoveGroup debug mode is ON
+[move_group-5] [INFO] [1793149296.074227979] [move_group.moveit.moveit.ros.move_group.executable]: 
+[move_group-5] 
+[move_group-5] ********************************************************
+[move_group-5] * MoveGroup using: 
+[move_group-5] *     - apply_planning_scene_service
+[move_group-5] *     - clear_octomap_service
+[move_group-5] *     - get_group_urdf
+[move_group-5] *     - load_geometry_from_file
+[move_group-5] *     - CartesianPathService
+[move_group-5] *     - execute_trajectory_action
+[move_group-5] *     - get_planning_scene_service
+[move_group-5] *     - kinematics_service
+[move_group-5] *     - move_action
+[move_group-5] *     - motion_plan_service
+[move_group-5] *     - query_planners_service
+[move_group-5] *     - state_validation_service
+[move_group-5] *     - save_geometry_to_file
+[move_group-5] ********************************************************
+[move_group-5] 
+[move_group-5] [INFO] [1793149296.074289563] [move_group.moveit.moveit.ros.move_group.context]: MoveGroup context using pipeline ompl
+[move_group-5] [INFO] [1793149296.074298195] [move_group.moveit.moveit.ros.move_group.context]: MoveGroup context initialization complete
+[move_group-5] [96mLoading 'move_group/ApplyPlanningSceneService'...[0m
+[move_group-5] [96mLoading 'move_group/ClearOctomapService'...[0m
+[move_group-5] [96mLoading 'move_group/GetUrdfService'...[0m
+[move_group-5] [96mLoading 'move_group/LoadGeometryFromFileService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupCartesianPathService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupExecuteTrajectoryAction'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupGetPlanningSceneService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupKinematicsService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupMoveAction'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupPlanService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupQueryPlannersService'...[0m
+[move_group-5] [96mLoading 'move_group/MoveGroupStateValidationService'...[0m
+[move_group-5] [96mLoading 'move_group/SaveGeometryToFileService'...[0m
+[move_group-5] 
+[move_group-5] [92mYou can start planning now![0m
+[move_group-5] 
+[base_joint_states_stub.py-4] [WARN] [1793149296.084642862] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[base_joint_states_stub.py-4] [WARN] [1793149296.084679203] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[rviz2-7] Warning: class_loader.impl: SEVERE WARNING!!! A namespace collision has occurred with plugin factory for class rviz_default_plugins::displays::InteractiveMarkerDisplay. New factory will OVERWRITE existing one. This situation occurs when libraries containing plugins are directly linked against an executable (the one running right now generating this message). Please separate plugins out into their own library or just don't link against the library and use either class_loader::ClassLoader/MultiLibraryClassLoader to open.
+[rviz2-7]          at line 321 in /opt/ros/jazzy/include/class_loader/class_loader/class_loader_core.hpp
+[joint_state_clamp.py-6] [WARN] [1793149296.117912405] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[joint_state_clamp.py-6] [WARN] [1793149296.117959900] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[spawner-3] [WARN] [1793149296.124522889] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[spawner-3] [WARN] [1793149296.124548991] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[ros2_control_node-2] [INFO] [1793149296.180421027] [controller_manager]: Loading controller : 'joint_state_broadcaster' of type 'joint_state_broadcaster/JointStateBroadcaster'
+[ros2_control_node-2] [INFO] [1793149296.180463685] [controller_manager]: Loading controller 'joint_state_broadcaster'
+[ros2_control_node-2] [INFO] [1793149296.182945121] [controller_manager]: Controller 'joint_state_broadcaster' node arguments: --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml 
+[spawner-3] [INFO] [1793149296.206698985] [spawner_joint_state_broadcaster]: Loaded joint_state_broadcaster
+[ros2_control_node-2] [INFO] [1793149296.207576124] [controller_manager]: Configuring controller: 'joint_state_broadcaster'
+[ros2_control_node-2] [INFO] [1793149296.207699878] [joint_state_broadcaster]: 'joints' or 'interfaces' parameter is empty. All available state interfaces will be published
+[joint_state_clamp.py-6] [INFO] [1793149296.212292708] [joint_state_clamp]: clamping 19 joints to their URDF limits by at most 1e-05 rad: joint_states -> joint_states_clamped
+[ros2_control_node-2] [INFO] [1793149296.217582086] [controller_manager]: Activating controllers: [ joint_state_broadcaster ]
+[ros2_control_node-2] [INFO] [1793149296.226566273] [controller_manager]: Successfully switched controllers!
+[spawner-3] [INFO] [1793149296.237662171] [spawner_joint_state_broadcaster]: Configured and activated joint_state_broadcaster
+[INFO] [spawner-3]: process has finished cleanly [pid 53682]
+[INFO] [spawner-8]: process started with pid [53907]
+[INFO] [spawner-9]: process started with pid [53908]
+[INFO] [spawner-10]: process started with pid [53909]
+[INFO] [spawner-11]: process started with pid [53910]
+[spawner-10] [WARN] [1793149296.804474120] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[spawner-10] [WARN] [1793149296.804507841] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[spawner-9] [WARN] [1793149296.806082295] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[spawner-9] [WARN] [1793149296.806117845] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[spawner-8] [WARN] [1793149296.814850140] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[spawner-8] [WARN] [1793149296.814872499] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[spawner-11] [WARN] [1793149296.815414408] [rcl]: ROS_LOCALHOST_ONLY is deprecated but still honored if it is enabled. Use ROS_AUTOMATIC_DISCOVERY_RANGE and ROS_STATIC_PEERS instead.
+[spawner-11] [WARN] [1793149296.815441425] [rcl]: 'localhost_only' is enabled, 'automatic_discovery_range' and 'static_peers' will be ignored.
+[ros2_control_node-2] [INFO] [1793149296.866083085] [controller_manager]: Loading controller : 'left_gripper_controller' of type 'position_controllers/GripperActionController'
+[ros2_control_node-2] [INFO] [1793149296.866128398] [controller_manager]: Loading controller 'left_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149296.867415904] [controller_manager]: Controller 'left_gripper_controller' node arguments: --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml 
+[ros2_control_node-2] [WARN] [1793149296.873432814] [left_gripper_controller]: [Deprecated]: the `position_controllers/GripperActionController` and `effort_controllers::GripperActionController` controllers are replaced by 'parallel_gripper_controllers/GripperActionController' controller
+[spawner-10] [INFO] [1793149296.886591505] [spawner_left_gripper_controller]: Loaded left_gripper_controller
+[ros2_control_node-2] [INFO] [1793149296.887427722] [controller_manager]: Configuring controller: 'left_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149296.887489562] [left_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[ros2_control_node-2] [INFO] [1793149296.897858751] [controller_manager]: Activating controllers: [ left_gripper_controller ]
+[ros2_control_node-2] [INFO] [1793149296.908589302] [controller_manager]: Successfully switched controllers!
+[spawner-10] [INFO] [1793149296.917604868] [spawner_left_gripper_controller]: Configured and activated left_gripper_controller
+[INFO] [spawner-10]: process has finished cleanly [pid 53909]
+[ros2_control_node-2] [INFO] [1793149297.216196624] [controller_manager]: Loading controller : 'right_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[ros2_control_node-2] [INFO] [1793149297.216239918] [controller_manager]: Loading controller 'right_arm_controller'
+[ros2_control_node-2] [INFO] [1793149297.217688893] [controller_manager]: Controller 'right_arm_controller' node arguments: --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml 
+[spawner-9] [INFO] [1793149297.247627974] [spawner_right_arm_controller]: Loaded right_arm_controller
+[ros2_control_node-2] [INFO] [1793149297.248836035] [controller_manager]: Configuring controller: 'right_arm_controller'
+[ros2_control_node-2] [INFO] [1793149297.249053919] [right_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[ros2_control_node-2] [INFO] [1793149297.249078656] [right_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[ros2_control_node-2] [INFO] [1793149297.249108066] [right_arm_controller]: Using 'splines' interpolation method.
+[ros2_control_node-2] [INFO] [1793149297.250399355] [right_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[ros2_control_node-2] [INFO] [1793149297.252969933] [right_arm_controller]: Setting initial scaling factor to 1.000000
+[ros2_control_node-2] [INFO] [1793149297.252999886] [right_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[ros2_control_node-2] [INFO] [1793149297.257713196] [controller_manager]: Activating controllers: [ right_arm_controller ]
+[ros2_control_node-2] [INFO] [1793149297.266723517] [controller_manager]: Successfully switched controllers!
+[spawner-9] [INFO] [1793149297.277426770] [spawner_right_arm_controller]: Configured and activated right_arm_controller
+[INFO] [spawner-9]: process has finished cleanly [pid 53908]
+[ros2_control_node-2] [INFO] [1793149297.576035493] [controller_manager]: Loading controller : 'left_arm_controller' of type 'joint_trajectory_controller/JointTrajectoryController'
+[ros2_control_node-2] [INFO] [1793149297.576074250] [controller_manager]: Loading controller 'left_arm_controller'
+[ros2_control_node-2] [INFO] [1793149297.576298262] [controller_manager]: Controller 'left_arm_controller' node arguments: --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml 
+[spawner-8] [INFO] [1793149297.607169389] [spawner_left_arm_controller]: Loaded left_arm_controller
+[ros2_control_node-2] [INFO] [1793149297.608183645] [controller_manager]: Configuring controller: 'left_arm_controller'
+[ros2_control_node-2] [INFO] [1793149297.608358491] [left_arm_controller]: No specific joint names are used for command interfaces. Using 'joints' parameter.
+[ros2_control_node-2] [INFO] [1793149297.608374854] [left_arm_controller]: Command interfaces are [position] and state interfaces are [position velocity].
+[ros2_control_node-2] [INFO] [1793149297.608383147] [left_arm_controller]: Using 'splines' interpolation method.
+[ros2_control_node-2] [INFO] [1793149297.609419821] [left_arm_controller]: Action status changes will be monitored at 20.00 Hz.
+[ros2_control_node-2] [INFO] [1793149297.611554550] [left_arm_controller]: Setting initial scaling factor to 1.000000
+[ros2_control_node-2] [INFO] [1793149297.611585145] [left_arm_controller]: No scaling interface set. This controller will not read speed scaling from the hardware.
+[ros2_control_node-2] [INFO] [1793149297.617640008] [controller_manager]: Activating controllers: [ left_arm_controller ]
+[ros2_control_node-2] [INFO] [1793149297.626751202] [controller_manager]: Successfully switched controllers!
+[spawner-8] [INFO] [1793149297.637570341] [spawner_left_arm_controller]: Configured and activated left_arm_controller
+[INFO] [spawner-8]: process has finished cleanly [pid 53907]
+[ros2_control_node-2] [INFO] [1793149297.928314248] [controller_manager]: Loading controller : 'right_gripper_controller' of type 'position_controllers/GripperActionController'
+[ros2_control_node-2] [INFO] [1793149297.928360644] [controller_manager]: Loading controller 'right_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149297.928560485] [controller_manager]: Controller 'right_gripper_controller' node arguments: --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml 
+[ros2_control_node-2] [WARN] [1793149297.933390681] [right_gripper_controller]: [Deprecated]: the `position_controllers/GripperActionController` and `effort_controllers::GripperActionController` controllers are replaced by 'parallel_gripper_controllers/GripperActionController' controller
+[spawner-11] [INFO] [1793149297.946657387] [spawner_right_gripper_controller]: Loaded right_gripper_controller
+[ros2_control_node-2] [INFO] [1793149297.947820408] [controller_manager]: Configuring controller: 'right_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149297.947889307] [right_gripper_controller]: Action status changes will be monitored at 20.000000 Hz.
+[ros2_control_node-2] [INFO] [1793149297.957603216] [controller_manager]: Activating controllers: [ right_gripper_controller ]
+[ros2_control_node-2] [INFO] [1793149297.968431253] [controller_manager]: Successfully switched controllers!
+[spawner-11] [INFO] [1793149297.977747496] [spawner_right_gripper_controller]: Configured and activated right_gripper_controller
+[INFO] [spawner-11]: process has finished cleanly [pid 53910]
+[rviz2-7] [ERROR] [1793149299.109001365] [moveit_889901739.moveit.ros.motion_planning_frame]: Action server: /recognize_objects not available
+[rviz2-7] [INFO] [1793149299.125189587] [moveit_889901739.moveit.ros.motion_planning_frame]: MoveGroup namespace changed: / -> . Reloading params.
+[rviz2-7] [INFO] [1793149299.192663955] [moveit_889901739.moveit.ros.rdf_loader]: Loaded robot model in 0.00516925 seconds
+[rviz2-7] [INFO] [1793149299.192751456] [moveit_889901739.moveit.core.robot_model]: Loading robot model 'openamrobot'...
+[rviz2-7] [WARN] [1793149299.192824480] [moveit_889901739.moveit.core.robot_model]: Link base_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192871513] [moveit_889901739.moveit.core.robot_model]: Link tof_front has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192878703] [moveit_889901739.moveit.core.robot_model]: Link tof_rear has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192885219] [moveit_889901739.moveit.core.robot_model]: Link us_front_left has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192891782] [moveit_889901739.moveit.core.robot_model]: Link us_front_right has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192898059] [moveit_889901739.moveit.core.robot_model]: Link us_rear_left has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.192904167] [moveit_889901739.moveit.core.robot_model]: Link us_rear_right has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.198239025] [moveit_889901739.moveit.core.robot_model]: Link left_wrist_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [WARN] [1793149299.208130673] [moveit_889901739.moveit.core.robot_model]: Link right_wrist_camera_link has visual geometry but no collision geometry. Collision geometry will be left empty. Fix your URDF file by explicitly specifying collision geometry.
+[rviz2-7] [INFO] [1793149299.219035416] [moveit_889901739.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'left_arm': 1 1 1 1 1 1 1
+[rviz2-7] [INFO] [1793149299.219379441] [moveit_889901739.moveit.kinematics.kdl_kinematics_plugin]: Joint weights for group 'right_arm': 1 1 1 1 1 1 1
+[rviz2-7] [INFO] [1793149299.297813950] [moveit_889901739.moveit.ros.planning_scene_monitor]: Starting planning scene monitor
+[rviz2-7] [INFO] [1793149299.298731891] [moveit_889901739.moveit.ros.planning_scene_monitor]: Listening to '/monitored_planning_scene'
+[rviz2-7] [INFO] [1793149299.911756973] [interactive_marker_display_109824105602560]: Connected on namespace: /rviz_moveit_motion_planning_display/robot_interaction_interactive_marker_topic
+[rviz2-7] [INFO] [1793149299.932237145] [moveit_889901739.moveit.ros.motion_planning_frame]: group left_arm
+[rviz2-7] [INFO] [1793149299.932276795] [moveit_889901739.moveit.ros.motion_planning_frame]: Constructing new MoveGroup connection for group 'left_arm' in namespace ''
+[rviz2-7] [INFO] [1793149299.941210165] [moveit_889901739.moveit.ros.move_group_interface]: Ready to take commands for planning group left_arm.
+[rviz2-7] [INFO] [1793149300.132275274] [interactive_marker_display_109824105602560]: Sending request for interactive markers
+[rviz2-7] [INFO] [1793149300.441146552] [interactive_marker_display_109824105602560]: Service response received for initialization
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[rviz2-7] [INFO] [1793149354.879395844] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ros2_control_node-2] [INFO] [1793149354.879405894] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ros2_control_node-2] [INFO] [1793149354.879475405] [controller_manager]: Shutdown request received....
+[ros2_control_node-2] [INFO] [1793149354.879524858] [controller_manager]: Shutting down all controllers in the controller manager.
+[ros2_control_node-2] [INFO] [1793149354.879547452] [controller_manager]: Deactivating controller 'left_arm_controller'
+[ros2_control_node-2] [INFO] [1793149354.879594495] [controller_manager]: Shutting down controller 'left_arm_controller'
+[robot_state_publisher-1] [INFO] [1793149354.879478757] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [rviz2-7]: sending signal 'SIGINT' to process[rviz2-7]
+[INFO] [joint_state_clamp.py-6]: sending signal 'SIGINT' to process[joint_state_clamp.py-6]
+[INFO] [move_group-5]: sending signal 'SIGINT' to process[move_group-5]
+[INFO] [base_joint_states_stub.py-4]: sending signal 'SIGINT' to process[base_joint_states_stub.py-4]
+[INFO] [ros2_control_node-2]: sending signal 'SIGINT' to process[ros2_control_node-2]
+[INFO] [robot_state_publisher-1]: sending signal 'SIGINT' to process[robot_state_publisher-1]
+[move_group-5] [INFO] [1793149354.879544692] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[joint_state_clamp.py-6] joint_state_clamp: final counters: {"activations": 0, "episodes": 0, "epsilon_rad": 1e-05, "joints": {}, "max_magnitude_joint": null, "max_magnitude_rad": 0.0, "max_over_epsilon_joint": null, "max_over_epsilon_rad": 0.0, "messages": 5964, "over_epsilon": 0}
+[ros2_control_node-2] [INFO] [1793149354.879840955] [controller_manager]: Deactivating controller 'right_arm_controller'
+[ros2_control_node-2] [INFO] [1793149354.879888724] [controller_manager]: Shutting down controller 'right_arm_controller'
+[ros2_control_node-2] [INFO] [1793149354.880067409] [controller_manager]: Deactivating controller 'right_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149354.880084936] [controller_manager]: Shutting down controller 'right_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149354.880119454] [controller_manager]: Deactivating controller 'left_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149354.880133167] [controller_manager]: Shutting down controller 'left_gripper_controller'
+[ros2_control_node-2] [INFO] [1793149354.880156767] [controller_manager]: Deactivating controller 'joint_state_broadcaster'
+[ros2_control_node-2] [INFO] [1793149354.880169958] [controller_manager]: Shutting down controller 'joint_state_broadcaster'
+[ros2_control_node-2] [INFO] [1793149354.880204470] [resource_manager]: 'deactivate' hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149354.880220609] [resource_manager]: Successful 'deactivate' of hardware 'openarm_right_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149354.880224053] [resource_manager]: 'shutdown' hardware 'openarm_right_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149354.880226222] [resource_manager]: Successful 'shutdown' of hardware 'openarm_right_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149354.880638993] [resource_manager]: 'deactivate' hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149354.880645460] [resource_manager]: Successful 'deactivate' of hardware 'openarm_left_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149354.880647771] [resource_manager]: 'shutdown' hardware 'openarm_left_hardware_interface' 
+[ros2_control_node-2] [INFO] [1793149354.880649926] [resource_manager]: Successful 'shutdown' of hardware 'openarm_left_hardware_interface'
+[ros2_control_node-2] [INFO] [1793149354.880673729] [controller_manager]: Shutting down the controller manager.
+[ros2_control_node-2] [ERROR] [1793149354.880780405] [controller_manager.pal_statistics]: Exception in publisher thread: context cannot be slept with because it's invalid!. Aborting!
+[ros2_control_node-2] [ERROR] [1793149354.880780659] [controller_manager.pal_statistics]: Exception in publisher thread: context cannot be slept with because it's invalid!. Aborting!
+[rviz2-7] [INFO] [1793149354.887814585] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[base_joint_states_stub.py-4] Traceback (most recent call last):
+[base_joint_states_stub.py-4]   File "/home/slash/openamr_ws/install/openamrobot_upperbody_bringup/lib/openamrobot_upperbody_bringup/base_joint_states_stub.py", line 54, in <module>
+[base_joint_states_stub.py-4]     main()
+[base_joint_states_stub.py-4]   File "/home/slash/openamr_ws/install/openamrobot_upperbody_bringup/lib/openamrobot_upperbody_bringup/base_joint_states_stub.py", line 49, in main
+[base_joint_states_stub.py-4]     node.destroy_node()
+[base_joint_states_stub.py-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1962, in destroy_node
+[base_joint_states_stub.py-4]     self.destroy_service(self._services[0])
+[base_joint_states_stub.py-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1886, in destroy_service
+[base_joint_states_stub.py-4]     service.destroy()
+[base_joint_states_stub.py-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/service.py", line 123, in destroy
+[base_joint_states_stub.py-4]     self.__service.destroy_when_not_in_use()
+[base_joint_states_stub.py-4] KeyboardInterrupt
+[ERROR] [move_group-5]: process has died [pid 53706, exit code -2, cmd '/opt/ros/jazzy/lib/moveit_ros_move_group/move_group --ros-args --params-file /tmp/launch_params_4_r7_693 --params-file /tmp/launch_params_culwsu3f --params-file /tmp/launch_params_fegzer8d -r joint_states:=/joint_states_clamped'].
+[robot_state_publisher-1] [INFO] [1793149354.889620113] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ERROR] [ros2_control_node-2]: process has died [pid 53681, exit code -2, cmd '/opt/ros/jazzy/lib/controller_manager/ros2_control_node --ros-args --params-file /tmp/launch_params_swe991zk --params-file /home/slash/openamr_ws/install/openamrobot_upperbody_control/share/openamrobot_upperbody_control/config/arm_controllers.yaml'].
+[rviz2-7] [WARN] [1793149354.950553811] [interactive_marker_display_109824105602560]: Server not available while running, resetting
+[rviz2-7] 
+[rviz2-7] >>> [rcutils|error_handling.c:108] rcutils_set_error_state()
+[rviz2-7] This error state is being overwritten:
+[rviz2-7] 
+[rviz2-7]   'rcl node's context is invalid, at ./src/rcl/node.c:404'
+[rviz2-7] 
+[rviz2-7] with this new error message:
+[rviz2-7] 
+[rviz2-7]   'publisher's context is invalid, at ./src/rcl/publisher.c:423'
+[rviz2-7] 
+[rviz2-7] rcutils_reset_error() should be called after error handling to avoid this.
+[rviz2-7] <<<
+[rviz2-7] [INFO] [1793149355.187083379] [moveit_889901739.moveit.ros.planning_scene_monitor]: Stopping planning scene monitor
+[INFO] [rviz2-7]: process has finished cleanly [pid 53708]
+[joint_state_clamp.py-6] Traceback (most recent call last):
+[joint_state_clamp.py-6]   File "/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/lib/openamrobot_upperbody_moveit/joint_state_clamp.py", line 106, in <module>
+[joint_state_clamp.py-6]     sys.exit(main())
+[joint_state_clamp.py-6]              ^^^^^^
+[joint_state_clamp.py-6]   File "/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/lib/openamrobot_upperbody_moveit/joint_state_clamp.py", line 101, in main
+[joint_state_clamp.py-6]     node.destroy_node()          # before the shutdown, always
+[joint_state_clamp.py-6]     ^^^^^^^^^^^^^^^^^^^
+[joint_state_clamp.py-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[joint_state_clamp.py-6]     self.destroy_publisher(self._publishers[0])
+[joint_state_clamp.py-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[joint_state_clamp.py-6]     publisher.destroy()
+[joint_state_clamp.py-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[joint_state_clamp.py-6]     self.__publisher.destroy_when_not_in_use()
+[joint_state_clamp.py-6] KeyboardInterrupt
+[ERROR] [base_joint_states_stub.py-4]: process has died [pid 53683, exit code -2, cmd '/home/slash/openamr_ws/install/openamrobot_upperbody_bringup/lib/openamrobot_upperbody_bringup/base_joint_states_stub.py --ros-args --params-file /tmp/launch_params_e031vblp'].
+[INFO] [robot_state_publisher-1]: process has finished cleanly [pid 53680]
+[ERROR] [joint_state_clamp.py-6]: process has died [pid 53707, exit code -2, cmd '/home/slash/openamr_ws/install/openamrobot_upperbody_moveit/lib/openamrobot_upperbody_moveit/joint_state_clamp.py --ros-args -r __node:=joint_state_clamp --params-file /tmp/launch_params_timbi1m1'].

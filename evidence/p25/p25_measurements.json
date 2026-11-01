@@ -1,0 +1,822 @@
+{
+  "model": "combined_robot.xacro, baseline configuration (dold_v4_350 / hp25 / bt10 / openarm / mock), base plate and lift stop as listed",
+  "configurations": {
+    "L1000/bp000": {
+      "lift_joint_m": 0.0,
+      "column_axis_x_from_base_footprint_m": 0.06,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.48400000000000004,
+        0.8340000000000001
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.3499999999999999
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "overlapping": true,
+        "overlap_volume_m3": 0.020159999999999994,
+        "penetration_depth_m": 0.24,
+        "distance_m": 0.0,
+        "overlap_volume_monte_carlo_m3": 0.02016,
+        "overlap_z_range_m": [
+          0.48400000000000004,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.3499999999999999
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.12,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          0.844,
+          1.184
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.009999999999999898
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.009999999999999898
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.010000000000000009,
+        "bottom_above_moving_stage_top_m": 0.009999999999999898,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.18000000000000005,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.24,
+          0.031,
+          1.0
+        ],
+        "right_base_link_xyz_m": [
+          0.24,
+          -0.031,
+          1.0
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15600000000000003
+      }
+    },
+    "L1175/bp000": {
+      "lift_joint_m": 0.175,
+      "column_axis_x_from_base_footprint_m": 0.06,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.659,
+        1.0090000000000001
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.17499999999999993
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "overlapping": true,
+        "overlap_volume_m3": 0.010079999999999995,
+        "penetration_depth_m": 0.17499999999999993,
+        "distance_m": 0.0,
+        "overlap_volume_monte_carlo_m3": 0.010085110560000003,
+        "overlap_z_range_m": [
+          0.659,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.17499999999999993
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.12,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          1.0190000000000001,
+          1.359
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.18500000000000016
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.18500000000000016
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.18500000000000016,
+        "bottom_above_moving_stage_top_m": 0.010000000000000009,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.3550000000000001,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.24,
+          0.031,
+          1.175
+        ],
+        "right_base_link_xyz_m": [
+          0.24,
+          -0.031,
+          1.175
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15599999999999992
+      }
+    },
+    "L1350/bp000": {
+      "lift_joint_m": 0.35,
+      "column_axis_x_from_base_footprint_m": 0.06,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.8340000000000001,
+        1.1840000000000002
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.0
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          1.1102230246251565e-16
+        ],
+        "overlapping": false,
+        "overlap_volume_m3": 0.0,
+        "penetration_depth_m": 0.0,
+        "distance_m": 1.1102230246251565e-16,
+        "overlap_volume_monte_carlo_m3": 0.0,
+        "overlap_z_range_m": [
+          0.8340000000000001,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.0
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.12,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          1.1940000000000002,
+          1.534
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.3600000000000002
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.3600000000000002
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.3600000000000002,
+        "bottom_above_moving_stage_top_m": 0.010000000000000009,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.5300000000000001,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.24,
+          0.031,
+          1.35
+        ],
+        "right_base_link_xyz_m": [
+          0.24,
+          -0.031,
+          1.35
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15599999999999992
+      }
+    },
+    "L1000/bp050": {
+      "lift_joint_m": 0.0,
+      "column_axis_x_from_base_footprint_m": 0.11,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.48400000000000004,
+        0.8340000000000001
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.3499999999999999
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "overlapping": true,
+        "overlap_volume_m3": 0.020159999999999994,
+        "penetration_depth_m": 0.24,
+        "distance_m": 0.0,
+        "overlap_volume_monte_carlo_m3": 0.02016,
+        "overlap_z_range_m": [
+          0.48400000000000004,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.3499999999999999
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.11999999999999998,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          0.844,
+          1.184
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.009999999999999898
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.009999999999999898
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.010000000000000009,
+        "bottom_above_moving_stage_top_m": 0.009999999999999898,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.18000000000000005,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.29,
+          0.031,
+          1.0
+        ],
+        "right_base_link_xyz_m": [
+          0.29,
+          -0.031,
+          1.0
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15600000000000003
+      }
+    },
+    "L1175/bp050": {
+      "lift_joint_m": 0.175,
+      "column_axis_x_from_base_footprint_m": 0.11,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.659,
+        1.0090000000000001
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.17499999999999993
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "overlapping": true,
+        "overlap_volume_m3": 0.010079999999999995,
+        "penetration_depth_m": 0.17499999999999993,
+        "distance_m": 0.0,
+        "overlap_volume_monte_carlo_m3": 0.010085110560000003,
+        "overlap_z_range_m": [
+          0.659,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.17499999999999993
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.11999999999999998,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          1.0190000000000001,
+          1.359
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.18500000000000016
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.18500000000000016
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.18500000000000016,
+        "bottom_above_moving_stage_top_m": 0.010000000000000009,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.3550000000000001,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.29,
+          0.031,
+          1.175
+        ],
+        "right_base_link_xyz_m": [
+          0.29,
+          -0.031,
+          1.175
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15599999999999992
+      }
+    },
+    "L1350/bp050": {
+      "lift_joint_m": 0.35,
+      "column_axis_x_from_base_footprint_m": 0.11,
+      "fixed_stage_z_range_m": [
+        0.30399999999999994,
+        0.834
+      ],
+      "moving_stage_z_range_m": [
+        0.8340000000000001,
+        1.1840000000000002
+      ],
+      "column_section_xy_m": [
+        0.24,
+        0.24
+      ],
+      "column_vs_carriage": {
+        "overlap_extent_xyz_m": [
+          0.24,
+          0.24,
+          0.0
+        ],
+        "separation_xyz_m": [
+          0.0,
+          0.0,
+          1.1102230246251565e-16
+        ],
+        "overlapping": false,
+        "overlap_volume_m3": 0.0,
+        "penetration_depth_m": 0.0,
+        "distance_m": 1.1102230246251565e-16,
+        "overlap_volume_monte_carlo_m3": 0.0,
+        "overlap_z_range_m": [
+          0.8340000000000001,
+          0.834
+        ],
+        "engaged_length_of_moving_stage_inside_fixed_stage_m": 0.0
+      },
+      "arm_profile": {
+        "x_range_from_column_axis_m": [
+          0.11999999999999998,
+          0.24
+        ],
+        "y_range_m": [
+          -0.03,
+          0.03
+        ],
+        "z_range_m": [
+          1.1940000000000002,
+          1.534
+        ],
+        "vs_fixed_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.3600000000000002
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.3600000000000002
+        },
+        "vs_moving_stage": {
+          "overlap_extent_xyz_m": [
+            0.0,
+            0.06,
+            0.0
+          ],
+          "separation_xyz_m": [
+            -0.0,
+            0.0,
+            0.010000000000000009
+          ],
+          "overlapping": false,
+          "overlap_volume_m3": 0.0,
+          "penetration_depth_m": 0.0,
+          "distance_m": 0.010000000000000009
+        },
+        "rear_face_to_column_front_face_m": 0.0,
+        "bottom_above_fixed_stage_top_m": 0.3600000000000002,
+        "bottom_above_moving_stage_top_m": 0.010000000000000009,
+        "centre_x_from_column_axis_m": 0.18,
+        "far_face_x_from_column_axis_m": 0.24,
+        "far_face_beyond_column_front_face_m": 0.12,
+        "centre_z_above_fixed_stage_top_m": 0.5300000000000001,
+        "footprint_overlap_with_column_top_face_m2": 0.0,
+        "box_origin_present_in_urdf": false,
+        "box_centre_in_link_frame_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "arm_mounts": {
+        "left_base_link_xyz_m": [
+          0.29,
+          0.031,
+          1.35
+        ],
+        "right_base_link_xyz_m": [
+          0.29,
+          -0.031,
+          1.35
+        ],
+        "left_distance_to_profile_box_m": 0.0010000000000000009,
+        "left_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "right_distance_to_profile_box_m": 0.0010000000000000009,
+        "right_per_axis_m": [
+          0.0,
+          0.0010000000000000009,
+          0.0
+        ],
+        "left_z_above_profile_bottom_m": 0.15599999999999992
+      }
+    }
+  },
+  "reparent_experiment_bp000": {
+    "reparented_with_compensation": {
+      "joint_origin_z_m": 0.206,
+      "links_whose_pose_in_base_footprint_changed": 0,
+      "of_links": 57,
+      "largest_change_m": 0.0,
+      "changed_links_sample": [],
+      "changed_links_all_below": []
+    },
+    "reparented_without_compensation": {
+      "joint_origin_z_m": 0.304,
+      "links_whose_pose_in_base_footprint_changed": 32,
+      "of_links": 57,
+      "largest_change_m": 0.09800000000000003,
+      "changed_links_sample": [
+        "arm_profile_link",
+        "head_camera_link",
+        "head_camera_mount_link",
+        "head_camera_optical_frame",
+        "left_wrist_camera_link",
+        "left_wrist_camera_optical_frame"
+      ],
+      "changed_links_all_below": [
+        "lift_column_base_link"
+      ]
+    }
+  },
+  "lift_column_base_joint_bp000": {
+    "parent": "base_footprint",
+    "origin_xyz": [
+      0.06,
+      0.0,
+      0.304
+    ]
+  },
+  "base_footprint_joint": {
+    "origin_xyz": [
+      0.0,
+      0.0,
+      0.098
+    ],
+    "parent": "base_footprint",
+    "child": "base_link"
+  },
+  "reparent_experiment_bp050": {
+    "reparented_with_compensation": {
+      "joint_origin_z_m": 0.206,
+      "links_whose_pose_in_base_footprint_changed": 0,
+      "of_links": 57,
+      "largest_change_m": 0.0,
+      "changed_links_sample": [],
+      "changed_links_all_below": []
+    },
+    "reparented_without_compensation": {
+      "joint_origin_z_m": 0.304,
+      "links_whose_pose_in_base_footprint_changed": 32,
+      "of_links": 57,
+      "largest_change_m": 0.09800000000000003,
+      "changed_links_sample": [
+        "arm_profile_link",
+        "head_camera_link",
+        "head_camera_mount_link",
+        "head_camera_optical_frame",
+        "left_wrist_camera_link",
+        "left_wrist_camera_optical_frame"
+      ],
+      "changed_links_all_below": [
+        "lift_column_base_link"
+      ]
+    }
+  },
+  "lift_column_base_joint_bp050": {
+    "parent": "base_footprint",
+    "origin_xyz": [
+      0.11,
+      0.0,
+      0.304
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
 <!--
   OpenAMRobot 2.0 upper body, option B (P-03 revision 18.9 item 18, 9 October 2026).
 
@@ -9,11 +10,37 @@
 
   All values come from config/upperbody_configuration.yaml. No masses, inertias
   or supplier outlines are modelled: they are pending supplier CAD.
+
+  Two opt-in parameters let the combined robot (combined_robot.xacro) compose this
+  model with the upstream OpenArm macro. Both default to this file's own behaviour:
+    emit_arm_mounts  true: declare openarm_{left,right}_base_link and their mount
+                     joints (frames only, as before). false: declare neither. The
+                     upstream arm macro emits a link and a joint of exactly those
+                     names, with the arm's own geometry, so declaring them here as
+                     well would duplicate them; the combined robot sets false and
+                     gives the upstream macro the same parent and origin.
+    column_inertial  '' (none): lift_column_base_link carries no inertial. A dict
+                     {mass, com_z, ixx, iyy, izz}: it carries that inertial (the
+                     combined robot supplies the sourced catalogue mass).
+    column_geometry  '' (none): the column has no visual and no collision. A dict
+                     {section_x, section_y, inner_x, inner_y}: the two stages of the Hexalift,
+                     each a box, visual and collision (the collisions named placeholder_*): the
+                     OUTER (fixed) stage of section_x x section_y on lift_column_base_link
+                     (retracted length), the INNER (moving) stage of inner_x x inner_y on
+                     lift_carriage_link (stroke, below the carriage). The sections are the
+                     supplier's (datums lift_column_section and lift_inner_section); the
+                     inner stage's length is not, it is the stroke.
+    adapter_plate    '' (none): no adapter plate link. A dict {size_x, size_y, center_x}: the
+                     plate under the arm profile, its own link adapter_plate_link on
+                     lift_carriage_link, size_x fore-aft by size_y lateral by
+                     geometry.adapter_plate_thickness, resting on the carriage frame's
+                     horizontal plane (the column top at lift 0) and centred laterally;
+                     center_x is from the column axis (datum adapter_plate_section).
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -46,8 +73,47 @@
     <xacro:property name="lens" value="${geo['head_camera_lens']}" lazy_eval="false"/>
     <xacro:property name="profile" value="${geo['arm_profile']}" lazy_eval="false"/>
 
+    <!-- Presentation only, not a datum: one colour for every placeholder box. -->
+    <xacro:property name="placeholder_rgba" value="0.78 0.64 0.45 1.0" lazy_eval="false"/>
+    <material name="placeholder_geometry">
+      <color rgba="${placeholder_rgba}"/>
+    </material>
+    <xacro:macro name="openamrobot_placeholder_gazebo_material" params="link">
+      <gazebo reference="${link}">
+        <visual>
+          <material>
+            <ambient>${placeholder_rgba}</ambient>
+            <diffuse>${placeholder_rgba}</diffuse>
+            <specular>0.1 0.1 0.1 1.0</specular>
+          </material>
+        </visual>
+      </gazebo>
+    </xacro:macro>
+
     <!-- Column axis on the base-plate top face (height reference, 304 mm). -->
-    <link name="lift_column_base_link"/>
+    <link name="lift_column_base_link">
+      <xacro:unless value="${column_inertial == ''}">
+        <inertial>
+          <origin xyz="0 0 ${column_inertial['com_z']}" rpy="0 0 0"/>
+          <mass value="${column_inertial['mass']}"/>
+          <inertia ixx="${column_inertial['ixx']}" ixy="0" ixz="0" iyy="${column_inertial['iyy']}" iyz="0" izz="${column_inertial['izz']}"/>
+        </inertial>
+      </xacro:unless>
+      <xacro:unless value="${column_geometry == ''}">
+        <visual>
+          <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${col['retracted_length']}"/></geometry>
+          <material name="placeholder_geometry"/>
+        </visual>
+        <collision name="placeholder_lift_column_fixed_stage">
+          <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${col['retracted_length']}"/></geometry>
+        </collision>
+      </xacro:unless>
+    </link>
+    <xacro:unless value="${column_geometry == ''}">
+      <xacro:openamrobot_placeholder_gazebo_material link="lift_column_base_link"/>
+    </xacro:unless>
     <joint name="lift_column_base_joint" type="fixed">
       <parent link="${parent}"/>
       <child link="lift_column_base_link"/>
@@ -57,7 +123,23 @@
     <!-- Lift carriage: origin on the column axis at the column top. The lift
          height is joint state. Effort and velocity limits are pending: they are
          set to 0 so the model cannot be used to command the lift. -->
-    <link name="lift_carriage_link"/>
+    <xacro:if value="${column_geometry == ''}">
+      <link name="lift_carriage_link"/>
+    </xacro:if>
+    <xacro:unless value="${column_geometry == ''}">
+      <link name="lift_carriage_link">
+        <visual>
+          <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
+          <material name="placeholder_geometry"/>
+        </visual>
+        <collision name="placeholder_lift_column_moving_stage">
+          <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
+        </collision>
+      </link>
+      <xacro:openamrobot_placeholder_gazebo_material link="lift_carriage_link"/>
+    </xacro:unless>
     <joint name="lift_joint" type="prismatic">
       <parent link="lift_column_base_link"/>
       <child link="lift_carriage_link"/>
@@ -66,20 +148,55 @@
       <limit lower="0.0" upper="${col['stroke']}" effort="0.0" velocity="0.0"/>
     </joint>
 
+    <!-- Adapter plate (P-03 rev19.6 item 18): its own link, carried by the carriage, under the arm profile. Its joint is at the box centre and
+         the link has no <origin>, the convention arm_profile_link uses. The plate rests on the carriage frame's horizontal plane (z 0 to the
+         thickness), so the profile's 10 mm offset below is its top face. -->
+    <xacro:unless value="${adapter_plate == ''}">
+      <link name="adapter_plate_link">
+        <visual>
+          <geometry><box size="${adapter_plate['size_x']} ${adapter_plate['size_y']} ${geo['adapter_plate_thickness']}"/></geometry>
+          <material name="placeholder_geometry"/>
+        </visual>
+        <collision name="adapter_plate">
+          <geometry><box size="${adapter_plate['size_x']} ${adapter_plate['size_y']} ${geo['adapter_plate_thickness']}"/></geometry>
+        </collision>
+      </link>
+      <xacro:openamrobot_placeholder_gazebo_material link="adapter_plate_link"/>
+      <joint name="adapter_plate_joint" type="fixed">
+        <parent link="lift_carriage_link"/>
+        <child link="adapter_plate_link"/>
+        <origin xyz="${adapter_plate['center_x']} 0 ${geo['adapter_plate_thickness'] / 2}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
+
     <!-- Arm profile (MISUMI HFS6-60120) on the adapter plate. -->
     <link name="arm_profile_link">
       <visual>
         <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
+        <material name="placeholder_geometry"/>
       </visual>
       <collision>
         <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
       </collision>
     </link>
-    <joint name="arm_profile_joint" type="fixed">
-      <parent link="lift_carriage_link"/>
-      <child link="arm_profile_link"/>
-      <origin xyz="${profile['center_x_from_column_axis']} 0 ${geo['adapter_plate_thickness'] + profile['length'] / 2}" rpy="0 0 0"/>
-    </joint>
+    <xacro:openamrobot_placeholder_gazebo_material link="arm_profile_link"/>
+    <!-- With the adapter plate modelled the profile hangs off the plate it stands on (P28): the two faces touch by design (the profile's bottom
+         face is the plate's top face), and two siblings that touch would be a permanent collision of the model, where a parent and its child are
+         a structural neighbour. The profile's pose from the carriage is the same either way: x center_x_from_column_axis, z thickness + length / 2. -->
+    <xacro:if value="${adapter_plate == ''}">
+      <joint name="arm_profile_joint" type="fixed">
+        <parent link="lift_carriage_link"/>
+        <child link="arm_profile_link"/>
+        <origin xyz="${profile['center_x_from_column_axis']} 0 ${geo['adapter_plate_thickness'] + profile['length'] / 2}" rpy="0 0 0"/>
+      </joint>
+    </xacro:if>
+    <xacro:unless value="${adapter_plate == ''}">
+      <joint name="arm_profile_joint" type="fixed">
+        <parent link="adapter_plate_link"/>
+        <child link="arm_profile_link"/>
+        <origin xyz="${profile['center_x_from_column_axis'] - adapter_plate['center_x']} 0 ${geo['adapter_plate_thickness'] / 2 + profile['length'] / 2}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
 
     <!-- OpenArm J1_A arm mount points. -->
     <xacro:macro name="openamrobot_arm_mount" params="side sign">
@@ -90,8 +207,10 @@
         <origin xyz="${mount['x_from_column_axis']} ${sign * mount['y']} ${mount['z_above_column_top']}" rpy="0 0 0"/>
       </joint>
     </xacro:macro>
-    <xacro:openamrobot_arm_mount side="left" sign="1"/>
-    <xacro:openamrobot_arm_mount side="right" sign="-1"/>
+    <xacro:if value="${emit_arm_mounts}">
+      <xacro:openamrobot_arm_mount side="left" sign="1"/>
+      <xacro:openamrobot_arm_mount side="right" sign="-1"/>
+    </xacro:if>
 
     <!-- Head camera (ZED Mini). head_camera_mount_link is the pitch pivot on the
          lens line; head_camera_link is pitched down by head_pitch about y. -->

@@ -1,0 +1,62 @@
+{
+ "urdf_rgba": [
+  0.78,
+  0.64,
+  0.45
+ ],
+ "urdf_hue_deg": 34.54545454545454,
+ "urdf_ratio_to_max": [
+  1.0,
+  0.8205128205128205,
+  0.5769230769230769
+ ],
+ "rviz_after": {
+  "pixels": 17334,
+  "median_rgb": [
+   0.7333333333333333,
+   0.6,
+   0.4235294117647059
+  ],
+  "hue_deg": 34.17721518987342,
+  "saturation": 0.4224598930481283,
+  "value": 0.7333333333333333,
+  "ratio_to_max": [
+   1.0,
+   0.8181818181818182,
+   0.5775401069518717
+  ],
+  "scale_vs_urdf_green_channel": 0.9375
+ },
+ "gazebo_after": {
+  "pixels": 8501,
+  "median_rgb": [
+   0.4196078431372549,
+   0.3803921568627451,
+   0.3215686274509804
+  ],
+  "hue_deg": 35.99999999999998,
+  "saturation": 0.23364485981308408,
+  "value": 0.4196078431372549,
+  "ratio_to_max": [
+   1.0,
+   0.9065420560747663,
+   0.766355140186916
+  ],
+  "scale_vs_urdf_green_channel": 0.5943627450980392,
+  "urdf_ratio_to_max_to_the_1_over_2_2": [
+   1.0,
+   0.9140035784132456,
+   0.778784379958233
+  ],
+  "note": "same hue, less saturated: the observed channel ratios are close to the URDF's raised to 1/2.2, which is what a renderer that takes the rgba as linear light and sRGB-encodes the result would give. A reading of the numbers, not a verified fact about gz-rendering."
+ },
+ "rviz_before_p19": {
+  "pixels": 15514,
+  "median_rgb": [
+   0.6862745098039216,
+   0.0,
+   0.0
+  ],
+  "note": "red pixels of the P19 capture of the same configuration (platform-sw d619012)"
+ }
+}

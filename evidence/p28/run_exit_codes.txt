@@ -1,0 +1,11 @@
+P28, code a14a3ff, platform-sw dfd44a5, clean tree, datums revision 2026-10-28.a. Exit status of each runner (driver script in the step's scratchpad):
+A6 run 1  verify_a6.sh            exit 0   25 PASS / 3 WARN / 0 FAIL   20261028T002351Z_dev.json
+A6 run 2  verify_a6.sh            exit 0   25 PASS / 3 WARN / 0 FAIL   20261028T002738Z_dev.json
+A6 run 3  verify_a6.sh            exit 0   25 PASS / 3 WARN / 0 FAIL   20261028T003126Z_dev.json
+A7 run 1  run_a7_regression.sh    exit 0   14 PASS / 2 WARN / 0 FAIL   20261028T003921Z_a7.json
+A7 run 2  run_a7_regression.sh    exit 1   12 PASS / 2 WARN / 2 FAIL (G02: parameter_bridge-3 -11; AUX: test_zz_a_reading_beyond_the_epsilon_is_not_hidden)   20261028T004705Z_a7.json
+A7 run 3  run_a7_regression.sh    exit 0   14 PASS / 2 WARN / 0 FAIL   20261028T005455Z_a7.json
+
+An earlier attempt on 25843dc (the same code without one line in CMakeLists.txt) FAILED A6 run 1 on H01 (test_p28_lift_geometry.py was in no CMake
+line, so it would never have run) and AUX with it; the driver was stopped, the line was added, the commit was amended to a14a3ff, and all six runs above were
+started again from the beginning. That report (20261028T001828Z_dev.json, on a commit that no longer exists) is not committed.

@@ -1,0 +1,304 @@
+{
+  "schema": "openamr.frozen_expansions.v1",
+  "status": "FROZEN artifact of the A6 PR. Fixed-mast configuration (P-03 rev18.2). SUPERSEDED as a robot description by option B (P-03 rev18.9 item 18); do not read it as the geometry that will be built.",
+  "configuration": {
+    "mast_ids": [
+      "mast_1300",
+      "mast_1350",
+      "mast_1400",
+      "mast_1450"
+    ],
+    "release_mast_id": "mast_1350",
+    "arm_packages": [
+      "openarm",
+      "so101",
+      "none"
+    ],
+    "hardware_profiles": [
+      "mock",
+      "gazebo",
+      "real"
+    ],
+    "matrix": "T01: every mast_id x arm_package on mock, plus openarm on gazebo and real at mast_1350 (14 expansions = the 14 config ids of C01)",
+    "enable_planar_base": "false"
+  },
+  "evidence_class": "static (xacro expansion and hashing only; nothing was run)",
+  "source_commit": "993b000bcc3d77994b84b35846cfe7da784c6923",
+  "source_branch": "feat/a6-canonical-description",
+  "datums_revision": "2026-10-08.e",
+  "openarm_description_commit": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+  "openamr_platform_sw_commit": "12de3ef9503073ab41fd4118f3a018809ad51c4e",
+  "other_pins_not_inputs_to_these_files": {
+    "openarm_ros2": "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
+  },
+  "cross_check": {
+    "report": "20261006T164342Z_dev.json (verify_a6.sh at 993b000, dirty false, 20 PASS / 6 WARN / 0 FAIL)",
+    "config_ids_reproduced": "14 of 14"
+  },
+  "known_defects_in_every_file": [
+    {
+      "id": "V01-F1",
+      "what": "mast_base_link box is size 0.060 x 0.120 (x fore-aft, y lateral): probably rotated 90 degrees. Option B orients the same HFS6-60120 cross-section (its 340 mm arm_profile, not a full-height mast) 0.120 fore-aft x 0.060 lateral. The value of mast_section is right; the axis assignment was a prose note ('orientation unconfirmed') and no test asserted it."
+    },
+    {
+      "id": "V01-F2",
+      "what": "mast_mass is 3.0 kg (placeholder) for 1.2365 m of HFS6-60120: implied bounding-box density about 337 kg/m3, implausible for an aluminium extrusion by roughly a factor of 2.5 to 4. Needs the MISUMI datasheet; not a figure to land."
+    }
+  ],
+  "entries": [
+    {
+      "label": "mast_1300/openarm/mock",
+      "mast_id": "mast_1300",
+      "arm_package": "openarm",
+      "hardware_profile": "mock",
+      "file": "mast_1300__openarm__mock.urdf",
+      "config_id": "sha256:c9aed2ad17e8b32571cc5d48e01f53a937ba79fcc1f1d2d8f605d7c672a5ff9e",
+      "bytes": 54154,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "mock_components/GenericSystem"
+      ],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1300/so101/mock",
+      "mast_id": "mast_1300",
+      "arm_package": "so101",
+      "hardware_profile": "mock",
+      "file": "mast_1300__so101__mock.urdf",
+      "config_id": "sha256:bdad284be4b34dfd05bd70cbe5c390acc48149ef078d44c219ecc97b31c27b77",
+      "bytes": 20393,
+      "links": 17,
+      "joints": 16,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1300/none/mock",
+      "mast_id": "mast_1300",
+      "arm_package": "none",
+      "hardware_profile": "mock",
+      "file": "mast_1300__none__mock.urdf",
+      "config_id": "sha256:d1cb6ee23be0c4ab342237532367909da2aebc383a7fd4ea8ee85744560019e5",
+      "bytes": 20211,
+      "links": 16,
+      "joints": 15,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1350/openarm/mock",
+      "mast_id": "mast_1350",
+      "arm_package": "openarm",
+      "hardware_profile": "mock",
+      "file": "mast_1350__openarm__mock.urdf",
+      "config_id": "sha256:db76c29a6607137a55b67168e35ce571248486404d57799037c4061447829706",
+      "bytes": 54166,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "mock_components/GenericSystem"
+      ],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1350/so101/mock",
+      "mast_id": "mast_1350",
+      "arm_package": "so101",
+      "hardware_profile": "mock",
+      "file": "mast_1350__so101__mock.urdf",
+      "config_id": "sha256:4c822ea2daff9e4fb5c948c2660d5bc73572be38df5f67b48608940f000695a7",
+      "bytes": 20405,
+      "links": 17,
+      "joints": 16,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1350/none/mock",
+      "mast_id": "mast_1350",
+      "arm_package": "none",
+      "hardware_profile": "mock",
+      "file": "mast_1350__none__mock.urdf",
+      "config_id": "sha256:b821aecb3ba353345a0de0200c34634806f3eaa383fe8d9cdb9549fd10ea2216",
+      "bytes": 20223,
+      "links": 16,
+      "joints": 15,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1400/openarm/mock",
+      "mast_id": "mast_1400",
+      "arm_package": "openarm",
+      "hardware_profile": "mock",
+      "file": "mast_1400__openarm__mock.urdf",
+      "config_id": "sha256:b63b9985547bd27e1ac1d69e11651fd84b1d518366f5296df39c9e2737175b22",
+      "bytes": 54154,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "mock_components/GenericSystem"
+      ],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1400/so101/mock",
+      "mast_id": "mast_1400",
+      "arm_package": "so101",
+      "hardware_profile": "mock",
+      "file": "mast_1400__so101__mock.urdf",
+      "config_id": "sha256:bc2a52b0ffa56c1a7bfb584f1b86c19e2efb17eb0e11769b8a2c2709f44f2b48",
+      "bytes": 20393,
+      "links": 17,
+      "joints": 16,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1400/none/mock",
+      "mast_id": "mast_1400",
+      "arm_package": "none",
+      "hardware_profile": "mock",
+      "file": "mast_1400__none__mock.urdf",
+      "config_id": "sha256:c4d50412792c886204de2c7ae795cb229885038485d403362305d7b4cfcaff19",
+      "bytes": 20211,
+      "links": 16,
+      "joints": 15,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1450/openarm/mock",
+      "mast_id": "mast_1450",
+      "arm_package": "openarm",
+      "hardware_profile": "mock",
+      "file": "mast_1450__openarm__mock.urdf",
+      "config_id": "sha256:2f0be25f3acd50e6e262f3b0934f0bc9014d7cd03ea0fcdf87cd7986dd468d17",
+      "bytes": 54166,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "mock_components/GenericSystem"
+      ],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1450/so101/mock",
+      "mast_id": "mast_1450",
+      "arm_package": "so101",
+      "hardware_profile": "mock",
+      "file": "mast_1450__so101__mock.urdf",
+      "config_id": "sha256:d946f623e075b550cbcc34f7bec588f92afbd458667a9db50807380eb58991bf",
+      "bytes": 20405,
+      "links": 17,
+      "joints": 16,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1450/none/mock",
+      "mast_id": "mast_1450",
+      "arm_package": "none",
+      "hardware_profile": "mock",
+      "file": "mast_1450__none__mock.urdf",
+      "config_id": "sha256:54796490fc1ff82f0588ad5df72bc4898a9e0607fd1c8b605e3e8c54fd6e6cfc",
+      "bytes": 20223,
+      "links": 16,
+      "joints": 15,
+      "massed_links": 14,
+      "modelled_mass_kg": 9.702,
+      "ros2_control_hardware_plugins": [],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1350/openarm/gazebo",
+      "mast_id": "mast_1350",
+      "arm_package": "openarm",
+      "hardware_profile": "gazebo",
+      "file": "mast_1350__openarm__gazebo.urdf",
+      "config_id": "sha256:154721502f85574415167048723990c862440db081c8efac2f9a1f6e0a400ef4",
+      "bytes": 52963,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "gz_ros2_control/GazeboSimSystem"
+      ],
+      "has_gazebo_model_plugin": false
+    },
+    {
+      "label": "mast_1350/openarm/real",
+      "mast_id": "mast_1350",
+      "arm_package": "openarm",
+      "hardware_profile": "real",
+      "file": "mast_1350__openarm__real.urdf",
+      "config_id": "sha256:18b1f1c0024cef651fbbcedb0d826dd52da5372d589fa1133ced8a65d6f301db",
+      "bytes": 55105,
+      "links": 46,
+      "joints": 45,
+      "massed_links": 34,
+      "modelled_mass_kg": 21.962,
+      "ros2_control_hardware_plugins": [
+        "openarm_hardware/OpenArmHW"
+      ],
+      "has_gazebo_model_plugin": false
+    }
+  ],
+  "a7_variant": {
+    "note": "The one expansion whose id differs between the A6 head and the A7 head: A7 adds the gz_ros2_control MODEL plugin to the gazebo profile (a <gazebo><plugin> block). The other 13 ids are identical at both commits.",
+    "source_commit": "a488743e5478454278372235f5be591008399461",
+    "source_branch": "feat/a7-gazebo-moveit",
+    "datums_revision": "2026-10-08.e",
+    "openarm_description_commit": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+    "openamr_platform_sw_commit": "12de3ef9503073ab41fd4118f3a018809ad51c4e",
+    "cross_check": {
+      "report": "20261007T164436Z_dev.json (verify_a6.sh on the A7 branch, dirty false, 22 PASS / 6 WARN / 0 FAIL)",
+      "config_ids_reproduced": "1 of 1"
+    },
+    "a6_id_of_the_same_label": "sha256:154721502f85574415167048723990c862440db081c8efac2f9a1f6e0a400ef4",
+    "entries": [
+      {
+        "label": "mast_1350/openarm/gazebo",
+        "mast_id": "mast_1350",
+        "arm_package": "openarm",
+        "hardware_profile": "gazebo",
+        "file": "mast_1350__openarm__gazebo.urdf",
+        "config_id": "sha256:ad480a8cc55f42538dda586c604d5f6443ed8f24302750ef342b193f36aa8fe5",
+        "bytes": 54412,
+        "links": 46,
+        "joints": 45,
+        "massed_links": 34,
+        "modelled_mass_kg": 21.962,
+        "ros2_control_hardware_plugins": [
+          "gz_ros2_control/GazeboSimSystem"
+        ],
+        "has_gazebo_model_plugin": true
+      }
+    ]
+  }
+}

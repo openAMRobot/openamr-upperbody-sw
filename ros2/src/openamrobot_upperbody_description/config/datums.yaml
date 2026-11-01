@@ -1,0 +1,155 @@
+# SPDX-License-Identifier: MIT
+# datums.yaml - every number the combined description uses that is not upstream-owned (ADR-002).
+# Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
+# Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
+schema_version: 1
+revision: "2026-10-28.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+units: {length: m, angle: rad, mass: kg}
+
+# Datums that are reported but never feed the model (DATUMS.md rule 1).
+report_only:
+  - base_link_height_above_floor
+  - drive_wheel_radius
+  - envelope_max_height
+  - envelope_max_width
+  - envelope_max_depth
+  - gross_mass_limit
+  - f2s_vehicle_mass_estimate
+  - joint_rest_margin_rad
+
+# Datums whose xacro consumer has not been written yet: <datum>: <step that will consume it>.
+# The step that adds the consumer deletes the entry in the same commit; T13 fails if it does not.
+# Empty since S4 (the camera poses are now consumed by upper_sensors.xacro); kept so the mechanism stays visible.
+pending_reference: {}
+
+datums:
+  base_link_height_above_floor:
+    value: 0.098
+    source: plan
+    status: provisional
+    ref: "register CAMERAS, P-03 rev19.4 item 19 D3 update (Alex decision 16 Oct 2026, CAD Rev B): base_link 0.098 m above the floor (camera centre 144 mm = base_link 0.098 m + z 0.046 m); base_link at the drive-axle midpoint, base_footprint on the floor (register FRAMES-REP105, P-03 rev19.4: 'axle height', no number). platform-sw has the same 0.098 in base_footprint_joint (robo_urdf.urdf.xacro:20)"
+    owner: "Alex (decision) / platform-sw (base frames)"
+    note: "A placeholder from S3 to P14 (0.0635, read off the SolidWorks export origin and a 0.110 m wheel) because nobody had defined it. It is a decision record, not a measurement, so provisional. T04 (test_t04_optb_composition) asserts it equals the base_footprint -> base_link joint of the expansion, so a platform-sw change cannot leave it behind."
+
+  drive_wheel_radius:
+    value: 0.100
+    source: supplier
+    status: provisional
+    ref: "P-00 s3.2: ZLLG80ASM250-L-B 200 mm hub wheel; F2A pending. platform-sw 935efc7 models radius 0.100 (Alex decision 2026-10-12)"
+    owner: "Alex (F2A)"
+    note: "Not used by the base model (platform-sw owns its wheels). Recorded so a mismatch with the base model is visible."
+
+  column_axis_x_bp000:
+    value: 0.060
+    source: plan
+    status: provisional
+    ref: "P-03 rev19.0 item 19 D2 (Alex, 12 Oct 2026): the column axis is 330 mm behind the 780 mm chassis front edge (front edge x +0.390), x +0.060 from base_link at bp000; bp050 is +0.050 further (x +0.110), from upperbody_configuration.yaml base_plate. option B drawing sheet 2 rev A"
+    owner: "Alex (option B drawing)"
+    note: "Not on the drive axle (ADR-010 never said so). Passed to option B's macro as column_axis_x_bp000; its standalone wrapper has the same 0.060 default and T04 (test_t04_optb_composition) asserts the two agree."
+
+  lift_mass_dold_v4_350:
+    value: 11.7
+    source: supplier
+    status: provisional
+    ref: "DOLD Hexalift V4 350, catalogue mass 11.7 kg (Alex, 12 Oct 2026; P-03 rev19.0). Replaces mast_mass (3.0 kg, placeholder)"
+    owner: "Alex (F2S)"
+    note: "A catalogue figure for the whole column assembly, not weighed here. The split between the fixed outer part and the moving stage is not in the catalogue, so all of it is carried on lift_column_base_link at mid-height of the retracted column (a model choice, not a measurement)."
+    density_band:
+      min: 100.0
+      max: 1600.0
+      reason: "Re-fitted 28 Oct 2026 (P28), and that is a judgement call for the owner of the band, not a measurement. Until then the band was 100 to 1200 kg/m3: a lifting column is aluminium extrusions (2700 kg/m3 solid), a motor and a spindle inside a hollow housing, which the datum author estimated at 5 to 40 per cent fill of the bounding box, rounded outwards. That estimate was made when the lateral side was an invented 240 mm. With the sourced outer section 240 x 60 mm (lift_column_section, DOLD datasheet page 4) the catalogue mass (11.7 kg, datasheet page 5 gives the same figure for V4) implies 1533 kg/m3 over 0.240 x 0.060 x 0.530 m, which is 57 per cent of solid aluminium and outside 1200. Both factors are now supplier figures, so the estimate yields; the upper bound is moved to 1600, just above the implied value, rounded outwards as before. The lower bound is unchanged. What the band can still catch is a mass that is wrong by a large factor (the 3.0 kg mast), not a small one: the check is weaker on the upper side than it was."
+      bounding_box: "lift_column_section x column retracted_length (upperbody_configuration.yaml)"
+
+  lift_mass_tl3_400:
+    value: null
+    source: placeholder
+    status: placeholder
+    ref: "TiMOTION TL3 400 mm (the fallback column): no supplier mass. Null on purpose, like its lengths in upperbody_configuration.yaml"
+    owner: "Alex (F2S)"
+    note: "HARD-FAIL: a null datum stops the expansion and names the datum (an expansion that cannot be built is stronger than a placeholder that expands and warns). Reclassified in P15; the datum is new."
+
+  lift_column_section:
+    value: [0.240, 0.060]
+    axis_convention: {x: fore_aft, y: lateral}
+    source: supplier
+    status: provisional
+    ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the two dimensioned drawings ('With mounting brackets' / 'Without mounting brackets'): 'Outer profile 240x60'. https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf ; matches option B drawing sheet 2 rev A. Alex, 22 Oct 2026 (the 240 mm side fore-aft is option B's own statement, upperbody_configuration.yaml column.dold_v4_350.description)"
+    owner: "Alex (option B drawing) / supplier (DOLD)"
+    note: "Sourced since 28 Oct 2026 (P28). It was a placeholder [0.240, 0.240] whose lateral side was invented (set equal to x); it is no longer an invented number, and the CHANGELOG says so. The outer profile only: the moving stage is lift_inner_section. It sizes the inertia tensor of the column, the fixed stage's visual and collision box, and the adapter plate's rear edge. Provisional, not verified: the dimensions are read from a raster drawing in a supplier datasheet, not from a CAD model or a measured part."
+
+  lift_inner_section:
+    value: [0.2095, 0.051]
+    axis_convention: {x: fore_aft, y: lateral}
+    source: supplier
+    status: provisional
+    ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the same two dimensioned drawings as lift_column_section: 'Inner profile 209.5x51' (bottom view, 209.5 and 51 dimensioned on the inner stage's end face). https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf"
+    owner: "supplier (DOLD)"
+    note: "The moving (inner) stage of the Hexalift, carried by lift_carriage_link. Sourced: the datasheet gives it, so no placeholder was needed (P28). Two things are ours, not the datasheet's: (1) the drawing does not say which way the inner profile sits in the outer one, so it is taken the same way round (209.5 along the 240 side, 51 along the 60 side) and centred on the column axis (15.25 mm clear each side fore-aft, 4.5 mm each side laterally); (2) the stage's LENGTH is not in the datasheet, and the box keeps the stroke (0.350 m) it had before. Strictly smaller than lift_column_section on both axes, so the stage nests in the outer section instead of repeating it. The outer stage's collision is still a solid box, so the volumes still overlap (a hollow outer needs the housing wall, which the datasheet does not give)."
+
+  adapter_plate_section:
+    value: [0.360, 0.100]
+    axis_convention: {x: fore_aft, y: lateral}
+    source: plan
+    status: provisional
+    ref: "Alex, 22 Oct 2026, P-03 rev19.6 item 18: adapter plate 360 mm fore-aft x 100 mm lateral x 10 mm on the column top. The 360 is 240 of column plus 120 ahead of the column's front face (so the plate's rear edge is flush with the column's rear face and its front edge is 0.240 m ahead of the column axis, the arm profile's front face). The 10 mm thickness is geometry.adapter_plate_thickness in upperbody_configuration.yaml"
+    owner: "Alex (option B)"
+    note: "A decision record, not a measurement. The rear-flush placement is derived from the sentence above, not stated as such: if the plate is not flush with the column's rear face, the plate's x position is wrong and nothing else. Closes the 10 mm gap under arm_profile_link (P25 finding 3)."
+
+  left_wrist_camera_pose:
+    value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Relative to openarm_left_ee_base_link. Kit datum unknown (B-01 Q-15 era)"
+    owner: "Alex / Om (kit datum)"
+
+  right_wrist_camera_pose:
+    value: {xyz: [0.0, -0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Mirror of left_wrist_camera_pose, relative to openarm_right_ee_base_link"
+    owner: "Alex / Om (kit datum)"
+
+  envelope_max_height:
+    value: 1.700
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+    note: "Used by a WARN test."
+
+  envelope_max_width:
+    value: 0.600
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  envelope_max_depth:
+    value: 0.800
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  gross_mass_limit:
+    value: 120.0
+    source: plan
+    status: verified
+    ref: "P-00 s3.1 platform-level requirement"
+    owner: "Alex (P-00)"
+
+  f2s_vehicle_mass_estimate:
+    value: 93.0
+    source: f2s
+    status: provisional
+    ref: "Alex, F2S design proposal, 28 Sep 2026 (gross mass about 93 kg vs the 120 kg cap); second-hand via DESIGN_UPDATE_2026-10-05 s1, the F2S document is not in this repo"
+    owner: "Alex (F2S)"
+    note: "Vehicle level, not per link. T10 prints it next to the modelled total so 22 kg against 120 kg is not read as headroom; it feeds nothing."
+
+  joint_rest_margin_rad:
+    value: 1.0e-3
+    source: placeholder
+    status: placeholder
+    ref: "M07 (VERIFICATION.md, rev19.0 pass, 14 Oct 2026): no joint's rest position may sit within this many radians of either of its limits. Chosen from what was measured in P17 (evidence/m02_bisect/RESULTS.md, 'Finger torque at rest'): the rest position of one joint differs between runs of an unchanged tree by up to 2.8e-4 rad (left_finger_joint1; 9e-6 for the right finger), and the arm joint4s rest 9.3e-5 to 1.0e-4 inside their lower limit. A margin below the between-run scatter makes M07 pass in one run and fail in the next; 1e-3 is 3.6 times the largest scatter seen and about 0.057 degrees."
+    owner: "architecture chat (M07) / Tushar"
+    note: "A margin, not a hardware number: it feeds no model and no xacro (report_only). Replace it with a figure someone has a reason for (a joint's mechanical stop clearance, a controller deadband) when one exists. It is not tuned to any outcome: at 1e-3 the check FAILS on four joints (both finger_joint1 and both joint4), and it would fail the old body on the same four, because in both bodies the open and zero poses ARE limits. Changing the value changes M07's verdict and nothing else."

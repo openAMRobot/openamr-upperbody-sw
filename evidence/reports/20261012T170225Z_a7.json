@@ -1,0 +1,1336 @@
+{
+  "schema": "openamr.evidence.v1",
+  "repo": "openamr-upperbody-sw",
+  "git_hash": "93a2a494b0575c080b292873bc1f8865d58e737d",
+  "dirty": false,
+  "timestamp": "2026-10-12T17:02:25Z",
+  "profile": "a7",
+  "evidence_class": "simulation",
+  "simulator": {
+    "gz_sim": "8.15.0",
+    "gz_ros2_control": "1.2.20",
+    "ros_gz_sim": "1.0.24",
+    "moveit": "2.12.4-1noble.20260903.075716"
+  },
+  "upstream": {
+    "openarm_description": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+    "openarm_ros2": "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
+  },
+  "datums_revision": "2026-10-08.e",
+  "checks": [
+    {
+      "id": "G01",
+      "name": "combined robot in Gazebo: arm controllers, arm goal, Nav2-facing topics unchanged",
+      "result": "PASS",
+      "details": {
+        "tests": 7,
+        "failed": 0,
+        "skipped": 0,
+        "launch_defaults": {
+          "physics_engine": "gz-physics-dartsim-plugin",
+          "headless": true
+        },
+        "controllers": {
+          "left_arm_controller": "active",
+          "right_arm_controller": "active",
+          "left_gripper_controller": "active",
+          "right_gripper_controller": "active",
+          "joint_state_broadcaster": "active"
+        },
+        "controllers_active_after_s": 8.3,
+        "arm_goal": {
+          "controller": "left_arm_controller",
+          "target": {
+            "openarm_left_joint1": 0.2,
+            "openarm_left_joint2": -0.3,
+            "openarm_left_joint3": 0.0,
+            "openarm_left_joint4": 0.8,
+            "openarm_left_joint5": 0.0,
+            "openarm_left_joint6": 0.0,
+            "openarm_left_joint7": 0.0
+          },
+          "final": {
+            "openarm_left_joint1": 0.2,
+            "openarm_left_joint2": -0.3,
+            "openarm_left_joint3": 0.0,
+            "openarm_left_joint4": 0.8,
+            "openarm_left_joint5": 0.0,
+            "openarm_left_joint6": -0.0,
+            "openarm_left_joint7": -0.0
+          },
+          "tolerance_rad": 0.02,
+          "base_moved_m": 0.0,
+          "right_arm_moved_rad": 0.0
+        },
+        "platform_sw_topics": {
+          "/clock": {
+            "type": "rosgraph_msgs/msg/Clock",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "rosgraph_msgs/msg/Clock"
+            ]
+          },
+          "/odom": {
+            "type": "nav_msgs/msg/Odometry",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "nav_msgs/msg/Odometry"
+            ]
+          },
+          "/tf": {
+            "type": "tf2_msgs/msg/TFMessage",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "tf2_msgs/msg/TFMessage"
+            ]
+          },
+          "/cmd_vel": {
+            "type": "geometry_msgs/msg/Twist",
+            "direction": "ROS_TO_GZ",
+            "found": [
+              "geometry_msgs/msg/Twist"
+            ]
+          },
+          "/imu": {
+            "type": "sensor_msgs/msg/Imu",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "sensor_msgs/msg/Imu"
+            ]
+          },
+          "/scan": {
+            "type": "sensor_msgs/msg/LaserScan",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "sensor_msgs/msg/LaserScan"
+            ]
+          },
+          "/rgb_image": {
+            "type": "sensor_msgs/msg/Image",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "sensor_msgs/msg/Image"
+            ]
+          },
+          "/camera/camera_info": {
+            "type": "sensor_msgs/msg/CameraInfo",
+            "direction": "GZ_TO_ROS",
+            "found": [
+              "sensor_msgs/msg/CameraInfo"
+            ]
+          }
+        },
+        "platform_sw_bridge_file": "/home/slash/openamr_ws/install/openamrobot_gazebo/share/openamrobot_gazebo/config/gz_bridge.yaml",
+        "drive": {
+          "cmd_vel_m_s": 0.2,
+          "sim_seconds": 3.0,
+          "odom_moved_m": 0.599,
+          "odom_messages": 175
+        },
+        "odom_to_base_link": {
+          "samples": 250,
+          "sim_rate_hz": 50.0,
+          "stamps_strictly_increasing": true,
+          "expected_rate_hz": 50.0,
+          "other_transforms_with_odom": {},
+          "tf_publishers": [
+            "platform_bridge",
+            "robot_state_publisher"
+          ],
+          "odom_is_a_link_of_the_description": false,
+          "planar_joint_in_description": false
+        },
+        "joint_states": {
+          "publishers": {
+            "/joint_states": [
+              "joint_state_publisher"
+            ],
+            "/base/joint_states": [
+              "base_joint_states_bridge"
+            ],
+            "/arm/joint_states": [
+              "joint_state_broadcaster"
+            ]
+          },
+          "merged_joint_count": 20,
+          "merged_joints": [
+            "left_wheel_joint",
+            "openarm_left_finger_joint1",
+            "openarm_left_finger_joint2",
+            "openarm_left_joint1",
+            "openarm_left_joint2",
+            "openarm_left_joint3",
+            "openarm_left_joint4",
+            "openarm_left_joint5",
+            "openarm_left_joint6",
+            "openarm_left_joint7",
+            "openarm_right_finger_joint1",
+            "openarm_right_finger_joint2",
+            "openarm_right_joint1",
+            "openarm_right_joint2",
+            "openarm_right_joint3",
+            "openarm_right_joint4",
+            "openarm_right_joint5",
+            "openarm_right_joint6",
+            "openarm_right_joint7",
+            "right_wheel_joint"
+          ],
+          "base_source_joints": [
+            "left_wheel_joint",
+            "right_wheel_joint"
+          ],
+          "arm_source_joint_count": 16,
+          "joints_reported_by_both_sources": [],
+          "duplicates_within_a_message": []
+        },
+        "physics_engine_used": "gz-physics-dartsim-plugin",
+        "physics_engine_passed_explicitly": false
+      }
+    },
+    {
+      "id": "G02",
+      "name": "grippers close in Gazebo and finger_joint2 follows finger_joint1 in the physics (Bullet-Featherstone, passed explicitly)",
+      "result": "PASS",
+      "details": {
+        "tests": 2,
+        "failed": 0,
+        "skipped": 0,
+        "launch_defaults": {
+          "physics_engine": "gz-physics-dartsim-plugin",
+          "headless": true
+        },
+        "left": {
+          "goal_rad": 0.4,
+          "reached_goal": true,
+          "stalled": false,
+          "finger_joint1_physical_rad": 0.4,
+          "finger_joint2_physical_rad": 0.4,
+          "follow_tolerance_rad": 0.02,
+          "measured_from": "gz /world/empty/dynamic_pose/info (link poses), not /joint_states"
+        },
+        "right": {
+          "goal_rad": -0.4,
+          "reached_goal": true,
+          "stalled": false,
+          "finger_joint1_physical_rad": -0.4,
+          "finger_joint2_physical_rad": -0.4,
+          "follow_tolerance_rad": 0.02,
+          "measured_from": "gz /world/empty/dynamic_pose/info (link poses), not /joint_states"
+        },
+        "physics_engine_used": "gz-physics-bullet-featherstone-plugin",
+        "physics_engine_passed_explicitly": true
+      }
+    },
+    {
+      "id": "M01",
+      "name": "named poses plan and execute on mock at every release-candidate mast ID",
+      "result": "PASS",
+      "details": {
+        "tests": 8,
+        "failed": 0,
+        "skipped": 0,
+        "expected_mast_ids": [
+          "mast_1300",
+          "mast_1350",
+          "mast_1400",
+          "mast_1450"
+        ],
+        "runs": {
+          "mast_1300": {
+            "result": "PASS",
+            "poses_ok": 12,
+            "poses_run": 12,
+            "worst_final_error_rad": 0.00099,
+            "clamp": {
+              "present": true,
+              "epsilon_rad": 1e-05,
+              "messages": 4366,
+              "activations": 0,
+              "episodes": 0,
+              "max_magnitude_rad": 0.0,
+              "max_magnitude_joint": null,
+              "over_epsilon": 0,
+              "max_over_epsilon_rad": 0.0
+            }
+          },
+          "mast_1350": {
+            "result": "PASS",
+            "poses_ok": 12,
+            "poses_run": 12,
+            "worst_final_error_rad": 0.001,
+            "clamp": {
+              "present": true,
+              "epsilon_rad": 1e-05,
+              "messages": 4339,
+              "activations": 0,
+              "episodes": 0,
+              "max_magnitude_rad": 0.0,
+              "max_magnitude_joint": null,
+              "over_epsilon": 0,
+              "max_over_epsilon_rad": 0.0
+            }
+          },
+          "mast_1400": {
+            "result": "PASS",
+            "poses_ok": 12,
+            "poses_run": 12,
+            "worst_final_error_rad": 0.001,
+            "clamp": {
+              "present": true,
+              "epsilon_rad": 1e-05,
+              "messages": 4369,
+              "activations": 0,
+              "episodes": 0,
+              "max_magnitude_rad": 0.0,
+              "max_magnitude_joint": null,
+              "over_epsilon": 0,
+              "max_over_epsilon_rad": 0.0
+            }
+          },
+          "mast_1450": {
+            "result": "PASS",
+            "poses_ok": 12,
+            "poses_run": 12,
+            "worst_final_error_rad": 0.00099,
+            "clamp": {
+              "present": true,
+              "epsilon_rad": 1e-05,
+              "messages": 4532,
+              "activations": 0,
+              "episodes": 0,
+              "max_magnitude_rad": 0.0,
+              "max_magnitude_joint": null,
+              "over_epsilon": 0,
+              "max_over_epsilon_rad": 0.0
+            }
+          }
+        },
+        "clamp_totals": {
+          "epsilon_rad": 1e-05,
+          "runs_with_a_clamp": 4,
+          "runs": 4,
+          "activations": 0,
+          "episodes": 0,
+          "max_magnitude_rad": 0.0,
+          "over_epsilon": 0,
+          "max_over_epsilon_rad": 0.0
+        }
+      }
+    },
+    {
+      "id": "M02",
+      "name": "named poses plan and execute in Gazebo at mast_1350",
+      "result": "PASS",
+      "details": {
+        "tests": 2,
+        "failed": 0,
+        "skipped": 0,
+        "expected_mast_ids": [
+          "mast_1350"
+        ],
+        "runs": {
+          "mast_1350": {
+            "result": "PASS",
+            "poses_ok": 12,
+            "poses_run": 12,
+            "worst_final_error_rad": 0.001,
+            "clamp": {
+              "present": true,
+              "epsilon_rad": 1e-05,
+              "messages": 1528,
+              "activations": 184,
+              "episodes": 16,
+              "max_magnitude_rad": 7.028971822364838e-07,
+              "max_magnitude_joint": "openarm_left_joint4",
+              "over_epsilon": 0,
+              "max_over_epsilon_rad": 0.0
+            }
+          }
+        },
+        "clamp_totals": {
+          "epsilon_rad": 1e-05,
+          "runs_with_a_clamp": 1,
+          "runs": 1,
+          "activations": 184,
+          "episodes": 16,
+          "max_magnitude_rad": 7.028971822364838e-07,
+          "over_epsilon": 0,
+          "max_over_epsilon_rad": 0.0
+        }
+      }
+    },
+    {
+      "id": "M03",
+      "name": "ACM: every disabled pair has a reason that can be shown (upstream-declared, Adjacent, ConstantTransform); every other pair is enabled",
+      "result": "PASS",
+      "details": {
+        "tests": 6,
+        "failed": 0,
+        "skipped": 0,
+        "claim": "every disabled pair is declared by upstream, a structural neighbour, or has no movable joint between its links and is clear in the one evaluation that settles every configuration; every other pair is enabled. Nothing in the matrix rests on sampling",
+        "disabled_pairs": {
+          "total": 113,
+          "by_label": {
+            "Adjacent": 36,
+            "ConstantTransform": 77
+          },
+          "declared_by_upstream": 20,
+          "structural_adjacent_derived": 34,
+          "constant_transform_disabled": 77
+        },
+        "enabled_pairs": {
+          "total": 448,
+          "of_geometry_bearing_links": 34
+        },
+        "by_construction": {
+          "constant_transform_pairs": 77,
+          "evaluated": "once, in the default state",
+          "colliding": {
+            "mast_1300": [],
+            "mast_1350": [],
+            "mast_1400": [],
+            "mast_1450": []
+          },
+          "cross_check_with_sampled_states": {
+            "mast_1300": {
+              "states": 200,
+              "disagreements": []
+            },
+            "mast_1350": {
+              "states": 200,
+              "disagreements": []
+            },
+            "mast_1400": {
+              "states": 200,
+              "disagreements": []
+            },
+            "mast_1450": {
+              "states": 200,
+              "disagreements": []
+            }
+          },
+          "pairs_at_the_first_mast_id": [
+            [
+              "base_link",
+              "bl_wheel_link"
+            ],
+            [
+              "base_link",
+              "br_wheel_link"
+            ],
+            [
+              "base_link",
+              "fl_wheel_link"
+            ],
+            [
+              "base_link",
+              "fr_wheel_link"
+            ],
+            [
+              "base_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "base_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "bl_caster_link",
+              "br_caster_link"
+            ],
+            [
+              "bl_caster_link",
+              "br_wheel_link"
+            ],
+            [
+              "bl_caster_link",
+              "camera_link"
+            ],
+            [
+              "bl_caster_link",
+              "fl_caster_link"
+            ],
+            [
+              "bl_caster_link",
+              "fl_wheel_link"
+            ],
+            [
+              "bl_caster_link",
+              "fr_caster_link"
+            ],
+            [
+              "bl_caster_link",
+              "fr_wheel_link"
+            ],
+            [
+              "bl_caster_link",
+              "lidar_link"
+            ],
+            [
+              "bl_caster_link",
+              "mast_base_link"
+            ],
+            [
+              "bl_caster_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "bl_caster_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "bl_wheel_link",
+              "br_caster_link"
+            ],
+            [
+              "bl_wheel_link",
+              "br_wheel_link"
+            ],
+            [
+              "bl_wheel_link",
+              "camera_link"
+            ],
+            [
+              "bl_wheel_link",
+              "fl_caster_link"
+            ],
+            [
+              "bl_wheel_link",
+              "fl_wheel_link"
+            ],
+            [
+              "bl_wheel_link",
+              "fr_caster_link"
+            ],
+            [
+              "bl_wheel_link",
+              "fr_wheel_link"
+            ],
+            [
+              "bl_wheel_link",
+              "lidar_link"
+            ],
+            [
+              "bl_wheel_link",
+              "mast_base_link"
+            ],
+            [
+              "bl_wheel_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "bl_wheel_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "br_caster_link",
+              "camera_link"
+            ],
+            [
+              "br_caster_link",
+              "fl_caster_link"
+            ],
+            [
+              "br_caster_link",
+              "fl_wheel_link"
+            ],
+            [
+              "br_caster_link",
+              "fr_caster_link"
+            ],
+            [
+              "br_caster_link",
+              "fr_wheel_link"
+            ],
+            [
+              "br_caster_link",
+              "lidar_link"
+            ],
+            [
+              "br_caster_link",
+              "mast_base_link"
+            ],
+            [
+              "br_caster_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "br_caster_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "br_wheel_link",
+              "camera_link"
+            ],
+            [
+              "br_wheel_link",
+              "fl_caster_link"
+            ],
+            [
+              "br_wheel_link",
+              "fl_wheel_link"
+            ],
+            [
+              "br_wheel_link",
+              "fr_caster_link"
+            ],
+            [
+              "br_wheel_link",
+              "fr_wheel_link"
+            ],
+            [
+              "br_wheel_link",
+              "lidar_link"
+            ],
+            [
+              "br_wheel_link",
+              "mast_base_link"
+            ],
+            [
+              "br_wheel_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "br_wheel_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "camera_link",
+              "fl_caster_link"
+            ],
+            [
+              "camera_link",
+              "fl_wheel_link"
+            ],
+            [
+              "camera_link",
+              "fr_caster_link"
+            ],
+            [
+              "camera_link",
+              "fr_wheel_link"
+            ],
+            [
+              "camera_link",
+              "lidar_link"
+            ],
+            [
+              "camera_link",
+              "mast_base_link"
+            ],
+            [
+              "camera_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "camera_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "fl_caster_link",
+              "fr_caster_link"
+            ],
+            [
+              "fl_caster_link",
+              "fr_wheel_link"
+            ],
+            [
+              "fl_caster_link",
+              "lidar_link"
+            ],
+            [
+              "fl_caster_link",
+              "mast_base_link"
+            ],
+            [
+              "fl_caster_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "fl_caster_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "fl_wheel_link",
+              "fr_caster_link"
+            ],
+            [
+              "fl_wheel_link",
+              "fr_wheel_link"
+            ],
+            [
+              "fl_wheel_link",
+              "lidar_link"
+            ],
+            [
+              "fl_wheel_link",
+              "mast_base_link"
+            ],
+            [
+              "fl_wheel_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "fl_wheel_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "fr_caster_link",
+              "lidar_link"
+            ],
+            [
+              "fr_caster_link",
+              "mast_base_link"
+            ],
+            [
+              "fr_caster_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "fr_caster_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "fr_wheel_link",
+              "lidar_link"
+            ],
+            [
+              "fr_wheel_link",
+              "mast_base_link"
+            ],
+            [
+              "fr_wheel_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "fr_wheel_link",
+              "openarm_right_base_link"
+            ],
+            [
+              "lidar_link",
+              "mast_base_link"
+            ],
+            [
+              "lidar_link",
+              "openarm_left_base_link"
+            ],
+            [
+              "lidar_link",
+              "openarm_right_base_link"
+            ]
+          ]
+        },
+        "unjustified": {
+          "mast_1300": [],
+          "mast_1350": [],
+          "mast_1400": [],
+          "mast_1450": []
+        },
+        "bad_labels": {
+          "mast_1300": [],
+          "mast_1350": [],
+          "mast_1400": [],
+          "mast_1450": []
+        },
+        "enabled_constant_pairs_colliding": {
+          "mast_1300": [],
+          "mast_1350": [],
+          "mast_1400": [],
+          "mast_1450": []
+        },
+        "information_enabled_pairs_sampled": {
+          "note": "INFORMATION, not a result: the enabled pairs found colliding in random joint states inside the limits, and how often. Sampling falsifies and never certifies: a pair absent here may still collide. For A4 (reach and clearance)",
+          "samples_per_mast_id": 2000,
+          "seed": 20261006,
+          "per_mast_id": {
+            "mast_1300": {
+              "colliding_pairs": 37,
+              "never_collided": 411
+            },
+            "mast_1350": {
+              "colliding_pairs": 37,
+              "never_collided": 411
+            },
+            "mast_1400": {
+              "colliding_pairs": 37,
+              "never_collided": 411
+            },
+            "mast_1450": {
+              "colliding_pairs": 37,
+              "never_collided": 411
+            }
+          },
+          "most_often_at_the_first_mast_id": [
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_left_ee_base_link"
+              ],
+              "collided_in_samples": 48,
+              "of": 2000,
+              "first_sample_index": 28
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_right_ee_base_link"
+              ],
+              "collided_in_samples": 43,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_right_ee_link1"
+              ],
+              "collided_in_samples": 41,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_left_ee_link2"
+              ],
+              "collided_in_samples": 33,
+              "of": 2000,
+              "first_sample_index": 28
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_left_ee_link1"
+              ],
+              "collided_in_samples": 31,
+              "of": 2000,
+              "first_sample_index": 80
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_right_ee_link2"
+              ],
+              "collided_in_samples": 29,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_right_link6"
+              ],
+              "collided_in_samples": 22,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_left_link6"
+              ],
+              "collided_in_samples": 21,
+              "of": 2000,
+              "first_sample_index": 253
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_left_link5"
+              ],
+              "collided_in_samples": 19,
+              "of": 2000,
+              "first_sample_index": 253
+            },
+            {
+              "pair": [
+                "mast_base_link",
+                "openarm_right_link5"
+              ],
+              "collided_in_samples": 16,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "openarm_right_base_link",
+                "openarm_right_ee_base_link"
+              ],
+              "collided_in_samples": 8,
+              "of": 2000,
+              "first_sample_index": 277
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_left_ee_base_link"
+              ],
+              "collided_in_samples": 6,
+              "of": 2000,
+              "first_sample_index": 188
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_right_ee_link1"
+              ],
+              "collided_in_samples": 6,
+              "of": 2000,
+              "first_sample_index": 277
+            },
+            {
+              "pair": [
+                "openarm_right_base_link",
+                "openarm_right_ee_link1"
+              ],
+              "collided_in_samples": 6,
+              "of": 2000,
+              "first_sample_index": 18
+            },
+            {
+              "pair": [
+                "openarm_right_base_link",
+                "openarm_right_ee_link2"
+              ],
+              "collided_in_samples": 6,
+              "of": 2000,
+              "first_sample_index": 1150
+            },
+            {
+              "pair": [
+                "openarm_right_ee_link1",
+                "openarm_right_link1"
+              ],
+              "collided_in_samples": 6,
+              "of": 2000,
+              "first_sample_index": 375
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_left_link6"
+              ],
+              "collided_in_samples": 4,
+              "of": 2000,
+              "first_sample_index": 570
+            },
+            {
+              "pair": [
+                "openarm_right_ee_link2",
+                "openarm_right_link1"
+              ],
+              "collided_in_samples": 4,
+              "of": 2000,
+              "first_sample_index": 1150
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_left_ee_link1"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 739
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_right_ee_link2"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 275
+            },
+            {
+              "pair": [
+                "openarm_left_ee_link1",
+                "openarm_left_link1"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 224
+            },
+            {
+              "pair": [
+                "openarm_left_ee_link2",
+                "openarm_left_link1"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 23
+            },
+            {
+              "pair": [
+                "openarm_right_base_link",
+                "openarm_right_link6"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 277
+            },
+            {
+              "pair": [
+                "openarm_right_ee_base_link",
+                "openarm_right_link1"
+              ],
+              "collided_in_samples": 3,
+              "of": 2000,
+              "first_sample_index": 375
+            },
+            {
+              "pair": [
+                "openarm_left_base_link",
+                "openarm_left_ee_link2"
+              ],
+              "collided_in_samples": 2,
+              "of": 2000,
+              "first_sample_index": 1057
+            }
+          ]
+        },
+        "method": "the reasons are recomputed from the URDF's kinematic tree and the SRDF; collision is checked through moveit_py with an allowed-collision matrix of its own that allows everything except the pairs under test, so the SRDF's disabled list is never consulted",
+        "acm_record": {
+          "method": "derived: scripts/derive_acm.py over the model's kinematic tree and upstream's own SRDF; no sampling, no seed (P12A)",
+          "date": "2026-10-07",
+          "mast_id": "mast_1350",
+          "counts": {
+            "upstream_declared": 20,
+            "adjacent_derived": 16,
+            "constant_transform": 77,
+            "disabled_total": 113
+          },
+          "deterministic": true
+        },
+        "failures": {},
+        "seconds_per_mast_id": {
+          "mast_1300": 12.6,
+          "mast_1350": 12.5,
+          "mast_1400": 12.1,
+          "mast_1450": 12.5
+        },
+        "stop_condition": null
+      }
+    },
+    {
+      "id": "M04",
+      "name": "a goal inside the nearest reachable structure volume (mast_base_link) is rejected by planning (the base body is out of the arms' reach)",
+      "result": "PASS",
+      "details": {
+        "tests": 2,
+        "failed": 0,
+        "skipped": 0,
+        "volume": "mast_base_link",
+        "mast_id": "mast_1350",
+        "planning_budget_s": 5.0,
+        "rejected_means": "answered within 0.5 s of the free control, far under the 5.0 s the planner was given, and move_group's log carries the planner's own verdict (Planner 'OMPL' failed with error code GOAL_STATE_INVALID). The reply itself is the generic FAILURE for every outcome, so 'rejected', 'failed' (a search that gave up in between) and 'timed_out' (used the budget) are told apart by time and by that log line, not by a code",
+        "base_link_volume_reachable_by_the_arms": false,
+        "volume_tested_is": "the nearest structure volume the arms can reach (VERIFICATION.md M04)",
+        "base_link_evidence": "0 of 6000 left-arm samples at mast_1350 put a left gripper link in collision with base_link, the wheels, the casters, the lidar or the camera body (find_goal search, seed 4242); M03's 8000 all-joint samples found none either",
+        "fixture": {
+          "joints": {
+            "openarm_left_joint1": 1.2373230513354518,
+            "openarm_left_joint2": -0.25747859273328544,
+            "openarm_left_joint3": 0.3579712663427288,
+            "openarm_left_joint4": 2.3452166226449926,
+            "openarm_left_joint5": 0.54199834153363,
+            "openarm_left_joint6": 0.4709207838658641,
+            "openarm_left_joint7": -1.344275041518761
+          },
+          "valid": false,
+          "contacts": [
+            [
+              "openarm_left_ee_base_link",
+              "mast_base_link"
+            ],
+            [
+              "openarm_left_ee_link2",
+              "mast_base_link"
+            ]
+          ]
+        },
+        "control": {
+          "goal": "named pose hands_up",
+          "accepted": true,
+          "error_code": 1,
+          "error_name": "SUCCESS",
+          "planning_time_s": 0.02,
+          "wall_s": 1.027,
+          "classification": "succeeded"
+        },
+        "joint_goal": {
+          "goal": "joint values of the fixture",
+          "accepted": true,
+          "error_code": 99999,
+          "error_name": "FAILURE",
+          "planning_time_s": 0.0,
+          "wall_s": 1.096,
+          "classification": "rejected",
+          "seconds_beyond_the_free_goal": 0.069,
+          "planner_verdict_seen_in_move_group_log": true
+        },
+        "pose_goal_target": {
+          "link": "openarm_left_ee_base_link",
+          "frame": "base_link",
+          "position": [
+            -0.02868527711573811,
+            0.14774244554201427,
+            1.1235171059848477
+          ]
+        },
+        "pose_goal": {
+          "goal": "pose of the left gripper at the fixture",
+          "accepted": true,
+          "error_code": 99999,
+          "error_name": "FAILURE",
+          "planning_time_s": 0.0,
+          "wall_s": 6.017,
+          "classification": "timed_out",
+          "seconds_beyond_the_free_goal": 4.99
+        }
+      }
+    },
+    {
+      "id": "M05",
+      "name": "per-hand gripper values: closed is each hand's own far limit, opposite signs (ADR-009 point 5); the single-number version fails both ways",
+      "result": "PASS",
+      "details": {
+        "tests": 6,
+        "failed": 0,
+        "skipped": 0,
+        "problems": [],
+        "closed": {
+          "left": 0.7854,
+          "right": -0.7854
+        },
+        "open": {
+          "left": 0.0,
+          "right": 0.0
+        },
+        "urdf_ranges": {
+          "left": [
+            0.0,
+            0.7854
+          ],
+          "right": [
+            -0.7854,
+            0.0
+          ]
+        },
+        "single_number_version_fails": true
+      }
+    },
+    {
+      "id": "M06",
+      "name": "named-pose plans need some acceleration limit and are insensitive to its value across three orders of magnitude (the limits stay placeholders)",
+      "result": "PASS",
+      "details": {
+        "tests": 1,
+        "failed": 0,
+        "skipped": 0,
+        "verdict": "The plans succeed under every scaling of the configured limits (x1000 range) and fail with none: they need SOME acceleration limit to exist and do not depend on its value; only the planned durations change.",
+        "conclusion": "Planning requires that SOME acceleration limits exist and is insensitive to our values across three orders of magnitude (x1 to x0.001), which retires the A7 stop condition 'planning succeeds only because the acceleration limits we invented are generous'. It does NOT make the limits any less of a placeholder: they stay engineering defaults (velocity / 2 s; source engineering_default, status placeholder; ADR-009) with no payload, torque or controller analysis behind them.",
+        "mast_id": "mast_1350",
+        "velocity_scaling": 0.5,
+        "variants": [
+          {
+            "variant": "configured limits x 1",
+            "acceleration_scaling": 1.0,
+            "plans": 12,
+            "plans_ok": 12,
+            "total_duration_s": 16.36
+          },
+          {
+            "variant": "configured limits x 0.1",
+            "acceleration_scaling": 0.1,
+            "plans": 12,
+            "plans_ok": 12,
+            "total_duration_s": 51.76
+          },
+          {
+            "variant": "configured limits x 0.01",
+            "acceleration_scaling": 0.01,
+            "plans": 12,
+            "plans_ok": 12,
+            "total_duration_s": 163.66
+          },
+          {
+            "variant": "configured limits x 0.001",
+            "acceleration_scaling": 0.001,
+            "plans": 12,
+            "plans_ok": 12,
+            "total_duration_s": 517.53
+          }
+        ],
+        "without_limits": {
+          "variant": "no acceleration limits (what upstream's joint_limits.yaml says)",
+          "plans": 12,
+          "plans_ok": 0
+        },
+        "plans_that_depend_on_the_values": [],
+        "plans_need_some_limit_to_exist": true,
+        "meaning": "the acceleration limits are engineering defaults tagged placeholder (ADR-009); the plans succeed with them scaled down a thousandfold, so they are not what makes planning succeed, they are only what lets MoveIt's time parameterisation run at all"
+      }
+    },
+    {
+      "id": "L01",
+      "name": "launch test: five controllers active on mock, one trajectory followed",
+      "result": "PASS",
+      "details": {
+        "tests": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "H01",
+      "name": "every test file is registered and every launch test checks that its processes started and exited cleanly",
+      "result": "PASS",
+      "details": {
+        "tests": 13,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "H02",
+      "name": "every test CMake registered left a result file (nothing registered but not run)",
+      "result": "PASS",
+      "details": {
+        "registered": 21,
+        "with_a_result": 21,
+        "packages": [
+          "openamrobot_upperbody_gazebo",
+          "openamrobot_upperbody_moveit",
+          "openamrobot_upperbody_bringup"
+        ]
+      }
+    },
+    {
+      "id": "I01",
+      "name": "installed packages match the source the tests and this report describe",
+      "result": "PASS",
+      "details": {
+        "compared": [
+          "description: urdf, config, launch, meshes",
+          "control: config",
+          "gazebo: launch, config, worlds",
+          "moveit: launch, config",
+          "bringup: launch"
+        ]
+      }
+    },
+    {
+      "id": "V01",
+      "name": "a person has looked at the simulator and RViz and answered the checklist (eight items)",
+      "result": "WARN",
+      "details": {
+        "performed": "a person looked at the simulation and answered item 1 (the mast); items 2 to 8 have no recorded answer",
+        "answered_items": {
+          "1": "the mast reads as a thin spike. Its dimensions are those of an HFS6-60120 profile 14 mm shorter than the 1250 mm Alex specified on 28 Sep, so the appearance is an accurate thin extrusion and not a sizing defect; its orientation and its mass are defects (V01-F1, V01-F2)"
+        },
+        "unanswered_items": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "findings": [
+          {
+            "id": "V01-F1",
+            "item": 1,
+            "found": "the mast profile is probably rotated 90 degrees: mast_section [0.060, 0.120] puts 60 mm fore-aft and 120 mm lateral; option B (P-03 rev18.9 item 18) orients the same HFS6-60120 cross-section (its 340 mm arm profile, not a full-height mast) 120 mm fore-aft and 60 mm lateral, the stiff direction against the arms' forward cantilever. The value is right. Its axis assignment was only a prose note in the datum ('orientation unconfirmed') and no test asserts it",
+            "proposed_rule": "every datum that is a pair or triple of dimensions declares its axis convention, and a test asserts the assignment",
+            "not_fixed_because": "mast.xacro is replaced when option B is adopted; the arm mounts at y = +/-0.060 are coupled to this orientation, so turning the box alone would be wrong"
+          },
+          {
+            "id": "V01-F2",
+            "item": 1,
+            "found": "mast_mass is 3.0 kg (placeholder) for 1.2365 m of HFS6-60120: about 337 kg/m3 over the bounding box, low by roughly 2.5 to 4 times for an aluminium extrusion (an estimate; the MISUMI datasheet is the source). Labelled placeholder, so nothing lied, but the placeholder is implausible and nothing checked plausibility",
+            "proposed_rule": "the density implied by a mass over its bounding-box volume must fall in a sane range or WARN, placeholders included",
+            "not_fixed_because": "the mast and its mass are replaced when option B is adopted; the figure to land needs the datasheet"
+          }
+        ],
+        "reading": "The manual check found what the automated ones could not: no test of ours examines an axis assignment or the plausibility of a placeholder. V01 stays WARN with these findings attached, not PASS (no other item has a recorded answer) and not a check that found nothing",
+        "checklist": "docs/v01_visual_check.md"
+      }
+    },
+    {
+      "id": "AUX",
+      "name": "supporting tests and steps (SRDF, imported elements, ACM record, config files, harness, colcon test of the packages)",
+      "result": "PASS",
+      "details": {
+        "tests": 81,
+        "failed": 0,
+        "skipped": 3,
+        "steps": {
+          "colcon_test_gazebo": "0",
+          "colcon_test_moveit": "0",
+          "colcon_test_bringup": "0"
+        }
+      }
+    }
+  ],
+  "config_ids": {
+    "mast_1300/openarm/mock": "sha256:c9aed2ad17e8b32571cc5d48e01f53a937ba79fcc1f1d2d8f605d7c672a5ff9e",
+    "mast_1350/openarm/mock": "sha256:db76c29a6607137a55b67168e35ce571248486404d57799037c4061447829706",
+    "mast_1400/openarm/mock": "sha256:b63b9985547bd27e1ac1d69e11651fd84b1d518366f5296df39c9e2737175b22",
+    "mast_1450/openarm/mock": "sha256:2f0be25f3acd50e6e262f3b0934f0bc9014d7cd03ea0fcdf87cd7986dd468d17",
+    "mast_1350/openarm/gazebo": "sha256:ad480a8cc55f42538dda586c604d5f6443ed8f24302750ef342b193f36aa8fe5"
+  },
+  "moveit_config": {
+    "acm_fingerprint": "sha256:c04ca8eaee5edadd9f9518e308b7103f22d90899e5de5bd83b37325eabdc5eb7",
+    "openamrobot.srdf": "sha256:3eb4c47b2af52589cfc16544a4684324720a8ef38ef8afb0b3df2baf21b269e7",
+    "joint_limits.yaml": "sha256:4d28974144c7c802f204fe7757b2f935ec708dfca24d3604dae54bdecaac1c46",
+    "moveit_controllers.yaml": "sha256:2c0e2d2eaa33915bdd7ce4e9248796b0ea0960a48c74a27abb79a6ca964ef34a",
+    "kinematics.yaml": "sha256:761af8047abc985e4cfaa6c97b4b5f5447ccac07afbcd580abea17d77053eb5c",
+    "ompl_planning.yaml": "sha256:7e307f3630b280ab7209af0d28aa91ebc9d24eb04f01915cdf9baebab0fea6e6",
+    "pilz_cartesian_limits.yaml": "sha256:bef2458771ce4c0cdef987498e53cbee1842ec32a7f647241028507dd0c986e1",
+    "acm/acm_generation.yaml": "sha256:9a9b468650eb999fe5ae1d3a6518cfaff6d0a81c8e40e9f3b36a08a1869f82e7"
+  },
+  "provenance": {
+    "placeholder": 8,
+    "provisional": 6,
+    "verified": 1
+  },
+  "limitations": [
+    "`simulation` names the evidence class: every result here is how the model behaves in Gazebo Harmonic or on mock_components, planned by MoveIt 2.12.4 under OpenAMRobot's own declared limits. Every claim reads 'plans and executes in simulation under declared OpenAMRobot limits'; nothing here is a validated limit, a payload, a torque, or a statement about a physical robot",
+    "the acceleration limits are engineering defaults (source: engineering_default, status: placeholder; rule: velocity / 2 s) written because upstream declares none (openamrobot-manipulation#10, ADR-009); M06 shows the plans need SOME limit and do not depend on its value",
+    "MoveIt never sees base_link's 4.18 kg inertial: KDL drops the inertia of a root link (W01)",
+    "`park` is a placeholder copy of upstream's `home`, until the safe-pose definition lands under the manipulation action contract",
+    "the gripper controller is still the deprecated position_controllers/GripperActionController serving GripperCommand (option 1 of ADR-009 point 4): this report does not choose between the three gripper interfaces (manipulation#11)",
+    "G02 and M02 pass the Bullet-Featherstone engine explicitly; sim.launch.py defaults to DART, the engine platform-sw tuned the base on, on which a closed gripper pose does not close. The base's contact behaviour was compared on neither engine",
+    "the arms' position interface in gz_ros2_control is a velocity servo, so a final error under 0.01 rad in M02 says nothing about the real arm's controller, gains, compliance or latency",
+    "MoveIt 2.12.4 refuses a start state any amount outside a joint limit ('Joint ... from the starting state is outside bounds by'), and a simulated joint resting on its limit (openarm_*_joint4 = 0, the home pose) reads back a hair past it. The joint state move_group plans from is therefore clamped to the limit by joint_state_clamp.py, by at most its epsilon, and only that topic: no limit was widened and no pose moved. The clamp's counters are in M01/M02 (clamp_totals) and a reading beyond the epsilon is passed through, never clamped",
+    "move_group exits with SIGSEGV when it is stopped (MoveIt 2.12.4); the checks allow that code for that one process and no other",
+    "the arms cannot reach the platform's base body: M04's refused goal is inside mast_base_link's volume, the nearest base-side volume a left gripper can be put in",
+    "the collision matrix is DERIVED, not sampled (scripts/derive_acm.py): a pair is disabled only if upstream declares it, it is a structural neighbour (Adjacent), or no movable joint lies between its links and it is clear in the one evaluation that settles every configuration (ConstantTransform); every other pair is enabled. The Setup Assistant's sampler, which has no seed and gave a different matrix on every run, is no longer used. The checked-in SRDF is the contract and M03 validates that file",
+    "M03's sampled part is information about the ENABLED pairs, never a reason: sampling falsifies and does not certify. It lists the enabled pairs that collide in random states and how often (for A4); nothing in the matrix rests on it",
+    "V01 is WARN with two findings from a manual look at the mast (V01-F1 the profile is probably rotated 90 degrees, V01-F2 the mast mass is implausible); the other checklist items have no recorded answer. This report launches nothing for V01 and records no inspection of its own",
+    "no physical evidence; simulation only. This report is not a statement about hardware"
+  ],
+  "clamp": {
+    "M01": {
+      "epsilon_rad": 1e-05,
+      "runs_with_a_clamp": 4,
+      "runs": 4,
+      "activations": 0,
+      "episodes": 0,
+      "max_magnitude_rad": 0.0,
+      "over_epsilon": 0,
+      "max_over_epsilon_rad": 0.0
+    },
+    "M02": {
+      "epsilon_rad": 1e-05,
+      "runs_with_a_clamp": 1,
+      "runs": 1,
+      "activations": 184,
+      "episodes": 16,
+      "max_magnitude_rad": 7.028971822364838e-07,
+      "over_epsilon": 0,
+      "max_over_epsilon_rad": 0.0
+    }
+  }
+}

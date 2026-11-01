@@ -1,0 +1,89 @@
+=== A6: P24 ['15109f9', '15109f9', '15109f9']  ->  P25 ['1165166', '1165166', '1165166']
+  AUX  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  C01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  C02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  E01  P24 WARN,WARN,WARN         P25 WARN,WARN,WARN
+  H01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  H02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  I01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  L01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  REV  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T03  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T04  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T05  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T06  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T07  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T08  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T09  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T10  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T11  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T12  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T13  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T14  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T15  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  T16  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  V01  P24 WARN,WARN,WARN         P25 WARN,WARN,WARN
+  W01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  W02  P24 WARN,WARN,WARN         P25 WARN,WARN,WARN
+  upstream: same in all six runs
+  datums_revision: same in all six runs
+  provenance: same in all six runs
+  config_ids: 1 distinct set(s) in P24, 1 in P25; equal sets: False (expected False: the URDF text is an input of every id)
+  AUX.tests: P24 ['298']  ->  P25 ['307']
+  AUX.unclaimed_check_ids.P25.failures: P24 ['<absent>']  ->  P25 ['0']
+  AUX.unclaimed_check_ids.P25.tests: P24 ['<absent>']  ->  P25 ['9']
+  H02.registered: P24 ['46']  ->  P25 ['47']
+  H02.with_a_result: P24 ['46']  ->  P25 ['47']
+  details leaves whose P25 values fall outside the P24 values: 5
+
+=== A7: P24 ['15109f9', '15109f9', '15109f9']  ->  P25 ['1165166', '1165166', '1165166']
+  AUX  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  G01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  G02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  H01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  H02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  I01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  L01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M01  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M02  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M03  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M04  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M05  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M06  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  M07  P24 WARN,WARN,WARN         P25 WARN,WARN,WARN
+  V01  P24 WARN,WARN,WARN         P25 WARN,WARN,WARN
+  W04  P24 PASS,PASS,PASS         P25 PASS,PASS,PASS
+  upstream: same in all six runs
+  datums_revision: same in all six runs
+  provenance: same in all six runs
+  config_ids: 1 distinct set(s) in P24, 1 in P25; equal sets: False (expected False: the URDF text is an input of every id)
+  G01.arm_goal.right_arm_moved_rad: P24 ['0.0006', '0.00358', '7e-05']  ->  P25 ['0.00039', '0.00066', '0.00358']
+  G01.gz_server_after_shutdown.stop_helper.interrupt: P24 ['SIGINT to [312798]', 'SIGINT to [317943]', 'SIGINT to [323123]']  ->  P25 ['SIGINT to [534531]', 'SIGINT to [539850]', 'SIGINT to [545219]']
+  G01.gz_server_after_shutdown.stop_helper.servers_at_request: P24 ['[312798]', '[317943]', '[323123]']  ->  P25 ['[534531]', '[539850]', '[545219]']
+  G02.gz_server_after_shutdown.stop_helper.interrupt: P24 ['SIGINT to [313382]', 'SIGINT to [318516]', 'SIGINT to [323709]']  ->  P25 ['SIGINT to [535113]', 'SIGINT to [540475]', 'SIGINT to [545815]']
+  G02.gz_server_after_shutdown.stop_helper.servers_at_request: P24 ['[313382]', '[318516]', '[323709]']  ->  P25 ['[535113]', '[540475]', '[545815]']
+  G02.left.finger_joint1_physical_rad: P24 ['0.4001']  ->  P25 ['0.4', '0.4001']
+  M01.runs.L1000.clamp.diagnostic_only.messages: P24 ['3702', '3704', '3721']  ->  P25 ['3688', '3701', '3718']
+  M01.runs.L1000.worst_final_error_rad: P24 ['0.00098', '0.00099']  ->  P25 ['0.00099', '0.001']
+  M01.runs.L1175.clamp.diagnostic_only.messages: P24 ['3700', '3701', '3733']  ->  P25 ['3711', '3712', '3716']
+  M01.runs.L1175.worst_final_error_rad: P24 ['0.00098', '0.001']  ->  P25 ['0.00098', '0.00099']
+  M01.runs.L1350.clamp.diagnostic_only.messages: P24 ['3694', '3701', '3722']  ->  P25 ['3695', '3697', '3707']
+  M02.clamp_totals.diagnostic_only.activations: P24 ['1502', '1506', '1509']  ->  P25 ['1454', '1476', '1485']
+  M02.clamp_totals.diagnostic_only.episodes: P24 ['57', '58', '62']  ->  P25 ['54', '62', '64']
+  M02.clamp_totals.gate.largest_overshoot_rad: P24 ['1.2605289612110937e-06', '1.7149325231002877e-06', '4.075119704793906e-06']  ->  P25 ['1.748726390360389e-06', '3.024083525815513e-06', '3.0547494134225417e-06']
+  M02.runs.L1000.clamp.diagnostic_only.activations: P24 ['1502', '1506', '1509']  ->  P25 ['1454', '1476', '1485']
+  M02.runs.L1000.clamp.diagnostic_only.episodes: P24 ['57', '58', '62']  ->  P25 ['54', '62', '64']
+  M02.runs.L1000.clamp.diagnostic_only.messages: P24 ['1269', '1270', '1273']  ->  P25 ['1270', '1271']
+  M02.runs.L1000.clamp.gate.largest_overshoot_joint: P24 ['openarm_right_joint4']  ->  P25 ['openarm_left_joint4', 'openarm_right_joint4']
+  M02.runs.L1000.clamp.gate.largest_overshoot_rad: P24 ['1.2605289612110937e-06', '1.7149325231002877e-06', '4.075119704793906e-06']  ->  P25 ['1.748726390360389e-06', '3.024083525815513e-06', '3.0547494134225417e-06']
+  M02.runs.L1000.worst_final_error_rad: P24 ['0.00112', '0.00114', '0.00126']  ->  P25 ['0.00118', '0.00123', '0.00129']
+  M07.gz_server_after_shutdown.stop_helper.interrupt: P24 ['SIGINT to [317252]', 'SIGINT to [322432]', 'SIGINT to [327652]']  ->  P25 ['SIGINT to [539153]', 'SIGINT to [544502]', 'SIGINT to [549795]']
+  M07.gz_server_after_shutdown.stop_helper.servers_at_request: P24 ['[317252]', '[322432]', '[327652]']  ->  P25 ['[539153]', '[544502]', '[549795]']
+  W04.launches.G01.interrupt: P24 ['SIGINT to [312798]', 'SIGINT to [317943]', 'SIGINT to [323123]']  ->  P25 ['SIGINT to [534531]', 'SIGINT to [539850]', 'SIGINT to [545219]']
+  W04.launches.G02.interrupt: P24 ['SIGINT to [313382]', 'SIGINT to [318516]', 'SIGINT to [323709]']  ->  P25 ['SIGINT to [535113]', 'SIGINT to [540475]', 'SIGINT to [545815]']
+  W04.launches.M02.interrupt: P24 ['SIGINT to [316479]', 'SIGINT to [321659]', 'SIGINT to [326859]']  ->  P25 ['SIGINT to [538357]', 'SIGINT to [543703]', 'SIGINT to [549015]']
+  W04.launches.M07.interrupt: P24 ['SIGINT to [317252]', 'SIGINT to [322432]', 'SIGINT to [327652]']  ->  P25 ['SIGINT to [539153]', 'SIGINT to [544502]', 'SIGINT to [549795]']
+  details leaves whose P25 values fall outside the P24 values: 26
+

@@ -1,0 +1,996 @@
+{
+  "schema": "openamr.evidence.v1",
+  "repo": "openamr-upperbody-sw",
+  "git_hash": "538a32ae252dcfbb20dc7ee267bb43390723de56",
+  "dirty": false,
+  "timestamp": "2026-10-18T19:14:02Z",
+  "profile": "dev",
+  "evidence_class": "static+mock",
+  "upstream": {
+    "openarm_description": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+    "openarm_ros2": "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed",
+    "openamrobot-manipulation": "795143e",
+    "openamr-platform-sw": "d619012"
+  },
+  "datums_revision": "2026-10-15.a",
+  "checks": [
+    {
+      "id": "T01",
+      "name": "expansion matrix",
+      "result": "PASS",
+      "details": {
+        "tests": 35,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T02",
+      "name": "check_urdf accepts every T01 expansion",
+      "result": "PASS",
+      "details": {
+        "tests": 10,
+        "failed": [],
+        "skipped": 0,
+        "expansions": 14,
+        "extra_planar_expansions": 5,
+        "rows": [
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/so101/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/none/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp050/hp25/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp050/hp25/bt10/so101/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp050/hp25/bt10/none/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp15/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp20/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp30/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp35/bt10/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt05/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt15/openarm/mock",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/openarm/gazebo",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/openarm/real",
+            "extra": false,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/openarm/mock +planar",
+            "extra": true,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/so101/mock +planar",
+            "extra": true,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp000/hp25/bt10/none/mock +planar",
+            "extra": true,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp050/hp25/bt10/openarm/gazebo",
+            "extra": true,
+            "returncode": 0
+          },
+          {
+            "id": "dold_v4_350/bp050/hp25/bt10/openarm/real",
+            "extra": true,
+            "returncode": 0
+          }
+        ],
+        "tool": "/opt/ros/jazzy/bin/check_urdf"
+      }
+    },
+    {
+      "id": "T03",
+      "name": "single root, unique link names",
+      "result": "PASS",
+      "details": {
+        "tests": 8,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T04",
+      "name": "frame contract",
+      "result": "PASS",
+      "details": {
+        "tests": 59,
+        "failed": 0,
+        "skipped": 0,
+        "expansions": 9,
+        "missing_W": [],
+        "entries": 80,
+        "consumed_from": {
+          "owner": "platform-sw",
+          "contract": "openamr-platform-sw 935efc7: robo_urdf.urdf.xacro, near_field_frame macro (parent base_link); P-03 rev19.0, register NEAR-FIELD-FRAMES; imu_link (register FRAMES-REP105) and base_camera_link (register CAMERAS), parent base_link, same file. Names only: their poses are platform-sw's",
+          "frames": [
+            "us_front_left",
+            "us_front_right",
+            "us_rear_left",
+            "us_rear_right",
+            "tof_front",
+            "tof_rear",
+            "imu_link",
+            "base_camera_link"
+          ],
+          "state": "merged upstream (platform-sw main 935efc7) and present in the included base file",
+          "observed_in_every_expansion": true,
+          "observed": [
+            "us_front_left",
+            "us_front_right",
+            "us_rear_left",
+            "us_rear_right",
+            "tof_front",
+            "tof_rear",
+            "imu_link",
+            "base_camera_link"
+          ]
+        },
+        "owner_of_the_contract": "platform-sw (near-field frames); this repository declares none of them"
+      }
+    },
+    {
+      "id": "T05",
+      "name": "shoulder height per lift stop",
+      "result": "PASS",
+      "details": {
+        "tests": 20,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T06",
+      "name": "arg validation",
+      "result": "PASS",
+      "details": {
+        "tests": 16,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T07",
+      "name": "every link with an inertial or visual has a collision or is collision_free",
+      "result": "PASS",
+      "details": {
+        "tests": 7,
+        "failed": 0,
+        "skipped": 0,
+        "expansions": 6,
+        "link_instances_checked": 182,
+        "with_collision": 136,
+        "collision_free": {
+          "left_wrist_camera_link": {
+            "reason": "Marker box visual only: no collision, no inertial. The box shows where the frame is; it is not a model of the sensor, so nothing may plan around it.",
+            "owner": "A6 (openamr-upperbody-sw)"
+          },
+          "right_wrist_camera_link": {
+            "reason": "Marker box visual only: no collision, no inertial. The box shows where the frame is; it is not a model of the sensor, so nothing may plan around it.",
+            "owner": "A6 (openamr-upperbody-sw)"
+          }
+        },
+        "consumed_without_collision": {
+          "base_camera_link": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "tof_front": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "tof_rear": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "us_front_left": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "us_front_right": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "us_rear_left": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          },
+          "us_rear_right": {
+            "owner": "platform-sw",
+            "note": "another owner's frame (consumed_from): a visual without collision is that owner's decision"
+          }
+        }
+      }
+    },
+    {
+      "id": "T08",
+      "name": "collision mesh is the same file as the visual mesh",
+      "result": "PASS",
+      "details": {
+        "tests": 2,
+        "failed": 0,
+        "skipped": 0,
+        "links": [],
+        "by_owner": {},
+        "files": {},
+        "meaning": "collision shape is as detailed as the visual one: slower planning and a looser-than-needed fit. A flag for the link's owner; geometry is not changed here"
+      }
+    },
+    {
+      "id": "T09",
+      "name": "massed links: mass > 0, principal moments > 0, triangle inequality, tensor PD",
+      "result": "PASS",
+      "details": {
+        "tests": 11,
+        "failed": 0,
+        "skipped": 0,
+        "massed_links": 34,
+        "link_instances_checked": 124,
+        "failures": [],
+        "triangle_rtol": 1e-06
+      }
+    },
+    {
+      "id": "T10",
+      "name": "modelled mass by owner vs gross_mass_limit",
+      "result": "PASS",
+      "details": {
+        "tests": 21,
+        "failed": 0,
+        "skipped": 0,
+        "report_expansion": "dold_v4_350/bp000/hp25/bt10/openarm/mock",
+        "kg_by_owner": {
+          "base": 6.702,
+          "lift": 11.7,
+          "openarm": 12.26,
+          "sensors": 0.0
+        },
+        "links_by_owner": {
+          "base": [
+            "base_link",
+            "bl_caster_link",
+            "bl_wheel_link",
+            "br_caster_link",
+            "br_wheel_link",
+            "camera_link",
+            "fl_caster_link",
+            "fl_wheel_link",
+            "fr_caster_link",
+            "fr_wheel_link",
+            "left_wheel_link",
+            "lidar_link",
+            "right_wheel_link"
+          ],
+          "lift": [
+            "lift_column_base_link"
+          ],
+          "openarm": [
+            "openarm_left_base_link",
+            "openarm_left_ee_base_link",
+            "openarm_left_ee_link1",
+            "openarm_left_ee_link2",
+            "openarm_left_link1",
+            "openarm_left_link2",
+            "openarm_left_link3",
+            "openarm_left_link4",
+            "openarm_left_link5",
+            "openarm_left_link6",
+            "openarm_right_base_link",
+            "openarm_right_ee_base_link",
+            "openarm_right_ee_link1",
+            "openarm_right_ee_link2",
+            "openarm_right_link1",
+            "openarm_right_link2",
+            "openarm_right_link3",
+            "openarm_right_link4",
+            "openarm_right_link5",
+            "openarm_right_link6"
+          ]
+        },
+        "modelled_total_kg": 30.662,
+        "gross_mass_limit_kg": 120.0,
+        "gross_mass_limit_source": {
+          "source": "plan",
+          "status": "verified",
+          "ref": "P-00 s3.1 platform-level requirement"
+        },
+        "f2s_vehicle_estimate_kg": 93.0,
+        "f2s_vehicle_estimate_source": {
+          "source": "f2s",
+          "status": "provisional",
+          "ref": "Alex, F2S design proposal, 28 Sep 2026 (gross mass about 93 kg vs the 120 kg cap); second-hand via DESIGN_UPDATE_2026-10-05 s1, the F2S document is not in this repo"
+        },
+        "mass_provenance": {
+          "base": {
+            "state": "external_nominal",
+            "source": "platform-sw's CAD export: the inertials of openamrobot_description's urdf, included unchanged"
+          },
+          "lift": {
+            "state": "external_nominal",
+            "source": "datum lift_mass_dold_v4_350: the DOLD Hexalift V4 350 catalogue mass, 11.7 kg (Alex, rev19.0, 12 Oct 2026), on a placeholder box inertial (section lift_column_section, whose lateral side is not sourced) at mid-height of the retracted column; the catalogue does not split the mass between the fixed part and the moving stage"
+          },
+          "openarm": {
+            "state": "external_nominal",
+            "source": "upstream openarm_description's nominal link masses at the pinned commit (config/upstream_pins.yaml); arms and grippers, no body (ADR-008)"
+          },
+          "sensors": {
+            "state": "placeholder",
+            "source": "none: the upper-sensor frames carry no <inertial> by design, so the modelled mass of the cameras is zero"
+          }
+        },
+        "per_link_masses_still_placeholders": true,
+        "placeholder_groups": [
+          "sensors"
+        ],
+        "external_nominal_groups": [
+          "base",
+          "lift",
+          "openarm"
+        ],
+        "verified_groups": [],
+        "provenance_problems": [],
+        "modelled_total_kg_by_expansion": {
+          "bp000/openarm": 30.662,
+          "bp000/so101": 18.402,
+          "bp000/none": 18.402,
+          "bp050/openarm": 30.662,
+          "bp050/so101": 18.402,
+          "bp050/none": 18.402
+        },
+        "density_plausibility": {
+          "scope": "mass datums of ours only (MASS_DATUMS); a band is declared per datum by its author",
+          "rows": [
+            {
+              "datum": "lift_mass_dold_v4_350",
+              "group": "lift",
+              "mass_kg": 11.7,
+              "volume_m3": 0.030528,
+              "density_kg_m3": 383.3,
+              "band": [
+                100.0,
+                1200.0
+              ],
+              "within": true,
+              "status": "provisional",
+              "bounding_box": "lift_column_section x column retracted_length (upperbody_configuration.yaml)"
+            }
+          ],
+          "outside_band": []
+        },
+        "not_modelled": [
+          "battery",
+          "hub motors",
+          "electronics",
+          "the lift column's structure beyond its catalogue mass"
+        ],
+        "base_link_inertia_not_seen_by_kdl": {
+          "id": "W01",
+          "retired_as_a_warn": true,
+          "base_link_mass_kg": 4.175,
+          "now": "base_link is a non-root link (root: base_footprint), KDL sees its inertia"
+        },
+        "report": [
+          "Modelled mass at the baseline / openarm",
+          "  base (platform-sw)        6.70 kg   [external_nominal] platform-sw CAD export",
+          "  lift (ours)              11.70 kg   [external_nominal] catalogue mass (lift_mass_dold_v4_350) on a placeholder box",
+          "  openarm_* (upstream)     12.26 kg   [external_nominal] upstream nominal, arms + grippers, no body (ADR-008)",
+          "  sensors (ours)            0.00 kg   [placeholder]      upper-sensor frames carry no <inertial> by design",
+          "  modelled total           30.66 kg   vs gross_mass_limit 120 kg",
+          "  gross_mass_limit 120 kg [plan, verified]: P-00 s3.1 platform-level requirement",
+          "  (F2S vehicle estimate 93 kg \u2014 per-link masses still placeholders)",
+          "  F2S vehicle estimate [f2s, provisional]: Alex, F2S design proposal, 28 Sep 2026 (gross mass about 93 kg vs the 120 kg cap); second-hand via DESIGN_UPDATE_2026-10-05 s1, the F2S document is not in this repo",
+          "  placeholder groups (no source, chosen so the model expands): sensors",
+          "  external_nominal groups (another owner's figure, not verified by us): base, lift, openarm",
+          "Not modelled (all F2S): battery, hub motors, electronics, the lift column's structure beyond its catalogue mass.",
+          "  The lift row above is a catalogue mass on a placeholder box, not the structure. The total is",
+          "  therefore what the description contains, not what the robot weighs.",
+          "  W01 (retired): base_link (4.18 kg of the base figure) is no longer the root, so KDL sees it."
+        ]
+      }
+    },
+    {
+      "id": "T11",
+      "name": "planar base joint absent by default, planar world -> base_footprint when enabled",
+      "result": "PASS",
+      "details": {
+        "tests": 22,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T12",
+      "name": "datum schema and provenance rules",
+      "result": "PASS",
+      "details": {
+        "tests": 42,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T13",
+      "name": "visualization constants: visual-only, named, commented, listed",
+      "result": "PASS",
+      "details": {
+        "tests": 27,
+        "failed": 0,
+        "skipped": 0,
+        "constants": [
+          {
+            "name": "openamr_sensor_marker_edge",
+            "value": 0.04,
+            "file": "upper_sensors.xacro",
+            "comment": "Visualization constant (DATUMS.md): edge, in metres, of the marker box drawn for each camera frame. It describes how the model is drawn, not the robot, so it is not a datum. It may appear only inside a <visual>: no collision, no inertial, no joint origin and no datum depends on it (T13 enforces this).",
+            "uses": 1
+          }
+        ],
+        "count": 1,
+        "failures": [],
+        "rule": "DATUMS.md: affects only visual geometry; named property whose comment says so; listed here"
+      }
+    },
+    {
+      "id": "T14",
+      "name": "mock profile has no OpenArmHW plugin",
+      "result": "PASS",
+      "details": {
+        "tests": 13,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T15",
+      "name": "gazebo profile uses GazeboSimSystem for arm joints",
+      "result": "PASS",
+      "details": {
+        "tests": 26,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "T16",
+      "name": "real profile expands with OpenArmHW and its CAN parameters",
+      "result": "PASS",
+      "details": {
+        "tests": 6,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "L01",
+      "name": "launch test: five controllers active on mock, one trajectory followed",
+      "result": "PASS",
+      "details": {
+        "tests": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "E01",
+      "name": "assembled envelope height, width, depth (lower bound)",
+      "result": "WARN",
+      "details": {
+        "tests": 10,
+        "failed": 0,
+        "skipped": 0,
+        "lower_bound": true,
+        "method": "per calibration stop of the lift (lift_joint at the stop, every other joint at zero), root frame base_footprint = the floor; height = highest point above the floor, width = span of y, depth = span of x; over link frame origins and box/cylinder/sphere extents (visual and collision); mesh extents NOT included, so every figure is a lower bound and a figure under the limit proves nothing about the real envelope",
+        "limits_m": {
+          "height": 1.7,
+          "width": 0.6,
+          "depth": 0.8
+        },
+        "limit_source": "datums envelope_max_height/width/depth (P-00 s20.2 target envelope 1700 x 600 x 800 mm, provisional)",
+        "exceeds_limit_even_as_lower_bound": {
+          "L1000": [
+            "depth"
+          ],
+          "L1175": [
+            "depth"
+          ],
+          "L1350": [
+            "depth"
+          ]
+        },
+        "why_warn": "WARN, never PASS: nobody has measured the envelope; never FAIL: a flag for A4, not a gate",
+        "per_lift_stop": {
+          "L1000": {
+            "shoulder_height_m": 1.0,
+            "lift_joint_position_m": 0.0,
+            "height": {
+              "lower_bound_m": 1.223,
+              "limit_m": 1.7,
+              "margin_m": 0.477,
+              "exceeds_limit": false,
+              "set_by": "head_camera_mount_link (frame origin)"
+            },
+            "width": {
+              "lower_bound_m": 0.58,
+              "limit_m": 0.6,
+              "margin_m": 0.02,
+              "exceeds_limit": false,
+              "set_by": "base_link (collision box) .. base_link (collision box)"
+            },
+            "depth": {
+              "lower_bound_m": 0.8052,
+              "limit_m": 0.8,
+              "margin_m": -0.0052,
+              "exceeds_limit": true,
+              "set_by": "tof_rear (visual box) .. tof_front (visual box)"
+            }
+          },
+          "L1175": {
+            "shoulder_height_m": 1.175,
+            "lift_joint_position_m": 0.175,
+            "height": {
+              "lower_bound_m": 1.398,
+              "limit_m": 1.7,
+              "margin_m": 0.302,
+              "exceeds_limit": false,
+              "set_by": "head_camera_mount_link (frame origin)"
+            },
+            "width": {
+              "lower_bound_m": 0.58,
+              "limit_m": 0.6,
+              "margin_m": 0.02,
+              "exceeds_limit": false,
+              "set_by": "base_link (collision box) .. base_link (collision box)"
+            },
+            "depth": {
+              "lower_bound_m": 0.8052,
+              "limit_m": 0.8,
+              "margin_m": -0.0052,
+              "exceeds_limit": true,
+              "set_by": "tof_rear (visual box) .. tof_front (visual box)"
+            }
+          },
+          "L1350": {
+            "shoulder_height_m": 1.35,
+            "lift_joint_position_m": 0.35,
+            "height": {
+              "lower_bound_m": 1.573,
+              "limit_m": 1.7,
+              "margin_m": 0.127,
+              "exceeds_limit": false,
+              "set_by": "head_camera_mount_link (frame origin)"
+            },
+            "width": {
+              "lower_bound_m": 0.58,
+              "limit_m": 0.6,
+              "margin_m": 0.02,
+              "exceeds_limit": false,
+              "set_by": "base_link (collision box) .. base_link (collision box)"
+            },
+            "depth": {
+              "lower_bound_m": 0.8052,
+              "limit_m": 0.8,
+              "margin_m": -0.0052,
+              "exceeds_limit": true,
+              "set_by": "tof_rear (visual box) .. tof_front (visual box)"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "C01",
+      "name": "config id is sha256:<64 hex>, accepted by the C9 pattern",
+      "result": "PASS",
+      "details": {
+        "tests": 28,
+        "failed": 0,
+        "skipped": 0,
+        "format": "sha256:<64 lowercase hex>",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "inputs": [
+          "canonical expanded URDF (C14N, no comments, whitespace-stripped)",
+          "column",
+          "base_plate",
+          "head_pitch",
+          "base_tilt",
+          "arm_package",
+          "hardware_profile",
+          "datums.revision",
+          "upstream pins (every entry of config/upstream_pins.yaml, full hashes)"
+        ],
+        "not_inputs": [
+          "lift stop L1000/L1175/L1350: a calibration ID",
+          "mast_id: deleted with the mast"
+        ],
+        "before_p15": [
+          "canonical expanded URDF",
+          "mast_id",
+          "arm_package",
+          "hardware_profile",
+          "datums.revision",
+          "openarm_description commit (full hash)"
+        ],
+        "meaning_changed": "the format is unchanged and still valid against C9; an id recorded before P15 is not comparable",
+        "enable_planar_base": "not a separate input: it changes the expanded URDF",
+        "openarm_description_commit": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+        "matches_baseline_pin": true,
+        "c9_schema": {
+          "checked": true,
+          "schema": "src/openamrobot-interfaces/schemas/json/c9-lerobot-dataset.schema.json",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "fields": [
+            "$defs/openAMRobot/properties/provenance/properties/robot_configuration_hash",
+            "$defs/cameraStream/properties/configuration_hash",
+            "$defs/stateStream/properties/configuration_hash",
+            "$defs/actionStream/properties/configuration_hash"
+          ]
+        }
+      }
+    },
+    {
+      "id": "C02",
+      "name": "upstream pin file agrees with the upstream checkout",
+      "result": "PASS",
+      "details": {
+        "tests": 25,
+        "failed": 0,
+        "skipped": 0,
+        "pins": {
+          "openarm_description": {
+            "result": "PASS",
+            "pin": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+            "checkout_head": "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+            "checkout": "/home/slash/openamr_ws/src/upstream/openarm_description"
+          },
+          "openarm_ros2": {
+            "result": "PASS",
+            "pin": "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed",
+            "checkout_head": "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed",
+            "checkout": "/home/slash/openamr_ws/src/upstream/openarm_ros2"
+          }
+        },
+        "compared": [
+          "openarm_description",
+          "openarm_ros2"
+        ],
+        "not_compared": []
+      }
+    },
+    {
+      "id": "W01",
+      "name": "the root link has no inertial, so KDL consumers lose nothing",
+      "result": "PASS",
+      "details": {
+        "tests": 7,
+        "failed": 0,
+        "skipped": 0,
+        "root": "base_footprint (platform-sw 935efc7, REP 105)",
+        "root_inertial": null,
+        "base_link_mass_kg": 4.17533781895232,
+        "base_link_is_a_non_root_link": true,
+        "was": "WARN since S3: base_link was the root, so KDL consumers (robot_state_publisher, MoveIt) dropped its 4.175 kg",
+        "why_it_moved": "the root is base_footprint now (a frame change by platform-sw, ADR-010 s4 predicted it); nothing here was 'fixed' by us",
+        "guard": "FAILS if a root link carries an inertial again, in any arm package, planar or not"
+      }
+    },
+    {
+      "id": "W02",
+      "name": "KDL converts base_planar_joint to a fixed joint",
+      "result": "WARN",
+      "details": {
+        "tests": 1,
+        "failed": 0,
+        "skipped": 0,
+        "acceptance": "unaffected: A6's acceptance is 'planar base joint present and disabled'. The joint is present with type=\"planar\" in the description (T11) and check_urdf accepts it (T02, planar expansions)",
+        "classification": "downstream consumer limitation (kdl_parser has no planar joint), not a model defect",
+        "consequence": "KDL consumers see world -> base_link as static when enable_planar_base:=true",
+        "a7_consequence": "planar base motion can never come from robot_state_publisher; it comes from Gazebo's odom -> base_footprint, which ADR-003 and ADR-005 already assume",
+        "action": "none in A6: the flag is an experiment switch, disabled by default (AD-30)",
+        "expected_message": "Converting unknown joint type of joint 'base_planar_joint' into a fixed joint",
+        "observed": true,
+        "default_expansion_emits_it": false,
+        "observed_in": "robot_state_publisher (Jazzy), enable_planar_base:=true, 4 s run",
+        "log_line": "[WARN] [1792350767.317357437] [kdl_parser]: Converting unknown joint type of joint 'base_planar_joint' into a fixed joint"
+      }
+    },
+    {
+      "id": "REV",
+      "name": "datums.yaml content change carries a revision change",
+      "result": "PASS",
+      "details": {
+        "tests": 11,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "H01",
+      "name": "every test file is registered and every launch test checks that its processes started and exited cleanly",
+      "result": "PASS",
+      "details": {
+        "tests": 21,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    {
+      "id": "H02",
+      "name": "every test CMake registered left a result file (nothing registered but not run)",
+      "result": "PASS",
+      "details": {
+        "registered": 45,
+        "with_a_result": 45,
+        "packages": [
+          "openamrobot_upperbody_description",
+          "openamrobot_upperbody_control",
+          "openamrobot_upperbody_bringup"
+        ]
+      }
+    },
+    {
+      "id": "V01",
+      "name": "a person has looked at the model and answered the checklist",
+      "result": "WARN",
+      "details": {
+        "performed": "P14: a person looked at the mast (item 1 of the old checklist, since deleted). P16: the eight items of the lift model were measured by script (evidence/v01/), not looked at by a person",
+        "answered_items": {
+          "1": {
+            "verdict": "PASS",
+            "expected": "base_footprint->lift_column_base_link x 0.060 z 0.304 (bp000), x 0.110 (bp050); openarm_left_base_link z 1.000 / 1.175 / 1.350, x and y unchanged",
+            "measured": "x 0.060 z 0.304 (bp000), x 0.110 (bp050); left base z 1.000 / 1.175 / 1.350 at x 0.240 y +0.031 at all three stops",
+            "note": "no <visual> and no <collision> on lift_column_base_link or lift_carriage_link: nothing is drawn for the column"
+          },
+          "2": {
+            "verdict": "PASS",
+            "expected": "arm_profile_link 0.120 fore-aft x 0.060 across x 0.340, centre 0.180 ahead of the column axis; carriage->arm base x 0.180 y +-0.031 z 0.166 (62 mm apart)",
+            "measured": "box 0.12 x 0.06 x 0.34, centre x 0.180 from the carriage origin; left base (0.180, +0.031, 0.166), right (0.180, -0.031, 0.166); long side is fore-aft",
+            "note": "read from the URDF, not from RViz seen from above"
+          },
+          "3": {
+            "verdict": "PASS",
+            "expected": "0 enabled pairs colliding at each of three stops and both base plates",
+            "measured": "0 of 478 enabled pairs colliding at L1000, L1175, L1350 on bp000 and bp050; 18 touching pairs, all of them the disabled Adjacent ones",
+            "note": "counted on the collision geometry (MoveIt's check), which is the quantity the item names; the visual meshes of the arms are different files and were not intersected separately"
+          },
+          "4": {
+            "verdict": "PASS",
+            "expected": "head_camera_mount_link z 1.223 + lift, x 0.262 (bp000); optical axis 25 degrees down; wrist camera y +-0.05 z -0.03 from ee_base",
+            "measured": "z 1.223 / 1.398 / 1.573, x 0.262 (0.312 at bp050); optical z axis elevation -25.0 degrees; wrist cameras (0, +-0.05, -0.03), 0.058 m from the hand base origin",
+            "note": "whether 0.058 m is 'near the hand' is a judgement about the real hand and was not made; head_camera_mount_link carries no geometry"
+          },
+          "5": {
+            "verdict": "PASS",
+            "expected": "about 1.0 m and about 2.5 rad after 5 s each; carriage offset change 0.000",
+            "measured": "distance 0.9995 m (odom), yaw 2.465 rad, base_footprint->lift_carriage_link unchanged (offset change 0.0 m)",
+            "cannot_measure": "'RViz's model and Gazebo's model further apart than a wheel width' compares two windows by eye; the script's lookup of Gazebo's own base pose returned nothing, so no number stands in for it"
+          },
+          "6": {
+            "verdict": "PASS",
+            "expected": "joint1/2/4 at 0.3 / -0.6 / 1.2 within 0.02; right arm and wheels change < 0.001; largest single-step jump a fraction of the final value",
+            "measured": "0.30001 / -0.60001 / 1.19995; right arm max change 1.2e-5, wheels 0.0; largest step in the first second 0.0015 / 0.0030 / 0.0060 rad",
+            "note": "result error_code 0"
+          },
+          "7": {
+            "verdict": "PASS",
+            "expected": "finger_joint1 and finger_joint2 equal within 0.01; the right hand opposite in sign",
+            "measured": "left 0.4008 / 0.4008, right -0.4000 / -0.4000 (/joint_states); physical link-pose angles left 0.4008 / 0.4002, right -0.4000 / -0.4000",
+            "note": "/joint_states carries finger_joint2 as the URDF mimic of finger_joint1 and so cannot disagree with it: the link-pose angles are the physical reading (G02's method)"
+          },
+          "8": {
+            "verdict": "PASS",
+            "expected": "left/right hands_up joint4 1.5 within 0.01; scene robot and real end effector differ < 0.01 m; park equals home; grippers closed +0.7854 / -0.7854, open 0",
+            "measured": "joint4 1.50037 (left), 1.49916 (right); goal-state vs real end-effector difference at most 0.0005 m over six arm poses; park == home in the SRDF for both arms; closed 0.78457 / -0.78456, open within 0.001 of 0; 10 of 10 requests SUCCESS, no 'Planning failed' after home",
+            "cannot_measure": "'the Scene Robot in RViz' is an RViz object; the goal state's end-effector (forward kinematics of the goal joint values) against the real one's tf stands in for it"
+          }
+        },
+        "answered_before_the_lift": {
+          "1": "(item 1 as it stood in P14, about the mast) the mast read as a thin spike. Its dimensions were those of an HFS6-60120 profile 14 mm shorter than the 1250 mm Alex specified on 28 Sep, so the appearance was an accurate thin extrusion and not a sizing defect; its orientation and its mass were defects (V01-F1, V01-F2), both now closed. The mast is gone: item 1 of the checklist now asks about the lift column and has no recorded answer"
+        },
+        "unanswered_items": [],
+        "stays_warn_because": "lift_mass_tl3_400 is null (no supplier mass for the fallback TL3 400 column), so one of the two columns the model offers cannot be built; V01 stays WARN until that datum is sourced, however the eight items land. The eight below are measured on dold_v4_350 only",
+        "findings": [
+          {
+            "id": "V01-F1",
+            "item": 1,
+            "found": "the mast profile was probably rotated 90 degrees: mast_section [0.060, 0.120] put 60 mm fore-aft and 120 mm lateral; option B (P-03 rev18.9 item 18) orients the same HFS6-60120 cross-section (its 340 mm arm profile, not a full-height mast) 120 mm fore-aft and 60 mm lateral, the stiff direction against the arms' forward cantilever. The value was right. Its axis assignment was only a prose note in the datum ('orientation unconfirmed') and no test asserted it",
+            "outcome": "confirmed correct by the design owner (Alex, 12 Oct 2026: 'thanks for catching the profile orientation, that's exactly the kind of check we need'); the 90 degree rotation was real",
+            "resolved_by": "the mast and mast_section are deleted (P15); the rule it proposed is implemented: a dimension list declares axis_convention and T12 asserts the assignment against the expansion"
+          },
+          {
+            "id": "V01-F2",
+            "item": 1,
+            "found": "mast_mass was 3.0 kg (placeholder) for 1.2365 m of HFS6-60120: about 337 kg/m3 over the bounding box, low by roughly 2.5 to 4 times for an aluminium extrusion (an estimate, not a datasheet figure). Labelled placeholder, so nothing lied, but the placeholder was implausible and nothing checked plausibility",
+            "outcome": "closed by the supplier catalogue figure: the lift is a DOLD Hexalift V4 350 of 11.7 kg (rev19.0, 12 Oct 2026). The estimate was 7.5 to 12 kg; the catalogue value is at the top of that bracket",
+            "resolved_by": "mast_mass is deleted with the mast; lift_mass_dold_v4_350 carries 11.7 kg (provisional: a catalogue figure, not weighed); the rule it proposed is implemented: a mass datum of ours declares a density_band and T10 checks it"
+          }
+        ],
+        "reading": "The manual check found what the automated ones could not: no test of ours examined an axis assignment or the plausibility of a placeholder, and the two rules it proposed are now checks (T12, T10). The eight items of the lift model were measured in P16 (see answered_items: none FAIL, two carry a part that only eyes could judge). V01 stays WARN: lift_mass_tl3_400 is null (no supplier mass for the fallback TL3 400 column), so one of the two columns the model offers cannot be built; V01 stays WARN until that datum is sourced, however the eight items land. The eight below are measured on dold_v4_350 only",
+        "checklist": "docs/v01_visual_check.md",
+        "last_launch": "S4: robot_state_publisher + joint_state_publisher_gui + rviz2 started with no xacro or mesh errors (evidence/S4.json)"
+      }
+    },
+    {
+      "id": "I01",
+      "name": "installed package matches the source the tests and this report describe",
+      "result": "PASS",
+      "details": {
+        "compared": [
+          "urdf",
+          "config",
+          "launch",
+          "meshes"
+        ]
+      }
+    },
+    {
+      "id": "AUX",
+      "name": "supporting tests and steps (urdf_utils, datums_report, s4_sensors, evidence_dir, build_evidence, scripts)",
+      "result": "PASS",
+      "details": {
+        "tests": 286,
+        "failed": 0,
+        "skipped": 16,
+        "unclaimed_check_ids": {
+          "W04": {
+            "tests": 1,
+            "failures": 0
+          },
+          "M01": {
+            "tests": 6,
+            "failures": 0
+          },
+          "M02": {
+            "tests": 3,
+            "failures": 0
+          },
+          "M07": {
+            "tests": 7,
+            "failures": 0
+          }
+        },
+        "steps": {
+          "colcon_test": "0",
+          "check_urdf_matrix": "0",
+          "datums_report": "0"
+        }
+      }
+    }
+  ],
+  "config_ids": {
+    "dold_v4_350/bp000/hp25/bt10/openarm/mock": "sha256:8a7161cf0ba90200308001cf06f35118ca60a20f4e03d0c45e42642c43e0e399",
+    "dold_v4_350/bp000/hp25/bt10/so101/mock": "sha256:a7aea71becc51bc96e925ec3a39e006dab1e64ef741d5bab9b4e81bb24445e30",
+    "dold_v4_350/bp000/hp25/bt10/none/mock": "sha256:d85d9eae4661f04150746cfd64adcd366cabfd7502dea65f03354fc710e8f115",
+    "dold_v4_350/bp050/hp25/bt10/openarm/mock": "sha256:fe85dfb3549426167083c135510f431613db378ba31a80340b852edc017b211b",
+    "dold_v4_350/bp050/hp25/bt10/so101/mock": "sha256:602d8f7662d7db227384f5ce8c1d655294b6b7f5dfe41173c4ad5cd7a3c1c9e8",
+    "dold_v4_350/bp050/hp25/bt10/none/mock": "sha256:134e4fec045285d60fa6ed92b3323ac65be622a2aaeb46c192e970879b815fc7",
+    "dold_v4_350/bp000/hp15/bt10/openarm/mock": "sha256:b5a317aacd6df38b5a8cc78dea5292fa72c32584aed16ff0f912626053012b11",
+    "dold_v4_350/bp000/hp20/bt10/openarm/mock": "sha256:da24fdf72e60869899b3cc98a4eb10af1a838d545a660cf60425cfc3b1c643d2",
+    "dold_v4_350/bp000/hp30/bt10/openarm/mock": "sha256:1757fde18b38f414d20f5dacf3e29eb2ccef4d54cfccf0a9247eacc7a7c6dea6",
+    "dold_v4_350/bp000/hp35/bt10/openarm/mock": "sha256:6acacf2d01e4e376e4bcee8bfdb17a2e23b64ae2056610c4c13df638b28c8192",
+    "dold_v4_350/bp000/hp25/bt05/openarm/mock": "sha256:b988aafb3febdcbf9b0322ed0a10c8ceeaf9a7fece52d4418f2d9956b5f34328",
+    "dold_v4_350/bp000/hp25/bt15/openarm/mock": "sha256:ba7651cfa6534d1eff2eabb7a6dd329b622126312177072f2bad88638a864659",
+    "dold_v4_350/bp000/hp25/bt10/openarm/gazebo": "sha256:42947333d20b00f9f4cae3db8665a1fa429fa2bcdc62934160570c8803efbfa7",
+    "dold_v4_350/bp000/hp25/bt10/openarm/real": "sha256:e4740045a76870e1c67b5dc0ceb70b45b0cfbbfc0236ed74a2367902530736c8"
+  },
+  "config_id_inputs": {
+    "members": [
+      "canonical_urdf",
+      "column",
+      "base_plate",
+      "head_pitch",
+      "base_tilt",
+      "arm_package",
+      "hardware_profile",
+      "datums_revision",
+      "upstream_pins"
+    ],
+    "not_inputs": [
+      "lift stop (L1000/L1175/L1350): a calibration ID",
+      "enable_planar_base (already in canonical_urdf)"
+    ],
+    "before_p15": [
+      "canonical_urdf",
+      "mast_id",
+      "arm_package",
+      "hardware_profile",
+      "datums_revision",
+      "openarm_description_commit"
+    ],
+    "note": "the format is unchanged (sha256:<64 hex>) and so is validity against the C9 schema; the meaning is not, so an id recorded before P15 is not comparable with one in this report"
+  },
+  "calibration_ids": {
+    "L1000": {
+      "shoulder_height_m": 1.0,
+      "lift_joint_position_m": 0.0,
+      "column": "dold_v4_350"
+    },
+    "L1175": {
+      "shoulder_height_m": 1.175,
+      "lift_joint_position_m": 0.175,
+      "column": "dold_v4_350"
+    },
+    "L1350": {
+      "shoulder_height_m": 1.35,
+      "lift_joint_position_m": 0.35,
+      "column": "dold_v4_350"
+    }
+  },
+  "provenance": {
+    "placeholder": 5,
+    "provisional": 8,
+    "verified": 1
+  },
+  "limitations": [
+    "placeholder datums: 5 of 14 (joint_rest_margin_rad, left_wrist_camera_pose, lift_column_section, lift_mass_tl3_400, right_wrist_camera_pose)",
+    "base inertials are platform-sw CAD-export placeholders, the lift mass is a catalogue figure (11.7 kg, provisional) on a placeholder box, and the arm masses are upstream nominal values; none of them is a measured mass",
+    "T05 asserts the shoulder height at every lift stop (height(openarm_{left,right}_base_link) above the floor = lift_calibration_stops[stop]) and the three stops are calibration IDs, not inputs of the configuration id; it does not validate the datums themselves",
+    "E01 is WARN, never PASS: height, width and depth are lower bounds from zero pose, link frame origins and box/cylinder/sphere extents; mesh extents are not included, so a figure under the limit proves nothing about the real envelope. A4 decides",
+    "T10 reports what the description models. The battery, hub motors, electronics and the lift column's structure beyond its catalogue mass are not modelled, so the total is not the gross mass of the robot",
+    "the lift column has no collision geometry: its lateral extent is not sourced, so the arms can plan through the column body; the arm profile (option B's 340 mm box) is the only collision body of the upper structure",
+    "T14, T15 and T16 are expansion checks: nothing here loads the gazebo or the real plugin (the gazebo profile report, G01 and G02, is where the gazebo one runs), and the real profile cannot even be built here (openarm_hardware needs OpenArmCAN)",
+    "the gripper controllers are the deprecated position_controllers/GripperActionController on purpose: the replacement serves ParallelGripperCommand instead of GripperCommand, which would decide manipulation#11 / ADR-009 point 4 (open)",
+    "L01 launches mock.launch.py only: controller_manager on mock_components/GenericSystem, which reflects its command back as state, so it shows the controller wiring and not tracking performance",
+    "T02 check_urdf parses the XML and builds the link tree; it does not resolve package:// mesh URIs",
+    "W01: KDL consumers (robot_state_publisher, MoveIt in A7) drop the inertia of the root link; the root is base_footprint since platform-sw 935efc7 and carries none, so base_link's 4.18 kg is no longer the one dropped",
+    "W02: with enable_planar_base:=true KDL consumers see world -> base_footprint as static; planar base motion can never come from robot_state_publisher (A7: it comes from Gazebo's odom -> base_footprint, ADR-003 / ADR-005 / REP 105)",
+    "V01 is WARN. P14's look at the mast found two defects (V01-F1 confirmed correct by the design owner, V01-F2 closed by the 11.7 kg catalogue figure), both resolved by the lift. P16 measured the eight items of the lift model (evidence/v01/): none reads outside its expected value, and two sub-questions that need eyes are marked cannot_measure. It stays WARN because lift_mass_tl3_400 is null (no supplier mass for the fallback TL3 400 column), so one of the two columns the model offers cannot be built; V01 stays WARN until that datum is sourced, however the eight items land. The eight below are measured on dold_v4_350 only. This report launches nothing for V01 and records no inspection of its own",
+    "config ids are hashes of xacro's output text: a different xacro version that formats a number differently gives a different id for the same sources",
+    "`static+mock` names the evidence class: expansions of every hardware_profile, plus a headless launch of the mock bringup (L01) and the robot_state_publisher observation for W02. Nothing in this report ran on Gazebo or real hardware",
+    "no physical evidence; static expansion and zero-pose FK only"
+  ]
+}

@@ -1,0 +1,13 @@
+P29, code c84cfbd (test-only change since 5139a49: 4f2c3b4; c84cfbd is docs), platform-sw dfd44a5, clean tree, datums revision 2026-10-28.a.
+Command, three times in a row from the workspace root: timeout 3600 bash src/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_bringup/scripts/run_a7_regression.sh
+A7 run 1  exit 0   14 PASS / 2 WARN / 0 FAIL   reports/20261028T090816Z_a7.json
+A7 run 2  exit 0   14 PASS / 2 WARN / 0 FAIL   reports/20261028T091706Z_a7.json
+A7 run 3  exit 0   14 PASS / 2 WARN / 0 FAIL   reports/20261028T092556Z_a7.json
+A6 was not re-run (the change is a test in the MoveIt package and documents).
+
+Stop condition (any check other than AUX or a recorded parameter_bridge -11 changing result against the clean P28 run 20261028T003921Z): not triggered.
+  20261028T090816Z_a7.json: git_hash c84cfbd, dirty False, check differences vs P28 clean run: none; non-zero process exits (excluding SIGINT -2): {('move_group', -11): 4}; parameter_bridge processes 8, exit -11 or -6 among them: 0
+  20261028T091706Z_a7.json: git_hash c84cfbd, dirty False, check differences vs P28 clean run: none; non-zero process exits (excluding SIGINT -2): {('move_group', -11): 4}; parameter_bridge processes 8, exit -11 or -6 among them: 0
+  20261028T092556Z_a7.json: git_hash c84cfbd, dirty False, check differences vs P28 clean run: none; non-zero process exits (excluding SIGINT -2): {('move_group', -11): 4}; parameter_bridge processes 8, exit -11 or -6 among them: 0
+The move_group -11 x4 per run (M01 x3, M02) is in every P28 and P29 report and is the launch guard's allowance for move_group (launch_guard.py MOVE_GROUP_ALLOWED), not new.
+No parameter_bridge -11 and no -6 in these three runs (24 bridge processes, 12 launches).

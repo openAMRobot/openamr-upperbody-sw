@@ -1,0 +1,6 @@
+# the organisation's merge-marker scan (openAMRobot/.github repository-quality-reusable.yml@main, step 'Reject unresolved merge markers'), run locally
+# before: the tree of ba5b4ea (the commit of run 39575711096)
+ba5b4ea:evidence/p24/pytest_process_exits.txt:14:============================== 5 passed in 0.09s ======================
+grep status: 0 (0 = marker found, the step fails)
+# after: the tracked files of this commit's tree
+grep status: 1 (1 = nothing found, the step passes)

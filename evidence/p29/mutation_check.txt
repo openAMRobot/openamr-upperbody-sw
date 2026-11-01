@@ -1,0 +1,10 @@
+P29: does the fixed test still catch a hidden reading? Two broken copies of openamrobot_upperbody_moveit/joint_state_clamp.py were put FIRST on PYTHONPATH
+(a scratch directory outside the repository; nothing in the repository was edited) and the launch test was run directly (launch_test <file> clamp:=true).
+Under colcon test the install's own PYTHONPATH hook is prepended again and the real module wins, so colcon test cannot be used for this: a first attempt
+that way "passed" both mutations and proved nothing; the lines below are from the direct runs.
+
+M1  in Clamp.update, after "self.over_epsilon += 1" (the beyond-epsilon branch):  self.activations += 1      (every beyond-epsilon reading is ALSO counted as a clamp)
+    -> FAIL: AssertionError: 85 != 43 : a reading beyond the epsilon was counted as a clamp after the first one was seen
+M2  in the same place:  if self.over_epsilon == 0: self.activations += 1; self.max_magnitude, self.max_joint = overshoot, name   (only the FIRST beyond-epsilon reading is also counted as a clamp)
+    -> FAIL: AssertionError: 0.001 != 2.5e-07 within 1e-15 delta (0.00099975 difference) : nothing beyond the epsilon is counted as a clamp
+none (the real clamp, direct launch_test)  -> OK (4 tests, 1 skipped), and 30 of 30 through colcon test (clamp_loop_30.txt)

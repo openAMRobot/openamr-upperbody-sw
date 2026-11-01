@@ -1,0 +1,34 @@
+== expanded_new_gazebo_ba5b4ea.urdf
+left  q=0 (the shared end of both ranges)      q=+0.0000  min distance between the finger collision meshes    0.08 mm   y-extent gap   -0.01 mm
+left  q=far end of the range                   q=+0.7854  min distance between the finger collision meshes    5.01 mm   y-extent gap    4.91 mm
+left  q=half                                   q=+0.3927  min distance between the finger collision meshes    5.21 mm   y-extent gap    5.04 mm
+--- tip separation: the 2 mm of each finger mesh farthest from its pivot (largest distance), their centroids, and the gap between those centroids
+left  q=0                q=+0.0000 tip1 centroid y=  -3.53 mm z= -168.93 mm | tip2 y=  +3.72 mm z= -168.98 mm | tip gap |dy|=  7.25 mm
+left  q=0.25 of range    q=+0.1963 tip1 centroid y= -23.50 mm z= -169.82 mm | tip2 y= +23.69 mm z= -169.83 mm | tip gap |dy|= 47.19 mm
+left  q=half             q=+0.3927 tip1 centroid y= -43.26 mm z= -166.79 mm | tip2 y= +43.45 mm z= -166.76 mm | tip gap |dy|= 86.70 mm
+left  q=far end          q=+0.7854 tip1 centroid y= -79.14 mm z= -149.60 mm | tip2 y= +79.31 mm z= -149.51 mm | tip gap |dy|=158.44 mm
+right q=0 (the shared end of both ranges)      q=+0.0000  min distance between the finger collision meshes    0.08 mm   y-extent gap   -0.01 mm
+right q=far end of the range                   q=-0.7854  min distance between the finger collision meshes    5.01 mm   y-extent gap    4.91 mm
+right q=half                                   q=-0.3927  min distance between the finger collision meshes    5.21 mm   y-extent gap    5.04 mm
+--- tip separation: the 2 mm of each finger mesh farthest from its pivot (largest distance), their centroids, and the gap between those centroids
+right q=0                q=+0.0000 tip1 centroid y=  +3.53 mm z= -168.93 mm | tip2 y=  -3.72 mm z= -168.98 mm | tip gap |dy|=  7.25 mm
+right q=0.25 of range    q=-0.1963 tip1 centroid y= +23.50 mm z= -169.82 mm | tip2 y= -23.69 mm z= -169.83 mm | tip gap |dy|= 47.19 mm
+right q=half             q=-0.3927 tip1 centroid y= +43.26 mm z= -166.79 mm | tip2 y= -43.45 mm z= -166.76 mm | tip gap |dy|= 86.70 mm
+right q=far end          q=-0.7854 tip1 centroid y= +79.14 mm z= -149.60 mm | tip2 y= -79.31 mm z= -149.51 mm | tip gap |dy|=158.44 mm
+== expanded_upstream_openarm_v20_14ff67b.urdf
+left  q=0 (the shared end of both ranges)      q=+0.0000  min distance between the finger collision meshes    0.08 mm   y-extent gap   -0.01 mm
+left  q=far end of the range                   q=+0.7854  min distance between the finger collision meshes    5.01 mm   y-extent gap    4.91 mm
+left  q=half                                   q=+0.3927  min distance between the finger collision meshes    5.21 mm   y-extent gap    5.04 mm
+--- tip separation: the 2 mm of each finger mesh farthest from its pivot (largest distance), their centroids, and the gap between those centroids
+left  q=0                q=+0.0000 tip1 centroid y=  -3.53 mm z= -168.93 mm | tip2 y=  +3.72 mm z= -168.98 mm | tip gap |dy|=  7.25 mm
+left  q=0.25 of range    q=+0.1963 tip1 centroid y= -23.50 mm z= -169.82 mm | tip2 y= +23.69 mm z= -169.83 mm | tip gap |dy|= 47.19 mm
+left  q=half             q=+0.3927 tip1 centroid y= -43.26 mm z= -166.79 mm | tip2 y= +43.45 mm z= -166.76 mm | tip gap |dy|= 86.70 mm
+left  q=far end          q=+0.7854 tip1 centroid y= -79.14 mm z= -149.60 mm | tip2 y= +79.31 mm z= -149.51 mm | tip gap |dy|=158.44 mm
+right q=0 (the shared end of both ranges)      q=+0.0000  min distance between the finger collision meshes    0.08 mm   y-extent gap   -0.01 mm
+right q=far end of the range                   q=-0.7854  min distance between the finger collision meshes    5.01 mm   y-extent gap    4.91 mm
+right q=half                                   q=-0.3927  min distance between the finger collision meshes    5.21 mm   y-extent gap    5.04 mm
+--- tip separation: the 2 mm of each finger mesh farthest from its pivot (largest distance), their centroids, and the gap between those centroids
+right q=0                q=+0.0000 tip1 centroid y=  +3.53 mm z= -168.93 mm | tip2 y=  -3.72 mm z= -168.98 mm | tip gap |dy|=  7.25 mm
+right q=0.25 of range    q=-0.1963 tip1 centroid y= +23.50 mm z= -169.82 mm | tip2 y= -23.69 mm z= -169.83 mm | tip gap |dy|= 47.19 mm
+right q=half             q=-0.3927 tip1 centroid y= +43.26 mm z= -166.79 mm | tip2 y= -43.45 mm z= -166.76 mm | tip gap |dy|= 86.70 mm
+right q=far end          q=-0.7854 tip1 centroid y= +79.14 mm z= -149.60 mm | tip2 y= -79.31 mm z= -149.51 mm | tip gap |dy|=158.44 mm

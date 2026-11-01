@@ -1,0 +1,41 @@
+# python3 tools/check_decision_currency.py --register /tmp/claude-1000/-home-slash-openamr-ws/57a88441-0315-482f-88ea-b2ebc5a83c6d/scratchpad/dotgithub/repo/decisions.yaml --design-root /mnt/c/Users/slash/Downloads/openARM/10_architecture
+# repository commit a918f01, 2026-10-20T12:24:42Z; register openAMRobot/.github decisions.yaml @ 9109d3e1a8fc07151e500e83b32b7ce6ccab6af6; design folder /mnt/c/Users/slash/Downloads/openARM/10_architecture
+register: /tmp/claude-1000/-home-slash-openamr-ws/57a88441-0315-482f-88ea-b2ebc5a83c6d/scratchpad/dotgithub/repo/decisions.yaml @ 9109d3e1a8fc07151e500e83b32b7ce6ccab6af6; in force: P-03-rev19.6
+CURRENT          design:ARCHITECTURE.md:145  CONFIG-IDS  CONFIG-IDS at P-03-rev18.9
+CURRENT          design:DATUMS.md:61  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          design:DATUMS.md:61  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          design:DATUMS.md:64  LIFT  LIFT at P-03-rev18.9
+CURRENT          design:DATUMS.md:65  ARM-MOUNT  ARM-MOUNT at P-03-rev19.0
+CURRENT          design:DATUMS.md:65  CONFIG-IDS  CONFIG-IDS at P-03-rev18.9
+CURRENT          design:FRAMES.md:24  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          design:FRAMES.md:24  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          design:FRAMES.md:29  NAV-LIDAR  NAV-LIDAR at P-03-rev19.4
+CURRENT          design:FRAMES.md:31  NEAR-FIELD-FRAMES  NEAR-FIELD-FRAMES at P-03-rev19.0
+CURRENT          design:FRAMES.md:33  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          design:FRAMES.md:34  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:6  LIFT  LIFT at P-03-rev18.9
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:7  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:8  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:10  CONFIG-IDS  CONFIG-IDS at P-03-rev18.9
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:15  ARM-MOUNT  ARM-MOUNT at P-03-rev19.0
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:15  NEAR-FIELD-FRAMES  NEAR-FIELD-FRAMES at P-03-rev19.0
+HISTORICAL       design:decisions/ADR-010-lift-replaces-indexed-mast.md:15  FRAMES-REP105  kept as history: the sentence reports what the 13 Oct banner said and goes on to say FRAMES-REP105 has changed since
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:16  NAV-LIDAR  NAV-LIDAR at P-03-rev19.4
+HISTORICAL       design:decisions/ADR-010-lift-replaces-indexed-mast.md:124  FRAMES-REP105  kept as history: §4 as written on 10 Oct against rev18.7; the third correction at the top of the ADR says what has changed
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:138  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          design:decisions/ADR-010-lift-replaces-indexed-mast.md:154  CONFIG-IDS  CONFIG-IDS at P-03-rev18.9
+HISTORICAL       docs/pr/PR14_BODY.md:11  FRAMES-REP105  kept as history: says what datums.yaml cited before P23 re-cited it; not a citation of its own
+CURRENT          docs/pr/PR14_BODY.md:11  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          docs/pr/PR14_BODY.md:206  NEAR-FIELD-FRAMES  NEAR-FIELD-FRAMES at P-03-rev19.0
+HISTORICAL       docs/pr/PR14_BODY.md:207  FRAMES-REP105  kept as history: says what datums.yaml cited before P23 re-cited it; not a citation of its own
+CURRENT          docs/pr/PR14_BODY.md:207  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/datums.yaml:30  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/datums.yaml:30  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:34  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:36  CAMERAS  CAMERAS at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:138  NEAR-FIELD-FRAMES  NEAR-FIELD-FRAMES at P-03-rev19.0
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:145  NEAR-FIELD-FRAMES  NEAR-FIELD-FRAMES at P-03-rev19.0
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:145  FRAMES-REP105  FRAMES-REP105 at P-03-rev19.4
+CURRENT          ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml:145  CAMERAS  CAMERAS at P-03-rev19.4
+PASS: CURRENT 32, HISTORICAL 4; 4 mentions of a hyphenated ID with no revision nearby (not checkable)
+# exit status 0

@@ -1,0 +1,50 @@
+{
+ "bp000/L1000": {
+  "lift_joint_m": 0.0,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ },
+ "bp000/L1175": {
+  "lift_joint_m": 0.175,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ },
+ "bp000/L1350": {
+  "lift_joint_m": 0.35,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ },
+ "bp050/L1000": {
+  "lift_joint_m": 0.0,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ },
+ "bp050/L1175": {
+  "lift_joint_m": 0.175,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ },
+ "bp050/L1350": {
+  "lift_joint_m": 0.35,
+  "geometry_links": 34,
+  "pairs_enabled": 478,
+  "enabled_pairs_colliding": [],
+  "all_pairs_colliding_acm_ignored": 18,
+  "touching_pairs_the_acm_disables": 18
+ }
+}

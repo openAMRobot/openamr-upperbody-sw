@@ -1,0 +1,4 @@
+code: evaluate_m07
+a) 50 NaN per expected joint                     -> FAIL
+b) 49 finite (mid-range) + 1 NaN last, per joint -> FAIL
+b') 1 NaN first + 49 finite, per joint            -> FAIL

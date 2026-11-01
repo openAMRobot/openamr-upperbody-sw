@@ -1,0 +1,17 @@
+# mutation check: test_m07_non_finite.py against a copy of a7_support.py whose finite filter (non_finite_kind) is disabled: every NaN/inf counts as a reading, as at ba5b4ea
+FAILED test_m07_non_finite.py::test_reproduction_a_fifty_nans_per_expected_joint_is_a_fail
+FAILED test_m07_non_finite.py::test_reproduction_b_forty_nine_finite_and_one_nan_per_joint_is_a_fail[last]
+FAILED test_m07_non_finite.py::test_reproduction_b_forty_nine_finite_and_one_nan_per_joint_is_a_fail[first]
+FAILED test_m07_non_finite.py::test_reproduction_b_forty_nine_finite_and_one_nan_per_joint_is_a_fail[middle]
+FAILED test_m07_non_finite.py::test_one_non_finite_reading_among_plenty_of_finite_ones_is_still_a_fail[nan-nan]
+FAILED test_m07_non_finite.py::test_one_non_finite_reading_among_plenty_of_finite_ones_is_still_a_fail[inf-+inf]
+FAILED test_m07_non_finite.py::test_one_non_finite_reading_among_plenty_of_finite_ones_is_still_a_fail[-inf--inf]
+FAILED test_m07_non_finite.py::test_an_infinity_is_rejected_like_a_nan_and_never_taken_as_a_distance[inf]
+FAILED test_m07_non_finite.py::test_an_infinity_is_rejected_like_a_nan_and_never_taken_as_a_distance[-inf]
+FAILED test_m07_non_finite.py::test_a_non_finite_value_never_counts_toward_the_minimum
+FAILED test_m07_non_finite.py::test_mixed_finite_and_non_finite_keeps_every_rejected_reading_with_its_position
+FAILED test_m07_non_finite.py::test_a_non_finite_reading_on_a_joint_that_is_not_expected_is_still_a_fail
+FAILED test_m07_non_finite.py::test_the_sidecar_text_names_the_non_finite_joints
+13 failed, 29 passed in 0.71s
+# the same tests against the real a7_support.py
+42 passed in 0.63s

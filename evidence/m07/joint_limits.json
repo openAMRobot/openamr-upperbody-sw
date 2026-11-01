@@ -1,0 +1,80 @@
+{
+ "current": {
+  "openarm_left_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_left_finger_joint1": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_left_finger_joint2": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_right_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_right_finger_joint1": {
+   "lower": -0.7854,
+   "upper": 0.0
+  },
+  "openarm_right_finger_joint2": {
+   "lower": -0.7854,
+   "upper": 0.0
+  }
+ },
+ "old": {
+  "openarm_left_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_left_finger_joint1": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_left_finger_joint2": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_right_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_right_finger_joint1": {
+   "lower": -0.7854,
+   "upper": 0.0
+  },
+  "openarm_right_finger_joint2": {
+   "lower": -0.7854,
+   "upper": 0.0
+  }
+ },
+ "upstream": {
+  "openarm_left_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_left_finger_joint1": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_left_finger_joint2": {
+   "lower": 0.0,
+   "upper": 0.7854
+  },
+  "openarm_right_joint4": {
+   "lower": 0.0,
+   "upper": 2.4435
+  },
+  "openarm_right_finger_joint1": {
+   "lower": -0.7854,
+   "upper": 0.0
+  },
+  "openarm_right_finger_joint2": {
+   "lower": -0.7854,
+   "upper": 0.0
+  }
+ }
+}

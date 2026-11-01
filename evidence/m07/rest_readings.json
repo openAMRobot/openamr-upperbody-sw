@@ -1,0 +1,469 @@
+{
+ "all_openarm_joints_with_limits_identical_in_the_three_expansions": 18,
+ "limits_rad": {
+  "current": {
+   "openarm_left_finger_joint1": [
+    0.0,
+    0.7854
+   ],
+   "openarm_right_finger_joint1": [
+    -0.7854,
+    0.0
+   ],
+   "openarm_left_joint4": [
+    0.0,
+    2.4435
+   ],
+   "openarm_right_joint4": [
+    0.0,
+    2.4435
+   ]
+  },
+  "old": {
+   "openarm_left_finger_joint1": [
+    0.0,
+    0.7854
+   ],
+   "openarm_right_finger_joint1": [
+    -0.7854,
+    0.0
+   ],
+   "openarm_left_joint4": [
+    0.0,
+    2.4435
+   ],
+   "openarm_right_joint4": [
+    0.0,
+    2.4435
+   ]
+  },
+  "upstream": {
+   "openarm_left_finger_joint1": [
+    0.0,
+    0.7854
+   ],
+   "openarm_right_finger_joint1": [
+    -0.7854,
+    0.0
+   ],
+   "openarm_left_joint4": [
+    0.0,
+    2.4435
+   ],
+   "openarm_right_joint4": [
+    0.0,
+    2.4435
+   ]
+  }
+ },
+ "runs": {
+  "current_P25": [
+   {
+    "file": "evidence/reports/20261021T085748Z_a7.json",
+    "git_hash": "1165166d5849bd762c0787155adb41589b5050df",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.00013290252536535263,
+      "max_rad": 0.0001331222738372162,
+      "readings": 600,
+      "to_lower_rad": 0.00013290252536535263,
+      "to_upper_rad": 0.7852668777261628,
+      "nearest": "lower",
+      "distance_rad": 0.00013290252536535263
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 2.389347564246691e-08,
+      "max_rad": 2.7552712111855726e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000238934756,
+      "to_upper_rad": -2.7552712111855726e-08,
+      "nearest": "upper",
+      "distance_rad": -2.7552712111855726e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010017650492954999,
+      "max_rad": 0.00010034658043878153,
+      "readings": 600,
+      "to_lower_rad": 0.00010017650492954999,
+      "to_upper_rad": 2.443399653419561,
+      "nearest": "lower",
+      "distance_rad": 0.00010017650492954999
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.479435539105907e-05,
+      "max_rad": 9.494808182353154e-05,
+      "readings": 600,
+      "to_lower_rad": 9.479435539105907e-05,
+      "to_upper_rad": 2.4434050519181763,
+      "nearest": "lower",
+      "distance_rad": 9.479435539105907e-05
+     }
+    }
+   },
+   {
+    "file": "evidence/reports/20261021T090537Z_a7.json",
+    "git_hash": "1165166d5849bd762c0787155adb41589b5050df",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.00033190997783094645,
+      "max_rad": 0.00033213457209058106,
+      "readings": 600,
+      "to_lower_rad": 0.00033190997783094645,
+      "to_upper_rad": 0.7850678654279094,
+      "nearest": "lower",
+      "distance_rad": 0.00033190997783094645
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 2.437670154620264e-08,
+      "max_rad": 2.711156454893171e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000243767015,
+      "to_upper_rad": -2.711156454893171e-08,
+      "nearest": "upper",
+      "distance_rad": -2.711156454893171e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010088873386848718,
+      "max_rad": 0.0001010313571896404,
+      "readings": 600,
+      "to_lower_rad": 0.00010088873386848718,
+      "to_upper_rad": 2.44339896864281,
+      "nearest": "lower",
+      "distance_rad": 0.00010088873386848718
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.530180250294507e-05,
+      "max_rad": 9.543944906909019e-05,
+      "readings": 600,
+      "to_lower_rad": 9.530180250294507e-05,
+      "to_upper_rad": 2.4434045605509307,
+      "nearest": "lower",
+      "distance_rad": 9.530180250294507e-05
+     }
+    }
+   },
+   {
+    "file": "evidence/reports/20261021T091325Z_a7.json",
+    "git_hash": "1165166d5849bd762c0787155adb41589b5050df",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.00041601539123803377,
+      "max_rad": 0.00041625185986049473,
+      "readings": 600,
+      "to_lower_rad": 0.00041601539123803377,
+      "to_upper_rad": 0.7849837481401395,
+      "nearest": "lower",
+      "distance_rad": 0.00041601539123803377
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 2.1946776840309212e-08,
+      "max_rad": 2.653641217875702e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000219467768,
+      "to_upper_rad": -2.653641217875702e-08,
+      "nearest": "upper",
+      "distance_rad": -2.653641217875702e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010080665379064158,
+      "max_rad": 0.00010098317579831928,
+      "readings": 600,
+      "to_lower_rad": 0.00010080665379064158,
+      "to_upper_rad": 2.4433990168242015,
+      "nearest": "lower",
+      "distance_rad": 0.00010080665379064158
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.522204345557839e-05,
+      "max_rad": 9.539259190205485e-05,
+      "readings": 600,
+      "to_lower_rad": 9.522204345557839e-05,
+      "to_upper_rad": 2.4434046074080977,
+      "nearest": "lower",
+      "distance_rad": 9.522204345557839e-05
+     }
+    }
+   }
+  ],
+  "current_P24": [
+   {
+    "file": "evidence/reports/20261020T120539Z_a7.json",
+    "git_hash": "15109f9a501aea9f1d7d506870043029686d18bf",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.0004133559123147279,
+      "max_rad": 0.0004136237548664212,
+      "readings": 600,
+      "to_lower_rad": 0.0004133559123147279,
+      "to_upper_rad": 0.7849863762451336,
+      "nearest": "lower",
+      "distance_rad": 0.0004133559123147279
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 2.11453965448527e-08,
+      "max_rad": 2.7067802221836246e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000211453965,
+      "to_upper_rad": -2.7067802221836246e-08,
+      "nearest": "upper",
+      "distance_rad": -2.7067802221836246e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010021066555054858,
+      "max_rad": 0.0001003454890451394,
+      "readings": 600,
+      "to_lower_rad": 0.00010021066555054858,
+      "to_upper_rad": 2.4433996545109546,
+      "nearest": "lower",
+      "distance_rad": 0.00010021066555054858
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.482760651735589e-05,
+      "max_rad": 9.495019185123965e-05,
+      "readings": 600,
+      "to_lower_rad": 9.482760651735589e-05,
+      "to_upper_rad": 2.4434050498081485,
+      "nearest": "lower",
+      "distance_rad": 9.482760651735589e-05
+     }
+    }
+   },
+   {
+    "file": "evidence/reports/20261020T121325Z_a7.json",
+    "git_hash": "15109f9a501aea9f1d7d506870043029686d18bf",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.0003694040060508996,
+      "max_rad": 0.0003696838684845716,
+      "readings": 600,
+      "to_lower_rad": 0.0003694040060508996,
+      "to_upper_rad": 0.7850303161315154,
+      "nearest": "lower",
+      "distance_rad": 0.0003694040060508996
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 1.9670284956418982e-08,
+      "max_rad": 2.674826582449441e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000196702849,
+      "to_upper_rad": -2.674826582449441e-08,
+      "nearest": "upper",
+      "distance_rad": -2.674826582449441e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010087471309816465,
+      "max_rad": 0.0001010018095257692,
+      "readings": 600,
+      "to_lower_rad": 0.00010087471309816465,
+      "to_upper_rad": 2.443398998190474,
+      "nearest": "lower",
+      "distance_rad": 0.00010087471309816465
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.529128874419257e-05,
+      "max_rad": 9.541353210806847e-05,
+      "readings": 600,
+      "to_lower_rad": 9.529128874419257e-05,
+      "to_upper_rad": 2.4434045864678917,
+      "nearest": "lower",
+      "distance_rad": 9.529128874419257e-05
+     }
+    }
+   },
+   {
+    "file": "evidence/reports/20261020T122112Z_a7.json",
+    "git_hash": "15109f9a501aea9f1d7d506870043029686d18bf",
+    "dirty": false,
+    "window_sim_s": 6.0,
+    "settle_sim_s": 6.0,
+    "messages_in_window": 600,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 0.00041601539123803377,
+      "max_rad": 0.00041625185986049473,
+      "readings": 600,
+      "to_lower_rad": 0.00041601539123803377,
+      "to_upper_rad": 0.7849837481401395,
+      "nearest": "lower",
+      "distance_rad": 0.00041601539123803377
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": 2.1946776840309212e-08,
+      "max_rad": 2.653641217875702e-08,
+      "readings": 600,
+      "to_lower_rad": 0.7854000219467768,
+      "to_upper_rad": -2.653641217875702e-08,
+      "nearest": "upper",
+      "distance_rad": -2.653641217875702e-08
+     },
+     "openarm_left_joint4": {
+      "min_rad": 0.00010080665379064158,
+      "max_rad": 0.00010098317579831928,
+      "readings": 600,
+      "to_lower_rad": 0.00010080665379064158,
+      "to_upper_rad": 2.4433990168242015,
+      "nearest": "lower",
+      "distance_rad": 0.00010080665379064158
+     },
+     "openarm_right_joint4": {
+      "min_rad": 9.522204345557839e-05,
+      "max_rad": 9.539259190205485e-05,
+      "readings": 600,
+      "to_lower_rad": 9.522204345557839e-05,
+      "to_upper_rad": 2.4434046074080977,
+      "nearest": "lower",
+      "distance_rad": 9.522204345557839e-05
+     }
+    }
+   }
+  ],
+  "old_7daa2ab": [
+   {
+    "file": "evidence/m02_bisect/effort_old1.json",
+    "messages": 300,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 8.424643601756543e-05,
+      "max_rad": 8.427626016782597e-05,
+      "readings": 300,
+      "to_lower_rad": 8.424643601756543e-05,
+      "to_upper_rad": 0.7853157237398322,
+      "nearest": "lower",
+      "distance_rad": 8.424643601756543e-05
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": -1.392743615724612e-05,
+      "max_rad": -1.3852958545612637e-05,
+      "readings": 300,
+      "to_lower_rad": 0.7853860725638427,
+      "to_upper_rad": 1.3852958545612637e-05,
+      "nearest": "upper",
+      "distance_rad": 1.3852958545612637e-05
+     },
+     "openarm_left_joint4": {
+      "min_rad": -7.352787747549883e-07,
+      "max_rad": 1.2091969381344825e-07,
+      "readings": 300,
+      "to_lower_rad": -7.352787747549883e-07,
+      "to_upper_rad": 2.443499879080306,
+      "nearest": "lower",
+      "distance_rad": -7.352787747549883e-07
+     },
+     "openarm_right_joint4": {
+      "min_rad": 4.721625373349525e-06,
+      "max_rad": 4.7867979446891695e-06,
+      "readings": 300,
+      "to_lower_rad": 4.721625373349525e-06,
+      "to_upper_rad": 2.443495213202055,
+      "nearest": "lower",
+      "distance_rad": 4.721625373349525e-06
+     }
+    }
+   },
+   {
+    "file": "evidence/m02_bisect/effort_old2.json",
+    "messages": 300,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 4.723596794065088e-05,
+      "max_rad": 4.72657302452717e-05,
+      "readings": 300,
+      "to_lower_rad": 4.723596794065088e-05,
+      "to_upper_rad": 0.7853527342697547,
+      "nearest": "lower",
+      "distance_rad": 4.723596794065088e-05
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": -2.435864917060826e-05,
+      "max_rad": -2.4295257389894687e-05,
+      "readings": 300,
+      "to_lower_rad": 0.7853756413508294,
+      "to_upper_rad": 2.4295257389894687e-05,
+      "nearest": "upper",
+      "distance_rad": 2.4295257389894687e-05
+     },
+     "openarm_left_joint4": {
+      "min_rad": -7.091922498148051e-07,
+      "max_rad": 1.3117936248363549e-07,
+      "readings": 300,
+      "to_lower_rad": -7.091922498148051e-07,
+      "to_upper_rad": 2.4434998688206373,
+      "nearest": "lower",
+      "distance_rad": -7.091922498148051e-07
+     },
+     "openarm_right_joint4": {
+      "min_rad": 4.4754124246537685e-06,
+      "max_rad": 4.793986590811983e-06,
+      "readings": 300,
+      "to_lower_rad": 4.4754124246537685e-06,
+      "to_upper_rad": 2.443495206013409,
+      "nearest": "lower",
+      "distance_rad": 4.4754124246537685e-06
+     }
+    }
+   },
+   {
+    "file": "evidence/m02_bisect/effort_old3.json",
+    "messages": 300,
+    "joints": {
+     "openarm_left_finger_joint1": {
+      "min_rad": 5.00143323733937e-06,
+      "max_rad": 5.022418463340728e-06,
+      "readings": 300,
+      "to_lower_rad": 5.00143323733937e-06,
+      "to_upper_rad": 0.7853949775815366,
+      "nearest": "lower",
+      "distance_rad": 5.00143323733937e-06
+     },
+     "openarm_right_finger_joint1": {
+      "min_rad": -1.4512872439809144e-05,
+      "max_rad": -1.4458294572250452e-05,
+      "readings": 300,
+      "to_lower_rad": 0.7853854871275602,
+      "to_upper_rad": 1.4458294572250452e-05,
+      "nearest": "upper",
+      "distance_rad": 1.4458294572250452e-05
+     },
+     "openarm_left_joint4": {
+      "min_rad": -4.588486888223997e-07,
+      "max_rad": 1.40074106980137e-07,
+      "readings": 300,
+      "to_lower_rad": -4.588486888223997e-07,
+      "to_upper_rad": 2.443499859925893,
+      "nearest": "lower",
+      "distance_rad": -4.588486888223997e-07
+     },
+     "openarm_right_joint4": {
+      "min_rad": 4.707758307631593e-06,
+      "max_rad": 4.74887292511994e-06,
+      "readings": 300,
+      "to_lower_rad": 4.707758307631593e-06,
+      "to_upper_rad": 2.4434952511270747,
+      "nearest": "lower",
+      "distance_rad": 4.707758307631593e-06
+     }
+    }
+   }
+  ]
+ }
+}

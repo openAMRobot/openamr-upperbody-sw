@@ -1,0 +1,11 @@
+{
+ "stop": "L1000",
+ "base_plate": "bp000",
+ "lift_position_asked_m": 0.0,
+ "ros_domain_id": 171,
+ "lift_joint_read_m": 0.0,
+ "png": "rviz_L1000_bp000.png",
+ "window": "0x600106",
+ "ok": true,
+ "left_running_after_stop": 0
+}

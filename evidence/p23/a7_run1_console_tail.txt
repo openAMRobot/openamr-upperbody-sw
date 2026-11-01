@@ -1,0 +1,44 @@
+# Console tail of A7 run 1 of P23 (20261020T105921Z_a7.json), the last 40 lines that run_a7_regression.sh printed for that colcon test step, as the driver kept them.
+# This is a partial record: it shows which process died and with which exit code. The full launch log was not kept.
+=== A7 run 1 10:51:33
+        launch_guard.assert_launch_healthy(proc_info, expected=expected, allowed=launch_guard.SIM_ALLOWED if simulator else launch_guard.MOVE_GROUP_ALLOWED)
+      File "/home/slash/openamr_ws/install/openamrobot_upperbody_description/lib/openamrobot_upperbody_description/launch_guard.py", line 68, in assert_launch_healthy
+        assertExitCodes(proc_info, allowable_exit_codes=codes, process=name)
+      File "/opt/ros/jazzy/lib/python3.12/site-packages/launch_testing/asserts/assert_exit_codes.py", line 62, in assertExitCodes
+        assert info.returncode in allowable_exit_codes, 'Proc {} exited with code {}'.format(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    AssertionError: Proc parameter_bridge-4 exited with code -11
+  >>>
+
+Summary: 92 tests, 0 errors, 2 failures, 0 skipped
+
+== evidence report
+
+A7 evidence  openamr-upperbody-sw @ 77374a0  class simulation  MoveIt 2.12.4-1noble.20260903.075716
+  PASS  G01  combined robot in Gazebo: arm controllers, arm goal, Nav2-facing topics unchanged  [8 tests]
+  PASS  G02  grippers close in Gazebo and finger_joint2 follows finger_joint1 in the physics (Bul  [3 tests]
+  PASS  M01  named poses plan and execute on mock at every lift calibration stop (L1000, L1175, L  [6 tests]
+  PASS  M02  named poses plan and execute in Gazebo at the baseline configuration (lift_joint at   [3 tests]
+  PASS  M03  ACM: every disabled pair has a reason that can be shown (upstream-declared, Adjacent  [10 tests]
+  PASS  M04  a goal inside the nearest reachable structure volume (arm_profile_link) is rejected   [2 tests]
+  PASS  M05  per-hand gripper values: closed is each hand's own far limit, opposite signs (ADR-00  [6 tests]
+  PASS  M06  named-pose plans need some acceleration limit and are insensitive to its value acros  [1 tests]
+  FAIL  M07  at rest in Gazebo no joint sits within the joint_rest_margin_rad datum of either of   [7 tests]  -- joints at an upstream limit at rest (WARN): openarm_left_finger_joint1, openarm_left_joint
+  PASS  W04  a gz server had to be force-stopped by the launch's stop helper (WARN; a server stil
+  PASS  L01  launch test: five controllers active on mock, one trajectory followed  [3 tests]
+  PASS  H01  every test file is registered and every launch test checks that its processes starte  [21 tests]
+  PASS  H02  every test CMake registered left a result file (nothing registered but not run)
+  PASS  I01  installed packages match the source the tests and this report describe
+  WARN  V01  a person has looked at the simulator and RViz and answered the checklist (eight item
+  FAIL  AUX  supporting tests and steps (SRDF, imported elements, ACM record, config files, harne  [131 tests]
+
+Limitations
+  - `simulation` names the evidence class: every result here is how the model behaves in Gazebo Harmonic or on mock_components, planned by MoveIt 2.12.4 under OpenAMRobot's own declared limits. Every claim reads 'plans and executes in simulation under declared OpenAMRobot limits'; nothing here is a validated limit, a payload, a torque, or a statement about a physical robot
+  - the acceleration limits are engineering defaults (source: engineering_default, status: placeholder; rule: velocity / 2 s) written because upstream declares none (openamrobot-manipulation#10, ADR-009); M06 shows the plans need SOME limit and do not depend on its value
+  - the lift is not under ros2_control and has no authority to be commanded (option B: effort 0, velocity 0): its state is the operating point of a run (the mock stub's lift_position in M01; joint_state_publisher's default zero in Gazebo, not read from the physics), and MoveIt plans the arms from it. The three lift stops are calibration IDs, not configuration IDs
+  - the lift column has placeholder geometry since b45d8f6 (Alex's follow-up, accepted 16 Oct): a 240 x 240 mm box, visual and collision, on each stage. The box is not the supplier's shape and its lateral side is invented (datum lift_column_section), so it is collision geometry whose size nobody sourced; arm_profile_link, option B's 340 mm box, is the other collision body of the upper structure
+  - ... (all in the evidence file)
+
+Evidence: /home/slash/openamr_ws/evidence/20261020T105921Z_a7.json
+Result: FAIL  (13 PASS, 1 WARN, 0 SKIP, 2 FAIL, 0 NOT_RUN)
+rc=1

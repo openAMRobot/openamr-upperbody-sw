@@ -10,5 +10,25 @@
   <exec_depend>openamrobot_upperbody_control</exec_depend>
   <exec_depend>openamrobot_upperbody_gazebo</exec_depend>
   <exec_depend>openamrobot_upperbody_moveit</exec_depend>
+  <!-- view.launch.py, mock.launch.py -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_publisher_gui</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <!-- L01 -->
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>control_msgs</test_depend>
+  <test_depend>controller_manager_msgs</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>trajectory_msgs</test_depend>
+  <test_depend>builtin_interfaces</test_depend>
   <export><build_type>ament_cmake</build_type></export>
 </package>

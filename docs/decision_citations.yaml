@@ -1,0 +1,213 @@
+# SPDX-License-Identifier: MIT
+# Where our documents cite a decision of the register (openAMRobot/.github decisions.yaml) at a revision, and which revision. Read by
+# tools/check_decision_currency.py (P22, a prototype run by hand; it is wired into no CI), which compares each entry with the register:
+# the register's `source.document` for the decision is the revision it currently stands on. A revision that is not that one is STALE
+# (older) or AHEAD (newer) and fails.
+#
+# One entry per citation:
+#   document   path in this repository; `design:<path>` is relative to the design folder's 10_architecture directory
+#   decision   a register decision id
+#   revision   the register `sources` key the document cites (P-03-rev19.4, Alex decision 2026-10-12, ...)
+#   quote      a verbatim piece of the document that states it (line breaks and leading `#` or `>` do not matter, emphasis marks are ignored);
+#              it must contain the decision id and the revision, so the entry cannot say something the text does not
+#   historical a reason, when the document cites the old revision on purpose (it describes history, or says the citation has changed).
+#              The text must still be there; the revision is not compared
+#
+# `scan:` names the living documents whose versioned mentions of hyphenated decision ids must each be covered by an entry here (UNLISTED
+# otherwise). History is not scanned: DESIGN_LOG.md, CHANGELOG.md, findings/, evidence/. A mention with no revision near it cannot be stale
+# and is only counted.
+#
+# P22 left datums.yaml line 30 red (it cited FRAMES-REP105 at rev19.0) because re-citing it bumps the datums revision and every config_id;
+# P23 took the bump (revision 2026-10-20.a) and the first two entries now cite CAMERAS and FRAMES-REP105 at rev19.4.
+schema_version: 1
+citations:
+  - document: ros2/src/openamrobot_upperbody_description/config/datums.yaml
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "register CAMERAS, P-03 rev19.4 item 19 D3 update"
+  - document: ros2/src/openamrobot_upperbody_description/config/datums.yaml
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "register FRAMES-REP105, P-03 rev19.4: 'axle height', no number"
+
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "Alex decision 2026-10-12; register FRAMES-REP105, current at P-03 rev19.4"
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "the register's CAMERAS, P-03 rev19.4, not in FRAMES-REP105"
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: NEAR-FIELD-FRAMES
+    revision: P-03-rev19.0
+    quote: "Alex, 12 Oct 2026 (P-03 rev19.0, register NEAR-FIELD-FRAMES)"
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: NEAR-FIELD-FRAMES
+    revision: P-03-rev19.0
+    quote: "P-03 rev19.0, register NEAR-FIELD-FRAMES; imu_link"
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "imu_link (register FRAMES-REP105, P-03 rev19.4)"
+  - document: ros2/src/openamrobot_upperbody_description/config/frame_contract.yaml
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "base_camera_link (register CAMERAS, P-03 rev19.4)"
+
+  - document: docs/pr/PR14_BODY.md
+    decision: NEAR-FIELD-FRAMES
+    revision: P-03-rev19.0
+    quote: "The register's NEAR-FIELD-FRAMES (P-03 rev19.0, 12 Oct)"
+  - document: docs/pr/PR14_BODY.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.0
+    historical: "says what datums.yaml cited before P23 re-cited it; not a citation of its own"
+    quote: "Our datums.yaml cited FRAMES-REP105 at rev19.0"
+  - document: docs/pr/PR14_BODY.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "stated in CAMERAS (P-03 rev19.4)"
+  - document: docs/pr/PR14_BODY.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.0
+    historical: "says what datums.yaml cited before P23 re-cited it; not a citation of its own"
+    quote: "base_link_height_above_floor cited FRAMES-REP105 at P-03 rev19.0"
+  - document: docs/pr/PR14_BODY.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "0.098 m is stated in CAMERAS at P-03 rev19.4"
+
+  - document: design:FRAMES.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "the register states the figure in CAMERAS (P-03 rev19.4"
+  - document: design:FRAMES.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "its FRAMES-REP105 (P-03 rev19.4) says"
+  - document: design:FRAMES.md
+    decision: NAV-LIDAR
+    revision: P-03-rev19.4
+    quote: "the register's NAV-LIDAR (P-03 rev19.4)"
+  - document: design:FRAMES.md
+    decision: NEAR-FIELD-FRAMES
+    revision: P-03-rev19.0
+    quote: "The register's NEAR-FIELD-FRAMES (P-03 rev19.0)"
+  - document: design:FRAMES.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "the register's FRAMES-REP105 (P-03 rev19.4) and platform-sw's"
+  - document: design:FRAMES.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "The register's CAMERAS (P-03 rev19.4) gives (0.387, 0, 0.046)"
+
+  - document: design:DATUMS.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "the register states 0.098 m in CAMERAS (P-03 rev19.4"
+  - document: design:DATUMS.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "the register's FRAMES-REP105 (P-03 rev19.4) says only"
+  - document: design:DATUMS.md
+    decision: LIFT
+    revision: P-03-rev18.9
+    quote: "the register gives only the 240 mm fore-aft side (LIFT, P-03 rev18.9)"
+  - document: design:DATUMS.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "ARM-MOUNT, P-03 rev19.0"
+  - document: design:DATUMS.md
+    decision: CONFIG-IDS
+    revision: P-03-rev18.9
+    quote: "CONFIG-IDS, P-03 rev18.9"
+
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: LIFT
+    revision: P-03-rev18.9
+    quote: "register LIFT, P-03 rev18.9 items 16 and 18"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: CAMERAS
+    revision: P-03-rev19.4
+    quote: "register CAMERAS, P-03 rev19.4"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "register FRAMES-REP105, P-03 rev19.4."
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: CONFIG-IDS
+    revision: P-03-rev18.9
+    quote: "register CONFIG-IDS, P-03 rev18.9. (The 13 Oct banner"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.4
+    quote: "Register FRAMES-REP105, P-03 rev19.4: imu_link at"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: CONFIG-IDS
+    revision: P-03-rev18.9
+    quote: "Register CONFIG-IDS, P-03 rev18.9: the configuration IDs are"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "the register entries ARM-MOUNT, FRAMES-REP105 and NEAR-FIELD-FRAMES at P-03 rev19.0"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "Its ARM-MOUNT entry at P-03 rev19.0"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "the ARM-MOUNT entry at P-03 rev19.0 says the opposite"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "The register's ARM-MOUNT entry (P-03-rev19.0 item 19"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: NEAR-FIELD-FRAMES
+    revision: P-03-rev19.0
+    quote: "the register entries ARM-MOUNT, FRAMES-REP105 and NEAR-FIELD-FRAMES at P-03 rev19.0"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: FRAMES-REP105
+    revision: P-03-rev19.0
+    historical: "the sentence reports what the 13 Oct banner said and goes on to say FRAMES-REP105 has changed since"
+    quote: "the register entries ARM-MOUNT, FRAMES-REP105 and NEAR-FIELD-FRAMES at P-03 rev19.0"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: NAV-LIDAR
+    revision: P-03-rev19.4
+    quote: "(P-03 rev19.4, 16 Oct: the imu_link pose and orientation, from platform-sw #70); CAMERAS and NAV-LIDAR changed in the same revision"
+  - document: design:decisions/ADR-010-lift-replaces-indexed-mast.md
+    decision: FRAMES-REP105
+    revision: P-03-rev18.7
+    historical: "§4 as written on 10 Oct against rev18.7; the third correction at the top of the ADR says what has changed"
+    quote: "Register FRAMES-REP105 (rev18.7 item 15)"
+
+  - document: design:ARCHITECTURE.md
+    decision: CONFIG-IDS
+    revision: P-03-rev18.9
+    quote: "register CONFIG-IDS, P-03 rev18.9"
+
+  - document: docs/v01_visual_check.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "`decisions.yaml`, ARM-MOUNT (P-03 rev19.0, 12 Oct 2026, item 19), lines 1127 and 1128"
+  - document: docs/v01_visual_check.md
+    decision: ARM-MOUNT
+    revision: P-03-rev19.0
+    quote: "rev19.0 ARM-MOUNT entry that replaced it says the opposite"
+
+scan:
+  repo:
+    - README.md
+    - "ros2/src/*/README.md"
+    - "ros2/src/*/config/*.yaml"
+    - "docs/*.md"
+    - docs/pr/PR14_BODY.md
+  design:
+    - FRAMES.md
+    - DATUMS.md
+    - VERIFICATION.md
+    - 00_INDEX.md
+    - ARCHITECTURE.md
+    - decisions/ADR-010-lift-replaces-indexed-mast.md

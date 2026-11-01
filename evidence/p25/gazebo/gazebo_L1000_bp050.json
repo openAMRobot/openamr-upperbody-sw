@@ -1,0 +1,23 @@
+{
+ "stop": "L1000",
+ "base_plate": "bp050",
+ "ros_domain_id": 181,
+ "gz_partition": "p25_gui",
+ "camera_eye": [
+  1.05,
+  -0.9,
+  1.0
+ ],
+ "camera_target": [
+  0.2,
+  0.0,
+  0.8
+ ],
+ "window_line": "0x600012 \"Gazebo Sim\": (\"gz-sim-gui\" \"Gazebo GUI\")  1000x845+38+59  +366+27",
+ "move_to_pose": "data: true",
+ "lift_joint_read_m": 0.0,
+ "png": "gazebo_L1000_bp050.png",
+ "window": "0x600012",
+ "ok": true,
+ "left_running_after_stop": 0
+}

@@ -1,0 +1,12 @@
+# python3 tools/check_decision_currency.py --register /tmp/claude-1000/-home-slash-openamr-ws/57a88441-0315-482f-88ea-b2ebc5a83c6d/scratchpad/dotgithub/repo/decisions.yaml --design-root /mnt/c/Users/slash/Downloads/openARM/10_architecture --canary
+# repository commit 1233077, 2026-10-20T11:20:10Z; register openAMRobot/.github decisions.yaml @ 9109d3e1a8fc07151e500e83b32b7ce6ccab6af6; design folder /mnt/c/Users/slash/Downloads/openARM/10_architecture
+baseline (the real list against the real documents): PASS   {'CURRENT': 32, 'HISTORICAL': 4}
+CAUGHT  a document cites an older revision of a decision: expected STALE, got ['STALE'], status FAIL
+CAUGHT  the list names a decision the register does not have: expected UNKNOWN_DECISION, got ['UNKNOWN_DECISION'], status FAIL
+CAUGHT  the quote is not in the document: expected QUOTE_NOT_FOUND, got ['QUOTE_NOT_FOUND'], status FAIL
+CAUGHT  the list says one revision and the quote states another: expected QUOTE_MISMATCH, got ['QUOTE_MISMATCH'], status FAIL
+CAUGHT  a document cites a decision and revision the list does not have: expected UNLISTED, got ['UNLISTED'], status FAIL
+CAUGHT  a copy of ros2/src/openamrobot_upperbody_description/config/datums.yaml with its citation of CAMERAS re-dated P-03-rev19.4 -> P-03-rev19.2, document and list edited together: statuses ['STALE']
+OK      the same sentence at the current revision is clean: PASS
+canary: every planted fault caught; the real list is clean, which is a separate question
+# exit status 0

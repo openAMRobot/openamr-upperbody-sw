@@ -1,0 +1,10 @@
+A6 run 1 exit 0
+A6 run 2 exit 0
+A6 run 3 exit 0
+A7 run 1 exit 0
+gz sim processes after A7 run 1: 0
+A7 run 2 exit 0
+gz sim processes after A7 run 2: 0
+A7 run 3 exit 0
+gz sim processes after A7 run 3: 0
+ALLDONE

@@ -1,0 +1,581 @@
+# SPDX-License-Identifier: MIT
+# What backs, or does not back, the counts and rates in docs/pr/PR14_BODY.md and in the generated reports (key `report:a7`, `report:dev`).
+# Read by tools/check_evidence_backing.py (P22, a prototype run by hand; it is wired into no CI).
+#
+# A claim is matched by its normalised text in the document it is found in (`near` limits an entry to claims on a line that contains that
+# text). Kinds:
+#   json_count   how many committed reports match {glob(s), where: [...]}; a rate gives `numerator` and `denominator`; BACKED when they equal the claim
+#   json_all     every committed report matching the globs has `path` == `equals` (at least `at_least` of them)
+#   json_value   a file under evidence/ has the value (`path`, or `length: true` for a list's length) the claim states
+#   record       a file under evidence/ contains `contains`: a written record, not data derived from the reports. Printed RECORDED
+#   unbacked     nothing under evidence/ shows it; acknowledged WITH A REASON and still printed UNBACKED
+# A verdict count ("25 PASS / 3 WARN / 0 FAIL") needs no entry: a committed report with exactly those counts backs it, and in the table rows of
+# evidence/reports/README.md the report files named in the same row must have the counts.
+#
+# New numbers in the PR body or in a report are UNBACKED and fail until they are backed or acknowledged here. Acknowledging is a decision, not a default.
+schema_version: 1
+claims:
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 runs
+  kind: unbacked
+  reason: a table header; each row below names its own run and its counts are backed there
+  near: tested code | a6
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: d619012
+    - verdicts:
+        PASS: 12
+        WARN: 2
+        FAIL: 2
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: d619012
+  near: d619012 (#70 only)
+- doc: docs/pr/PR14_BODY.md
+  claim: 12 / 2 / 2
+  kind: json_count
+  glob: evidence/reports/*_a7.json
+  where:
+  - path: upstream.openamr-platform-sw
+    equals: dfd44a5
+  - path: git_hash
+    startswith: 538a32a
+  - verdicts:
+      PASS: 12
+      WARN: 2
+      FAIL: 2
+  expect: 2
+  count_not_in_claim: true
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: 24c66f5
+    - verdicts:
+        PASS: 14
+        WARN: 2
+        FAIL: 0
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: 24c66f5
+  near: 24c66f5
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: fe2e821
+    - verdicts:
+        PASS: 14
+        WARN: 2
+        FAIL: 0
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: fe2e821
+  near: fe2e821
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: d619012
+    - check: M03
+      result: FAIL
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: d619012
+  near: m03 fails in 3 of 3
+- doc: docs/pr/PR14_BODY.md
+  claim: 91 of the 95
+  kind: unbacked
+  reason: 95 is M03's disabled_pairs.total in the pinned reports and the four permanently colliding constant pairs are listed in M03's failures in the d619012 reports
+    (evidence/reports/20261018T192527Z_a7.json); 95 - 4 = 91 is not written in a file
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of the 12
+  kind: json_count
+  numerator:
+    globs: &id001
+    - evidence/reports/20261018T*_a7.json
+    - evidence/reports/20261019T*_a7.json
+    - evidence/reports/20261020T10*_a7.json
+    - evidence/reports/20261020T11[0-4]*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: dfd44a5
+    - any_check_result: FAIL
+  denominator:
+    globs: *id001
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: dfd44a5
+  near: of p19 to p23
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: 15109f9
+    - verdicts:
+        PASS: 14
+        WARN: 2
+        FAIL: 0
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: git_hash
+      startswith: 15109f9
+  near: 15109f9
+- doc: docs/pr/PR14_BODY.md
+  claim: 4 of 27
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: dfd44a5
+    - any_check_result: FAIL
+  denominator:
+    glob: evidence/reports/*_a7.json
+    where:
+    - path: upstream.openamr-platform-sw
+      equals: dfd44a5
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 of 12
+  kind: launch_exits
+  globs:
+  - evidence/reports/20261020T12*_a7.json
+  process: parameter_bridge
+  exit_code: -11
+- doc: docs/pr/PR14_BODY.md
+  claim: 1 of 60
+  kind: launch_exits
+  globs:
+  - evidence/reports/20261020T12*_a7.json
+  - evidence/reports/20261021T*_a7.json
+  - evidence/reports/20261028T*_a7.json
+  process: parameter_bridge
+  exit_code: -11
+  near: p24 to p29
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 of 12
+  kind: launch_exits
+  globs:
+  - evidence/reports/20261028T09*_a7.json
+  process: parameter_bridge
+  exit_code: -11
+  near: p29
+- doc: docs/pr/PR14_BODY.md
+  claim: 25 percent
+  kind: unbacked
+  reason: 'arithmetic or a probability derived from other figures; the result is not itself written in any file under evidence/: 3 of the 12 A7 runs of P19 to P23
+    (backed by the reports'' failed checks)'
+- doc: docs/pr/PR14_BODY.md
+  claim: 15 percent
+  kind: unbacked
+  reason: 'arithmetic or a probability derived from other figures; the result is not itself written in any file under evidence/: 4 of the 27 A7 runs on dfd44a5 (backed
+    by the reports'' failed checks)'
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 48
+  kind: observed_not_recorded
+  observed_by: console, P19 runs 2 and 3 and P23 run 1; the P23 tail is evidence/p23/a7_run1_console_tail.txt
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 72
+  kind: observed_not_recorded
+  observed_by: console; evidence/reports/README.md P21 and P23 and docs/issues/ros_gz-bridge_teardown_segfault.md say the same, as prose
+- doc: docs/pr/PR14_BODY.md
+  claim: 2 of 60
+  kind: observed_not_recorded
+  observed_by: console, until the P23 run
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 of 24
+  kind: observed_not_recorded
+  observed_by: console, P20 and P21 (12 launches each)
+- doc: docs/pr/PR14_BODY.md
+  claim: 1 of 7
+  kind: unbacked
+  reason: the retracted claim, quoted so that it can be retracted; the repository has no record of it (CHANGELOG.md, P21; evidence/reports/README.md, P21 '1-in-7
+    search')
+- doc: docs/pr/PR14_BODY.md
+  claim: 36 runs
+  kind: json_value
+  file: evidence/shutdown_p17/orphan_count_36_runs.json
+  length: true
+- doc: docs/pr/PR14_BODY.md
+  claim: 36 of 36
+  kind: record
+  file: evidence/reports/README.md
+  contains: 36 of the 36 launches of the orphan count stopped on the first step
+  near: before the spawner change
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 4
+  kind: unbacked
+  reason: the result of one test run against the old code, to show the test fails there; the log is not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 2 in about 61
+  kind: record
+  file: evidence/reports/README.md
+  contains: The prior rate is 2 in about 61.
+- doc: docs/pr/PR14_BODY.md
+  claim: 48 launches
+  kind: unbacked
+  reason: 'arithmetic or a probability derived from other figures; the result is not itself written in any file under evidence/: 12 A7 runs of P19 to P21 x 4 simulator
+    launches (G01, G02, M02, M07)'
+- doc: docs/pr/PR14_BODY.md
+  claim: 20%
+  kind: unbacked
+  reason: 'arithmetic or a probability derived from other figures; the result is not itself written in any file under evidence/: exp(-1.6), 48 launches at 2 in about
+    61'
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 excursions
+  kind: json_all
+  globs:
+  - evidence/reports/20261018T19*_a7.json
+  - evidence/reports/20261018T2*_a7.json
+  - evidence/reports/20261019T*_a7.json
+  path: clamp.M02.gate.excursions_beyond_epsilon
+  equals: 0
+  at_least: 12
+  near: twelve a7 runs
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 excursions
+  kind: json_all
+  globs:
+  - evidence/reports/20261018T17*_a7.json
+  path: clamp.M02.gate.excursions_beyond_epsilon
+  equals: 0
+  at_least: 3
+  near: p18
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 excursions
+  kind: json_all
+  globs:
+  - evidence/reports/20261015T12*_a7.json
+  path: clamp.M02.gate.excursions_beyond_epsilon
+  equals: 0
+  at_least: 3
+  near: in the three runs above
+- doc: docs/pr/PR14_BODY.md
+  claim: 95 pairs
+  kind: json_value
+  file: evidence/reports/20261019T010818Z_a7.json
+  path: checks[M03].details.disabled_pairs.total
+- doc: docs/pr/PR14_BODY.md
+  claim: 2 of 2
+  kind: unbacked
+  reason: the result of one test run against the old code, to show the test fails there; the log is not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 24 joints
+  kind: unbacked
+  reason: Alex's check of platform-sw's description (xacro, check_urdf); not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 14 of the 15
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it (the 49d2368 config_ids are not in a committed report)'
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 of 478
+  kind: record
+  file: evidence/reports/20261019T010818Z_a7.json
+  contains: 0 of 478 enabled pairs
+- doc: docs/pr/PR14_BODY.md
+  claim: 535 of 630
+  kind: unbacked
+  reason: 'arithmetic or a probability derived from other figures; the result is not itself written in any file under evidence/: M03 gives enabled_pairs.total 535
+    and disabled_pairs.total 95 (evidence/reports/20261019T010818Z_a7.json); 630 is their sum'
+- doc: docs/pr/PR14_BODY.md
+  claim: 1795 / 957 / 1832
+  kind: record
+  file: evidence/reports/README.md
+  contains: 1795, 957, 1832
+- doc: docs/pr/PR14_BODY.md
+  claim: 30 of 30
+  kind: unbacked
+  reason: stated in docs/issues/gz-sim_server_teardown_segfault_and_hang.md; the 30 stops of the bare server have no log under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 83 dependencies
+  kind: unbacked
+  reason: derivable from git (the package.xml diff against main), not a file under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 13 PASS / 1 WARN (V01) / 2 FAIL
+  kind: unbacked
+  reason: a wrong figure in Tushar's text, corrected in brackets in the same bullet (the two reports have 12 PASS, 15 checks)
+- doc: docs/pr/PR14_BODY.md
+  claim: 15 checks
+  kind: json_value
+  file: evidence/reports/20261015T121048Z_a7.json
+  path: checks
+  length: true
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 of 3
+  kind: json_count
+  numerator:
+    glob: evidence/reports/*_dev.json
+    where:
+    - path: git_hash
+      startswith: a713533
+    - check: AUX
+      result: FAIL
+  denominator:
+    glob: evidence/reports/*_dev.json
+    where:
+    - path: git_hash
+      startswith: a713533
+  near: a713533
+- doc: docs/pr/PR14_BODY.md
+  claim: about 1 in 13
+  kind: record
+  file: evidence/reports/README.md
+  contains: about 1 in 13 per launch
+- doc: docs/pr/PR14_BODY.md
+  claim: Two of the eight A7 runs
+  kind: record
+  file: evidence/reports/README.md
+  contains: two of the eight A7 runs
+- doc: docs/pr/PR14_BODY.md
+  claim: one in 49 launches
+  kind: record
+  file: evidence/reports/README.md
+  contains: one in 49 launches since
+- doc: docs/pr/PR14_BODY.md
+  claim: 1 in 49
+  kind: record
+  file: evidence/reports/README.md
+  contains: one in 49 launches since
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 orphans
+  kind: record
+  file: evidence/reports/README.md
+  contains: 0 in 12 runs each of G01, G02 and M02
+- doc: docs/pr/PR14_BODY.md
+  claim: 12 runs
+  kind: record
+  file: evidence/reports/README.md
+  contains: 0 in 12 runs each of G01, G02 and M02
+- doc: docs/pr/PR14_BODY.md
+  claim: 3%
+  kind: unbacked
+  reason: stated in the MoveIt package README as a sampled figure; the samples are not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 81 / 2 / 3
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 68 / 0 / 0
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 24 reports
+  kind: json_count
+  globs:
+  - evidence/reports/20261018T19*.json
+  - evidence/reports/20261018T2*.json
+  - evidence/reports/20261019T*.json
+  expect: 24
+- doc: report:dev
+  claim: 0 of 478
+  kind: record
+  file: evidence/v01/item_3_collision_counts.json
+  contains: '"pairs_enabled": 478'
+- doc: report:a7
+  claim: 0 of 478
+  kind: record
+  file: evidence/v01/item_3_collision_counts.json
+  contains: '"pairs_enabled": 478'
+- doc: report:dev
+  claim: 10 of 10
+  kind: unbacked
+  reason: V01 item 8's own sentence; see evidence/v01/item_8_goal_vs_real_ee.json (checked by hand, not by this tool)
+- doc: report:a7
+  claim: 10 of 10
+  kind: unbacked
+  reason: V01 item 8's own sentence; see evidence/v01/item_8_goal_vs_real_ee.json (checked by hand, not by this tool)
+- doc: report:dev
+  claim: 4 of 16
+  kind: unbacked
+  reason: the report's own provenance block gives placeholder 4, provisional 11, verified 1; 16 is their sum, which is not itself written in the report
+- doc: report:a7
+  claim: 0 of 6000
+  kind: unbacked
+  reason: the M04 sidecar quotes P10's sample count; the 6000 samples have no data file under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 826 tests
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 805 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 2 failed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 19 skipped
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 11 PASS / 2 WARN / 2 FAIL / 0 NOT_RUN
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 10 PASS / 2 WARN / 3 FAIL / 0 NOT_RUN
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 636 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 8 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 28 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 78 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 5 failed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 skipped
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 65 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 3 failed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 825 tests
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 806 passed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 failed
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 13 PASS / 2 WARN / 0 FAIL
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 52 / 0 / 16
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 11 PASS, 2 WARN (M07, V01), 2 FAIL (M03, AUX), 0 NOT_RUN
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 10 PASS, 2 WARN (M07, V01), 3 FAIL (M01, M03, AUX), 0 NOT_RUN
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 636 / 0 / 0
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 8 / 0 / 0
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 28 / 0 / 0
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 78 / 5 / 3
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 65 / 3 / 0
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 13 PASS, 2 WARN (M07, V01), 0 FAIL, 0 NOT_RUN
+  kind: unbacked
+  reason: 'Alex''s run on 703fce9, ff8f9ad or 8e1aba1; his reports are not committed (this document, Evidence: "None of them is committed in this change"), so no
+    file under evidence/ shows it'
+- doc: docs/pr/PR14_BODY.md
+  claim: 22 / 4 / 2
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 5 of 5
+  kind: unbacked
+  reason: the result of one test run against the old code, to show the test fails there; the log is not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 9 of 9
+  kind: unbacked
+  reason: the result of one test run against the old code, to show the test fails there; the log is not under evidence/
+- doc: docs/pr/PR14_BODY.md
+  claim: 2 tests
+  kind: unbacked
+  reason: a colcon test total or per-package count of Alex's run; the colcon logs are not under evidence/ (the committed reports carry per-check results, not colcon
+    totals)
+- doc: docs/pr/PR14_BODY.md
+  claim: 0 of 567
+  kind: record
+  file: evidence/p28/README.md
+  contains: 0 of 567 enabled pairs colliding at all six configurations

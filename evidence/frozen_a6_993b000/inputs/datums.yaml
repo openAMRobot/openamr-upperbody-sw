@@ -1,0 +1,133 @@
+# datums.yaml - every number the combined description uses that is not upstream-owned (ADR-002).
+# Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
+# Computed values (e.g. mast_offset) are NOT stored here; upstream-owned values are read from upstream YAML.
+schema_version: 1
+revision: "2026-10-08.e"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+units: {length: m, angle: rad, mass: kg}
+
+# Datums that are reported but never feed the model (DATUMS.md rule 1).
+report_only:
+  - drive_wheel_radius
+  - envelope_max_height
+  - envelope_max_width
+  - envelope_max_depth
+  - gross_mass_limit
+  - f2s_vehicle_mass_estimate
+
+# Datums whose xacro consumer has not been written yet: <datum>: <step that will consume it>.
+# The step that adds the consumer deletes the entry in the same commit; T13 fails if it does not.
+# Empty since S4 (the camera poses are now consumed by upper_sensors.xacro); kept so the mechanism stays visible.
+pending_reference: {}
+
+datums:
+  base_link_height_above_floor:
+    value: 0.0635
+    source: derived
+    status: placeholder
+    ref: "robo_urdf.urdf.xacro left_wheel_joint z = 0.046533; gazebo_control.xacro wheel_radius 0.110 -> floor at -0.0635 below base_link"
+    owner: "platform-sw (changes when F2A/F3 land)"
+    note: "With the selected 200 mm hub wheel (r = 0.100) this would be 0.0535."
+
+  drive_wheel_radius:
+    value: 0.100
+    source: supplier
+    status: provisional
+    ref: "P-00 s3.2: ZLLG80ASM250-L-B 200 mm hub wheel; F2A pending"
+    owner: "Alex (F2A)"
+    note: "Not used by the base model (platform-sw owns its wheels). Recorded so the mismatch with the sim radius 0.110 is visible."
+
+  mast_base_pose:
+    value: {xyz: [0.0, 0.0, 0.20], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Mast foot on the platform centre bracket (MISUMI HFS6-60120, 1250 mm, 8x M8). Real value from the general-arrangement / F2S drawing; openamr-upperbody-hw is still scaffold"
+    owner: "Alex (general arrangement / F2S)"
+
+  left_arm_mount_pose:
+    value: {xyz: [0.0, 0.06, 0.0], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "J1_A plate on the mast side slot, relative to mast_mount_link (ADR-008). Lateral spacing, height and orientation from the mast drawing - missing input #2 in Alex's inventory"
+    owner: "Alex (mast drawing)"
+    note: "Plate z is 0.0 by construction (corrected 5 Oct): mast_mount_link IS the plate reference frame, so the whole shoulder height lives in mast_offset. Must equal right z."
+
+  right_arm_mount_pose:
+    value: {xyz: [0.0, -0.06, 0.0], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Mirror of left_arm_mount_pose (ADR-008)"
+    owner: "Alex (mast drawing)"
+
+  mast_mass:
+    value: 3.0
+    source: placeholder
+    status: placeholder
+    ref: "Mast structure mass for the placeholder inertial. Real value from M-01 M-05 / F2S"
+    owner: "Alex (F2S)"
+
+  mast_section:
+    value: [0.060, 0.120]
+    source: plan
+    status: provisional
+    ref: "MISUMI HFS6-60120, named in the repo README and P-03 Decision Addendum rev 18.2. The HFS suffix is the
+          cross-section in mm. Orientation unconfirmed: x = 60 fore-aft, y = 120 lateral, because a 120 mm lateral
+          width puts the side faces at y = +/-0.060, where left/right_arm_mount_pose already places the J1_A plates"
+    owner: "Alex (mast drawing)"
+
+  head_camera_pose:
+    value: {xyz: [0.12, 0.0, 0.10], rpy: [0.0, 0.35, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Relative to mast_mount_link (OpenArm body not installed, ADR-008). Upstream's commented example zed_front_mount_point is (0.12, 0, 0.82); pitch is a guess to look at the workspace. M-01 MECH-007 'camera interface'"
+    owner: "mechanical contractor via Alex"
+
+  left_wrist_camera_pose:
+    value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Relative to openarm_left_ee_base_link. Kit datum unknown (B-01 Q-15 era)"
+    owner: "Alex / Om (kit datum)"
+
+  right_wrist_camera_pose:
+    value: {xyz: [0.0, -0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    source: placeholder
+    status: placeholder
+    ref: "Mirror of left_wrist_camera_pose, relative to openarm_right_ee_base_link"
+    owner: "Alex / Om (kit datum)"
+
+  envelope_max_height:
+    value: 1.700
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+    note: "Used by a WARN test."
+
+  envelope_max_width:
+    value: 0.600
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  envelope_max_depth:
+    value: 0.800
+    source: plan
+    status: provisional
+    ref: "P-00 s20.2 target envelope 1700 x 600 x 800 mm"
+    owner: "Alex (P-00)"
+
+  gross_mass_limit:
+    value: 120.0
+    source: plan
+    status: verified
+    ref: "P-00 s3.1 platform-level requirement"
+    owner: "Alex (P-00)"
+
+  f2s_vehicle_mass_estimate:
+    value: 93.0
+    source: f2s
+    status: provisional
+    ref: "Alex, F2S design proposal, 28 Sep 2026 (gross mass about 93 kg vs the 120 kg cap); second-hand via DESIGN_UPDATE_2026-10-05 s1, the F2S document is not in this repo"
+    owner: "Alex (F2S)"
+    note: "Vehicle level, not per link. T10 prints it next to the modelled total so 22 kg against 120 kg is not read as headroom; it feeds nothing."
