@@ -3,7 +3,7 @@
 """Print the P-03 item 24 equipment values of the expanded URDF in the format of the docs model's CHEST-JSON and LIFT-JSON blocks.
 
     source /opt/ros/jazzy/setup.bash && source <workspace>/install/setup.bash
-    python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate bp000]
+    python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate bp000] [--model-js <openamrobot-docs>/docs/assets/roadmap/model/model.js]
 
 The values are read from the expanded URDF (link poses, box and cylinder sizes), in the docs model's frames: x from the column axis, z of
 the chest above the column top at lift 0 (L1000), z of the stop sensors above the column base. So the output is what the robot description
@@ -156,6 +156,7 @@ def main(argv=None):
     parser.add_argument("--urdf", help="an expanded URDF (default: expand the installed combined_robot.xacro)")
     parser.add_argument("--base-plate", default="bp000", choices=("bp000", "bp050"), help="the values do not depend on it")
     parser.add_argument("--datums", help="datums.yaml (default: the installed one)")
+    parser.add_argument("--model-js", help="also compare with the blocks of this model.js (0.5 mm); exit 1 on a difference")
     args = parser.parse_args(argv)
     text = open(args.urdf).read() if args.urdf else expand(args.base_plate)
     values = export(ET.fromstring(text), load_datums(args.datums))
@@ -163,6 +164,22 @@ def main(argv=None):
         print(f"/*{block}*/{json.dumps(values[block])}/*{block}-END*/")
     print("// not exported (not in the URDF): " + ", ".join(f"{b} {k}" for b, keys in NOT_EXPORTED.items() for k in keys), file=sys.stderr)
     print("// from a datum, not the URDF: " + ", ".join(f"{k} <- {v}" for k, v in FROM_DATUM.items()), file=sys.stderr)
+    if args.model_js:
+        import re
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "ros2", "src",
+                                        "openamrobot_upperbody_description", "test"))
+        from test_item24_docs_model_values import differences
+        with open(args.model_js) as f:
+            text = f.read()
+        problems = []
+        for block in ("CHEST-JSON", "LIFT-JSON"):
+            match = re.search(rf"/\*{block}\*/(.*?)/\*{block}-END\*/", text)
+            if not match:
+                problems.append(f"{block}: not in {args.model_js}")
+                continue
+            problems += [f"{block} {p}" for p in differences(json.loads(match.group(1)), values[block], NOT_EXPORTED[block])]
+        print("// model.js comparison (0.5 mm): " + ("; ".join(problems) if problems else "equal"), file=sys.stderr)
+        return 1 if problems else 0
     return 0
 
 

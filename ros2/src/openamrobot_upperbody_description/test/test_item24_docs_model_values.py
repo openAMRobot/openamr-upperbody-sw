@@ -3,13 +3,12 @@
 CHEST-JSON and LIFT-JSON values of openamrobot-docs model.js that the P-03 item 24 datums came from, within 0.5 mm.
 
 The model.js blocks are a verbatim fixture (test/fixtures/docs_model_item24.json, with the docs commit and a hash of each block), because CI
-has no checkout of openamrobot-docs. Set OPENAMR_DOCS_MODEL_JS to a model.js to compare against a live file as well (its blocks must then equal
-the fixture's, or the fixture is stale). Keys the URDF cannot carry are listed by the tool (NOT_EXPORTED) and are the only ones skipped.
+has no checkout of openamrobot-docs. To compare with a live model.js, run the tool with --model-js (no skipped test stands in for it). Keys
+the URDF cannot carry are listed by the tool (NOT_EXPORTED) and are the only ones not compared.
 """
 import hashlib
 import json
 import os
-import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -86,14 +85,3 @@ def test_item24_the_comparison_can_fail():
 def test_item24_the_tool_skips_only_what_the_urdf_cannot_carry():
     assert exporter.NOT_EXPORTED == {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis", "drawn.head_light.window"],
                                      "LIFT-JSON": []}
-
-
-@pytest.mark.skipif(not os.environ.get("OPENAMR_DOCS_MODEL_JS"), reason="OPENAMR_DOCS_MODEL_JS not set (CI has no openamrobot-docs checkout)")
-def test_item24_the_fixture_is_the_live_model_js():
-    with open(os.environ["OPENAMR_DOCS_MODEL_JS"]) as f:
-        text = f.read()
-    doc = fixture()
-    for block in ("CHEST-JSON", "LIFT-JSON"):
-        match = re.search(rf"/\*{block}\*/(.*?)/\*{block}-END\*/", text)
-        assert match, f"{block}: no such block in {os.environ['OPENAMR_DOCS_MODEL_JS']}"
-        assert json.loads(match.group(1)) == json.loads(doc["blocks"][block]), f"{block}: model.js differs from the fixture (docs {doc['commit'][:7]})"

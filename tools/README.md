@@ -105,4 +105,4 @@ Reads the expanded URDF (poses, box and cylinder sizes) and prints the two block
 `docs/assets/roadmap/model/model.js`. Not exported, because the URDF does not carry them: `second_estop.glb_node`, `second_estop.glb_axis` and
 `drawn.head_light.window`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
 (`lift_static_profile_top_below_column_top`). `test_item24_docs_model_values.py` compares the output with a verbatim fixture of the blocks
-(docs `cd780d6`), 0.5 mm tolerance; `OPENAMR_DOCS_MODEL_JS=<model.js>` adds a comparison with a live file.
+(docs `cd780d6`), 0.5 mm tolerance; `--model-js <model.js>` compares with a live file (exit 1 on a difference).
