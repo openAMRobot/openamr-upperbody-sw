@@ -10,11 +10,14 @@ out is published unchanged and logged as an error (not float noise: not this nod
 and the magnitude; every activation is counted. `~/get_stats` (std_srvs/Trigger) returns the counters as JSON in `message`, which is where the
 A7 evidence reads them. Why this exists and what it is not: openamrobot_upperbody_moveit/joint_state_clamp.py.
 """
+import signal
 import sys
+import threading
 import xml.etree.ElementTree as ET
 
 import rclpy
-from rclpy.executors import ExternalShutdownException
+from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
+from rclpy.signals import SignalHandlerOptions
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from sensor_msgs.msg import JointState
@@ -76,11 +79,12 @@ class JointStateClamp(Node):
 def run(node, spin=rclpy.spin, context_ok=rclpy.ok):
     """Spin until the context is shut down and return the process exit code: 0 when a shutdown ended the spin, and anything else raises.
 
-    A SIGINT or a SIGTERM (rclpy's handler takes both) shuts the context down and the spin ends in one of three ways, all of them a clean stop:
+    For externally requested context shutdown, the spin can end in three ways:
     KeyboardInterrupt; ExternalShutdownException (rclpy raises it out of `spin` for every shutdown, SIGTERM included: found by sending the
     signal to this node, 30 of 30 exited 1); or the RuntimeError the executor's `take_message` raises when the signal lands between the
     wait set reporting a message and the take (rclpy 7.1.12, "Unable to convert call argument '0' to Python object": 1 of 30 SIGINTs). The
-    third is only a shutdown if the context is no longer ok: the same error with a live context is a defect and is re-raised."""
+    third is only a shutdown if the context is no longer ok: the same error with a live context is a defect and is re-raised.
+    main() handles process signals separately so an active callback finishes before context shutdown."""
     try:
         spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
@@ -91,15 +95,38 @@ def run(node, spin=rclpy.spin, context_ok=rclpy.ok):
     return 0
 
 
-def main(argv=None):
-    rclpy.init(args=argv)
-    node = JointStateClamp()
+def spin_until_requested(node, stop_requested):
+    """Finish the active callback before teardown; the signal only requests a stop."""
+    executor = SingleThreadedExecutor(context=node.context)
+    executor.add_node(node)
     try:
-        return run(node)
+        while not stop_requested.is_set() and node.context.ok():
+            executor.spin_once(timeout_sec=0.1)
     finally:
-        print("joint_state_clamp: final counters: " + node.clamp.summary_json(), flush=True)      # not the logger: its context is gone by now
-        node.destroy_node()          # before the shutdown, always
-        rclpy.try_shutdown()         # a no-op when the signal's handler already did it
+        executor.remove_node(node)
+        executor.shutdown()
+
+
+def main(argv=None):
+    # rclpy's default deferred signal handler can invalidate the context while
+    # take_message is converting a message. A Python signal handler that only
+    # sets this event lets the current callback return with its context alive.
+    stop_requested = threading.Event()
+    previous = {}
+    rclpy.init(args=argv, signal_handler_options=SignalHandlerOptions.NO)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        previous[sig] = signal.signal(sig, lambda signum, frame: stop_requested.set())
+    node = None
+    try:
+        node = JointStateClamp()
+        return run(node, spin=lambda current: spin_until_requested(current, stop_requested))
+    finally:
+        if node is not None:
+            print("joint_state_clamp: final counters: " + node.clamp.summary_json(), flush=True)
+            node.destroy_node()
+        rclpy.try_shutdown()
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
 
 
 if __name__ == "__main__":
