@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-10-28.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-10-30.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -57,7 +57,7 @@ datums:
     density_band:
       min: 100.0
       max: 1600.0
-      reason: "Re-fitted 28 Oct 2026 (P28), and that is a judgement call for the owner of the band, not a measurement. Until then the band was 100 to 1200 kg/m3: a lifting column is aluminium extrusions (2700 kg/m3 solid), a motor and a spindle inside a hollow housing, which the datum author estimated at 5 to 40 per cent fill of the bounding box, rounded outwards. That estimate was made when the lateral side was an invented 240 mm. With the sourced outer section 240 x 60 mm (lift_column_section, DOLD datasheet page 4) the catalogue mass (11.7 kg, datasheet page 5 gives the same figure for V4) implies 1533 kg/m3 over 0.240 x 0.060 x 0.530 m, which is 57 per cent of solid aluminium and outside 1200. Both factors are now supplier figures, so the estimate yields; the upper bound is moved to 1600, just above the implied value, rounded outwards as before. The lower bound is unchanged. What the band can still catch is a mass that is wrong by a large factor (the 3.0 kg mast), not a small one: the check is weaker on the upper side than it was."
+      reason: "Re-fitted 28 Oct 2026 (P28), and that is a judgement call for the owner of the band, not a measurement. Until then the band was 100 to 1200 kg/m3: a lifting column is aluminium extrusions (2700 kg/m3 solid), a motor and a spindle inside a hollow housing, which the datum author estimated at 5 to 40 per cent fill of the bounding box, rounded outwards. That estimate was made when the lateral side was an invented 240 mm. With the sourced outer section 240 x 60 mm (lift_column_section, DOLD datasheet page 4) the catalogue mass (11.7 kg, datasheet page 5 gives the same figure for V4) implies 1533 kg/m3 over 0.240 x 0.060 x 0.530 m, which is 57 per cent of solid aluminium and outside 1200. Both factors are now supplier figures, so the estimate yields; the upper bound is moved to 1600, just above the implied value, rounded outwards as before. The lower bound is unchanged. What the band can still catch is a mass that is wrong by a large factor (the 3.0 kg mast), not a small one: the check is weaker on the upper side than it was. Accepted by Alex on 30 Oct 2026 (decision D1, P-03 rev20.1 item 25)."
       bounding_box: "lift_column_section x column retracted_length (upperbody_configuration.yaml)"
 
   lift_mass_tl3_400:
@@ -75,7 +75,7 @@ datums:
     status: provisional
     ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the two dimensioned drawings ('With mounting brackets' / 'Without mounting brackets'): 'Outer profile 240x60'. https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf ; matches option B drawing sheet 2 rev A. Alex, 22 Oct 2026 (the 240 mm side fore-aft is option B's own statement, upperbody_configuration.yaml column.dold_v4_350.description)"
     owner: "Alex (option B drawing) / supplier (DOLD)"
-    note: "Sourced since 28 Oct 2026 (P28). It was a placeholder [0.240, 0.240] whose lateral side was invented (set equal to x); it is no longer an invented number, and the CHANGELOG says so. The outer profile only: the moving stage is lift_inner_section. It sizes the inertia tensor of the column, the fixed stage's visual and collision box, and the adapter plate's rear edge. Provisional, not verified: the dimensions are read from a raster drawing in a supplier datasheet, not from a CAD model or a measured part."
+    note: "Sourced since 28 Oct 2026 (P28). It was a placeholder [0.240, 0.240] whose lateral side was invented (set equal to x); it is no longer an invented number, and the CHANGELOG says so. The outer profile only: the moving stage is lift_inner_section. It sizes the inertia tensor of the column, the fixed stage's visual and collision box, and the adapter plate's rear edge. Provisional, not verified: the dimensions are read from a raster drawing in a supplier datasheet, not from a CAD model or a measured part. Column parent frame accepted by Alex on 30 Oct 2026 as modelled until supplier CAD (decision D4, P-03 rev20.1 item 25)."
 
   lift_inner_section:
     value: [0.2095, 0.051]
@@ -84,7 +84,7 @@ datums:
     status: provisional
     ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the same two dimensioned drawings as lift_column_section: 'Inner profile 209.5x51' (bottom view, 209.5 and 51 dimensioned on the inner stage's end face). https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf"
     owner: "supplier (DOLD)"
-    note: "The moving (inner) stage of the Hexalift, carried by lift_carriage_link. Sourced: the datasheet gives it, so no placeholder was needed (P28). Two things are ours, not the datasheet's: (1) the drawing does not say which way the inner profile sits in the outer one, so it is taken the same way round (209.5 along the 240 side, 51 along the 60 side) and centred on the column axis (15.25 mm clear each side fore-aft, 4.5 mm each side laterally); (2) the stage's LENGTH is not in the datasheet, and the box keeps the stroke (0.350 m) it had before. Strictly smaller than lift_column_section on both axes, so the stage nests in the outer section instead of repeating it. The outer stage's collision is still a solid box, so the volumes still overlap (a hollow outer needs the housing wall, which the datasheet does not give)."
+    note: "The moving (inner) stage of the Hexalift, carried by lift_carriage_link. Sourced: the datasheet gives it, so no placeholder was needed (P28). Two things are ours, not the datasheet's: (1) the drawing does not say which way the inner profile sits in the outer one, so it is taken the same way round (209.5 along the 240 side, 51 along the 60 side) and centred on the column axis (15.25 mm clear each side fore-aft, 4.5 mm each side laterally); (2) the stage's LENGTH is not in the datasheet, and the box keeps the stroke (0.350 m) it had before. Strictly smaller than lift_column_section on both axes, so the stage nests in the outer section instead of repeating it. The outer stage's collision is still a solid box, so the volumes still overlap (a hollow outer needs the housing wall, which the datasheet does not give). Length = stroke and centred accepted by Alex on 30 Oct 2026 as a placeholder until the DOLD STEP (decision D3, P-03 rev20.1 item 25)."
 
   adapter_plate_section:
     value: [0.360, 0.100]
@@ -93,7 +93,7 @@ datums:
     status: provisional
     ref: "Alex, 22 Oct 2026, P-03 rev19.6 item 18: adapter plate 360 mm fore-aft x 100 mm lateral x 10 mm on the column top. The 360 is 240 of column plus 120 ahead of the column's front face (so the plate's rear edge is flush with the column's rear face and its front edge is 0.240 m ahead of the column axis, the arm profile's front face). The 10 mm thickness is geometry.adapter_plate_thickness in upperbody_configuration.yaml"
     owner: "Alex (option B)"
-    note: "A decision record, not a measurement. The rear-flush placement is derived from the sentence above, not stated as such: if the plate is not flush with the column's rear face, the plate's x position is wrong and nothing else. Closes the 10 mm gap under arm_profile_link (P25 finding 3)."
+    note: "A decision record, not a measurement. The rear-flush placement is derived from the sentence above, not stated as such: if the plate is not flush with the column's rear face, the plate's x position is wrong and nothing else. Closes the 10 mm gap under arm_profile_link (P25 finding 3). Rear-flush placement accepted by Alex on 30 Oct 2026 (decision D2, P-03 rev20.1 item 25)."
 
   left_wrist_camera_pose:
     value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}

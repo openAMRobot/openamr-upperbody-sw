@@ -7,7 +7,7 @@ openamrobot_upperbody_bringup's moveit.launch.py, which starts the stack too.
                                                                   [clamp_joint_states:=true]
 
 Args
-  column, base_plate, head_pitch, base_tilt   option B's configuration IDs (defaults: its baseline dold_v4_350 / bp000 / hp25 / bt10)
+  column, base_plate, head_pitch, base_tilt   option B's configuration IDs (defaults: its baseline dold_v4_350 / bp000 / hp30 / bt10)
   hardware_profile  mock | gazebo    which stack is running; `gazebo` also sets use_sim_time (the simulator's /clock)
   rviz              true | false     RViz2 with the MotionPlanning display (config/moveit.rviz)
   clamp_joint_states  true | false   start joint_state_clamp.py and plan from /joint_states_clamped instead of /joint_states: the simulated
@@ -66,7 +66,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("column", default_value="dold_v4_350", description="dold_v4_350 (tl3_400 has no supplier data: refused)"),
         DeclareLaunchArgument("base_plate", default_value="bp000", description="bp000 | bp050"),
-        DeclareLaunchArgument("head_pitch", default_value="hp25", description="hp15 | hp20 | hp25 | hp30 | hp35"),
+        DeclareLaunchArgument("head_pitch", default_value="hp30", description="hp15 | hp20 | hp25 | hp30 | hp35"),
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("hardware_profile", default_value="mock", description="mock | gazebo: which stack is running"),
         DeclareLaunchArgument("rviz", default_value="false", description="true | false. RViz2 with the MotionPlanning display"),

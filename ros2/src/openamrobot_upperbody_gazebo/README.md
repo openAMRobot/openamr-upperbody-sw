@@ -13,7 +13,7 @@ ros2 launch openamrobot_upperbody_gazebo sim.launch.py rviz:=true         # RViz
 
 | Argument | Default | |
 |---|---|---|
-| `column`, `base_plate`, `head_pitch`, `base_tilt` | `dold_v4_350`, `bp000`, `hp25`, `bt10` | option B's configuration IDs (its baseline) |
+| `column`, `base_plate`, `head_pitch`, `base_tilt` | `dold_v4_350`, `bp000`, `hp30`, `bt10` | option B's configuration IDs (its baseline) |
 | `world` | `worlds/empty.sdf` | path to any world; platform-sw's is `$(ros2 pkg prefix --share openamrobot_gazebo)/worlds/walled_world.sdf` |
 | `headless` | `false` | `true` runs `gz sim -s` |
 | `physics_engine` | `gz-physics-dartsim-plugin` (DART) | applied to whatever world is loaded. DART is the engine platform-sw tuned the base on, and it **cannot close the grippers**: pass `gz-physics-bullet-featherstone-plugin` for that (G02 does). See [the engine](#the-physics-engine-and-the-gripper-mimic) |

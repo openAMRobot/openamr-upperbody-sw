@@ -17,7 +17,7 @@ the arms and base as missing geometry.
 Args
   column       dold_v4_350 | tl3_400   (default dold_v4_350; tl3_400 has no supplier data and does not expand)
   base_plate   bp000 | bp050             (default bp000: option B's baseline; column axis x +0.060 / +0.110 from base_link)
-  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp25)
+  head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp30)
   base_tilt    bt05 | bt10 | bt15        (default bt10)
   arm_package  openarm | so101 | none                           (default openarm)
   enable_planar_base  true | false                              (default false; AD-30: base and arm never move together.
@@ -56,7 +56,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("column", default_value="dold_v4_350", description="dold_v4_350 | tl3_400 (no supplier data: refused)"),
         DeclareLaunchArgument("base_plate", default_value="bp000", description="bp000 | bp050"),
-        DeclareLaunchArgument("head_pitch", default_value="hp25", description="hp15 | hp20 | hp25 | hp30 | hp35"),
+        DeclareLaunchArgument("head_pitch", default_value="hp30", description="hp15 | hp20 | hp25 | hp30 | hp35"),
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("arm_package", default_value="openarm",
                               description="openarm | so101 | none"),

@@ -71,7 +71,7 @@ def test_combination(combo):
             assert abs(t[2] - shoulder_z) < TOL, (side, q, t)
             assert all(abs(r[i][j] - (i == j)) < TOL for i in range(3) for j in range(3))
         r, cam = poses['head_camera_link']
-        assert abs(cam[0] - (axis_x + 0.180 + 0.022)) < TOL
+        assert abs(cam[0] - (axis_x + 0.180 + 0.042)) < TOL
         assert abs(cam[1]) < TOL
         assert abs(cam[2] - (shoulder_z + 0.223)) < TOL
         assert cam[2] <= CONFIG['geometry']['max_assembled_height']
@@ -82,7 +82,7 @@ def test_combination(combo):
 
 def test_arm_profile_spans_844_to_1184_at_retracted_lift():
     poses = frame_poses(expand(column='dold_v4_350', base_plate='bp000',
-                               head_pitch='hp25', base_tilt='bt10'))
+                               head_pitch='hp30', base_tilt='bt10'))
     z = poses['arm_profile_link'][1][2]
     half = CONFIG['geometry']['arm_profile']['length'] / 2
     assert abs((z - half) - 0.844) < TOL
@@ -92,7 +92,7 @@ def test_arm_profile_spans_844_to_1184_at_retracted_lift():
 def test_column_axis_x_bp000_argument_shifts_both_positions():
     for bp, offset in (('bp000', 0.0), ('bp050', 0.050)):
         poses = frame_poses(expand(column_axis_x_bp000='0.1', column='dold_v4_350',
-                                   base_plate=bp, head_pitch='hp25', base_tilt='bt10'))
+                                   base_plate=bp, head_pitch='hp30', base_tilt='bt10'))
         assert abs(poses['openarm_left_base_link'][1][0] - (0.1 + offset + 0.180)) < TOL
 
 
@@ -108,6 +108,6 @@ def test_pending_column_is_refused_not_guessed(combo):
 ])
 def test_removed_or_unknown_ids_are_rejected(axis, value):
     combo = {'column': 'dold_v4_350', 'base_plate': 'bp000',
-             'head_pitch': 'hp25', 'base_tilt': 'bt10', axis: value}
+             'head_pitch': 'hp30', 'base_tilt': 'bt10', axis: value}
     with pytest.raises(xacro.XacroException, match=f"unknown {axis} '{value}'"):
         expand(**combo)

@@ -164,7 +164,7 @@ def test_t10_mass_report_and_gross_mass_limit():
     density_warn = [r for r in density if "problem" in r or not r["within"]]
     result = "FAIL" if exceeded or problems else ("WARN" if unclassified or density_warn else "PASS")
     write_sidecar("T10", "mass_report", "modelled mass by owner vs gross_mass_limit", result, {
-        "report_expansion": "dold_v4_350/bp000/hp25/bt10/openarm/mock",
+        "report_expansion": "dold_v4_350/bp000/hp30/bt10/openarm/mock",
         "kg_by_owner": {key: round(value, 3) for key, value in kg.items() if value or key != "unclassified"},
         "links_by_owner": {key: sorted(names) for key, names in links.items() if names},
         "modelled_total_kg": round(sum(kg.values()), 3),

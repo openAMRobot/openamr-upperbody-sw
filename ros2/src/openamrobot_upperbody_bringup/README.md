@@ -49,7 +49,7 @@ ros2 launch openamrobot_upperbody_bringup moveit.launch.py [base_plate:=bp000] [
 
 | Argument | Default | |
 |---|---|---|
-| `column`, `base_plate`, `head_pitch`, `base_tilt` | `dold_v4_350`, `bp000`, `hp25`, `bt10` | option B's configuration IDs (its baseline); `column:=tl3_400` does not expand (no supplier data) |
+| `column`, `base_plate`, `head_pitch`, `base_tilt` | `dold_v4_350`, `bp000`, `hp30`, `bt10` | option B's configuration IDs (its baseline); `column:=tl3_400` does not expand (no supplier data) |
 | `lift_position` | `0.0` | `sim:=mock` only: the position (m) of `lift_joint` the stub reports; `0.0` / `0.175` / `0.350` are the calibration stops `L1000` / `L1175` / `L1350` |
 | `sim` | `mock` | `mock`: `mock.launch.py`, a stub for the wheel and lift joints, then `move_group`. `gazebo`: the gazebo package's `sim.launch.py`, then `move_group` on the simulator's clock |
 | `rviz` | `false` | RViz2 with the MotionPlanning display (`openamrobot_upperbody_moveit/config/moveit.rviz`). With `sim:=gazebo` it replaces the simulator's own RViz |

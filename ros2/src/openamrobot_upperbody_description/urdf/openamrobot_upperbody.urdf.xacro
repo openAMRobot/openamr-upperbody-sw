@@ -15,7 +15,7 @@
 <robot name="openamrobot_upperbody" xmlns:xacro="http://www.ros.org/wiki/xacro">
   <xacro:arg name="column" default="dold_v4_350"/>
   <xacro:arg name="base_plate" default="bp000"/>
-  <xacro:arg name="head_pitch" default="hp25"/>
+  <xacro:arg name="head_pitch" default="hp30"/>
   <xacro:arg name="base_tilt" default="bt10"/>
   <xacro:arg name="column_axis_x_bp000" default="0.060"/>
 
