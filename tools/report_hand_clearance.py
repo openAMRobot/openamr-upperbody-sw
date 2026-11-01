@@ -14,8 +14,9 @@ Two figures per hand, because the model has two "covers":
              (platform-sw: 0.780 x 0.580 x 0.240 m box, top 0.295 m above the floor). The SRDF is not consulted: the scene's own allowed-collision
              matrix forbids only the pairs measured (openamrobot_upperbody_moveit.acm_scene). This is what planning sees.
   visual     the distance between the same hand meshes and base_link's visual cover mesh (platform-sw meshes/visual/base_covers.stl), computed here
-             from the meshes (closest point of each vertex of one mesh to the triangles of the other, both ways; exact for face-vertex contacts,
-             an upper bound by at most the mesh's edge-edge gap otherwise).
+             from the meshes: 0 if an edge of either crosses a face of the other, else the least vertex-to-face and edge-to-edge distance (the
+             exact triangle-triangle distance). Printed with a certified lower bound, the height gap (the hand's lowest point minus the cover's
+             highest point), which by itself rules out contact when it is positive.
 Both are the same robot posed the same way; neither is a measurement of hardware. Exit 0 whatever it finds, 2 when it could not run.
 """
 import argparse
@@ -119,17 +120,80 @@ def point_triangle_distance(points, tris):
     return best
 
 
+def _edges(tris):
+    """(p, q) arrays of the three edges of every triangle."""
+    return (np.concatenate([tris[:, 0], tris[:, 1], tris[:, 2]]), np.concatenate([tris[:, 1], tris[:, 2], tris[:, 0]]))
+
+
+def segments_cross_triangles(p, q, tris, eps=1e-12):
+    """True if any segment p[i]-q[i] meets any triangle of `tris` (Moller-Trumbore, segment parameter in [0, 1]); chunked over segments."""
+    a, b, c = tris[:, 0], tris[:, 1], tris[:, 2]
+    e1, e2 = b - a, c - a
+    for start in range(0, len(p), 256):
+        o = p[start:start + 256, None, :]
+        d = (q - p)[start:start + 256, None, :]
+        h = np.cross(d, e2[None])
+        det = np.einsum("ijk,jk->ij", h, e1)
+        ok = np.abs(det) > eps
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        s = o - a[None]
+        u = inv * np.einsum("ijk,ijk->ij", s, h)
+        qv = np.cross(s, e1[None])
+        v = inv * np.einsum("ijk,ijk->ij", d, qv)
+        t = inv * np.einsum("ijk,jk->ij", qv, e2)
+        if np.any(ok & (u >= 0) & (v >= 0) & (u + v <= 1) & (t >= 0) & (t <= 1)):
+            return True
+    return False
+
+
+def segment_segment_distance(p1, q1, p2, q2):
+    """Minimum distance between every segment p1[i]-q1[i] and every segment p2[j]-q2[j] (Ericson 5.1.9, clamped, all pairs); chunked."""
+    best = np.inf
+    d2, f_r = q2 - p2, None
+    e = np.einsum("ij,ij->i", d2, d2)
+    for start in range(0, len(p1), 256):
+        P1, D1 = p1[start:start + 256, None, :], (q1 - p1)[start:start + 256, None, :]
+        r = P1 - p2[None]
+        a = np.einsum("ijk,ijk->ij", D1, D1)
+        f = np.einsum("ijk,jk->ij", r, d2)
+        c = np.einsum("ijk,ijk->ij", D1, r)
+        b = np.einsum("ijk,jk->ij", D1, d2)
+        denom = a * e[None] - b * b
+        with np.errstate(divide="ignore", invalid="ignore"):
+            s = np.where(denom > 1e-18, np.clip((b * f - c * e[None]) / denom, 0, 1), 0.0)
+            t = np.where(e[None] > 1e-18, (b * s + f) / e[None], 0.0)
+            s = np.where(t < 0, np.clip(np.where(a > 1e-18, -c / a, 0.0), 0, 1), s)
+            s = np.where(t > 1, np.clip(np.where(a > 1e-18, (b - c) / a, 0.0), 0, 1), s)
+        t = np.clip(t, 0, 1)
+        gap = P1 + D1 * s[..., None] - (p2[None] + d2[None] * t[..., None])
+        best = min(best, float(np.sqrt(np.einsum("ijk,ijk->ij", gap, gap).min())))
+    return best
+
+
 def mesh_distance(tris_a, tris_b, margin=0.25):
-    """Approximate minimum distance between two triangle soups (vertex-face both ways), restricted to the parts within `margin` of each other."""
+    """Minimum distance between two triangle soups, exact for triangles: 0 if an edge of one crosses a face of the other (intersection or
+    containment through a face); otherwise the least of vertex-to-face (both ways) and edge-to-edge distances, which is the triangle-triangle
+    distance. Restricted to the triangles within `margin` of the other mesh's bounding box (inf if none are)."""
     lo_a, hi_a = tris_a.reshape(-1, 3).min(0), tris_a.reshape(-1, 3).max(0)
     lo_b, hi_b = tris_b.reshape(-1, 3).min(0), tris_b.reshape(-1, 3).max(0)
     near_b = tris_b[np.all((tris_b.max(1) >= lo_a - margin) & (tris_b.min(1) <= hi_a + margin), axis=1)]
     near_a = tris_a[np.all((tris_a.max(1) >= lo_b - margin) & (tris_a.min(1) <= hi_b + margin), axis=1)]
     if not len(near_a) or not len(near_b):
         return float("inf")
+    pa_e, qa_e = _edges(near_a)
+    pb_e, qb_e = _edges(near_b)
+    if segments_cross_triangles(pa_e, qa_e, near_b) or segments_cross_triangles(pb_e, qb_e, near_a):
+        return 0.0
     pa = np.unique(near_a.reshape(-1, 3), axis=0)
     pb = np.unique(near_b.reshape(-1, 3), axis=0)
-    return float(min(point_triangle_distance(pa, near_b).min(), point_triangle_distance(pb, near_a).min()))
+    return float(min(point_triangle_distance(pa, near_b).min(), point_triangle_distance(pb, near_a).min(),
+                     segment_segment_distance(pa_e, qa_e, pb_e, qb_e)))
+
+
+def height_gap(tris_above, tris_below):
+    """A certified lower bound on the distance when one mesh lies wholly above the other: its lowest z minus the other's highest z (<= 0 means
+    the bound says nothing)."""
+    return float(tris_above.reshape(-1, 3)[:, 2].min() - tris_below.reshape(-1, 3)[:, 2].max())
 
 
 def worker(base_plate, out_path):
@@ -163,10 +227,12 @@ def worker(base_plate, out_path):
                 tris = np.concatenate([transform(scene.state.get_global_link_transform(link) @ t, m)
                                        for t, m in link_meshes(root, link, "collision")])
                 per_link[link] = {"collision_m": float(result.distance), "colliding": bool(result.collision),
-                                  "visual_cover_m": mesh_distance(tris, cover), "lowest_z_m": float(tris.reshape(-1, 3)[:, 2].min())}
+                                  "visual_cover_m": mesh_distance(tris, cover), "height_gap_lower_bound_m": height_gap(tris, cover),
+                                  "lowest_z_m": float(tris.reshape(-1, 3)[:, 2].min())}
             rows.append({"side": side, "links": per_link,
                          "min_collision_m": min(v["collision_m"] for v in per_link.values()),
                          "min_visual_cover_m": min(v["visual_cover_m"] for v in per_link.values()),
+                         "min_height_gap_lower_bound_m": min(v["height_gap_lower_bound_m"] for v in per_link.values()),
                          "lowest_z_m": min(v["lowest_z_m"] for v in per_link.values())})
         joints = {k: v for k, v in scene.state.joint_positions.items() if k in rest}
     with open(out_path, "w") as f:
@@ -202,7 +268,8 @@ def main(argv=None):
               f"{result['cover_top_collision_box_z_m']:.4f} m (collision box top)")
         for row in result["rows"]:
             print(f"  {row['side']:<5} hand: {row['min_collision_m'] * 1000:7.1f} mm to the collision box (MoveIt), "
-                  f"{row['min_visual_cover_m'] * 1000:7.1f} mm to the visual cover mesh; lowest point {row['lowest_z_m']:.4f} m")
+                  f"{row['min_visual_cover_m'] * 1000:7.1f} mm to the visual cover mesh (certified >= "
+                  f"{row['min_height_gap_lower_bound_m'] * 1000:.1f} mm by the height gap); lowest point {row['lowest_z_m']:.4f} m")
             for link, v in sorted(row["links"].items()):
                 print(f"      {link:<28} {v['collision_m'] * 1000:7.1f} mm / {v['visual_cover_m'] * 1000:7.1f} mm"
                       + ("  COLLIDING" if v["colliding"] else ""))

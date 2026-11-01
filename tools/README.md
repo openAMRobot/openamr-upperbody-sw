@@ -122,4 +122,5 @@ python3 tools/report_hand_clearance.py [--json out.json]
 
 bp000 and bp050, lift at 0 (L1000), every arm and finger joint at 0 (the stack's initial state: SRDF `home` + `open`). For each hand (the gripper
 links with collision geometry) it reports the minimum distance to the base top cover twice: MoveIt's distance to base_link's collision box (top
-0.295 m, what planning sees; SRDF not consulted) and a mesh distance to the visual cover mesh `base_covers.stl`. Exit 0 whatever it finds.
+0.295 m, what planning sees; SRDF not consulted) and the exact triangle distance to the visual cover mesh `base_covers.stl` (0 when the
+meshes cross; vertex-face and edge-edge otherwise), with the height gap as a certified lower bound. Exit 0 whatever it finds.
