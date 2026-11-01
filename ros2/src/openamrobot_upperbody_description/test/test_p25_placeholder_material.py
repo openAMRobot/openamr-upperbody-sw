@@ -27,6 +27,7 @@ EQUIPMENT = {'placeholder_getac_tablet':'equipment_black', 'placeholder_head_lig
              'placeholder_second_estop_head':'estop_red', 'lift_stop_sensor_body':'sensor_dark',
              'placeholder_lift_flag':'flag_steel'}
 
+WRIST = {side+'_wrist_camera_link': 'equipment_black' for side in ['left','right']}
 
 def finish(visual):
     return EQUIPMENT.get(visual.get('name'), 'structural_aluminum')
@@ -48,6 +49,11 @@ def test_urdf_material_and_gazebo_block(base_plate, arm_package):
             assert visual.get('name') is None
         for tag in ['ambient','diffuse']:
             assert floats(root.findtext(f"gazebo[@reference='{link}']/visual/material/{tag}")) == pytest.approx(PALETTE[material])
+    if arm_package == 'openarm':
+        for link, material in WRIST.items():
+            visual = root.find(f"link[@name='{link}']/visual")
+            assert visual.find('material').get('name') == material
+            assert floats(visual.find('material/color').get('rgba')) == pytest.approx(PALETTE[material])
     seen = set()
     for visual in root.findall('link/visual'):
         name = visual.get('name','')
@@ -74,11 +80,11 @@ def test_sdf_carries_the_intended_individual_finishes(base_plate, tmp_path):
     seen = set()
     for visual in sdf.findall('.//visual'):
         name = visual.get('name','')
-        targets = [(link,mat,False) for link,mat in STRUCTURAL.items()] + [(key,mat,True) for key,mat in EQUIPMENT.items()]
+        targets = [(link,mat,False) for link,mat in STRUCTURAL.items()] + [(key,mat,True) for key,mat in (EQUIPMENT | WRIST).items()]
         for key, mat, native in targets:
             if re.search(rf'(^|__){re.escape(key)}_visual(_\d+)?$',name):
                 seen.add(key);expected=PALETTE[mat]
                 if native:expected=[min(1.,v*1.25) for v in expected[:3]]+[expected[3]]
                 for tag in ['ambient','diffuse']:
                     assert floats(visual.findtext('material/'+tag)) == pytest.approx(expected,abs=1e-6), name
-    assert seen == set(STRUCTURAL)|set(EQUIPMENT)
+    assert seen == set(STRUCTURAL)|set(EQUIPMENT)|set(WRIST)
