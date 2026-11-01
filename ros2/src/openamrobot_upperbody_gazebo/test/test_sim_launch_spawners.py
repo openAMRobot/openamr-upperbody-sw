@@ -6,7 +6,8 @@ timed out after the spawner's default 5 s, its spawner exited 1, and the arm and
 a fixed action list), so the stack ran with four of five controllers active.
   - the broadcaster's spawner is given --switch-timeout 30, and a service-call timeout longer than that (with the default 10 s the call was
     abandoned and retried and the spawner exited 1 although the switch completed);
-  - the arm and gripper spawners are started only when that spawner exits 0, and not at all when it exits non-zero.
+  - the arm and gripper spawners are started only when that spawner exits 0, and not at all when it exits non-zero; since issue #17 the
+    lift_controller spawner is part of the same chain.
 """
 import importlib.util
 import os
@@ -17,6 +18,7 @@ import pytest
 HERE = os.path.dirname(os.path.abspath(__file__))
 SIM_LAUNCH = os.path.join(HERE, os.pardir, "launch", "sim.launch.py")
 ARM_AND_GRIPPER = ["left_arm_controller", "right_arm_controller", "left_gripper_controller", "right_gripper_controller"]
+LIFT = ["lift_controller"]      # issue #17: lift_joint has a gz_ros2_control interface in this profile
 
 
 @pytest.fixture(scope="module")
@@ -74,7 +76,7 @@ def test_the_broadcaster_spawner_has_a_30_s_switch_timeout(sim):
 
 
 def test_the_arm_and_gripper_spawners_start_after_a_broadcaster_that_exited_0(sim):
-    assert sorted(controller_of(a) for a in started_after_exit(sim, 0)) == sorted(ARM_AND_GRIPPER)
+    assert sorted(controller_of(a) for a in started_after_exit(sim, 0)) == sorted(ARM_AND_GRIPPER + LIFT)
 
 
 @pytest.mark.parametrize("returncode", [1, -2])

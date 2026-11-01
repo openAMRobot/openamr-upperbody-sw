@@ -14,7 +14,7 @@ import pytest
 import xacro
 
 import evidence_common as ev
-from conftest import AXES, BASELINE, LIFT_STROKE, SHARE, STOPS, UPPERBODY, expand, expand_xml, load_datums, read_text
+from conftest import AXES, BASELINE, HARDWARE_PROFILES, LIFT_STROKE, SHARE, STOPS, UPPERBODY, expand, expand_xml, load_datums, read_text
 from urdf_utils import zero_pose_poses
 
 OPTION_B_FRAMES = ["base_footprint", "lift_column_base_link", "lift_carriage_link", "arm_profile_link", "openarm_left_base_link",
@@ -101,20 +101,43 @@ def test_with_the_opt_in_parameters_at_their_defaults_the_macro_expands_as_it_do
     assert {e.get("name") for e in root.findall("joint")} >= {"openarm_left_base_link_mount_joint", "openarm_right_base_link_mount_joint"}
 
 
-def test_the_lift_joint_has_no_authority_to_be_commanded():
-    """effort='0' velocity='0' (Alex's own choice, adopted): the model cannot be used to command the lift."""
-    for arm_package in ev.ARM_PACKAGES:
-        joint = next(j for j in expand(arm_package=arm_package).findall("joint") if j.get("name") == "lift_joint")
-        limit = joint.find("limit")
-        assert (float(limit.get("effort")), float(limit.get("velocity"))) == (0.0, 0.0)
+def lift_limit(**mappings):
+    joint = next(j for j in expand(**mappings).findall("joint") if j.get("name") == "lift_joint")
+    return joint.find("limit")
+
+
+@pytest.mark.parametrize("arm_package", ev.ARM_PACKAGES)
+def test_the_lift_joint_has_no_authority_to_be_commanded_on_real(arm_package):
+    """effort='0' velocity='0' (Alex's own choice, adopted) where nothing commands the lift: the real profile, and every arm package but
+    openarm (no ros2_control at all). The model cannot be used to command the real lift."""
+    for profile in ("real",) if arm_package == "openarm" else HARDWARE_PROFILES:
+        limit = lift_limit(arm_package=arm_package, hardware_profile=profile)
+        assert (float(limit.get("effort")), float(limit.get("velocity"))) == (0.0, 0.0), (arm_package, profile)
         assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0, LIFT_STROKE)
 
 
-def test_the_lift_is_not_in_ros2_control():
-    """ros2_control.xacro is arms only (ADR-003): no joint of the lift, no command interface for it."""
-    text = expand_xml(arm_package="openarm", hardware_profile="mock")
-    assert 'joint name="lift_joint"' in text            # the URDF joint
+@pytest.mark.parametrize("profile", ["mock", "gazebo"])
+def test_the_simulated_lift_carries_the_dold_v4_limits_from_the_datums(profile):
+    """Issue #17: in the simulated profiles the lift is a planned joint. Its limits are the DOLD V4 figures (register LIFT: 800 N push,
+    18 mm/s), read from the datums, not written in the xacro."""
+    datums = load_datums()["datums"]
+    limit = lift_limit(arm_package="openarm", hardware_profile=profile)
+    assert float(limit.get("effort")) == datums["lift_max_effort_dold_v4_350"]["value"] == 800.0
+    assert float(limit.get("velocity")) == datums["lift_max_velocity_dold_v4_350"]["value"] == 0.018
+    assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0, LIFT_STROKE)
+
+
+def test_the_lift_is_in_ros2_control_only_in_the_simulated_profiles():
+    """Issue #17: mock and gazebo give lift_joint its own system with a position command interface; real gives it none (ADR-003 for the
+    real robot is unchanged: the lift node firmware owns the lift)."""
     import xml.etree.ElementTree as ET
-    root = ET.fromstring(text)
-    controlled = {j.get("name") for rc in root.findall("ros2_control") for j in rc.findall("joint")}
-    assert "lift_joint" not in controlled and controlled, controlled
+    for profile, expected in (("mock", True), ("gazebo", True), ("real", False)):
+        text = expand_xml(arm_package="openarm", hardware_profile=profile)
+        assert 'joint name="lift_joint"' in text            # the URDF joint
+        root = ET.fromstring(text)
+        controlled = {j.get("name"): [c.get("name") for c in j.findall("command_interface")]
+                      for rc in root.findall("ros2_control") for j in rc.findall("joint")}
+        assert controlled, profile
+        assert ("lift_joint" in controlled) is expected, (profile, controlled)
+        if expected:
+            assert controlled["lift_joint"] == ["position"]

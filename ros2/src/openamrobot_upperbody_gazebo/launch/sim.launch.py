@@ -15,9 +15,9 @@ What it starts, in this order of dependence
                          states onto a separate topic (see below)
   spawners               joint_state_broadcaster (switch timeout JSB_SWITCH_TIMEOUT_S, service-call timeout longer than that), then,
                          only if that spawner exits 0,
-                         left_arm, right_arm, left_gripper and right_gripper controllers
-  joint_state_publisher  the ONLY publisher of /joint_states: it merges the base's wheel joints and the arms' joints, and
-                         reports every joint nobody else does (lift_joint) at its default, zero = calibration stop L1000
+                         left_arm, right_arm, left_gripper and right_gripper controllers, and lift_controller (issue #17)
+  joint_state_publisher  the ONLY publisher of /joint_states: it merges the base's wheel joints and the arms' and lift's joints
+                         (lift_joint comes from the physics through joint_state_broadcaster since issue #17)
 
 /joint_states: platform-sw's JointStatePublisher (scoped by its own <joint_name> list to the two wheels) and our
 joint_state_broadcaster (the sixteen arm joints) must not both write to /joint_states. The wheels come in on
@@ -257,6 +257,9 @@ GAZEBO = "openamrobot_upperbody_gazebo"
 PLATFORM_GAZEBO = "openamrobot_gazebo"
 ARM_AND_GRIPPER_CONTROLLERS = ("left_arm_controller", "right_arm_controller",
                                "left_gripper_controller", "right_gripper_controller")
+# The lift (issue #17): lift_joint has a gz_ros2_control interface in this profile (ros2_control.xacro openamr_lift_ros2_control), and
+# lift_controller is spawned with the arm and gripper controllers, after joint_state_broadcaster.
+LIFT_CONTROLLER = "lift_controller"
 # Packages whose meshes the model references as package://<name>/...; Gazebo resolves that against the parent of the
 # package's share directory (the same trick platform-sw's gz_simulator.launch.py uses for its own description).
 MESH_PACKAGES = ("openamrobot_description", "openarm_description", DESCRIPTION)
@@ -288,8 +291,8 @@ def after_joint_state_broadcaster(event, context):
     activate leaves the stack without /arm/joint_states; starting the other controllers anyway hid that (four of five active), so a failed
     broadcaster now stops the chain and says why. The tests that wait for five active controllers then fail, naming the broadcaster."""
     if event.returncode == 0:
-        return [spawner(name) for name in ARM_AND_GRIPPER_CONTROLLERS]
-    return [LogInfo(msg=f"joint_state_broadcaster spawner exited {event.returncode}: the arm and gripper spawners are not started")]
+        return [spawner(name) for name in (*ARM_AND_GRIPPER_CONTROLLERS, LIFT_CONTROLLER)]
+    return [LogInfo(msg=f"joint_state_broadcaster spawner exited {event.returncode}: the arm, gripper and lift spawners are not started")]
 
 
 def generate_launch_description():

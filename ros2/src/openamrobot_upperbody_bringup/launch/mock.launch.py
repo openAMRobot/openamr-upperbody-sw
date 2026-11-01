@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: MIT
-"""Mock bringup: the arms on mock_components/GenericSystem, all five controllers active, nothing else.
+"""Mock bringup: the arms and the lift on mock_components/GenericSystem, all six controllers active, nothing else.
 
     ros2 launch openamrobot_upperbody_bringup mock.launch.py [base_plate:=bp000] [head_pitch:=hp30] [rviz:=true]
 
 Starts robot_state_publisher on the combined description with hardware_profile:=mock, ros2_control_node with
-openamrobot_upperbody_control/config/arm_controllers.yaml, and spawners for joint_state_broadcaster,
-left_arm_controller, right_arm_controller, left_gripper_controller and right_gripper_controller. The mobile base is not
-under ros2_control (ADR-003) and is not started here.
+openamrobot_upperbody_control/config/arm_controllers.yaml, and spawners for joint_state_broadcaster, then
+left_arm_controller, right_arm_controller, left_gripper_controller, right_gripper_controller and lift_controller. The mobile
+base is not under ros2_control (ADR-003) and is not started here.
 
 Args
   column       dold_v4_350 | tl3_400   (default dold_v4_350; tl3_400 has no supplier data and does not expand)
@@ -14,8 +14,9 @@ Args
   head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp30)
   base_tilt    bt05 | bt10 | bt15        (default bt10)
   rviz         true | false                      (default false: headless)
-The lift is not an argument: lift_joint is a joint (calibration stops L1000 / L1175 / L1350 are positions of it), and with no
-ros2_control interface for it nothing in this launch reports it; moveit.launch.py's stub does.
+The lift is not an argument: lift_joint is a joint (calibration stops L1000 / L1175 / L1350 are positions of it). Its mock interface
+starts at 0 (L1000) and lift_controller moves it (issue #17: a planned joint in the simulated profiles; the real profile has no command
+interface for it).
 
 Overlay: the OpenArm and base meshes resolve through the workspace overlay; source install/setup.bash first (RViz only).
 """
@@ -32,6 +33,7 @@ DESCRIPTION = "openamrobot_upperbody_description"
 CONTROL = "openamrobot_upperbody_control"
 ARM_AND_GRIPPER_CONTROLLERS = ("left_arm_controller", "right_arm_controller",
                                "left_gripper_controller", "right_gripper_controller")
+LIFT_CONTROLLER = "lift_controller"            # issue #17: lift_joint's mock interface (ros2_control.xacro openamr_lift_ros2_control)
 
 
 def spawner(controller):
@@ -63,11 +65,11 @@ def generate_launch_description():
     rviz_node = Node(package="rviz2", executable="rviz2", output="screen", condition=IfCondition(rviz),
                      arguments=["-d", PathJoinSubstitution([FindPackageShare(DESCRIPTION), "config", "view.rviz"])])
 
-    # joint_state_broadcaster first: the other four are spawned when it has exited (its spawner exits once it is active).
+    # joint_state_broadcaster first: the other five are spawned when it has exited (its spawner exits once it is active).
     joint_state_broadcaster = spawner("joint_state_broadcaster")
     then_the_rest = RegisterEventHandler(OnProcessExit(
         target_action=joint_state_broadcaster,
-        on_exit=[spawner(name) for name in ARM_AND_GRIPPER_CONTROLLERS]))
+        on_exit=[spawner(name) for name in (*ARM_AND_GRIPPER_CONTROLLERS, LIFT_CONTROLLER)]))
 
     return LaunchDescription([
         DeclareLaunchArgument("column", default_value="dold_v4_350", description="dold_v4_350 | tl3_400 (no supplier data: refused)"),

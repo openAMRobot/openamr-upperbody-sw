@@ -14,6 +14,13 @@
   finger-mimic multiplier file, same arm_type / ee_type / prefixes. The CAN interfaces and can_fd are not passed, so
   they take upstream's defaults, as they do in that file. Only use_fake_hardware differs: it follows the profile.
 
+  openamr_lift_ros2_control(hardware_profile) (issue #17): lift_joint in its own system, simulated profiles only.
+
+      mock    openamr_lift_mock    -> mock_components/GenericSystem
+      gazebo  openamr_lift_gazebo  -> gz_ros2_control/GazeboSimSystem (the same model plugin as the arms loads every system)
+      real    nothing: no command interface, no state interface. The lift node firmware owns the lift (CTL-017); the register LIFT
+              rule (lift motion only in the stowed or carry pose with the base stopped) is enforced there, not by this repository.
+
   The arm joints are openarm_{left,right}_joint1..7 and openarm_{left,right}_finger_joint1. Upstream leaves
   openarm_*_finger_joint2 out of <ros2_control> (its declaration is commented out in the macro); the URDF <mimic> on
   finger_joint2 stays, so robot_state_publisher still moves it. The gazebo block does the same.
@@ -120,6 +127,31 @@
         <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint6"/>
         <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_joint7"/>
         <xacro:openamr_gazebo_arm_joint joint_name="openarm_right_finger_joint1"/>
+      </ros2_control>
+    </xacro:if>
+  </xacro:macro>
+  <!-- The lift (issue #17): a position command interface (lift_controller, a JointTrajectoryController, commands position) and position
+       and velocity state, starting at 0 (calibration stop L1000). Simulated profiles only; `real` declares nothing. -->
+  <xacro:macro name="openamr_lift_ros2_control" params="hardware_profile">
+    <xacro:if value="${hardware_profile in ['mock', 'gazebo']}">
+      <ros2_control name="openamr_lift_${hardware_profile}" type="system">
+        <hardware>
+          <xacro:if value="${hardware_profile == 'mock'}">
+            <plugin>mock_components/GenericSystem</plugin>
+          </xacro:if>
+          <xacro:if value="${hardware_profile == 'gazebo'}">
+            <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+          </xacro:if>
+        </hardware>
+        <joint name="lift_joint">
+          <command_interface name="position"/>
+          <state_interface name="position">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+          <state_interface name="velocity">
+            <param name="initial_value">0.0</param>
+          </state_interface>
+        </joint>
       </ros2_control>
     </xacro:if>
   </xacro:macro>

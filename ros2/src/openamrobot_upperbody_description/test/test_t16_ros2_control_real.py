@@ -11,8 +11,8 @@ import yaml
 from ament_index_python.packages import get_package_share_directory
 
 from conftest import expand
-from ros2_control_utils import (arm_joints_needing_an_interface, blocks, controlled_joints, element_text, hardware_params,
-                                normalised, plugins, upstream_blocks)
+from ros2_control_utils import (LIFT_JOINT, arm_controlled_joints, arm_joints_needing_an_interface, blocks, controlled_joints, element_text,
+                                hardware_params, lift_blocks, normalised, plugins, upstream_blocks)
 
 HW = "openarm_hardware/OpenArmHW"
 
@@ -54,10 +54,13 @@ def test_t16_gains_come_from_the_upstream_gains_file():
             assert float(params[f"kd{n}"]) == float(gains[f"joint{n}"]["kd"])
 
 
-def test_t16_real_controls_the_same_joints_as_mock():
+def test_t16_real_controls_the_same_arm_joints_as_mock_and_not_the_lift():
+    """The arms are the same; the lift is not: on real it has no command or state interface at all (issue #17 keeps the lift node firmware,
+    CTL-017, the only thing that moves it)."""
     real, mock = expand(hardware_profile="real"), expand(hardware_profile="mock")
-    assert controlled_joints(real) == controlled_joints(mock)
+    assert controlled_joints(real) == arm_controlled_joints(mock)
     assert sorted(controlled_joints(real)) == arm_joints_needing_an_interface(real)
+    assert LIFT_JOINT not in controlled_joints(real) and not lift_blocks(real)
 
 
 def test_t16_arm_blocks_equal_upstream_with_use_fake_hardware_false():
