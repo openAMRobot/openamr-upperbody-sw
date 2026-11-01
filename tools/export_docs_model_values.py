@@ -1,0 +1,223 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Print the P-03 item 24 equipment values of the expanded URDF in the format of the docs model's CHEST-JSON and LIFT-JSON blocks.
+
+    source /opt/ros/jazzy/setup.bash && source <workspace>/install/setup.bash
+    python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate bp000] [--model-js <openamrobot-docs>/docs/assets/roadmap/model/model.js]
+
+The values are read from the expanded URDF (link poses, box and cylinder sizes), in the docs model's frames: x from the column axis, z of
+the chest above the column top at lift 0 (L1000), z of the stop sensors above the column base. So the output is what the robot description
+draws, written the way openamrobot-docs docs/assets/roadmap/model/model.js writes it, and test_item24_docs_model_values.py compares it with
+the model.js blocks the datums came from (tolerance 0.5 mm).
+
+Not exported (the URDF does not carry them): CHEST-JSON second_estop.glb_node and glb_axis (the docs model's handle on the base E-stop mesh
+of the platform GLB). One value is read from its datum, not the URDF: the
+docs model's static profile top (datum lift_static_profile_top_below_column_top), which second_estop.below_top is measured from; the URDF's
+column box runs to the column top. The output says so.
+"""
+import argparse
+import json
+import os
+import sys
+import xml.etree.ElementTree as ET
+
+import numpy as np
+
+NOT_EXPORTED = {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis"], "LIFT-JSON": []}
+FROM_DATUM = {"CHEST-JSON second_estop.below_top": "lift_static_profile_top_below_column_top (the docs model's static profile top)"}
+STOPS = ["L1000", "L1175", "L1350"]
+
+# Source exceptions are datum names, not a second set of dimensions. The original
+# roadmap fixture stays unchanged and raw --model-js comparisons report differences.
+SOURCE_RECONCILIATIONS = {
+    "CHEST-JSON": {"drawn.head_light.size": "head_light_size",
+                   "drawn.head_light.window[0]": "head_light_window_width",
+                   "drawn.head_light.window[1]": "head_light_window_height"},
+    "LIFT-JSON": {"bracket.leg": "lift_sensor_bracket_leg",
+                  "bracket.t": "lift_sensor_bracket_thickness",
+                  "bracket_h": "lift_sensor_bracket_height"},
+}
+
+
+def supplier_reference(reference, block, datums):
+    """Return a copy with only documented supplier dimensions reconciled."""
+    import copy
+    import re
+    result = copy.deepcopy(reference)
+    for path, datum in SOURCE_RECONCILIATIONS[block].items():
+        entry = datums[datum]
+        assert entry["source"] == "supplier" and "https://" in entry["ref"]
+        keys = re.findall(r"[^.\[\]]+", path)
+        target = result
+        for key in keys[:-1]:
+            target = target[int(key)] if isinstance(target, list) else target[key]
+        key = int(keys[-1]) if isinstance(target, list) else keys[-1]
+        target[key] = entry["value"]
+    return result
+
+
+def _rpy(r, p, y):
+    cr, sr, cp, sp, cy, sy = np.cos(r), np.sin(r), np.cos(p), np.sin(p), np.cos(y), np.sin(y)
+    return np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]]) @ np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]]) @ np.array(
+        [[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
+
+
+def _origin(element):
+    t = np.eye(4)
+    o = element.find("origin") if element is not None else None
+    if o is not None:
+        t[:3, :3] = _rpy(*[float(v) for v in o.get("rpy", "0 0 0").split()])
+        t[:3, 3] = [float(v) for v in o.get("xyz", "0 0 0").split()]
+    return t
+
+
+class Urdf:
+    def __init__(self, root):
+        self.root = root
+        self.by_child = {j.find("child").get("link"): j for j in root.findall("joint")}
+
+    def pose(self, base, link):
+        """Pose of `link` in `base` at zero joint positions (fixed joints only on the path)."""
+        t = np.eye(4)
+        while link != base:
+            joint = self.by_child[link]
+            if joint.get("type") != "fixed":
+                raise ValueError(f"{joint.get('name')} on the path {base} -> {link} is {joint.get('type')}")
+            t = _origin(joint) @ t
+            link = joint.find("parent").get("link")
+        return t
+
+    def shape(self, link, name=None):
+        """(pose of the collision in the link, size list) of the link's collision `name` (or its only collision)."""
+        collisions = self.root.findall(f"link[@name='{link}']/collision")
+        if name is not None:
+            collisions = [c for c in collisions if c.get("name") == name]
+        assert len(collisions) == 1, f"{link}: {len(collisions)} collisions named {name!r}"
+        c = collisions[0]
+        g = c.find("geometry")
+        if g.find("box") is not None:
+            size = [float(v) for v in g.find("box").get("size").split()]
+        else:
+            size = [2 * float(g.find("cylinder").get("radius")), float(g.find("cylinder").get("length"))]
+        return _origin(c), size
+
+
+def r(x):
+    return round(float(x), 6)
+
+
+def export(root, datums):
+    u = Urdf(root)
+    _, column = u.shape("lift_column_base_link")                   # outer stage box: [x, y, retracted length]
+    sec_x, sec_y, retracted = column
+    carriage = u.by_child["lift_carriage_link"]
+    assert abs(_origin(carriage)[2, 3] - retracted) < 1e-12, "lift_carriage_link is not at the column top at lift 0"
+
+    # ---- CHEST-JSON (frames: lift_carriage_link = column axis at the column top, lift 0; lift_column_base_link)
+    plate = u.pose("lift_carriage_link", "adapter_plate_link")
+    _, plate_box = u.shape("adapter_plate_link")
+    profile = u.pose("lift_carriage_link", "arm_profile_link")
+    _, profile_box = u.shape("arm_profile_link")
+    front = profile[0, 3] + profile_box[0] / 2
+    drawn = {}
+    for item in ("head_light", "getac_tablet"):
+        pose = u.pose("lift_carriage_link", f"{item}_link")
+        local, size = u.shape(f"{item}_link")
+        centre = pose @ local
+        assert abs(centre[0, 3] - size[0] / 2 - front) < 1e-9, f"{item}: rear face is not on the arm-profile front face"
+        drawn[item] = {"z": r(centre[2, 3]), "size": [r(s) for s in size]}
+    window = root.find("link[@name='head_light_window_link']/visual/geometry/box")
+    drawn["head_light"]["window"] = [r(v) for v in window.get("size").split()[1:]]
+    order = sorted(drawn, key=lambda k: drawn[k]["z"])
+    tablet_bottom = drawn["getac_tablet"]["z"] - drawn["getac_tablet"]["size"][2] / 2
+    light_top = drawn["head_light"]["z"] + drawn["head_light"]["size"][2] / 2
+    estop = u.pose("lift_column_base_link", "second_estop_link")
+    profile_top = retracted - datums["lift_static_profile_top_below_column_top"]["value"]
+    chest = {"second_estop": {"below_top": r(profile_top - estop[2, 3]), "panel_ahead": r(-sec_x / 2 - estop[0, 3])},
+             "order": order, "drawn": drawn, "gap_light_tablet": r(tablet_bottom - light_top)}
+
+    # ---- LIFT-JSON (x from the column axis; sensor z above the column base; flag and rod in the carriage frame at lift 0)
+    sensors = [u.pose("lift_column_base_link", f"lift_stop_sensor_{s.lower()}_link") for s in STOPS]
+    s0 = sensors[0]
+    _, (d, length) = u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_stop_sensor")
+    face_leg, face_leg_size = u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_sensor_bracket_face_leg")
+    # Bound the actual four aperture rectangles; do not infer their dimensions from datums.
+    pieces = [u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_sensor_bracket_sensor_leg_" + side)
+              for side in ("top", "bottom", "left", "right")]
+    low = np.min([pose[:3, 3] - np.array(size)/2 for pose, size in pieces], axis=0)
+    high = np.max([pose[:3, 3] + np.array(size)/2 for pose, size in pieces], axis=0)
+    sensor_leg, sensor_leg_size = np.eye(4), high-low
+    sensor_leg[:3, 3] = (low+high)/2
+    flag = u.pose("lift_carriage_link", "lift_flag_link")
+    _, flag_size = u.shape("lift_flag_link")
+    rod = u.pose("lift_carriage_link", "lift_flag_rod_link")
+    rod_local, rod_size = u.shape("lift_flag_rod_link", "placeholder_lift_flag_rod")
+    underside = plate[2, 3] - plate_box[2] / 2
+    face_x = s0[0, 3]
+    lift = {"face": "left" if s0[1, 3] > 0 else "right",
+            "z": [r(p[2, 3]) for p in sensors], "stops": STOPS,
+            "axis_off": r(abs(s0[1, 3]) - sec_y / 2),
+            "sensor": {"d": r(d), "len": r(length)},
+            "face_x": r(face_x),
+            "gap": r(face_x - (flag[0, 3] + flag_size[0] / 2)),
+            "flag": [r(s) for s in flag_size],
+            "flag_off": r(flag[1, 3] - flag_size[1] / 2 - sec_y / 2),
+            "flag_below_plate": r(underside - flag[2, 3]),
+            "rod": {"w": r(rod_size[0]), "len": r(rod_size[2]), "off": r(rod[1, 3] - rod_size[1] / 2 - sec_y / 2)},
+            "bracket": {"leg": r(face_leg_size[0]), "t": r(face_leg_size[1]), "at": r(length - (sensor_leg[0, 3] + sensor_leg_size[0] / 2))},
+            "bracket_h": r(face_leg_size[2])}
+    assert abs(rod[2, 3] + rod_local[2, 3] + rod_size[2] / 2 - underside) < 1e-9, "the rod does not hang from the plate underside"
+    return {"CHEST-JSON": chest, "LIFT-JSON": lift}
+
+
+def expand(base_plate):
+    import xacro
+    from ament_index_python.packages import get_package_share_directory
+    share = get_package_share_directory("openamrobot_upperbody_description")
+    return xacro.process_file(os.path.join(share, "urdf", "combined_robot.xacro"),
+                              mappings={"base_plate": base_plate, "arm_package": "none"}).toxml()
+
+
+def load_datums(path=None):
+    import yaml
+    if path is None:
+        from ament_index_python.packages import get_package_share_directory
+        path = os.path.join(get_package_share_directory("openamrobot_upperbody_description"), "config", "datums.yaml")
+    with open(path) as f:
+        return yaml.safe_load(f)["datums"]
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--urdf", help="an expanded URDF (default: expand the installed combined_robot.xacro)")
+    parser.add_argument("--base-plate", default="bp000", choices=("bp000", "bp050"), help="the values do not depend on it")
+    parser.add_argument("--datums", help="datums.yaml (default: the installed one)")
+    parser.add_argument("--model-js", help="also compare with the blocks of this model.js (0.5 mm); exit 1 on a difference")
+    args = parser.parse_args(argv)
+    text = open(args.urdf).read() if args.urdf else expand(args.base_plate)
+    values = export(ET.fromstring(text), load_datums(args.datums))
+    for block in ("CHEST-JSON", "LIFT-JSON"):
+        print(f"/*{block}*/{json.dumps(values[block])}/*{block}-END*/")
+    print("// not exported (not in the URDF): " + ", ".join(f"{b} {k}" for b, keys in NOT_EXPORTED.items() for k in keys), file=sys.stderr)
+    print("// from a datum, not the URDF: " + ", ".join(f"{k} <- {v}" for k, v in FROM_DATUM.items()), file=sys.stderr)
+    if args.model_js:
+        import re
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "ros2", "src",
+                                        "openamrobot_upperbody_description", "test"))
+        from test_item24_docs_model_values import differences
+        with open(args.model_js) as f:
+            text = f.read()
+        problems = []
+        for block in ("CHEST-JSON", "LIFT-JSON"):
+            match = re.search(rf"/\*{block}\*/(.*?)/\*{block}-END\*/", text)
+            if not match:
+                problems.append(f"{block}: not in {args.model_js}")
+                continue
+            problems += [f"{block} {p}" for p in differences(json.loads(match.group(1)), values[block], NOT_EXPORTED[block])]
+        print("// model.js comparison (0.5 mm): " + ("; ".join(problems) if problems else "equal"), file=sys.stderr)
+        return 1 if problems else 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

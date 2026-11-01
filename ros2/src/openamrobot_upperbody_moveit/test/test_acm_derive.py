@@ -168,17 +168,17 @@ def test_the_counts_the_report_states():
     # P28, 28 Oct: the adapter plate is a geometry link under the carriage, and the arm profile stands on it: 99 = 20 + 18 + 61 (the plate is the
     # carriage's and the profile's neighbour; the profile and the carriage are no longer neighbours but a constant pair; the plate joins the
     # two arm base links in the constant set; the stages' pair across lift_joint stays Adjacent, so nesting the inner stage moved no pair).
-    # D8 Proposed contract #23: 20 upstream + 35 derived Adjacent + 265 clear fixed pairs.
-    assert len(pairs) == 320 and labelled == {"Adjacent": 55, "ConstantTransform": 265}
-    assert len(adjacent) == 53 and len(up) == 20
+    # D8 Proposed contract #23: Official PR26 + camera housing: 20 upstream + 27 derived Adjacent + 141 clear fixed pairs.
+    assert len(pairs) == 188 and labelled == {"Adjacent": 47, "ConstantTransform": 141}
+    assert len(adjacent) == 45 and len(up) == 20
     assert set(up) - adjacent == {("openarm_left_ee_link1", "openarm_left_ee_link2"), ("openarm_right_ee_link1", "openarm_right_ee_link2")}, \
         "the two finger pairs are siblings through two movable joints: upstream's declaration is their only reason"
-    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 265
+    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 141
 
 
 @pytest.mark.parametrize("base_plate", BASE_PLATES)
 def test_d8_constant_pairs_never_span_the_prismatic_lift(base_plate):
-    """D8 adds fixed equipment on each side of the lift, giving 265 fixed pairs.
+    """D8 adds fixed equipment on each side of the lift, giving 141 fixed pairs.
 
     Every constant pair must remain on one side of lift_joint. Equipment cannot
     turn a base-to-moving-assembly pair into a constant transform. The previous
@@ -186,7 +186,7 @@ def test_d8_constant_pairs_never_span_the_prismatic_lift(base_plate):
     """
     root = urdf_root(base_plate)
     constant = derive_mod.constant_pairs(root) - derive_mod.structural_adjacent(root) - set(upstream_pairs())
-    assert len(constant) == 265
+    assert len(constant) == 141
     t = split.urdf_tree(root)
     def above_the_lift(link):
         return "lift_joint" in [j for j in split.movable_joints_between(t, "base_footprint", link)]

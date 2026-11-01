@@ -77,3 +77,37 @@ It counts `<testcase>` elements in `build/<pkg>/test_results/<pkg>/*.xml` as dis
 exits 1 when nothing executed (no result file, no case, or every case skipped), 2 when a result file cannot be read. `colcon test-result`'s total is
 discovered plus one entry per registered CTest test; the script prints both. `tests/test_count_ci_tests.py` covers the empty, all-skipped and mixed
 cases, and each job runs it before counting. CI bookkeeping only, not evidence of anything beyond the run it counts.
+
+## P-03 item 24 equipment (1 Nov 2026)
+
+Both need the built workspace (`source /opt/ros/jazzy/setup.bash && source <ws>/install/setup.bash`). Neither is called by `verify_a6.sh`
+or a workflow; the export is also run by a test of the description package (`test_item24_docs_model_values.py`).
+
+### `report_equipment_collisions.py`: REPORT ONLY, the moving equipment against both arms
+
+```bash
+python3 tools/report_equipment_collisions.py [--json out.json]
+```
+
+bp000 and bp050, the tablet in landscape (the model) and portrait (P-03 rev20.2 item 26, never drawn), lift stops L1000 / L1175 / L1350, the
+default state and every named arm pose of the SRDF. Every (moving equipment link, arm link) pair is checked with the SRDF's list ignored
+(`acm_scene`). It moves nothing and decides nothing. Portrait assumes the landscape centre as the pivot, which is **not stated** (datum
+`getac_tablet_portrait_pivot` is null), and keeps the head light where the model has it. A control (the flag on its rod, touching by
+design) shows the check sees a contact. Exit 0 whatever it finds, 2 when it could not run.
+
+### `export_docs_model_values.py`: the URDF, written as the docs model's CHEST-JSON and LIFT-JSON
+
+```bash
+python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate bp000]
+```
+
+Reads the expanded URDF (poses, box and cylinder sizes) and prints the two blocks in the format of openamrobot-docs
+`docs/assets/roadmap/model/model.js`. Not exported, because the URDF does not carry them: `second_estop.glb_node` and `second_estop.glb_axis`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
+(`lift_static_profile_top_below_column_top`). `test_item24_docs_model_values.py` compares the output with a verbatim fixture of the blocks
+(docs `cd780d6`), 0.5 mm tolerance; `--model-js <model.js>` compares with a live file (exit 1 on a difference).
+
+### Twin supplier reconciliation
+
+The twin consumes PR #26's canonical `upper_body_equipment.xacro` and official frames. The historical docs fixture stays byte-for-byte unchanged. `export_docs_model_values.py --model-js ...` reports raw roadmap differences; tests reconcile only the named supplier dimensions in `SOURCE_RECONCILIATIONS`, reading their values from `datums.yaml`. The 0.5 mm comparison tolerance is unchanged. Falcon housing/window and SICK bracket dimensions are independently asserted against the selected manufacturer drawings. The bracket aperture is bounded from actual URDF collision rectangles.
+
+The provisional rod mounting corner is part of the rod's rigid assembly, with two additional boxes on its existing link. Head camera housing and light diffuser are additive details. No second item-24 model or alternate set of numeric configuration constants remains. No dynamic lift controller is supplied.

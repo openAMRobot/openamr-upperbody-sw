@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Where each mass group's figure really comes from (DATUMS.md, "Mass reporting", decided 6 Oct; built in P10).
 #
-# T10 reports the modelled mass over four groups. The base and arm masses are not datums (they are not ours to declare:
+# T10 reports the modelled mass over six groups (four until the P-03 item 24 equipment, 1 Nov 2026). The base and arm masses are not datums (they are not ours to declare:
 # ADR-005, ADR-008), so datums.yaml's status field cannot say what they are; this map does, over all four groups, in three
 # states and no others:
 #
@@ -34,6 +34,16 @@ groups:
     note: "A vendor nominal, not verified by us and not a measurement of the arms we will buy."
   sensors:
     state: placeholder
-    source: "D8: head camera 0.0629 kg, Getac ZX80 0.590 kg, Falcon FLDL-i150x15-W 0.110 kg from supplier specifications, in datums.yaml; uniform-box inertias. Wrist cameras, mounts, lift-stop sensors and cables have no mass yet."
+    source: "Head camera 0.0629 kg supplier figure (head_camera_body_mass), uniform box. Wrist cameras and mounts remain unweighed."
     owner: "A6 (this repo)"
-    note: "Group stays placeholder because equipment is incomplete and none is weighed. The three sourced masses are each counted once on the moving assembly; the catalogue lift mass is retained separately on the fixed column pending a supplier moving/fixed split."
+    note: "The head housing is counted once on the moving assembly. This incomplete group is not an as-built mass."
+  equipment:
+    state: external_nominal
+    source: "datums getac_tablet_mass (Getac ZX80, 0.590 kg) and head_light_mass (Falcon FLDL-i150x15-W, at most 0.110 kg): supplier figures, each on a uniform box of its datum size (P-03 item 24)"
+    owner: "Alex (P-03 item 24) for the figures; A6 (this repo) for the boxes"
+    note: "Another owner's figures, not weighed here; the head light figure is an upper bound. The tablet's dock and mount are not modelled."
+  equipment_no_mass:
+    state: placeholder
+    source: none
+    owner: "A6 (this repo)"
+    note: "P-03 item 24 parts with no stated mass carry no <inertial>, so their modelled mass is zero: second_estop_link, lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link (sensors and brackets), lift_flag_rod_link, lift_flag_link."

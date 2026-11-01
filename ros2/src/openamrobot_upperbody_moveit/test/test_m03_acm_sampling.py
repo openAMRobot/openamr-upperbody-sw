@@ -109,7 +109,7 @@ def test_m03_1_every_disabled_pair_has_a_reason_that_can_be_shown_at_every_lift_
     })
     assert summary["result"] == "PASS", "\n" + done.stdout[-3500:]
     assert [r["lift_stop"] for r in results] == list(STOPS)
-    assert all(len(r["constant_transform"]["pairs"]) == 265 for r in results)    # D8 fixed equipment; Proposed contract #23; every pair is independently collision checked
+    assert all(len(r["constant_transform"]["pairs"]) == 141 for r in results)    # D8 fixed equipment; Proposed contract #23; every pair is independently collision checked
     assert all(not r["constant_transform"]["cross_check_with_sampled_states"]["disagreements"] for r in results)
 
 

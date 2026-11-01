@@ -290,6 +290,30 @@ jobs:
             versions.txt
           if-no-files-found: warn
 
+      # V01 RViz captures: the six V01 configurations (L1000, L1175, L1350 x bp000, bp050), the mock MoveIt stack with RViz2 on a virtual display,
+      # one window capture each (evidence/renders/rviz/capture_rviz.py, run in place). Pictures for a person to look at: not A6 or A7 evidence,
+      # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only).
+      - name: V01 RViz captures (pictures, not evidence)
+        if: always()
+        continue-on-error: true
+        working-directory: ws
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          sudo apt-get install -y --no-install-recommends x11-utils python3-pil
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          Xvfb :0 -screen 0 1600x1200x24 > xvfb_captures.log 2>&1 &
+          sleep 3
+          DISPLAY=:0 python3 src/openamr-upperbody-sw/evidence/renders/rviz/capture_rviz.py v01_rviz_captures
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: v01-rviz-captures
+          path: ws/v01_rviz_captures/
+          if-no-files-found: warn
+
       - name: Result
         run: |
           echo "run_a7_regression.sh exit status: $A7_RC (0 pass, 1 a check FAILed or NOT_RUN, 2 no evidence, 3 dirty tree)"
