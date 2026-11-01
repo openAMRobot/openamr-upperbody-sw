@@ -66,6 +66,8 @@ if(BUILD_TESTING)
   # the three placeholder boxes have one explicit colour in the URDF and in the SDF (P25)
   ament_add_pytest_test(p25_placeholder_material test/test_p25_placeholder_material.py TIMEOUT 600)
   ament_add_pytest_test(p28_lift_geometry test/test_p28_lift_geometry.py TIMEOUT 600)
+  # P-03 item 24 equipment: parents, static/moving side, poses = datums, stop-sensor heights, mass report (1 Nov 2026)
+  ament_add_pytest_test(item24_equipment test/test_item24_equipment.py TIMEOUT 600)
   ament_add_pytest_test(evidence_dir test/test_evidence_dir.py TIMEOUT 600)
   # the organisation's merge-marker scan, run on the tracked files with canaries (P27); needs git, skips outside a checkout
   ament_add_pytest_test(merge_markers test/test_merge_markers.py TIMEOUT 120)
