@@ -1,9 +1,10 @@
 # openamrobot_upperbody_moveit
 
 MoveIt 2 configuration for the combined OpenAMRobot 2.0 model (A7): the two OpenArm v2.0 arms on option B's lift carriage. The lift
-(`lift_joint`, prismatic, effort 0 and velocity 0: we have no authority to command it) is in no planning group; MoveIt sees it as part
-of the robot state, at the operating point the stack reports (one of the calibration stops `L1000`, `L1175`, `L1350`: 0, 0.175 and
-0.350 m), and plans the arms from there. Everything this package shows is class **`simulation`**: how the model plans and executes under
+(`lift_joint`, prismatic, 0 to 0.350 m) is a planned joint in the simulated profiles (issue #17): group `lift` with the calibration stops
+`L1000`, `L1175`, `L1350` (0, 0.175 and 0.350 m) as named states, 800 N and 0.018 m/s (DOLD V4, register LIFT) in the URDF of `mock` and
+`gazebo`, and `lift_controller`. Group `both_arms` (the two arm groups) plans both arms in one request. The real profile has no command
+interface for the lift (the lift node firmware owns it, CTL-017). Everything this package shows is class **`simulation`**: how the model plans and executes under
 MoveIt 2.12.4 and **declared OpenAMRobot limits**, on `mock_components` and in Gazebo. It permits no statement about a physical
 robot, a payload, a torque, or a validated limit (ADR-009).
 
@@ -85,11 +86,18 @@ prismatic joint between two links removes them from what a fixed transform certi
 |---|---|---|---|
 | `left_arm`, `right_arm` | `home` | all seven joints 0 | upstream's, imported |
 | `left_arm`, `right_arm` | `hands_up` | joint 4 = 1.5 rad, the rest 0 | upstream's, imported |
-| `left_arm`, `right_arm` | `park` | **a copy of `home`** | **placeholder**: stays a copy until Adnan's safe-pose definition lands under the manipulation action contract. It was deliberately given no safer-looking shape: a placeholder that looks deliberate gets trusted |
+| `left_arm`, `right_arm`, `both_arms` | `park` | **`home` with joint 4 = 0.1 rad** | **placeholder**: `home` moved off joint 4's lower limit (issue #17), until Adnan's safe-pose definition lands under the manipulation action contract. It was deliberately given no safer-looking shape: a placeholder that looks deliberate gets trusted |
+| `lift` | `L1000` / `L1175` / `L1350` | 0 / 0.175 / 0.350 m | ours (issue #17); the calibration stops (register ARM-MOUNT, CONFIG-IDS); `L1000` and `L1350` are the ends of the stroke |
 | `left_gripper` | `open` / `closed` | 0 / **+0.7854** | ours; `closed` is the far end of the left finger's own URDF range |
 | `right_gripper` | `open` / `closed` | 0 / **-0.7854** | ours; `closed` is the far end of the right finger's own URDF range |
 
 `home` has `openarm_*_joint4 = 0`, which is exactly that joint's lower limit. See "Known limitations".
+
+**Margins (issue #17).** `test/test_named_pose_margins.py` lists every named pose and joint with its margin from its URDF limits and fails
+below 0.05 rad (revolute joints; the prismatic lift is listed in m). `park`, `hands_up` and `both_arms/park` meet it (smallest 0.1 rad).
+Six joint values are still ON a limit, each pinned there by another recorded decision and its check, and listed by name in the test:
+upstream's `home` (joint 4 = 0; ADR-007, `test_srdf_import.py`) and the gripper `open` / `closed` states (M05, ADR-009 point 5). Moving
+them changes those checks, which is not this package's to decide.
 
 ### The two grippers take opposite-signed commands (ADR-009 point 5)
 
@@ -247,7 +255,9 @@ a specific reason code; this path never returns one, and the reason is only in `
 Of the three ways out the one taken is to clamp the joint state, and only that: widening a limit would invent vendor data (what ADR-009 exists to
 forbid), and moving `home` would invent a pose (what `park`'s placeholder comment refuses to do). `scripts/joint_state_clamp.py` subscribes to
 `/joint_states` and republishes it on `/joint_states_clamped`, which **only** `move_group` is remapped to (`move_group.launch.py`, argument
-`clamp_joint_states`, default true; the raw topic everything else reads is untouched). Its logic, and the reasons, are in
+`clamp_joint_states`, default `auto`, issue #18: on for the simulated profiles `mock` and `gazebo`, off for any other profile, where a
+reading past a limit is real and the clamp could hide it; an explicit `true` / `false` wins; the raw topic everything else reads is
+untouched, and M07 reads the raw `/arm/joint_states`). Its logic, and the reasons, are in
 `openamrobot_upperbody_moveit/joint_state_clamp.py`:
 
 | | |
@@ -272,7 +282,8 @@ is dead code and one that fires says something else is wrong. A refused request 
   (the planning model logs "The root link base_link has an inertia specified in the URDF, but KDL does not support a root link with an
   inertia"). It matters for nothing planned here (the base does not move), and it is not fixed: the workaround changes the contract's root
   and the base is platform-sw's (ADR-005).
-* **`park` is a placeholder** copy of `home`, until the safe-pose definition lands.
+* **`park` is a placeholder** (`home` with joint 4 off its limit), until the safe-pose definition lands.
+* **`home` and the gripper states are still on a joint limit** (above, "Margins"): issue #17's 0.05 rad is not met for them.
 * **The acceleration limits are our engineering defaults**, not vendor data (above).
 * **The gripper fork is open** on manipulation#11; this package is option 1 because it is the combination known to work, and the evidence above
   is for Om and Adnan.
@@ -298,7 +309,7 @@ whole A7 report.
 
 | Test | Check | Proves |
 |---|---|---|
-| `test_srdf.py` | AUX | names exist at every base plate; groups, virtual joint (fixed, not planar, `world` to `base_footprint`), poses inside the limits; `park` is a copy of `home` and says it is a placeholder; each pair disabled once |
+| `test_srdf.py` | AUX | names exist at every base plate; groups, virtual joint (fixed, not planar, `world` to `base_footprint`), poses inside the limits; `park` is `home` with joint 4 at 0.1 rad and says it is a placeholder; the `lift` and `both_arms` groups and states; each pair disabled once |
 | `test_srdf_import.py` | AUX | the imported elements equal upstream's at the pinned commit (SKIP, with the reason, only if there is no checkout) |
 | `test_acm_generation.py` | AUX | the matrix's fingerprint is the one on record; the record says derived, no sampling, three reasons; **regenerating twice gives the contract back**; a proposal leaves the contract alone and only `--write` replaces it (on copies) |
 | `test_acm_derive.py` | AUX | every disabled pair has a reason that can be shown at every base plate and a true label; only `Adjacent`/`ConstantTransform`; the counts the report states; the by-construction set is 45, not P11's 77, and no constant pair spans the lift joint; the constant pairs have a constant relative pose in an independent forward kinematics |

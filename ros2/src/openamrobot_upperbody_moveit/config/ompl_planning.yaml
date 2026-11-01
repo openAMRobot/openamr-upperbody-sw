@@ -133,3 +133,62 @@ right_gripper:
     - SPARStwo
   projection_evaluator: joints(openarm_right_finger_joint1)
   longest_valid_segment_fraction: 0.005
+
+# The lift and both arms (issue #17), the same Setup Assistant blocks as above. both_arms projects on the first joint of each arm.
+lift:
+  planner_configs:
+    - AnytimePathShortening
+    - SBL
+    - EST
+    - LBKPIECE
+    - BKPIECE
+    - KPIECE
+    - RRT
+    - RRTConnect
+    - RRTstar
+    - TRRT
+    - PRM
+    - PRMstar
+    - FMT
+    - BFMT
+    - PDST
+    - STRIDE
+    - BiTRRT
+    - LBTRRT
+    - BiEST
+    - ProjEST
+    - LazyPRM
+    - LazyPRMstar
+    - SPARS
+    - SPARStwo
+  projection_evaluator: joints(lift_joint)
+  longest_valid_segment_fraction: 0.005
+
+both_arms:
+  planner_configs:
+    - AnytimePathShortening
+    - SBL
+    - EST
+    - LBKPIECE
+    - BKPIECE
+    - KPIECE
+    - RRT
+    - RRTConnect
+    - RRTstar
+    - TRRT
+    - PRM
+    - PRMstar
+    - FMT
+    - BFMT
+    - PDST
+    - STRIDE
+    - BiTRRT
+    - LBTRRT
+    - BiEST
+    - ProjEST
+    - LazyPRM
+    - LazyPRMstar
+    - SPARS
+    - SPARStwo
+  projection_evaluator: joints(openarm_left_joint1,openarm_right_joint1)
+  longest_valid_segment_fraction: 0.005

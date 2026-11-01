@@ -18,7 +18,13 @@
 # limits" (ADR-009 point 3). scripts/limits_sensitivity.py shows whether the named-pose plans depend on the VALUES or only need
 # SOME values to exist.
 #
-# Velocity and position limits are not repeated here: they come from the URDF, which is upstream's.
+# Velocity and position limits are not repeated here: they come from the URDF, which is upstream's for the arm joints.
+#
+# lift_joint (issue #17): its position limits (0 to 0.350 m, the DOLD V4 stroke) and its velocity limit (0.018 m/s, the DOLD V4 no-load
+# speed, datum lift_max_velocity_dold_v4_350, register LIFT) come from the URDF of the simulated profiles, like the arms'. Its acceleration
+# follows the same rule as the arms' and is just as much a placeholder: 0.018 m/s / 2 s = 0.009 m/s^2, rounded to two decimals as every entry
+# here is: 0.01 m/s^2 (in m, not rad). No lift dynamics stand behind it; the real lift is not commanded from here (the real profile has
+# no interface for it).
 
 # For beginners, as upstream: scale requests down unless they ask for more.
 default_velocity_scaling_factor: 0.1
@@ -103,5 +109,10 @@ joint_limits:
   openarm_right_finger_joint1:
     has_acceleration_limits: true
     max_acceleration: 2.5
+    source: engineering_default
+    status: placeholder
+  lift_joint:
+    has_acceleration_limits: true
+    max_acceleration: 0.01
     source: engineering_default
     status: placeholder

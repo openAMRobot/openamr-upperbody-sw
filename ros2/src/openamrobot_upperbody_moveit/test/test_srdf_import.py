@@ -4,7 +4,8 @@
 The groups, the group states `home` and `hands_up`, the end effectors, the passive joints and the arm-internal disable_collisions are
 compared, as sets of attributes, with enactic/openarm_ros2's openarm_bimanual.srdf in the CHECKOUT under src/upstream (which C02 holds
 at the pinned commit). One element is allowed to differ, on purpose: the pair with openarm_body_link0, dropped because this model has no
-OpenArm body (ADR-008). With no checkout there is nothing to compare, and that is a SKIP that says so, the same legitimate case as C02's:
+OpenArm body (ADR-008). The groups this SRDF adds of its own (`lift` and `both_arms`, issue #17) are not imported and are not compared; every
+group upstream declares is still here, exactly as upstream declares it, and no other group is added. With no checkout there is nothing to compare, and that is a SKIP that says so, the same legitimate case as C02's:
 the SRDF is committed, so nothing is lost but this comparison."""
 import os
 
@@ -46,9 +47,18 @@ def pairs(root):
     return {frozenset((d.get("link1"), d.get("link2"))): d.get("reason") for d in root.findall("disable_collisions")}
 
 
+OURS_GROUPS = {"lift", "both_arms"}       # section 2 of the SRDF (issue #17): not imported
+
+
+def imported_groups(root):
+    return {(a, k) for (a, k) in normal(root, "group", ["name"], True) if dict(a)["name"] not in OURS_GROUPS}
+
+
 def test_the_imported_groups_end_effectors_and_passive_joints_are_upstreams():
     up, ours = upstream_srdf(), srdf_root()
-    assert normal(ours, "group", ["name"], True) == normal(up, "group", ["name"], True)
+    assert not OURS_GROUPS & {g.get("name") for g in up.findall("group")}, "upstream now declares a group of the same name: re-import (ADR-007)"
+    assert imported_groups(ours) == normal(up, "group", ["name"], True)
+    assert {g.get("name") for g in ours.findall("group")} - {dict(a)["name"] for a, _ in imported_groups(ours)} == OURS_GROUPS
     assert normal(ours, "end_effector", ["name", "parent_link", "group"]) == normal(up, "end_effector", ["name", "parent_link", "group"])
     assert normal(ours, "passive_joint", ["name"]) == normal(up, "passive_joint", ["name"])
 

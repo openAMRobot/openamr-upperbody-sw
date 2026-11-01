@@ -111,6 +111,41 @@ def on_limit_report(srdf_text, urdf_text, tolerance=ON_LIMIT_TOLERANCE):
             "named_pose_joints_without_a_urdf_limit": unlimited}
 
 
+# --- the margin of every named pose from its joints' limits (issue #17) ------------------------------------------------------------------
+# Every joint of a named pose is to sit at least MIN_POSE_MARGIN_RAD inside both of its URDF limits. The rule is in rad and is for the revolute
+# joints; a prismatic joint (lift_joint, whose named states are the calibration stops and include both ends of the stroke) is listed with its
+# margin in m and is not held to it. test_named_pose_margins.py lists every pose and joint with its margin and fails below the rule.
+MIN_POSE_MARGIN_RAD = 0.05
+
+
+def urdf_joint_types(urdf_text):
+    """{joint: URDF type} for every joint of a URDF."""
+    return {j.get("name"): j.get("type") for j in ET.fromstring(urdf_text).findall("joint")}
+
+
+def pose_margins(states, limits, types):
+    """[{group, pose, joint, type, unit, value, lower, upper, to_lower, to_upper, margin}] for every joint of every named pose, sorted by margin
+    (smallest first). `margin` is the smaller of the two distances to a limit; negative means past it. A joint with no URDF limit gets margin
+    None and is listed, never skipped. `states` is read_group_states, `limits` urdf_joint_limits, `types` urdf_joint_types."""
+    rows = []
+    for (group, pose), joints in sorted(states.items()):
+        for joint, value in sorted(joints.items()):
+            kind = types.get(joint)
+            row = {"group": group, "pose": pose, "joint": joint, "type": kind, "unit": "m" if kind == "prismatic" else "rad", "value": value}
+            if joint in limits:
+                lower, upper = limits[joint]
+                row.update(lower=lower, upper=upper, to_lower=value - lower, to_upper=upper - value, margin=min(value - lower, upper - value))
+            else:
+                row.update(lower=None, upper=None, to_lower=None, to_upper=None, margin=None)
+            rows.append(row)
+    return sorted(rows, key=lambda r: (r["margin"] is None, r["margin"] if r["margin"] is not None else 0.0, r["group"], r["pose"], r["joint"]))
+
+
+def below_margin(rows, minimum=MIN_POSE_MARGIN_RAD):
+    """The rows of revolute (rad) joints closer than `minimum` to a limit, or past it, or with no limit at all."""
+    return [r for r in rows if r["unit"] == "rad" and (r["margin"] is None or r["margin"] < minimum)]
+
+
 if __name__ == "__main__":
     import argparse
     import json

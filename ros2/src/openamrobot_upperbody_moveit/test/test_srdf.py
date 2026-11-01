@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
 """The SRDF is consistent with the combined model at every base plate: names exist, poses are inside limits, the virtual joint is the
-fixed one (W02), and `park` is only a placeholder copy of `home`."""
+fixed one (W02), `park` is a placeholder copy of `home` with joint4 off its limit, and the lift and both-arms groups (issue #17) are what
+they say."""
 import re
 import xml.etree.ElementTree as ET
 
@@ -44,12 +45,32 @@ def test_every_name_the_srdf_uses_exists_in_the_model_at_every_base_plate(base_p
     assert not any("openarm_body_link0" in value for el in srdf.iter() for value in el.attrib.values())
 
 
-def test_the_four_groups_are_exactly_the_arms_and_the_grippers():
-    groups = {g.get("name"): [j.get("name") for j in g.findall("joint")] for g in srdf_root().findall("group")}
-    assert set(groups) == {"left_arm", "right_arm", "left_gripper", "right_gripper"}
+def test_the_groups_are_the_arms_the_grippers_the_lift_and_both_arms():
+    """Upstream's four groups, plus `lift` (lift_joint alone) and `both_arms` (the two arm groups as subgroups, no joint of its own), issue #17."""
+    elements = {g.get("name"): g for g in srdf_root().findall("group")}
+    groups = {name: [j.get("name") for j in g.findall("joint")] for name, g in elements.items()}
+    assert set(groups) == {"left_arm", "right_arm", "left_gripper", "right_gripper", "lift", "both_arms"}
     for side in ("left", "right"):
         assert groups[ARM_GROUP[side]] == ARM_JOINTS[side]
         assert groups[f"{side}_gripper"] == [GRIPPER_JOINT[side]]
+    assert groups["lift"] == ["lift_joint"]
+    assert groups["both_arms"] == [] and [s.get("name") for s in elements["both_arms"].findall("group")] == ["left_arm", "right_arm"]
+
+
+def test_the_lift_states_are_the_calibration_stops():
+    """L1000 / L1175 / L1350 are the calibration stops (register ARM-MOUNT, CONFIG-IDS), as lift_joint positions from option B's config."""
+    from openamrobot_upperbody_moveit.moveit_config import lift_stops
+    states = read_group_states(srdf_text())
+    lift = {name: values for (group, name), values in states.items() if group == "lift"}
+    assert set(lift) == set(lift_stops())
+    for stop, q in lift_stops().items():
+        assert lift[stop] == {"lift_joint": pytest.approx(q, abs=1e-9)}, stop
+
+
+def test_both_arms_park_is_the_two_arms_park():
+    states = read_group_states(srdf_text())
+    assert states[("both_arms", "park")] == {**states[("left_arm", "park")], **states[("right_arm", "park")]}
+    assert {name for (group, name) in states if group == "both_arms"} == {"park"}
 
 
 def test_the_virtual_joint_is_the_fixed_world_to_base_footprint_one_not_the_planar_one():
@@ -81,11 +102,16 @@ def test_every_arm_has_exactly_the_three_named_poses_each_setting_all_seven_join
     assert {name for (group, name) in states if group in ARM_GROUP.values()} == set(ARM_POSES)
 
 
-def test_park_is_a_copy_of_home_and_says_it_is_a_placeholder():
-    """A placeholder is not a licence to invent a shape: `park` is `home` and nothing else, and the file says so beside it."""
+PARK_JOINT4 = 0.1          # rad: `home` puts joint4 on its lower limit 0; `park` is 0.1 rad inside it (issue #17), and differs in nothing else
+
+
+def test_park_is_home_with_joint4_off_its_limit_and_says_it_is_a_placeholder():
+    """A placeholder is not a licence to invent a shape: `park` is `home` with joint4 moved off its lower limit (issue #17) and nothing else,
+    and the file says so beside it."""
     states = read_group_states(srdf_text())
     for side in ("left", "right"):
-        assert states[(ARM_GROUP[side], "park")] == states[(ARM_GROUP[side], "home")]
+        home = states[(ARM_GROUP[side], "home")]
+        assert states[(ARM_GROUP[side], "park")] == {**home, f"openarm_{side}_joint4": PARK_JOINT4}
     text = srdf_text()
     comment = re.search(r"<!--[^>]*`park` is a PLACEHOLDER.*?-->", text, flags=re.S)
     assert comment and "Adnan" in comment.group(0) and "manipulation action contract" in comment.group(0)
