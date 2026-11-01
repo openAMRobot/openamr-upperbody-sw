@@ -212,3 +212,16 @@ The MoveIt configuration, its limits and the gripper evidence are in [`openamrob
 `ros2 launch openamrobot_upperbody_bringup moveit.launch.py sim:=gazebo` starts this simulator and `move_group` together, and M02 (named poses
 in Gazebo at the baseline, lift at `L1000`) runs on the **Bullet-Featherstone** engine for the reason given above. Platform-sw's launch, bridge, world and plugins
 are read and used, never edited.
+
+
+### Orderly shutdown for the combined GUI twin (1 November 2026)
+
+The simulation still uses the installed upstream `JointStatePublisher` class and the same node name, source list, rate and joint ownership. `joint_state_merger.py` only owns its lifecycle: SIGINT/SIGTERM requests a stop, the active callback finishes with a live context, then the executor/node/context are destroyed in that order. Runtime exceptions are not converted into success. The signal-during-callback regression fails when the original complete signal policy is restored. No globally installed ROS code is patched or upgraded.
+
+Gazebo Harmonic's [cmdsim.rb at 8.11.0](https://github.com/gazebosim/gz-sim/blob/gz-sim8_8.11.0/src/cmd/cmdsim.rb.in) owns its GUI/server child shutdown. The fallback launch helper now interrupts only the GUI child in a combined GUI launch and lets that parent stop/reap the server, instead of signalling parent and both children concurrently. Headless operation still interrupts its single native server. Existing stop deadlines and escalation reporting remain unchanged.
+
+For a tracked full GUI launch, use the installed `orderly_sim_shutdown.py --root-pid <launch-pid> --out <evidence.json> --stop-gazebo` before signalling the ROS launch wrapper. It validates the launch owner, closes only descendant RViz windows through ordinary `WM_DELETE_WINDOW` (so MoveIt displays are destroyed before ROS context invalidation), then sends one native Gazebo GUI SIGINT. Gazebo's normal exit triggers the launch's existing shutdown. If a stage does not finish, the helper returns nonzero; the caller may still clean up but must retain that failure. The task's documented `scripts/stop_sim.sh` uses this sequence and records every stage. Direct simultaneous signal delivery is not the tested GUI shutdown procedure.
+
+`xdotool` (BSD-3-Clause, [upstream](https://github.com/jordansissel/xdotool)) is explicitly declared for existing X11 window discovery; ctypes uses the X11 library already required by RViz. `rclpy` is declared as a runtime dependency for the wrapper. Both already exist in the tested dependency image; no version upgrade or hardware interface change is made. The narrow pinned MoveIt 2.12.4 repair remains a separate runtime dependency.
+
+Earlier JSP subscription-take exceptions, Gazebo escalation and the reproduced RViz SIGSEGV remain failure evidence. A successful single cycle is not repeated acceptance: the closeout requires at least three consecutive complete cycles with every launch process exiting0, no exception/escalation and no surviving robot process.

@@ -69,11 +69,15 @@ import yaml
 #     started at all when `context.is_shutdown` is already set (`ros2 launch` and SIGINT: the first firing is a no-op, the second raises
 #     "executed more than once" and abandons the rest of the shutdown).
 # So, once per launch and from a detached helper (this file run as a script: it imports nothing of ROS, starts in milliseconds and does not depend on
-# the launch's state), in this order: SIGINT to the `gz sim` processes; after GZ_STOP_RETRY_AFTER_S, if one is still there, the /server_control
+# the launch's state). The original interrupt targeted all `gz sim` processes; the 1 Nov closeout below targets the GUI owner only.
+# After GZ_STOP_RETRY_AFTER_S, if one is still there, the /server_control
 # request as well; after GZ_STOP_GRACE_S, SIGTERM and then SIGKILL. The servers are followed by pid, because launch's SIGTERM of the shell at 5 s
 # reparents them out of its tree. The helper writes its report to gz_stop_report_path() BEFORE it signals anything harder than SIGINT, and
 # launch_guard.gz_server_shutdown_report reads it (from the evidence directory): a server that had to be forced is a WARN (A7 check W04), and one that is
 # still running after that is the survivor check's FAIL.
+# Closeout 1 Nov: the interrupt targets only the GUI child of a combined launcher,
+# whose native wait2 then stops/reaps its server. It no longer signals that parent
+# and both children simultaneously. See cmdsim.rb at gz-sim8_8.11.0 and regression.
 GZ_STOP_RETRY_AFTER_S = 3.0     # s after the SIGINT before the service request is made as well (a stop takes 1.3-1.8 s when it works)
 GZ_STOP_GRACE_S = 8.0           # s after the first request that a server may take to go on its own; then SIGTERM, then SIGKILL
 GZ_STOP_TERM_WAIT_S = 1.0       # s between the SIGTERM and the SIGKILL
@@ -157,16 +161,23 @@ def request_server_stop(timeout_s=GZ_STOP_REQUEST_TIMEOUT_S):
 
 
 def request_server_stop_by_signal(shell_pid, proc_root="/proc"):
-    """The other way to ask: SIGINT to the `gz sim` processes below `shell_pid`, which is what Ctrl-C in a terminal does (the whole foreground
-    group gets it) and which the server's own handler turns into a stop. -> (sent, text)."""
+    """Request one owned shutdown: GUI child then its launcher-owned server; -s server directly. -> (sent, text)."""
     sent = []
-    for pid in sorted(_descendants(shell_pid, proc_root)) if shell_pid else ():
-        if _live(pid, proc_root) and _is_gz_sim(pid, proc_root):
-            try:
-                os.kill(pid, signal.SIGINT)
-                sent.append(pid)
-            except (ProcessLookupError, PermissionError):
-                pass
+    candidates = [pid for pid in sorted(_descendants(shell_pid, proc_root)) if _live(pid, proc_root) and _is_gz_sim(pid, proc_root)] if shell_pid else []
+    # Harmonic's Ruby launcher owns two process groups. When its GUI exits,
+    # cmdsim.rb wait2 sends exactly one SIGINT to the server and reaps it.
+    # Signalling the launcher AND its children races that ownership: duplicate
+    # interrupts can interrupt Ruby's waitpid and leave launch waiting on the shell.
+    # With the combined GUI launcher, interrupt only the GUI child; with -s,
+    # interrupt the one native server process. Keep tracking every pid below.
+    gui = [pid for pid in candidates if _read(os.path.join(proc_root, str(pid), "cmdline")).replace(b"\0", b" ").strip() == b"gz sim gui"]
+    targets = gui if gui else candidates
+    for pid in targets:
+        try:
+            os.kill(pid, signal.SIGINT)
+            sent.append(pid)
+        except (ProcessLookupError, PermissionError):
+            pass
     return bool(sent), f"SIGINT to {sent}"
 
 
@@ -394,7 +405,7 @@ def generate_launch_description():
         target_action=joint_state_broadcaster, on_exit=after_joint_state_broadcaster))
 
     joint_state_merger = Node(
-        package="joint_state_publisher", executable="joint_state_publisher", name="joint_state_publisher",
+        package=GAZEBO, executable="joint_state_merger.py", name="joint_state_publisher",
         output="screen",
         parameters=[{"use_sim_time": True, "source_list": ["/base/joint_states", "/arm/joint_states"], "rate": 50}])
 

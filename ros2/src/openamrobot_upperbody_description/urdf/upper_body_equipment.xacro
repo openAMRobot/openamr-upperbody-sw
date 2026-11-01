@@ -6,7 +6,7 @@
   CHEST-JSON and LIFT-JSON, chestItems() and liftSensors()), with selected supplier envelope corrections recorded in datums.yaml.
   Placeholders until work package M-09.
 
-  Geometry only: fixed joints, boxes and cylinders, the column's placeholder material. No logic, no ros2_control, no topics,
+  Geometry only: fixed joints, boxes and cylinders, neutral visual materials. No logic, no ros2_control, no topics,
   no command authority. The second E-stop and the lift-stop sensors are drawn here as volumes; nothing here reads, wires or
   acts on them.
 
@@ -38,13 +38,12 @@
     </inertial>
   </xacro:macro>
 
-  <!-- A box as visual and collision, at xyz in the link. Only the collision is named: sdformat applies the link's <gazebo> material block
-       only to unnamed visuals (test_p25_placeholder_material). -->
-  <xacro:macro name="openamrobot_equipment_box" params="name size xyz">
-    <visual>
+  <!-- Existing box geometry/pose/collision is unchanged. Named visuals retain their individual URDF finish through SDFormat conversion; no link-wide override recolours the red actuator or dark sensor bodies. -->
+  <xacro:macro name="openamrobot_equipment_box" params="name size xyz material:=structural_aluminum">
+    <visual name="${name}">
       <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}" rpy="0 0 0"/>
       <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
-      <material name="placeholder_geometry"/>
+      <xacro:openamr_finish material="${material}"/>
     </visual>
     <collision name="${name}">
       <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}" rpy="0 0 0"/>
@@ -70,9 +69,9 @@
 
     <link name="getac_tablet_link">
       <xacro:openamrobot_equipment_box_inertial mass="${eq['getac_tablet_mass']['value']}" size="${tablet}"/>
-      <xacro:openamrobot_equipment_box name="placeholder_getac_tablet" size="${tablet}" xyz="${[0, 0, 0]}"/>
+      <xacro:openamrobot_equipment_box name="placeholder_getac_tablet" material="equipment_black" size="${tablet}" xyz="${[0, 0, 0]}"/>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="getac_tablet_link"/>
+
     <joint name="getac_tablet_joint" type="fixed">
       <parent link="arm_profile_link"/>
       <child link="getac_tablet_link"/>
@@ -81,9 +80,9 @@
 
     <link name="head_light_link">
       <xacro:openamrobot_equipment_box_inertial mass="${eq['head_light_mass']['value']}" size="${light}"/>
-      <xacro:openamrobot_equipment_box name="placeholder_head_light" size="${light}" xyz="${[0, 0, 0]}"/>
+      <xacro:openamrobot_equipment_box name="placeholder_head_light" material="equipment_metal" size="${light}" xyz="${[0, 0, 0]}"/>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="head_light_link"/>
+
     <joint name="head_light_joint" type="fixed">
       <parent link="arm_profile_link"/>
       <child link="head_light_link"/>
@@ -96,14 +95,14 @@
     <xacro:property name="es_collar" lazy_eval="false" value="${eq['second_estop_collar_size']['value']}"/>
     <xacro:property name="es_head" lazy_eval="false" value="${eq['second_estop_head_size']['value']}"/>
     <link name="second_estop_link">
-      <xacro:openamrobot_equipment_box name="placeholder_second_estop_contact_block" size="${es_block}"
+      <xacro:openamrobot_equipment_box name="placeholder_second_estop_contact_block" material="equipment_black" size="${es_block}"
                                        xyz="${[-panel_behind + es_block[0] / 2, 0, 0]}"/>
-      <xacro:openamrobot_equipment_box name="placeholder_second_estop_collar" size="${es_collar}"
+      <xacro:openamrobot_equipment_box name="placeholder_second_estop_collar" material="equipment_metal" size="${es_collar}"
                                        xyz="${[-panel_behind + es_block[0] + es_collar[0] / 2, 0, 0]}"/>
-      <xacro:openamrobot_equipment_box name="placeholder_second_estop_head" size="${es_head}"
+      <xacro:openamrobot_equipment_box name="placeholder_second_estop_head" material="estop_red" size="${es_head}"
                                        xyz="${[-panel_behind + es_block[0] + es_collar[0] + es_head[0] / 2, 0, 0]}"/>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="second_estop_link"/>
+
     <joint name="second_estop_joint" type="fixed">
       <parent link="lift_column_base_link"/>
       <child link="second_estop_link"/>
@@ -121,10 +120,10 @@
     <xacro:property name="b_x" lazy_eval="false" value="${s_len - eq['lift_sensor_bracket_sensor_leg_from_back']['value']}"/>
     <xacro:macro name="openamrobot_lift_stop_sensor" params="stop z">
       <link name="lift_stop_sensor_${stop}_link">
-        <visual>
+        <visual name="lift_stop_sensor_body">
           <origin xyz="${s_len / 2} 0 0" rpy="0 ${pi / 2} 0"/>
           <geometry><cylinder radius="${eq['lift_stop_sensor_diameter']['value'] / 2}" length="${s_len}"/></geometry>
-          <material name="placeholder_geometry"/>
+          <xacro:openamr_finish material="sensor_dark"/>
         </visual>
         <collision name="placeholder_lift_stop_sensor">
           <origin xyz="${s_len / 2} 0 0" rpy="0 ${pi / 2} 0"/>
@@ -149,7 +148,7 @@
         <xacro:openamrobot_equipment_box name="placeholder_lift_sensor_bracket_sensor_leg_right"
             size="${[b_t,span/2-hy-bore/2,bore]}" xyz="${[b_x-b_t/2,cy+(span/2+hy+bore/2)/2,0]}"/>
       </link>
-      <xacro:openamrobot_placeholder_gazebo_material link="lift_stop_sensor_${stop}_link"/>
+
       <joint name="lift_stop_sensor_${stop}_joint" type="fixed">
         <parent link="lift_column_base_link"/>
         <child link="lift_stop_sensor_${stop}_link"/>
@@ -178,7 +177,7 @@
       <xacro:openamrobot_equipment_box name="placeholder_lift_rod_corner_top"
           size="${[rod_w,rod_w,ct]}" xyz="${[0,-rod_w,-ct/2]}"/>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="lift_flag_rod_link"/>
+
     <joint name="lift_flag_rod_joint" type="fixed">
       <parent link="adapter_plate_link"/>
       <child link="lift_flag_rod_link"/>
@@ -186,9 +185,9 @@
       <origin xyz="${rod_x - (-section[0] / 2 + plate_section[0] / 2)} ${rod_y} ${-plate_t / 2}" rpy="0 0 0"/>
     </joint>
     <link name="lift_flag_link">
-      <xacro:openamrobot_equipment_box name="placeholder_lift_flag" size="${flag}" xyz="${[0, 0, 0]}"/>
+      <xacro:openamrobot_equipment_box name="placeholder_lift_flag" material="flag_steel" size="${flag}" xyz="${[0, 0, 0]}"/>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="lift_flag_link"/>
+
     <joint name="lift_flag_joint" type="fixed">
       <parent link="lift_flag_rod_link"/>
       <child link="lift_flag_link"/>

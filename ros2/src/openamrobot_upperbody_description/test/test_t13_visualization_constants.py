@@ -114,7 +114,9 @@ def test_t13_visualization_constants_obey_the_three_rules():
 def test_t13_the_known_visualization_constant_is_found_and_used():
     _, constants = package_constants()
     assert {(c["name"], c["value"]) for c in constants} == {
-        ("openamr_sensor_marker_edge", 0.04), ("openamr_light_window_thickness", 0.001)}
+        ("openamr_sensor_marker_edge", 0.04), ("openamr_light_window_thickness", 0.001),
+        ("openamr_head_support_width", 0.030), ("openamr_head_support_foot", 0.006),
+        ("openamr_head_support_depth", 0.012), ("openamr_head_support_setback", 0.030)}
     assert all(c["uses"] >= 1 for c in constants)                                     # the audit found where it is used
 
 

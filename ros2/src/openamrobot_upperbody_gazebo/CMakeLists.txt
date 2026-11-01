@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 project(openamrobot_upperbody_gazebo)
 find_package(ament_cmake REQUIRED)
 install(DIRECTORY worlds models launch config DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS scripts/joint_state_merger.py scripts/orderly_sim_shutdown.py DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
@@ -12,6 +13,7 @@ if(BUILD_TESTING)
   # how sim.launch.py starts the controllers: the broadcaster's switch timeout and the chain on its exit code (16 Oct); no Gazebo
   ament_add_pytest_test(sim_launch_spawners test/test_sim_launch_spawners.py TIMEOUT 120)
   ament_add_pytest_test(spawn_clearance test/test_spawn_clearance.py TIMEOUT 60)
+  ament_add_pytest_test(joint_state_merger_lifecycle test/test_joint_state_merger_lifecycle.py TIMEOUT 60)
   ament_add_pytest_test(floor_contact test/test_floor_contact.py TIMEOUT 30)
   # G01 starts a real Gazebo server and a controller manager. It picks its own ROS_DOMAIN_ID and GZ_PARTITION (see the test),
   # so it cannot see or be seen by another stack or simulator on the machine. 90 s is the budget for startup and every assertion.
