@@ -72,11 +72,12 @@ def differences(docs, exported, skipped):
 
 
 @pytest.mark.parametrize("base_plate", ["bp000", "bp050"])
-def test_item24_the_export_of_the_urdf_equals_the_docs_model_blocks(base_plate):
+def test_item24_the_export_matches_the_docs_with_explicit_supplier_reconciliation(base_plate):
     exported = exporter.export(ET.fromstring(expand_xml(base_plate=base_plate, arm_package="none")), load_datums()["datums"])
     doc = fixture()
     for block in ("CHEST-JSON", "LIFT-JSON"):
-        problems = differences(json.loads(doc["blocks"][block]), exported[block], exporter.NOT_EXPORTED[block])
+        reference = exporter.supplier_reference(json.loads(doc["blocks"][block]), block, load_datums()["datums"])
+        problems = differences(reference, exported[block], exporter.NOT_EXPORTED[block])
         assert not problems, f"{block} at {base_plate} (docs {doc['commit'][:7]}):\n" + "\n".join(problems)
     problems = differences(exporter.docs_head_camera(head_camera_source()), exported["HEAD-CAMERA"], exporter.NOT_EXPORTED["HEAD-CAMERA"])
     assert not problems, f"HEAD-CAMERA at {base_plate} (docs {doc['commit'][:7]}):\n" + "\n".join(problems)
@@ -103,5 +104,16 @@ def test_item24_the_comparison_can_fail():
 
 
 def test_item24_the_tool_skips_only_what_the_urdf_cannot_carry():
-    assert exporter.NOT_EXPORTED == {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis", "drawn.head_light.window"],
+    assert exporter.NOT_EXPORTED == {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis"],
                                      "LIFT-JSON": [], "HEAD-CAMERA": []}
+
+
+def test_raw_roadmap_comparison_keeps_supplier_conflicts_visible():
+    exported = exporter.export(ET.fromstring(expand_xml(arm_package="none")), load_datums()["datums"])
+    doc = fixture()
+    problems = {block: differences(json.loads(doc["blocks"][block]), exported[block], exporter.NOT_EXPORTED[block])
+                for block in ("CHEST-JSON", "LIFT-JSON")}
+    assert any("window" in p for p in problems["CHEST-JSON"])
+    assert any("bracket.leg" in p for p in problems["LIFT-JSON"])
+    assert any("bracket.t" in p for p in problems["LIFT-JSON"])
+    assert any("bracket_h" in p for p in problems["LIFT-JSON"])

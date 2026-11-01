@@ -66,13 +66,10 @@ ros2 run openamrobot_upperbody_moveit regenerate_acm.sh [--base-plate bp000]    
 ros2 run openamrobot_upperbody_moveit regenerate_acm.sh --write                        # replaces the contract (and the fingerprint): a decision, read the diff
 ```
 
-The contract (`contract:` in `acm_generation.yaml`): **198 pairs (49 `Adjacent`, 149 `ConstantTransform`), 20 of them declared by upstream**, fingerprint
-`sha256:4c464d7634e6b9625e85b66cd256093c3bd1d4dcfe4ffb08f4cb61327c0dfb2b`, re-derived on 1 Nov when the ZED Mini body (head_camera_link) and the
-OpenArm mount placeholder (head_camera_bracket_link) became geometry links (19 new pairs: 3 `Adjacent`, 16 `ConstantTransform`; none removed or
-relabelled; 198 of 1081 pairs of 47 geometry links disabled, 883 enabled). It was 179 pairs (46 + 133), fingerprint
-`sha256:75c1ab9a0d97ec9bd144af9003077d282bf53b8edfec262ef705a9d9a3926331`, derived earlier on 1 Nov when the P-03 item 24 equipment added eight fixed
-geometry links (80 new pairs: 8 `Adjacent`, 72 `ConstantTransform`; none removed or relabelled; 179 of 990 pairs of 45 geometry links disabled,
-811 enabled). It was 99 pairs (38 + 61), fingerprint `sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
+The integrated contract (`contract:` in `acm_generation.yaml`) has **173 pairs (46 `Adjacent`, 127 `ConstantTransform`), 20 declared by upstream**, fingerprint
+`sha256:88d25de484d90cce85955c69504456fb0808dffca8ec11f3a14ded84e6f014c5`.
+On 1 Nov, official PR #26's sole ZED Mini body and provisional mount replace the twin housing/support; platform #106 removes the legacy camera collision box. Existing derivation rules apply only to geometry-bearing links; the unreleased mount remains visual-only. The legacy camera geometry's 15 pairs are removed. No permanent collision is waived. Supplier envelopes/apertures and the rod corner remain. Historical twin: 188 pairs (47 Adjacent, 141 ConstantTransform); official #26 before #106: 198 pairs (49 + 149).
+It was 99 pairs (38 + 61), fingerprint `sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
 (four new pairs, one relabelled `Adjacent` to `ConstantTransform`); it was 95 pairs (37 + 58) from 16 Oct, when the lift column's two stages got placeholder
 boxes (follow-up (a)); it was 83 pairs (38 + 45) in P15 and 113 pairs (36 + 77) with the fixed mast; P15 re-derived it (the model <!-- decision-allow: LIFT historical: the matrix count with the superseded fixed mast -->
 changed and the contract is the file, so this is a contract change, in the diff). **The by-construction set shrank from 77 to 45 on purpose:** a

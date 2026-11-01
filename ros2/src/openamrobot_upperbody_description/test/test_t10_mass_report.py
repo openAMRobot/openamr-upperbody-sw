@@ -31,7 +31,7 @@ GROUPS = [  # key, label, what the number is (its provenance STATE is read from 
     ("base", "base (platform-sw)", "platform-sw CAD export"),
     ("lift", "lift (ours)", "catalogue mass (lift_mass_dold_v4_350) on a placeholder box"),
     ("openarm", "openarm_* (upstream)", "upstream nominal, arms + grippers, no body (ADR-008)"),
-    ("sensors", "sensors (ours)", "upper-sensor frames carry no <inertial> by design"),
+    ("sensors", "sensors (ours)", "head housing supplier mass; wrist cameras and mounts remain incomplete"),
     ("equipment", "equipment (item 24)", "supplier masses (getac_tablet_mass, head_light_mass) on boxes"),
     ("equipment_no_mass", "equipment, no mass", "item 24 parts with no stated mass carry no <inertial>"),
     ("unclassified", "unclassified", "massed links not in the frame contract"),
@@ -215,6 +215,25 @@ def test_t10_the_groups_partition_the_total():
     every = [l.get("name") for l in root.findall("link") if l.find("inertial") is not None]
     assert sorted(n for names in links.values() for n in names) == sorted(every)
     assert abs(sum(kg.values()) - sum(float(m.get("value")) for m in root.iter("mass"))) < 1e-9
+
+
+def test_d8_supplier_masses_are_counted_once_on_the_moving_equipment():
+    from urdf_utils import fixed_fk
+    root, datums = expand(), load_datums()["datums"]
+    mapping = {"getac_tablet_link": "getac_tablet_mass", "head_light_link": "head_light_mass",
+               "head_camera_link": "head_camera_mass"}
+    expected = 0.0
+    for link, datum in mapping.items():
+        entry = datums[datum]
+        assert entry["source"] == "supplier" and entry["status"] == "provisional"
+        assert entry["ref"].strip()
+        assert len(root.findall(f"link[@name='{link}']/inertial/mass")) == 1
+        mass = float(root.find(f"link[@name='{link}']/inertial/mass").get("value"))
+        assert abs(mass - entry["value"]) < 1e-12
+        fixed_fk(root, "lift_carriage_link", link)  # cannot silently attach to the fixed column
+        expected += mass
+    kg, _ = mass_by_group(root)
+    assert abs(kg["sensors"] + kg["equipment"] - expected) < 1e-12
 
 
 def test_t10_the_upstream_arms_are_the_known_nominal_mass():

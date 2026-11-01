@@ -102,10 +102,15 @@ python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate b
 ```
 
 Reads the expanded URDF (poses, box and cylinder sizes) and prints the two blocks in the format of openamrobot-docs
-`docs/assets/roadmap/model/model.js`. Not exported, because the URDF does not carry them: `second_estop.glb_node`, `second_estop.glb_axis` and
-`drawn.head_light.window`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
+`docs/assets/roadmap/model/model.js`. Not exported, because the URDF does not carry them: `second_estop.glb_node` and `second_estop.glb_axis`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
 (`lift_static_profile_top_below_column_top`). `test_item24_docs_model_values.py` compares the output with a verbatim fixture of the blocks
 (docs `cd780d6`), 0.5 mm tolerance; `--model-js <model.js>` compares with a live file (exit 1 on a difference).
+
+### Twin supplier reconciliation
+
+The twin consumes PR #26's canonical `upper_body_equipment.xacro` and official frames. The historical docs fixture stays byte-for-byte unchanged. `export_docs_model_values.py --model-js ...` reports raw roadmap differences; tests reconcile only the named supplier dimensions in `SOURCE_RECONCILIATIONS`, reading their values from `datums.yaml`. The 0.5 mm comparison tolerance is unchanged. Falcon housing/window and SICK bracket dimensions are independently asserted against the selected manufacturer drawings. The bracket aperture is bounded from actual URDF collision rectangles.
+
+The provisional rod mounting corner is part of the rod's rigid assembly, with two additional boxes on its existing link. The official head_camera_link owns the sole ZED Mini body and supplier mass; head_camera_bracket_link owns the sole provisional mount. The light diffuser remains an additive visual detail. No second item-24 model or alternate set of numeric configuration constants remains. No dynamic lift controller is supplied.
 
 ### `v01_rear_captures/`: three rear views for V01
 

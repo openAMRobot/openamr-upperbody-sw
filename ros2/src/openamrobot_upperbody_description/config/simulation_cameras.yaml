@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+# Proposed: https://github.com/openAMRobot/openamr-upperbody-sw/issues/24
+# Ideal monocular views, not delivered hardware calibration or ZED stereo.
+status: Proposed
+classification: documented estimate
+profile:
+  width: 640
+  height: 480
+  horizontal_fov_rad: 1.5707963267948966
+  rate_hz: 10
+  near_m: 0.02
+  far_m: 10.0
+cameras:
+  head_camera:
+    link: head_camera_link
+    optical_frame: head_camera_optical_frame
+    image: /head_camera/image_raw
+    camera_info: /head_camera/camera_info
+  left_wrist_camera:
+    link: left_wrist_camera_link
+    optical_frame: left_wrist_camera_optical_frame
+    image: /left_wrist_camera/image_raw
+    camera_info: /left_wrist_camera/camera_info
+  right_wrist_camera:
+    link: right_wrist_camera_link
+    optical_frame: right_wrist_camera_optical_frame
+    image: /right_wrist_camera/image_raw
+    camera_info: /right_wrist_camera/camera_info

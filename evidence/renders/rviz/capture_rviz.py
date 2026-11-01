@@ -32,7 +32,7 @@ print(out[0] if out else 'NONE')
 
 
 def window_id():
-    tree = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True).stdout
+    tree = subprocess.run(["xwininfo", "-root", "-tree"], capture_output=True, text=True, timeout=10).stdout
     for line in tree.splitlines():
         if "capture.rviz" in line and "RViz" in line:
             return re.search(r"0x[0-9a-f]+", line).group(0)
@@ -50,6 +50,12 @@ def pids_in_domain(domain):
             if f"ROS_DOMAIN_ID={domain}".encode() in env:
                 found.append(int(p))
     return found
+
+
+
+def capture_window(win, png, timeout=30):
+    """Bound the X grab; a stalled display must not consume the CI job."""
+    subprocess.run([sys.executable, os.path.join(HERE, "xgrab.py"), win, png], check=True, timeout=timeout)
 
 
 def shoot(stop, bp, domain, outdir):
@@ -70,10 +76,16 @@ def shoot(stop, bp, domain, outdir):
         lift = subprocess.run([sys.executable, "-c", READ_LIFT], env=env, capture_output=True, text=True, timeout=60).stdout.strip()
         record["lift_joint_read_m"] = None if lift == "NONE" else float(lift)
         png = os.path.join(outdir, f"rviz_{stop}_{bp}.png")
-        subprocess.run([sys.executable, os.path.join(HERE, "xgrab.py"), win, png], check=True)
+        capture_window(win, png)
         record["png"], record["window"] = os.path.basename(png), win
         record["ok"] = record["lift_joint_read_m"] is not None and abs(record["lift_joint_read_m"] - STOPS[stop]) < 1e-6
+    except Exception as exc:
+        record["ok"] = False
+        record["capture_error"] = repr(exc)
+        raise
     finally:
+        # Persist partial diagnostics even if capture fails or times out.
+        json.dump(record, open(os.path.join(outdir, f"rviz_{stop}_{bp}.json"), "w"), indent=1)
         os.killpg(proc.pid, signal.SIGINT)
         try:
             proc.wait(timeout=30)
@@ -88,6 +100,8 @@ def shoot(stop, bp, domain, outdir):
             except OSError:
                 pass
         record["left_running_after_stop"] = len(left)
+        json.dump(record, open(os.path.join(outdir, f"rviz_{stop}_{bp}.json"), "w"), indent=1)
+        log.close()
     json.dump(record, open(os.path.join(outdir, f"rviz_{stop}_{bp}.json"), "w"), indent=1)
     print(json.dumps(record))
     return record

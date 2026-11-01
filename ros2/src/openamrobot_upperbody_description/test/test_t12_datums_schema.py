@@ -296,17 +296,37 @@ def _getac_tablet_portrait_size_assertion(tmp_path):
     assert _box(root, "getac_tablet_link", "collision") == pytest.approx(tuple(land)), "the drawn tablet is the landscape box"
 
 
+def _head_camera_bracket_foot_size_assertion(tmp_path):
+    """All three axes of the unreleased visual foot follow its sole datum."""
+    size = (0.031, 0.057, 0.083)
+    root = _expansion_with("head_camera_bracket_foot_size", size, tmp_path)
+    link = root.find("link[@name='head_camera_bracket_link']")
+    assert link.find("collision") is None and link.find("inertial") is None
+    box = link.find("visual[@name='placeholder_head_camera_bracket_foot']/geometry/box")
+    assert tuple(float(v) for v in box.get("size").split()) == pytest.approx(size)
+
+
 def _head_camera_bracket_post_section_assertion(tmp_path):
     """x fore-aft first, y lateral second, on the mount post's box; its height is derived (lens line minus profile top), not this datum."""
     x, y = 0.031, 0.057
     root = _expansion_with("head_camera_bracket_post_section", (x, y), tmp_path)
-    box = root.find("link[@name='head_camera_bracket_link']/collision[@name='placeholder_head_camera_bracket_post']/geometry/box")
+    box = root.find("link[@name='head_camera_bracket_link']/visual[@name='placeholder_head_camera_bracket_post']/geometry/box")
     assert tuple(float(v) for v in box.get("size").split())[:2] == pytest.approx((x, y))
 
 
 # one entry per dimension list in datums.yaml: how the xacro consumes it, asserted against an expansion. A list with no entry here
 # FAILS (test_t12_every_dimension_list_has_its_assignment_asserted): a pair of dimensions whose axes are only a note in prose is
 # the V01-F1 defect (the 90 degree mast profile, wrong for six steps and not seen by one test).
+def _equipment_section_assertion(datum, link):
+    def check(tmp_path):
+        # Distinct dimensions catch swapped axes; the consumer must use all three.
+        size = (0.011, 0.027, 0.043)
+        root = _expansion_with(datum, size, tmp_path)
+        for kind in ("visual", "collision"):
+            assert _box(root, link, kind) == pytest.approx(size)
+    return check
+
+
 AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_inner_section": _lift_inner_section_assertion,
                    "adapter_plate_section": _adapter_plate_section_assertion,
                    "getac_tablet_size": _equipment_box_assertion("getac_tablet_size", "getac_tablet_link", "placeholder_getac_tablet"),
@@ -320,8 +340,7 @@ AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_
                                                                                "placeholder_second_estop_contact_block"),
                    "lift_flag_size": _equipment_box_assertion("lift_flag_size", "lift_flag_link", "placeholder_lift_flag"),
                    "head_camera_size": _equipment_box_assertion("head_camera_size", "head_camera_link", "placeholder_head_camera_body"),
-                   "head_camera_bracket_foot_size": _equipment_box_assertion("head_camera_bracket_foot_size", "head_camera_bracket_link",
-                                                                             "placeholder_head_camera_bracket_foot"),
+                   "head_camera_bracket_foot_size": _head_camera_bracket_foot_size_assertion,
                    "head_camera_bracket_post_section": _head_camera_bracket_post_section_assertion}
 AXES_BY_LENGTH = {2: ("x", "y"), 3: ("x", "y", "z")}
 

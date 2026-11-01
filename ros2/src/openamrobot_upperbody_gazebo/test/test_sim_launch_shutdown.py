@@ -251,3 +251,20 @@ def test_the_first_json_message_is_taken_when_gz_topic_prints_two():
     assert support.first_json_message(one + "\n" + '{"pose": [{"name": "b"}]}\n') == {"pose": [{"name": "a"}]}, "json.loads raised 'Extra data' here"
     with pytest.raises(ValueError):
         support.first_json_message("  \n")
+
+
+def test_combined_launcher_receives_one_owned_stop_not_three_competing_interrupts(sim, tmp_path, monkeypatch):
+    """Real Harmonic hierarchy: shell -> Ruby launcher -> independent GUI/server groups.
+    The Ruby parent owns wait2/killProcess; signal its GUI only so it stops the server once.
+    """
+    for pid, parent, args in [(100, 1, b'/bin/sh\0-c\0ruby gz sim\0'),
+                              (101, 100, b'gz sim -r world.sdf\0'),
+                              (102, 101, b'gz sim server\0'),
+                              (103, 101, b'gz sim gui\0')]:
+        p = tmp_path / str(pid); p.mkdir()
+        (p / 'stat').write_text(f'{pid} (test) S {parent} ' + '0 ' * 30)
+        (p / 'cmdline').write_bytes(args)
+    signalled = []
+    monkeypatch.setattr(sim.os, 'kill', lambda pid, sig: signalled.append((pid, sig)))
+    sent, text = sim.request_server_stop_by_signal(100, str(tmp_path))
+    assert sent and signalled == [(103, signal.SIGINT)], signalled

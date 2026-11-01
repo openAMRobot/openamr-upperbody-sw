@@ -5,17 +5,18 @@
   needs. Nothing else. Simulation bringup (ADR-003) lives here, not in the description: the model carries its own
   gz_ros2_control and DiffDrive plugins, and this world only has to run them.
 
-    Physics        steps the world (DART, the Harmonic default)
+    Physics        steps the world with the explicitly selected engine
     UserCommands   lets ros_gz_sim `create` add the model
     SceneBroadcaster  the GUI's view of the scene
     Sensors        the base camera and lidar of platform-sw (ogre2); the model is not usable for navigation without it
 
-  1 ms steps at real time factor 1, the same physics block as platform-sw's walled_world.sdf.
+  0.125 ms steps: full articulated Bullet model convergence checked at 1, 0.25 and 0.125 ms.
+  Real time factor 1 is a target; actual rate depends on the renderer and host.
 -->
 <sdf version="1.6">
   <world name="empty">
-    <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+    <physics name="eighth_ms" type="ignored">
+      <max_step_size>0.000125</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
@@ -38,6 +39,15 @@
       <link name="link">
         <collision name="collision">
           <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>
+          <!-- Ideal rigid floor, not a measured material. gz-physics 7.6 defaults
+               spinning friction to 1. Bullet combines both bodies' spinning
+               friction, so setting only the wheels to zero still locks yaw.
+               Keep sliding friction at its existing default of 1. -->
+          <surface><friction>
+            <ode><mu>1</mu><mu2>1</mu2></ode>
+            <bullet><friction>1</friction><friction2>1</friction2><rolling_friction>0</rolling_friction></bullet>
+            <torsional><coefficient>0</coefficient></torsional>
+          </friction></surface>
         </collision>
         <visual name="visual">
           <geometry><plane><normal>0 0 1</normal><size>20 20</size></plane></geometry>

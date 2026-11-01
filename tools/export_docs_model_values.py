@@ -14,7 +14,7 @@ HEAD-CAMERA (model.js has no JSON block for it) is printed in model.js's own ter
 the ZED box and the mount; docs_head_camera() reads the same values from model.js source.
 
 Not exported (the URDF does not carry them): CHEST-JSON second_estop.glb_node and glb_axis (the docs model's handle on the base E-stop mesh
-of the platform GLB), drawn.head_light.window (the diffuser window, not modelled). One value is read from its datum, not the URDF: the
+of the platform GLB). One value is read from its datum, not the URDF: the
 docs model's static profile top (datum lift_static_profile_top_below_column_top), which second_estop.below_top is measured from; the URDF's
 column box runs to the column top. The output says so.
 """
@@ -26,7 +26,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 
-NOT_EXPORTED = {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis", "drawn.head_light.window"], "LIFT-JSON": [], "HEAD-CAMERA": []}
+NOT_EXPORTED = {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis"], "LIFT-JSON": [], "HEAD-CAMERA": []}
 BLOCKS = ("CHEST-JSON", "LIFT-JSON", "HEAD-CAMERA")
 # model.js has no JSON block for the head camera: its values are M.DIMS entries and literals of upperBody() and M.build(). HEAD-CAMERA is this
 # tool's name for them, in model.js's own terms: ZED_X (lens line from the column axis), ZED_ABOVE_SH, MOUNT_ABOVE_COL, the default head pitch,
@@ -62,6 +62,34 @@ def docs_head_camera(js_text):
 FROM_DATUM = {"CHEST-JSON second_estop.below_top": "lift_static_profile_top_below_column_top (the docs model's static profile top)"}
 STOPS = ["L1000", "L1175", "L1350"]
 
+# Source exceptions are datum names, not a second set of dimensions. The original
+# roadmap fixture stays unchanged and raw --model-js comparisons report differences.
+SOURCE_RECONCILIATIONS = {
+    "CHEST-JSON": {"drawn.head_light.size": "head_light_size",
+                   "drawn.head_light.window[0]": "head_light_window_width",
+                   "drawn.head_light.window[1]": "head_light_window_height"},
+    "LIFT-JSON": {"bracket.leg": "lift_sensor_bracket_leg",
+                  "bracket.t": "lift_sensor_bracket_thickness",
+                  "bracket_h": "lift_sensor_bracket_height"},
+}
+
+
+def supplier_reference(reference, block, datums):
+    """Return a copy with only documented supplier dimensions reconciled."""
+    import copy
+    import re
+    result = copy.deepcopy(reference)
+    for path, datum in SOURCE_RECONCILIATIONS[block].items():
+        entry = datums[datum]
+        assert entry["source"] == "supplier" and "https://" in entry["ref"]
+        keys = re.findall(r"[^.\[\]]+", path)
+        target = result
+        for key in keys[:-1]:
+            target = target[int(key)] if isinstance(target, list) else target[key]
+        key = int(keys[-1]) if isinstance(target, list) else keys[-1]
+        target[key] = entry["value"]
+    return result
+
 
 def _rpy(r, p, y):
     cr, sr, cp, sp, cy, sy = np.cos(r), np.sin(r), np.cos(p), np.sin(p), np.cos(y), np.sin(y)
@@ -94,12 +122,12 @@ class Urdf:
             link = joint.find("parent").get("link")
         return t
 
-    def shape(self, link, name=None):
-        """(pose of the collision in the link, size list) of the link's collision `name` (or its only collision)."""
-        collisions = self.root.findall(f"link[@name='{link}']/collision")
+    def shape(self, link, name=None, kind="collision"):
+        """(local pose, size list) of the named geometry; visual-only references select kind=visual."""
+        collisions = self.root.findall(f"link[@name='{link}']/{kind}")
         if name is not None:
             collisions = [c for c in collisions if c.get("name") == name]
-        assert len(collisions) == 1, f"{link}: {len(collisions)} collisions named {name!r}"
+        assert len(collisions) == 1, f"{link}: {len(collisions)} {kind} shapes named {name!r}"
         c = collisions[0]
         g = c.find("geometry")
         if g.find("box") is not None:
@@ -133,6 +161,8 @@ def export(root, datums):
         centre = pose @ local
         assert abs(centre[0, 3] - size[0] / 2 - front) < 1e-9, f"{item}: rear face is not on the arm-profile front face"
         drawn[item] = {"z": r(centre[2, 3]), "size": [r(s) for s in size]}
+    window = root.find("link[@name='head_light_window_link']/visual/geometry/box")
+    drawn["head_light"]["window"] = [r(v) for v in window.get("size").split()[1:]]
     order = sorted(drawn, key=lambda k: drawn[k]["z"])
     tablet_bottom = drawn["getac_tablet"]["z"] - drawn["getac_tablet"]["size"][2] / 2
     light_top = drawn["head_light"]["z"] + drawn["head_light"]["size"][2] / 2
@@ -146,11 +176,17 @@ def export(root, datums):
     s0 = sensors[0]
     _, (d, length) = u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_stop_sensor")
     face_leg, face_leg_size = u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_sensor_bracket_face_leg")
-    sensor_leg, sensor_leg_size = u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_sensor_bracket_sensor_leg")
+    # Bound the actual four aperture rectangles; do not infer their dimensions from datums.
+    pieces = [u.shape("lift_stop_sensor_l1000_link", "placeholder_lift_sensor_bracket_sensor_leg_" + side)
+              for side in ("top", "bottom", "left", "right")]
+    low = np.min([pose[:3, 3] - np.array(size)/2 for pose, size in pieces], axis=0)
+    high = np.max([pose[:3, 3] + np.array(size)/2 for pose, size in pieces], axis=0)
+    sensor_leg, sensor_leg_size = np.eye(4), high-low
+    sensor_leg[:3, 3] = (low+high)/2
     flag = u.pose("lift_carriage_link", "lift_flag_link")
     _, flag_size = u.shape("lift_flag_link")
     rod = u.pose("lift_carriage_link", "lift_flag_rod_link")
-    rod_local, rod_size = u.shape("lift_flag_rod_link")
+    rod_local, rod_size = u.shape("lift_flag_rod_link", "placeholder_lift_flag_rod")
     underside = plate[2, 3] - plate_box[2] / 2
     face_x = s0[0, 3]
     lift = {"face": "left" if s0[1, 3] > 0 else "right",
@@ -172,8 +208,8 @@ def export(root, datums):
     body_local, body = u.shape("head_camera_link", "placeholder_head_camera_body")
     assert abs(body_local[1, 3]) < 1e-12 and abs(body_local[2, 3]) < 1e-12, "the ZED body is not centred on the lens line"
     bracket = u.pose("lift_carriage_link", "head_camera_bracket_link")
-    _, foot = u.shape("head_camera_bracket_link", "placeholder_head_camera_bracket_foot")
-    _, post = u.shape("head_camera_bracket_link", "placeholder_head_camera_bracket_post")
+    _, foot = u.shape("head_camera_bracket_link", "placeholder_head_camera_bracket_foot", kind="visual")
+    _, post = u.shape("head_camera_bracket_link", "placeholder_head_camera_bracket_post", kind="visual")
     profile_top = profile[2, 3] + profile_box[2] / 2
     assert abs(bracket[2, 3] - profile_top) < 1e-9, "the mount foot is not on the arm-profile top"
     assert abs(bracket[2, 3] + post[2] - lens[2, 3]) < 1e-9, "the mount post does not reach the lens line"

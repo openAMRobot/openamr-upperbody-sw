@@ -357,3 +357,18 @@ Nothing in this package is a measured value or a hardware result. In particular:
   `JointStatePublisher` is scoped to the wheels, so on Gazebo `joint_state_publisher` reports it at zero and on mock a stub
   reports the operating point (`lift_position`).
 - **No physical evidence.** Static expansion and forward kinematics in this package's report; a simulator in the Gazebo report.
+
+### Selected equipment envelopes (1 November 2026)
+
+`datums.yaml` revision `2026-11-01.b` uses the selected manufacturer dimensions for the Falcon FLDL-i150x15-W and SICK BEF-WN-M12 / 5308447. Sources: [Falcon Rev 1.6, pp1–2](https://www.falconillumination.de/datasheet/FLDL-i150x15.pdf) and [SICK drawing, p2](https://www.sick.com/media/pdf/1/41/441/dataSheet_BEF-WN-M12_5308447_en.pdf). These replace the roadmap's smaller light and oversized bracket illustration. The tablet-to-light edge gap remains 30 mm. Bracket corners/slots and the bore are simplified collision geometry, not fabrication drawings. M-09 still owns mounting placement, interfaces and portrait-tablet clearance. No dynamic lift controller is provided.
+
+
+### Reference appearance and provisional camera support (1 November 2026)
+
+The canonical combined model retains the approved camera pivot, `hp30`, optical frames and simulation profile. A visual-only foot and upright on the existing `head_camera_mount_link` connect the profile top to the housing. Their 30 mm footprint/setback, 6 mm foot and 12 mm stem depth reproduce the assembled roadmap's `head_camera_bracket`; the rise is derived from the existing profile top and lens height. No link, joint, collision, mass or inertia is added. The support follows the lift carriage at all three static height configurations; this is geometry evidence, not dynamic lift actuation.
+
+Source: [roadmap model at cd780d6](https://github.com/openAMRobot/openamrobot-docs/blob/cd780d6368625f4c653dfa287efc0688c37be82a/docs/assets/roadmap/model/model.js), `buildUpper()` / `head_camera_bracket`; [option-B bracket description](https://github.com/openAMRobot/openamr-upperbody-hw/blob/e760126b2b79611e0a915ab2bc11e15afb22cd8b/docs/mechanical/upper_body_option_B.md#head-camera-bracket). Released mounting CAD and the end-holding OpenArm bracket fit remain pending. These drawing constants are explicitly provisional presentation, not approved manufacturing dimensions. The absence of added collision/mass is intentional and must not be treated as a physical bracket model.
+
+Upper structure and brackets are neutral aluminum, the tablet and sensor bodies dark, the light housing neutral metal and the second E-stop actuator red. Existing OpenArm mesh materials are preserved. Presentation no longer uses brown to indicate uncertainty: datums/provenance retain that status. Structural URDF/Gazebo colours match explicitly. Named multi-material equipment visuals use Harmonic's native SDFormat conversion (RGB multiplied by 1.25 and clamped); the conversion test verifies every selected finish and prevents a link-wide override from whitening the tablet or actuator. No meshes are duplicated or altered.
+
+Focused checks compare every nonvisual model element before/after, camera matrices at all ten base-plate/head-pitch combinations and three lift positions, support contact, viewing-cone clearance and both material paths. Optical streams, intrinsics, timestamps/rates, joint limits, collision geometry and nominal mass accounting remain unchanged. Full A6/A7 and Bullet evidence belongs to the exact paired commits in the twin draft, not to a claim of released hardware matching.

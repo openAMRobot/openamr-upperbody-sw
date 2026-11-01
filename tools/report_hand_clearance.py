@@ -67,12 +67,14 @@ def origin_matrix(element):
     return t
 
 
-def link_meshes(root, link, kind):
+def link_meshes(root, link, kind, mesh_filename=None):
     """[(4x4 in the link, triangles (n,3,3))] of the link's <kind> meshes."""
     out = []
     for element in root.findall(f"link[@name='{link}']/{kind}"):
         mesh = element.find("geometry/mesh")
         if mesh is None:
+            continue
+        if mesh_filename is not None and mesh.get("filename").rsplit("/", 1)[-1] != mesh_filename:
             continue
         tris = load_stl(resolve(mesh.get("filename")))
         scale = np.array([float(v) for v in mesh.get("scale", "1 1 1").split()])
@@ -207,10 +209,13 @@ def worker(base_plate, out_path):
         scene.set_joint_positions(rest)
         root = scene.urdf_root
         geometry = {l.get("name") for l in root.findall("link") if l.find("collision") is not None}
-        cover_tris = [transform(scene.state.get_global_link_transform("base_link") @ t, tris)
-                      for t, tris in link_meshes(root, "base_link", "visual")]
-        cover_files = [m.get("filename") for m in root.findall("link[@name='base_link']/visual/geometry/mesh")]
-        cover = cover_tris[[i for i, f in enumerate(cover_files) if f.endswith(COVER_MESH)][0]]
+        # Select the measured cover before loading: other base visuals include
+        # material-capable COLLADA equipment, which is not part of this distance.
+        covers = link_meshes(root, "base_link", "visual", mesh_filename=COVER_MESH)
+        if len(covers) != 1:
+            raise ValueError(f"Expected exactly one {COVER_MESH} visual, found {len(covers)}")
+        t, tris = covers[0]
+        cover = transform(scene.state.get_global_link_transform("base_link") @ t, tris)
         cover_top = float(cover.reshape(-1, 3)[:, 2].max())
         box = root.find("link[@name='base_link']/collision")
         box_top = float(scene.state.get_global_link_transform("base_link")[2, 3] + origin_matrix(box)[2, 3]

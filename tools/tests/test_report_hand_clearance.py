@@ -2,6 +2,7 @@
 """tools/report_hand_clearance.py: the mesh distance is exact for triangles and never reports a gap where the meshes intersect. NumPy only."""
 import os
 import sys
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import pytest
@@ -45,3 +46,22 @@ def test_parallel_faces_give_the_gap_and_the_height_bound_agrees():
     assert rhc.mesh_distance(above, below) == pytest.approx(0.099)
     assert rhc.height_gap(above, below) == pytest.approx(0.099)
     assert rhc.height_gap(below, above) < 0, "the bound says nothing when the meshes overlap in height"
+
+
+def test_cover_selection_does_not_parse_unrelated_collada_equipment(tmp_path):
+    """The canonical platform has a colored DAE visual beside its STL cover."""
+    cover = tmp_path / rhc.COVER_MESH
+    cover.write_text("solid cover\nfacet normal 0 0 1\nouter loop\n"
+                     "vertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\n"
+                     "endloop\nendfacet\nendsolid cover\n")
+    equipment = tmp_path / "base_equipment.dae"
+    equipment.write_text("<COLLADA/>")
+    root = ET.fromstring(f'''<robot><link name="base_link">
+      <visual><geometry><mesh filename="{equipment}"/></geometry></visual>
+      <visual><origin xyz="0 0 0.2"/><geometry><mesh filename="{cover}" scale="2 2 2"/></geometry></visual>
+    </link></robot>''')
+    meshes = rhc.link_meshes(root, "base_link", "visual", mesh_filename=rhc.COVER_MESH)
+    assert len(meshes) == 1
+    pose, triangles = meshes[0]
+    np.testing.assert_array_equal(pose[:3, 3], [0, 0, 0.2])
+    np.testing.assert_array_equal(triangles, tri((0, 0, 0), (2, 0, 0), (0, 2, 0)))

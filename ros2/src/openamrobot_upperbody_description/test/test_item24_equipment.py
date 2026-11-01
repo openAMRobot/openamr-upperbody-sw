@@ -229,7 +229,7 @@ def test_item24_the_head_camera_mount_runs_from_the_profile_top_to_the_lens_line
     lens = fixed_fk(root, "lift_carriage_link", "head_camera_link")
     profile_top = geo["adapter_plate_thickness"] + geo["arm_profile"]["length"]
     assert bracket[2, 3] == pytest.approx(profile_top, abs=1e-12), "the mount foot is not on the arm-profile top"
-    post = root.find("link[@name='head_camera_bracket_link']/collision[@name='placeholder_head_camera_bracket_post']")
+    post = root.find("link[@name='head_camera_bracket_link']/visual[@name='placeholder_head_camera_bracket_post']")
     height = float(post.find("geometry/box").get("size").split()[2])
     assert bracket[2, 3] + height == pytest.approx(lens[2, 3], abs=1e-12), "the mount post does not reach the lens line"
     assert lens[0, 3] - bracket[0, 3] == pytest.approx(v("head_camera_bracket_x_behind_lens"), abs=1e-12)

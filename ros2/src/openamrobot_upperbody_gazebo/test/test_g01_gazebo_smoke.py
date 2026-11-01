@@ -26,6 +26,7 @@ Simulation evidence only. Nothing here says anything about a physical robot, and
 properties of this simulator on this machine. The base's physical numbers (wheel radius, separation, accelerations) are
 platform-sw's, not measured here.
 """
+import json
 import math
 import os
 import random
@@ -61,6 +62,7 @@ from trajectory_msgs.msg import JointTrajectoryPoint  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sim_test_support import ros_type_name, write_g_sidecar  # noqa: E402
+from sim_clock_guard import spin_sim_seconds  # noqa: E402
 
 from ament_index_python.packages import get_package_prefix as _prefix  # noqa: E402
 
@@ -79,6 +81,11 @@ FINGERS = ["openarm_left_finger_joint1", "openarm_right_finger_joint1"]
 WHEELS = ["left_wheel_joint", "right_wheel_joint"]
 LIFT = "lift_joint"
 ACTIVE_WITHIN_S = 75.0
+# Leave six seconds for launch teardown inside CTest's unchanged 90-second budget.
+ASSERTION_WALL_SECONDS = 84.0
+TF_OBSERVATION_SECONDS = 5.0
+JOINT_OBSERVATION_SECONDS = 2.0
+LAUNCH_STARTED = None
 ARM_TARGET = {"openarm_left_joint1": 0.2, "openarm_left_joint2": -0.3, "openarm_left_joint4": 0.8}   # inside every limit
 ARM_SECONDS = 3                 # simulated seconds
 TRACK_TOLERANCE = 0.02          # rad
@@ -91,6 +98,8 @@ SINGLE_PUBLISHER_BAND = (35.0, 65.0)        # sim-time Hz: a second publisher wo
 
 @pytest.mark.launch_test
 def generate_test_description():
+    global LAUNCH_STARTED
+    LAUNCH_STARTED = time.monotonic()
     sim = os.path.join(get_package_share_directory("openamrobot_upperbody_gazebo"), "launch", "sim.launch.py")
     return launch.LaunchDescription([
         launch.actions.IncludeLaunchDescription(PythonLaunchDescriptionSource(sim),
@@ -107,6 +116,8 @@ class TestGazeboSmoke(unittest.TestCase):
         rclpy.init()
         cls.node = rclpy.create_node("g01_test", parameter_overrides=[Parameter("use_sim_time", value=True)])
         cls.started = time.monotonic()
+        cls.wall_deadline = LAUNCH_STARTED + ASSERTION_WALL_SECONDS
+        cls.record = {"wall_budget_s": 90, "assertion_wall_budget_s": ASSERTION_WALL_SECONDS, "timings": {}}
         cls.joint_states, cls.odom = {}, []
         cls.node.create_subscription(JointState, "/joint_states", lambda m: cls.joint_states.update(zip(m.name, m.position)), 10)
         cls.node.create_subscription(Odometry, "/odom", lambda m: cls.odom.append(m), 100)
@@ -120,24 +131,82 @@ class TestGazeboSmoke(unittest.TestCase):
         cls.node.destroy_node()
         rclpy.shutdown()
 
+    def setUp(self):
+        self.case_wall, self.case_sim = time.monotonic(), self._sim_now()
+        self.last_sim, self.last_progress = self.case_sim, self.case_wall
+        self.max_clock_gap = 0.0
+        self.next_checkpoint = self.case_wall + 5.0
+        self._checkpoint("start")
+
+    def tearDown(self):
+        self._checkpoint("end")
+
+    def _checkpoint(self, event):
+        wall, sim = time.monotonic(), self._sim_now()
+        elapsed, advanced = wall - self.case_wall, sim - self.case_sim
+        timing = {"event": event, "wall_start_s": self.case_wall - LAUNCH_STARTED,
+                  "wall_elapsed_s": elapsed, "sim_start_s": self.case_sim, "sim_end_s": sim,
+                  "sim_elapsed_s": advanced, "real_time_factor": advanced / elapsed if elapsed else 0.0,
+                  "max_observed_clock_gap_wall_s": self.max_clock_gap}
+        self.record["timings"][self._testMethodName] = timing
+        print("G01_TIMING " + json.dumps({"test": self._testMethodName, **timing}), flush=True)
+        # A partial sidecar remains FAIL (required measurements are missing). Flush each
+        # checkpoint so an outer timeout cannot erase the timing/clock evidence.
+        write_g_sidecar("G01", "gazebo_smoke", "combined robot in Gazebo: arm controllers, arm goal, Nav2-facing topics unchanged",
+                        self.record)
+
     # --- helpers ---------------------------------------------------------------------------------------------------------
+    def _remaining_wall(self):
+        remaining = self.wall_deadline - time.monotonic()
+        self.assertGreater(remaining, 0.0, "G01 assertion wall budget exhausted; see G01_TIMING checkpoints")
+        return remaining
+
+    def _spin_once(self):
+        rclpy.spin_once(self.node, timeout_sec=min(0.05, self._remaining_wall()))
+        wall, sim = time.monotonic(), self._sim_now()
+        self.max_clock_gap = max(self.max_clock_gap, wall - self.last_progress)
+        if sim != self.last_sim:
+            self.last_sim, self.last_progress = sim, wall
+        if wall >= self.next_checkpoint:
+            self._checkpoint("progress")
+            self.next_checkpoint = wall + 5.0
+
     def _spin_until(self, predicate, seconds):
-        deadline = time.monotonic() + seconds
+        deadline = time.monotonic() + min(seconds, self._remaining_wall())
         while time.monotonic() < deadline:
-            rclpy.spin_once(self.node, timeout_sec=0.05)
+            self._spin_once()
             if predicate():
                 return True
+        self._remaining_wall()
         return predicate()
 
     def _sim_now(self):
         return self.node.get_clock().now().nanoseconds * 1e-9
 
     def _spin_sim_seconds(self, seconds, on_tick=None):
-        start = self._sim_now()
-        while self._sim_now() - start < seconds:
-            if on_tick:
-                on_tick()
-            rclpy.spin_once(self.node, timeout_sec=0.05)
+        spin_sim_seconds(seconds, sim_now=self._sim_now, spin_once=self._spin_once,
+                         wall_deadline=self.wall_deadline, on_tick=on_tick)
+
+    def _start_observations(self):
+        # Observe the same running robot during the unchanged arm/base motions. Keep
+        # EVERY message until checks 5/6, and wait there if the full 5/2 sim s have
+        # not elapsed. No sampling, shortened window, or relaxed assertion.
+        cls = type(self)
+        cls.observation_start = self._sim_now()
+        cls.tf_messages = []
+        cls.tf_sub = self.node.create_subscription(TFMessage, "/tf", cls.tf_messages.append, 200)
+        cls.sources = {"/joint_states": [], "/base/joint_states": [], "/arm/joint_states": []}
+        cls.source_subs = [self.node.create_subscription(JointState, topic,
+                           lambda m, t=topic: cls.sources[t].append(list(m.name)), 50) for topic in cls.sources]
+
+    def _finish_observation(self, seconds):
+        elapsed = self._sim_now() - self.observation_start
+        if elapsed < seconds:
+            self._spin_sim_seconds(seconds - elapsed)
+        elapsed = self._sim_now() - self.observation_start
+        self.assertGreaterEqual(elapsed, seconds, "incomplete simulation observation window")
+        return {"sim_start_s": self.observation_start, "sim_end_s": self._sim_now(),
+                "sim_elapsed_s": elapsed, "required_sim_seconds": seconds}
 
     def _controller_states(self):
         future = self.list_controllers.call_async(ListControllers.Request())
@@ -151,12 +220,13 @@ class TestGazeboSmoke(unittest.TestCase):
 
     # --- 1 ---------------------------------------------------------------------------------------------------------------
     def test_g01_1_all_five_controllers_active(self):
-        self.assertTrue(self.list_controllers.wait_for_service(timeout_sec=ACTIVE_WITHIN_S),
+        self.assertTrue(self.list_controllers.wait_for_service(timeout_sec=min(ACTIVE_WITHIN_S, self._remaining_wall())),
                         f"/controller_manager/list_controllers did not appear within {ACTIVE_WITHIN_S:.0f} s")
         states = {}
         while time.monotonic() < self.started + ACTIVE_WITHIN_S:
             states = self._controller_states()
             if all(states.get(name) == "active" for name in CONTROLLERS):
+                self._start_observations()
                 self.record["controllers"] = states
                 self.record["controllers_active_after_s"] = round(time.monotonic() - self.started, 1)
                 return
@@ -172,7 +242,7 @@ class TestGazeboSmoke(unittest.TestCase):
         target = {j: ARM_TARGET.get(j, 0.0) for j in LEFT}
 
         client = ActionClient(self.node, FollowJointTrajectory, "/left_arm_controller/follow_joint_trajectory")
-        self.assertTrue(client.wait_for_server(timeout_sec=10.0), "left_arm_controller has no action server")
+        self.assertTrue(client.wait_for_server(timeout_sec=min(10.0, self._remaining_wall())), "left_arm_controller has no action server")
         goal = FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = LEFT
         goal.trajectory.points = [JointTrajectoryPoint(positions=[target[j] for j in LEFT], velocities=[0.0] * 7,
@@ -227,8 +297,10 @@ class TestGazeboSmoke(unittest.TestCase):
         count = len(self.odom)
         twist = Twist()
         twist.linear.x = DRIVE_SPEED
-        self._spin_sim_seconds(DRIVE_SECONDS, on_tick=lambda: self.cmd_vel.publish(twist))
-        self.cmd_vel.publish(Twist())
+        try:
+            self._spin_sim_seconds(DRIVE_SECONDS, on_tick=lambda: self.cmd_vel.publish(twist))
+        finally:
+            self.cmd_vel.publish(Twist())
         self._spin_sim_seconds(0.5)
         after = self._base_xy()
         distance = math.hypot(after[0] - before[0], after[1] - before[1])
@@ -258,9 +330,10 @@ class TestGazeboSmoke(unittest.TestCase):
                 elif "odom" in key:
                     others[key] = others.get(key, 0) + 1
 
-        sub = self.node.create_subscription(TFMessage, "/tf", on_tf, 200)
-        self._spin_sim_seconds(5.0)
-        self.node.destroy_subscription(sub)
+        observation = self._finish_observation(TF_OBSERVATION_SECONDS)
+        self.node.destroy_subscription(self.tf_sub)
+        for message in self.tf_messages:
+            on_tf(message)
         self.assertGreater(len(stamps), 100, f"odom -> {child} was not published")
         increasing = all(b > a for a, b in zip(stamps, stamps[1:]))
         rate = (len(stamps) - 1) / (stamps[-1] - stamps[0])
@@ -275,7 +348,7 @@ class TestGazeboSmoke(unittest.TestCase):
         self.assertNotIn('<link name="odom"', description.replace("'", '"'), "`odom` is a link of the description")
         self.assertNotIn('name="base_planar_joint"', description.replace("'", '"'),
                          "the planar joint is in the description: KDL would make it a fixed joint (W02)")
-        self.record["odom_to_base_frame"] = {"child_frame": child, "samples": len(stamps), "sim_rate_hz": round(rate, 1), "stamps_strictly_increasing": increasing,
+        self.record["odom_to_base_frame"] = {"observation": observation, "child_frame": child, "samples": len(stamps), "sim_rate_hz": round(rate, 1), "stamps_strictly_increasing": increasing,
                                             "expected_rate_hz": DIFFDRIVE_ODOM_HZ, "other_transforms_with_odom": others,
                                             "tf_publishers": publishers, "odom_is_a_link_of_the_description": False,
                                             "planar_joint_in_description": False}
@@ -292,11 +365,9 @@ class TestGazeboSmoke(unittest.TestCase):
 
     # --- 6 ---------------------------------------------------------------------------------------------------------------
     def test_g01_6_joint_states_carry_wheels_and_arms_each_once(self):
-        sources = {"/joint_states": [], "/base/joint_states": [], "/arm/joint_states": []}
-        subs = [self.node.create_subscription(JointState, topic, lambda m, t=topic: sources[t].append(list(m.name)), 50)
-                for topic in sources]
-        self._spin_sim_seconds(2.0)
-        for sub in subs:
+        observation = self._finish_observation(JOINT_OBSERVATION_SECONDS)
+        sources = self.sources
+        for sub in self.source_subs:
             self.node.destroy_subscription(sub)
         for topic, messages in sources.items():
             self.assertTrue(messages, f"{topic} published nothing")
@@ -317,7 +388,7 @@ class TestGazeboSmoke(unittest.TestCase):
         self.assertEqual(publishers["/joint_states"], ["joint_state_publisher"], "/joint_states must have exactly one publisher")
         self.assertEqual(publishers["/base/joint_states"], ["base_joint_states_bridge"])
         self.assertEqual(publishers["/arm/joint_states"], ["joint_state_broadcaster"])
-        self.record["joint_states"] = {"publishers": publishers, "merged_joint_count": len(merged),
+        self.record["joint_states"] = {"observation": observation, "publishers": publishers, "merged_joint_count": len(merged),
                                        "merged_joints": sorted(merged), "base_source_joints": sorted(base_names),
                                        "arm_source_joint_count": len(arm_names),
                                        "joints_reported_by_both_sources": [], "duplicates_within_a_message": []}

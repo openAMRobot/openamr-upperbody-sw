@@ -96,3 +96,33 @@ def test_a_signal_to_the_running_node_is_exit_0_with_its_counters_printed(floode
         output, _ = process.communicate(timeout=20)
         assert process.returncode == 0, f"attempt {attempt}: exit {process.returncode} on {sig.name}:\n{output[-2000:]}"
         assert "final counters" in output and "Traceback" not in output, output[-2000:]
+
+
+@pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM], ids=["SIGINT", "SIGTERM"])
+def test_signal_during_callback_preserves_context_until_callback_returns(flooded_domain, sig):
+    """A signal requests shutdown; it must not invalidate a running callback's context.
+
+    The old rclpy signal handler closed the context asynchronously, sometimes
+    racing message conversion. Signal inside a callback to check the lifetime
+    directly instead of relying on a particular message conversion race.
+    """
+    probe = (
+        "import importlib.util, os, signal, time\n"
+        f"spec = importlib.util.spec_from_file_location('clamp_target', {SCRIPT!r})\n"
+        "module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)\n"
+        "class ActiveCallback(module.JointStateClamp):\n"
+        "    def __init__(self):\n"
+        "        super().__init__(); self.timer = self.create_timer(0.1, self.stop_during_callback)\n"
+        "    def stop_during_callback(self):\n"
+        f"        os.kill(os.getpid(), {int(sig)})\n"
+        "        time.sleep(0.05)\n"
+        "        assert self.context.ok(), 'ROS context closed before the active callback returned'\n"
+        "        print('active callback completed with a live context', flush=True)\n"
+        "module.JointStateClamp = ActiveCallback\n"
+        f"raise SystemExit(module.main(['--ros-args', '-p', 'robot_description:=' + {URDF!r}]))\n"
+    )
+    process = subprocess.run([sys.executable, "-c", probe], stdout=subprocess.PIPE,
+                             stderr=subprocess.STDOUT, text=True, timeout=20)
+    assert process.returncode == 0, process.stdout
+    assert "active callback completed with a live context" in process.stdout, process.stdout
+    assert "final counters" in process.stdout and "Traceback" not in process.stdout, process.stdout

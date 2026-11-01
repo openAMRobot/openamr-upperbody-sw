@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Additive simulation detail. Canonical item-24 equipment is upper_body_equipment.xacro.
+     Positions remain provisional until M-09; no control or safety implementation. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="openamr_simulation_equipment_details" params="datums">
+    <xacro:property name="dt" value="${datums['datums']}"/>
+    <xacro:property name="light" value="${dt['head_light_size']['value']}"/>
+    <!-- Visualization constant: thickness of the material marker over the housing face; it affects only a visual. -->
+    <xacro:property name="openamr_light_window_thickness" value="0.001"/>
+    <link name="head_light_window_link">
+      <visual>
+        <geometry><box size="${openamr_light_window_thickness} ${dt['head_light_window_width']['value']} ${dt['head_light_window_height']['value']}"/></geometry>
+        <material name="light_diffuser"><color rgba="0.91 0.94 0.95 1"/></material>
+      </visual>
+    </link>
+    <joint name="head_light_window_joint" type="fixed">
+      <parent link="head_light_link"/><child link="head_light_window_link"/>
+      <origin xyz="${light[0]/2} 0 0"/>
+    </joint>
+
+  </xacro:macro>
+</robot>

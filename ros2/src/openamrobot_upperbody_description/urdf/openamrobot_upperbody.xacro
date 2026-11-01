@@ -79,21 +79,18 @@
     <xacro:property name="lens" value="${geo['head_camera_lens']}" lazy_eval="false"/>
     <xacro:property name="profile" value="${geo['arm_profile']}" lazy_eval="false"/>
 
-    <!-- Presentation only, not a datum: one colour for every placeholder box. -->
-    <xacro:property name="placeholder_rgba" value="0.78 0.64 0.45 1.0" lazy_eval="false"/>
-    <material name="placeholder_geometry">
-      <color rgba="${placeholder_rgba}"/>
-    </material>
-    <xacro:macro name="openamrobot_placeholder_gazebo_material" params="link">
-      <gazebo reference="${link}">
-        <visual>
-          <material>
-            <ambient>${placeholder_rgba}</ambient>
-            <diffuse>${placeholder_rgba}</diffuse>
-            <specular>0.1 0.1 0.1 1.0</specular>
-          </material>
-        </visual>
-      </gazebo>
+    <!-- Presentation only: neutral reference finishes do not assert released hardware geometry.
+         Material names are shared by the URDF and Gazebo extensions. -->
+    <xacro:property name="openamr_finishes" value="${dict(structural_aluminum='0.63 0.67 0.71 1', adapter_gray='0.25 0.28 0.31 1', equipment_black='0.035 0.045 0.055 1', equipment_metal='0.45 0.48 0.52 1', sensor_dark='0.09 0.10 0.11 1', estop_red='0.80 0.025 0.025 1', flag_steel='0.20 0.22 0.25 1')}"/>
+    <xacro:macro name="openamr_finish" params="material">
+      <material name="${material}"><color rgba="${openamr_finishes[material]}"/></material>
+    </xacro:macro>
+    <xacro:macro name="openamr_gazebo_finish" params="link material">
+      <gazebo reference="${link}"><visual><material>
+        <ambient>${openamr_finishes[material]}</ambient>
+        <diffuse>${openamr_finishes[material]}</diffuse>
+        <specular>0.15 0.15 0.15 1</specular>
+      </material></visual></gazebo>
     </xacro:macro>
 
     <!-- Column axis on the base-plate top face (height reference, 304 mm). -->
@@ -109,7 +106,7 @@
         <visual>
           <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
           <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${col['retracted_length']}"/></geometry>
-          <material name="placeholder_geometry"/>
+          <xacro:openamr_finish material="structural_aluminum"/>
         </visual>
         <collision name="placeholder_lift_column_fixed_stage">
           <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
@@ -118,7 +115,7 @@
       </xacro:unless>
     </link>
     <xacro:unless value="${column_geometry == ''}">
-      <xacro:openamrobot_placeholder_gazebo_material link="lift_column_base_link"/>
+      <xacro:openamr_gazebo_finish material="structural_aluminum" link="lift_column_base_link"/>
     </xacro:unless>
     <joint name="lift_column_base_joint" type="fixed">
       <parent link="${parent}"/>
@@ -137,14 +134,14 @@
         <visual>
           <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
           <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
-          <material name="placeholder_geometry"/>
+          <xacro:openamr_finish material="structural_aluminum"/>
         </visual>
         <collision name="placeholder_lift_column_moving_stage">
           <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
           <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
         </collision>
       </link>
-      <xacro:openamrobot_placeholder_gazebo_material link="lift_carriage_link"/>
+      <xacro:openamr_gazebo_finish material="structural_aluminum" link="lift_carriage_link"/>
     </xacro:unless>
     <joint name="lift_joint" type="prismatic">
       <parent link="lift_column_base_link"/>
@@ -161,13 +158,13 @@
       <link name="adapter_plate_link">
         <visual>
           <geometry><box size="${adapter_plate['size_x']} ${adapter_plate['size_y']} ${geo['adapter_plate_thickness']}"/></geometry>
-          <material name="placeholder_geometry"/>
+          <xacro:openamr_finish material="adapter_gray"/>
         </visual>
         <collision name="adapter_plate">
           <geometry><box size="${adapter_plate['size_x']} ${adapter_plate['size_y']} ${geo['adapter_plate_thickness']}"/></geometry>
         </collision>
       </link>
-      <xacro:openamrobot_placeholder_gazebo_material link="adapter_plate_link"/>
+      <xacro:openamr_gazebo_finish material="adapter_gray" link="adapter_plate_link"/>
       <joint name="adapter_plate_joint" type="fixed">
         <parent link="lift_carriage_link"/>
         <child link="adapter_plate_link"/>
@@ -179,13 +176,13 @@
     <link name="arm_profile_link">
       <visual>
         <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
-        <material name="placeholder_geometry"/>
+        <xacro:openamr_finish material="structural_aluminum"/>
       </visual>
       <collision>
         <geometry><box size="${profile['size_x']} ${profile['size_y']} ${profile['length']}"/></geometry>
       </collision>
     </link>
-    <xacro:openamrobot_placeholder_gazebo_material link="arm_profile_link"/>
+    <xacro:openamr_gazebo_finish material="structural_aluminum" link="arm_profile_link"/>
     <!-- With the adapter plate modelled the profile hangs off the plate it stands on (P28): the two faces touch by design (the profile's bottom
          face is the plate's top face), and two siblings that touch would be a permanent collision of the model, where a parent and its child are
          a structural neighbour. The profile's pose from the carriage is the same either way: x center_x_from_column_axis, z thickness + length / 2. -->
@@ -220,6 +217,7 @@
 
     <!-- Head camera (ZED Mini). head_camera_mount_link is the pitch pivot on the
          lens line; head_camera_link is pitched down by head_pitch about y. -->
+    <!-- Official item-24 bracket owns the support geometry; this remains the lens-line pivot. -->
     <link name="head_camera_mount_link"/>
     <joint name="head_camera_mount_joint" type="fixed">
       <parent link="lift_carriage_link"/>
@@ -234,7 +232,6 @@
       <link name="head_camera_link">
         <xacro:openamrobot_head_camera_body datums="${datums}"/>
       </link>
-      <xacro:openamrobot_placeholder_gazebo_material link="head_camera_link"/>
     </xacro:unless>
     <joint name="head_camera_pitch_joint" type="fixed">
       <parent link="head_camera_mount_link"/>
