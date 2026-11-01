@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-10-30.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-01.c"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -16,6 +16,8 @@ report_only:
   - gross_mass_limit
   - f2s_vehicle_mass_estimate
   - joint_rest_margin_rad
+  - getac_tablet_portrait_size
+  - getac_tablet_portrait_pivot
 
 # Datums whose xacro consumer has not been written yet: <datum>: <step that will consume it>.
 # The step that adds the consumer deletes the entry in the same commit; T13 fails if it does not.
@@ -153,3 +155,329 @@ datums:
     ref: "M07 (VERIFICATION.md, rev19.0 pass, 14 Oct 2026): no joint's rest position may sit within this many radians of either of its limits. Chosen from what was measured in P17 (evidence/m02_bisect/RESULTS.md, 'Finger torque at rest'): the rest position of one joint differs between runs of an unchanged tree by up to 2.8e-4 rad (left_finger_joint1; 9e-6 for the right finger), and the arm joint4s rest 9.3e-5 to 1.0e-4 inside their lower limit. A margin below the between-run scatter makes M07 pass in one run and fail in the next; 1e-3 is 3.6 times the largest scatter seen and about 0.057 degrees."
     owner: "architecture chat (M07) / Tushar"
     note: "A margin, not a hardware number: it feeds no model and no xacro (report_only). Replace it with a figure someone has a reason for (a joint's mechanical stop clearance, a controller deadband) when one exists. It is not tuned to any outcome: at 1e-3 the check FAILS on four joints (both finger_joint1 and both joint4), and it would fail the old body on the same four, because in both bodies the open and zero poses ARE limits. Changing the value changes M07's verdict and nothing else."
+
+  # ---- P-03 item 24 equipment (upper_body_equipment.xacro). Placeholders until work package M-09: the positions are the documentation
+  # model's (openamrobot-docs model.js), so the robot description and the docs model are the same robot. Frames: lift_carriage_link
+  # (column axis at the column top, lift 0 = L1000) for the moving parts, lift_column_base_link (column axis on the base-plate top) for
+  # the static ones; x forward, y left, z up. tools/export_docs_model_values.py prints these back from the expanded URDF.
+  getac_tablet_size:
+    value: [0.0176, 0.234, 0.1498]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.size; Getac ZX80 outer dimensions 234 x 149.8 x 17.6 mm"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Default landscape position: 17.6 deep (screen forward), 234 across, 149.8 tall. Dock not drawn (as in the docs model)."
+
+  getac_tablet_mass:
+    value: 0.590
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ (component label: 590 g, P-03 rev20.0 item 24, 28 Oct 2026 correction); Getac ZX80"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The tablet alone, no dock or mount: a supplier figure, not weighed here. Carried as a uniform box of getac_tablet_size."
+
+  getac_tablet_z_above_column_top:
+    value: 0.246
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.z"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Centre of the tablet above the column top at lift 0 (L1000), on lift_carriage_link."
+
+  chest_equipment_x_from_profile_front_face:
+    value: 0.0
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems(): both boxes start at f = MOUNT_X + PROFILE.X / 2 (the arm-profile front face), slab x = f + depth / 2"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The rear faces of the Getac box and the head light housing on the arm-profile front face; both centred laterally on the profile (the docs model sets no y)."
+
+  getac_tablet_portrait_size:
+    value: [0.0176, 0.1498, 0.234]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.2 item 26 (rotatable tablet mount, second position portrait: 149.8 wide x 234 tall, rotation about the screen normal); Getac ZX80 outer dimensions"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Report only: the portrait envelope is recorded, never drawn, and is not a configuration ID. Landscape with y and z exchanged (a quarter turn about x, the screen normal); T12 asserts that."
+
+  getac_tablet_portrait_pivot:
+    value: null
+    source: placeholder
+    status: placeholder
+    ref: "not stated: P-03 rev20.2 item 26 gives the rotation axis (the screen normal) but not the point it passes through, and model.js draws no portrait position"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Report only. Source not stated. The portrait collision report assumes the pivot is the landscape centre and says so; that is an assumption of the report, not a datum."
+
+  head_light_size:
+    value: [0.020, 0.158, 0.017]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.head_light.size; Falcon Illumination FLDL-i150x15-W housing 158 x 17 x 20 mm"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Housing only: 20 deep, 158 across the chest, 17 tall. The docs model also draws a 1 mm diffuser window over the 148 x 13 lit area (drawn.head_light.window); it is not modelled here."
+
+  head_light_mass:
+    value: 0.110
+    source: supplier
+    status: provisional
+    ref: "P-03 item 24: Falcon FLDL-i150x15-W, at most 0.110 kg"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "An upper bound from the task statement, not a weighed figure. Carried as a uniform box of head_light_size."
+
+  head_light_gap_below_tablet:
+    value: 0.030
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ gap_light_tablet (drawn.head_light.z = drawn.getac_tablet.z - getac height / 2 - gap - light height / 2 = 0.1326)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The head light top edge 30 mm below the Getac bottom edge. The head light height is derived from this, not stored twice."
+
+  second_estop_below_profile_top:
+    value: 0.040
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ second_estop.below_top"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Button axis below the static profile top."
+
+  second_estop_panel_behind_profile:
+    value: 0.048
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ second_estop.panel_ahead"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Panel face (the button axis origin of the GLB estop node, x 0.390 in base_link) 48 mm behind the static profile rear face, so the contact block stands on the rear face. The button faces rearward."
+
+  lift_static_profile_top_below_column_top:
+    value: 0.018
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems(): static profile top = column top - D.COL.HEAD (0.012) - 0.006"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The docs model's static DOLD profile top (its top cap) is 18 mm below the retracted column top. Only the second E-stop height reads it; the column box itself is unchanged (retracted length)."
+
+  second_estop_head_size:
+    value: [0.014, 0.040, 0.040]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: placeholder
+    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems() copies the GLB node estop of docs/assets/roadmap/model/base_glb.js (openamr-platform-sw PR #100 placeholder, Schneider XB4BS8445 with ZBE-102, datasheet dimensions): primitive 0, x 0.410 to 0.424, y 0.110 to 0.150, z 0.0245 to 0.0645 in base_link"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Mushroom head, outermost (x along the button axis, outward)."
+
+  second_estop_collar_size:
+    value: [0.022, 0.022, 0.022]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: placeholder
+    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems() copies the GLB node estop of docs/assets/roadmap/model/base_glb.js (openamr-platform-sw PR #100 placeholder, Schneider XB4BS8445 with ZBE-102, datasheet dimensions): primitive 1, x 0.388 to 0.410, y 0.119 to 0.141, z 0.0335 to 0.0555 in base_link"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Collar through the panel (2 mm behind the panel face to the head)."
+
+  second_estop_contact_block_size:
+    value: [0.046, 0.030, 0.047]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: placeholder
+    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems() copies the GLB node estop of docs/assets/roadmap/model/base_glb.js (openamr-platform-sw PR #100 placeholder, Schneider XB4BS8445 with ZBE-102, datasheet dimensions): primitive 2, x 0.342 to 0.388, y 0.115 to 0.145, z 0.021 to 0.068 in base_link"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Contact block behind the panel; its rear face is second_estop_panel_behind_profile behind the panel face. The three boxes stack along the axis in this order, all centred on it."
+
+  lift_stop_sensor_z_l1000:
+    value: 0.120
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ z[0] (stop L1000)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Sensor axis above the column base (base-plate top)."
+
+  lift_stop_sensor_z_l1175:
+    value: 0.295
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ z[1] (stop L1175)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Sensor axis above the column base (base-plate top)."
+
+  lift_stop_sensor_z_l1350:
+    value: 0.470
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ z[2] (stop L1350)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Sensor axis above the column base (base-plate top)."
+
+  lift_stop_sensor_face_x:
+    value: -0.095
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ face_x"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Sensing faces, from the column axis (x). The set is on the left side face (+y) of the static profile (LIFT-JSON face: left); the sensor axis runs along x and senses rearward."
+
+  lift_stop_sensor_axis_from_face:
+    value: 0.015
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ axis_off (LIFT-SNS-01 View 2)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Sensor axis outboard of the static profile left face."
+
+  lift_stop_sensor_diameter:
+    value: 0.012
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ sensor.d; SICK IME12-04BNSZC0S, M12"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Thread diameter: the cylinder envelope. The two M12 nuts the docs model draws are not modelled."
+
+  lift_stop_sensor_length:
+    value: 0.048
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ sensor.len; SICK IME12-04BNSZC0S housing length 48 mm"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+
+  lift_sensor_bracket_leg:
+    value: 0.040
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ bracket.leg (SICK BEF-WN-M12 angle bracket, as drawn)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Both legs of the angle; issue #23 records the docs bracket envelope versus the supplier drawing as an open discrepancy."
+
+  lift_sensor_bracket_thickness:
+    value: 0.004
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ bracket.t (SICK BEF-WN-M12, as drawn)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+
+  lift_sensor_bracket_sensor_leg_from_back:
+    value: 0.028
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ bracket.at"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The sensor-carrying leg (its front face) is this far ahead of the sensor back end."
+
+  lift_sensor_bracket_height:
+    value: 0.025
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ bracket_h"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Not given in LIFT-SNS-01; the docs model draws 25 mm."
+
+  lift_flag_size:
+    value: [0.002, 0.045, 0.020]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ flag; SS400 flag 45 x 20 x 2 mm"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "2 thick (x, toward the sensor faces), 45 lateral, 20 tall."
+
+  lift_flag_gap:
+    value: 0.002
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ gap"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Air gap between the flag and the sensor faces."
+
+  lift_flag_offset_from_face:
+    value: 0.005
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ flag_off"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Flag inner edge outboard of the static profile left face."
+
+  lift_flag_below_plate:
+    value: 0.410
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ flag_below_plate"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Flag centre below the adapter plate underside (the carriage frame)."
+
+  lift_flag_rod_width:
+    value: 0.020
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ rod.w; MISUMI 5 series 20 x 20"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+
+  lift_flag_rod_length:
+    value: 0.430
+    source: supplier
+    status: provisional
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ rod.len; MISUMI 5 series 20 x 20, 430 mm"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Hanging from the adapter plate underside. The corner bracket the docs model draws is not modelled."
+
+  lift_flag_rod_offset_from_face:
+    value: 0.030
+    source: plan
+    status: placeholder
+    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8; drawing LIFT-SNS-01 rev 1; BOM Issue 7.14 LFT-001 to LFT-006); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ rod.off"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Rod inner face outboard of the static profile left face (the rod is 9 mm beside the sensors)."
+
+  # ---- Head camera body and mount (follow-up to P-03 item 24, 1 Nov 2026): register HEAD-CAMERA-IDENTITY (ZED Mini on the lift carriage, held
+  # by the mount supplied with the OpenArm set on a pitch bracket on the arm-profile top). The lens pose itself stays option B's
+  # (upperbody_configuration.yaml geometry.head_camera_lens); these datums are the body around it and the mount under it.
+  head_camera_size:
+    value: [0.0265, 0.1245, 0.0305]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: supplier
+    status: provisional
+    ref: "Stereolabs product page https://www.stereolabs.com/en-in/store/products/zed-mini (124.5 x 30.5 x 26.5 mm, 60 g) and the Stereolabs ZED Mini datasheet, Mouser copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf (124.5 x 30.5 x 26.5 mm, 62.9 g, baseline 63 mm); both read first-hand by the project owner on 1 Nov 2026. Neither source labels the axes; the axis assignment is the one openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() draws: box(zed, .0265, .1245, .0305, ...) in the pitched head-camera group"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "In head_camera_link: x along the optical axis (26.5), y across (124.5), z up (30.5). DISCREPANCY, not resolved: Stereolabs zed_description 0.1.5 (zed_macro.urdf.xacro, model zedm) gives height 0.0265, and its zedm.stl measures 29.5 (x) x 125.2 (y) x 26.6 (z) mm, i.e. 26.5 is the height there, not the depth. The docs model assignment is kept so the description equals the docs model; the docs owner should confirm which side is 30.5. The supplier sources (product page and datasheet) give 124.5 x 30.5 x 26.5 mm with no axes, so they settle the sizes, not the assignment."
+
+  head_camera_mass:
+    value: 0.0629
+    source: supplier
+    status: provisional
+    ref: "Stereolabs product page https://www.stereolabs.com/en-in/store/products/zed-mini (124.5 x 30.5 x 26.5 mm, 60 g) and the Stereolabs ZED Mini datasheet, Mouser copy https://www.mouser.lt/datasheet/2/1520/StereoLabs_ZED_Mini_Datasheet-3401337.pdf (124.5 x 30.5 x 26.5 mm, 62.9 g, baseline 63 mm); both read first-hand by the project owner on 1 Nov 2026"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "The camera alone, no mount or cable: the datasheet figure, 62.9 g. The product page gives 60 g; the datasheet value is kept. Carried as a uniform box of head_camera_size on head_camera_link."
+
+  head_camera_body_x_from_lens_line:
+    value: -0.013
+    source: plan
+    status: placeholder
+    ref: "openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody(): box(zed, ..., -.013, 0, 0) about the head-camera pivot on the lens line"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Body centre 13 mm behind the lens line, centred on it laterally and vertically; its front face is 0.25 mm ahead of the lens line. Not stated by Stereolabs; the docs model value."
+
+  head_camera_bracket_x_behind_lens:
+    value: 0.030
+    source: plan
+    status: placeholder
+    ref: "not stated: the mount supplied with the OpenArm set has no published dimensions (register HEAD-CAMERA-IDENTITY names it, gives no size); value as drawn in openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() head_camera_bracket: box(br, ..., D.ZED_X - .03, ...)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Mount foot and post centre 30 mm behind the lens line (column-axis x 0.192 at hp any)."
+
+  head_camera_bracket_foot_size:
+    value: [0.030, 0.030, 0.006]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
+    source: plan
+    status: placeholder
+    ref: "not stated: the mount supplied with the OpenArm set has no published dimensions (register HEAD-CAMERA-IDENTITY names it, gives no size); value as drawn in openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() head_camera_bracket: box(br, .03, .03, .006, ...) on the profile top"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Foot plate on the arm-profile top."
+
+  head_camera_bracket_post_section:
+    value: [0.012, 0.030]
+    axis_convention: {x: fore_aft, y: lateral}
+    source: plan
+    status: placeholder
+    ref: "not stated: the mount supplied with the OpenArm set has no published dimensions (register HEAD-CAMERA-IDENTITY names it, gives no size); value as drawn in openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a docs/assets/roadmap/model/model.js upperBody() head_camera_bracket: box(br, .012, .03, m - y, ...)"
+    owner: "Alex (P-03 item 24; placeholders until M-09)"
+    note: "Post from the profile top up to the lens line; its height is derived (lens line minus profile top, 39 mm), not stored."

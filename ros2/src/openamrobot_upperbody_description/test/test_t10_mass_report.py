@@ -32,11 +32,17 @@ GROUPS = [  # key, label, what the number is (its provenance STATE is read from 
     ("lift", "lift (ours)", "catalogue mass (lift_mass_dold_v4_350) on a placeholder box"),
     ("openarm", "openarm_* (upstream)", "upstream nominal, arms + grippers, no body (ADR-008)"),
     ("sensors", "sensors (ours)", "upper-sensor frames carry no <inertial> by design"),
+    ("equipment", "equipment (item 24)", "supplier masses (getac_tablet_mass, head_light_mass) on boxes"),
+    ("equipment_no_mass", "equipment, no mass", "item 24 parts with no stated mass carry no <inertial>"),
     ("unclassified", "unclassified", "massed links not in the frame contract"),
 ]
-MASS_GROUPS = ("base", "lift", "openarm", "sensors")          # the four groups the provenance map must cover
+MASS_GROUPS = ("base", "lift", "openarm", "sensors", "equipment", "equipment_no_mass")  # the groups the provenance map must cover
 NOT_MODELLED = ["battery", "hub motors", "electronics", "the lift column's structure beyond its catalogue mass"]
 SENSOR_LINKS = ["head_camera_*", "*_wrist_camera_*"]
+# P-03 item 24 equipment (upper_body_equipment.xacro). Massed ones (tablet, head light) report in `equipment`; the others carry no
+# <inertial> (no stated mass, provenance group `equipment_no_mass`) and would report in `equipment` too the day they get one.
+EQUIPMENT_LINKS = ["getac_tablet_link", "head_light_link", "second_estop_link", "lift_stop_sensor_*_link", "lift_flag_rod_link",
+                   "lift_flag_link", "head_camera_bracket_link"]
 # Group -> the datums whose value is a link mass in that group (combined_robot.xacro: lift_mass). A group draws a mass from a
 # datum only if it is listed here and its provenance entry names the datum; test_t10_mass_datums_are_the_ones_the_xacro_reads
 # keeps the list honest. The null datum of the fallback column (lift_mass_tl3_400) is not listed: it is never a link mass.
@@ -94,6 +100,8 @@ def owner_group(link_name, contract_owner=None):
     if owner.startswith("upstream:") or fnmatch.fnmatchcase(link_name, "openarm_*"):
         return "openarm"      # option B's mount frames carry the upstream arm's base link (same name, upstream's mass)
     if owner.startswith("A6") or owner.startswith("Alex (option B"):
+        if owner.startswith("A6") and any(fnmatch.fnmatchcase(link_name, pat) for pat in EQUIPMENT_LINKS):
+            return "equipment"
         if fnmatch.fnmatchcase(link_name, "lift_*"):
             return "lift"
         if any(fnmatch.fnmatchcase(link_name, pat) for pat in SENSOR_LINKS):
@@ -306,6 +314,9 @@ def test_t10_grouping_follows_the_contract_owner_and_splits_our_links_by_name():
     assert owner_group("openarm_left_base_link") == "openarm"          # option B's name, upstream's mass
     assert owner_group("head_camera_link") == "sensors"                # option B's frame, in our sensors group
     assert owner_group("left_wrist_camera_link") == "sensors"
+    assert owner_group("getac_tablet_link") == "equipment" and owner_group("head_light_link") == "equipment"
+    assert owner_group("lift_stop_sensor_l1000_link") == "equipment" and owner_group("lift_flag_link") == "equipment"
+    assert owner_group("lift_carriage_link") == "lift"                 # option B's lift_* links stay in the lift group
     assert owner_group("some_new_link") == "unclassified"                        # not in the contract
     assert owner_group("odd_link", contract_owner="A6 (openamr-upperbody-sw)") == "unclassified"
     assert owner_group("odd_link", contract_owner="Alex (option B, openamrobot_upperbody.xacro)") == "unclassified"
@@ -372,18 +383,20 @@ def test_t10_mass_provenance_the_real_map_is_valid_and_says_what_the_design_says
     provenance, datums = load_provenance(), load_datums()["datums"]
     assert provenance_problems(provenance, datums) == []
     assert {g: provenance[g]["state"] for g in MASS_GROUPS} == {
-        "base": "external_nominal", "lift": "external_nominal", "openarm": "external_nominal", "sensors": "placeholder"}
+        "base": "external_nominal", "lift": "external_nominal", "openarm": "external_nominal", "sensors": "placeholder",
+        "equipment": "external_nominal", "equipment_no_mass": "placeholder"}
     assert not groups_in_state(provenance, "verified"), "nothing is measured yet; a verified group needs its document first"
 
 
 def test_t10_with_the_current_tree_the_caveat_and_the_external_nominal_line_appear():
     lines, _ = _report()
     assert "  (F2S vehicle estimate 93 kg \u2014 per-link masses still placeholders)" in lines
-    assert any(line.startswith("  placeholder groups") and line.endswith("sensors") for line in lines)
-    assert any(line.startswith("  external_nominal groups") and line.endswith("base, lift, openarm") for line in lines)
+    assert any(line.startswith("  placeholder groups") and line.endswith("sensors, equipment_no_mass") for line in lines)
+    assert any(line.startswith("  external_nominal groups") and line.endswith("base, lift, openarm, equipment") for line in lines)
     row = {name: line for line in lines for _, name, _ in GROUPS if line.startswith(f"  {name} ")}
     assert "[external_nominal]" in row["base (platform-sw)"] and "[external_nominal]" in row["lift (ours)"]
     assert "[external_nominal]" in row["openarm_* (upstream)"] and "[placeholder]" in row["sensors (ours)"]
+    assert "[external_nominal]" in row["equipment (item 24)"] and "[placeholder]" in row["equipment, no mass"]
 
 
 def test_t10_the_caveat_is_present_when_any_one_group_is_a_placeholder_and_absent_when_none_is():
@@ -401,7 +414,8 @@ def test_t10_the_caveat_is_present_when_any_one_group_is_a_placeholder_and_absen
 def test_t10_the_external_nominal_line_is_its_own_line_and_follows_the_map():
     all_verified = "\n".join(_report(provenance=_provenance(**{g: "verified" for g in MASS_GROUPS}))[0])
     assert PLACEHOLDER_CLAUSE not in all_verified and "external_nominal groups" not in all_verified
-    only_arms = _report(provenance=_provenance(base="verified", lift="verified", sensors="verified"))[0]
+    only_arms = _report(provenance=_provenance(base="verified", lift="verified", sensors="verified", equipment="verified",
+                                               equipment_no_mass="verified"))[0]
     assert any(line.endswith("not verified by us): openarm") for line in only_arms)
     assert PLACEHOLDER_CLAUSE not in "\n".join(only_arms)
 

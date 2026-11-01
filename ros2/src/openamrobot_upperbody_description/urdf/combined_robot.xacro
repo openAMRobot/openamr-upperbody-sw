@@ -6,8 +6,10 @@
     base_footprint (platform-sw: the root, on the floor under the drive-axle midpoint, REP 105)
       -> base_link (platform-sw, 0.098 m above it) and everything platform-sw declares on it, near-field frames included
       -> lift_column_base_link                                  (option B, openamrobot_upperbody.xacro; datum column_axis_x_bp000)
+           -> second_estop_link, lift_stop_sensor_{l1000,l1175,l1350}_link   (item 24 equipment, static: geometry only)
            -> lift_joint (prismatic, 0..0.350 m, effort 0 velocity 0: no authority to command it) -> lift_carriage_link
-                -> arm_profile_link
+                -> arm_profile_link -> getac_tablet_link, head_light_link          (P-03 item 24 equipment, upper_body_equipment.xacro)
+                -> adapter_plate_link -> lift_flag_rod_link -> lift_flag_link       (item 24)
                 -> head_camera_mount_link -> head_camera_link -> head_camera_optical_frame     (option B)
                 -> openarm_{left,right}_base_link                (declared by the upstream arm macro, at option B's mount pose)
                      -> openarm_{left,right}_* arms + grippers   (upstream, one call per arm; ADR-008)
@@ -132,7 +134,8 @@
                                base_tilt="${base_tilt}" column_axis_x_bp000="${dt['column_axis_x_bp000']['value']}"
                                emit_arm_mounts="${arm_package != 'openarm'}" column_inertial="${lift_inertial}"
                                column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], inner_x=lift_inner[0], inner_y=lift_inner[1])}"
-                               adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 + plate_section[0] / 2)}"/>
+                               adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 + plate_section[0] / 2)}"
+                               datums="${datums}"/>
 
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.
        none: the upper body only. -->

@@ -36,11 +36,17 @@
                      geometry.adapter_plate_thickness, resting on the carriage frame's
                      horizontal plane (the column top at lift 0) and centred laterally;
                      center_x is from the column axis (datum adapter_plate_section).
+    datums           '' (none): no equipment. The parsed datums.yaml: the P-03 item 24 equipment
+                     of upper_body_equipment.xacro (placeholder geometry, fixed joints only) on
+                     arm_profile_link, adapter_plate_link and lift_column_base_link. Needs
+                     adapter_plate (the flag rod hangs from it); the combined robot passes both.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_body_equipment.xacro"/>
+
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:=''">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -220,7 +226,16 @@
       <child link="head_camera_mount_link"/>
       <origin xyz="${mount['x_from_column_axis'] + lens['x_ahead_of_arm_mount']} ${lens['y']} ${mount['z_above_column_top'] + lens['z_above_arm_mount']}" rpy="0 0 0"/>
     </joint>
-    <link name="head_camera_link"/>
+    <!-- With the datums (combined robot): the ZED Mini body (upper_body_equipment.xacro); without: a frame, as before. -->
+    <xacro:if value="${datums == ''}">
+      <link name="head_camera_link"/>
+    </xacro:if>
+    <xacro:unless value="${datums == ''}">
+      <link name="head_camera_link">
+        <xacro:openamrobot_head_camera_body datums="${datums}"/>
+      </link>
+      <xacro:openamrobot_placeholder_gazebo_material link="head_camera_link"/>
+    </xacro:unless>
     <joint name="head_camera_pitch_joint" type="fixed">
       <parent link="head_camera_mount_link"/>
       <child link="head_camera_link"/>
@@ -232,5 +247,13 @@
       <child link="head_camera_optical_frame"/>
       <origin xyz="0 0 0" rpy="${-pi / 2} 0 ${-pi / 2}"/>
     </joint>
+
+    <!-- P-03 item 24 equipment (placeholder geometry, P-03 rev20.1 item 25 D8): upper_body_equipment.xacro. -->
+    <xacro:unless value="${datums == ''}">
+      <xacro:if value="${adapter_plate == ''}">
+        ${xacro.fatal("the item 24 equipment needs adapter_plate: the flag rod hangs from adapter_plate_link")}
+      </xacro:if>
+      <xacro:openamrobot_upper_body_equipment datums="${datums}" col="${col}" geo="${geo}"/>
+    </xacro:unless>
   </xacro:macro>
 </robot>
