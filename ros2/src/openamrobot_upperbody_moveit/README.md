@@ -66,8 +66,10 @@ ros2 run openamrobot_upperbody_moveit regenerate_acm.sh [--base-plate bp000]    
 ros2 run openamrobot_upperbody_moveit regenerate_acm.sh --write                        # replaces the contract (and the fingerprint): a decision, read the diff
 ```
 
-The contract (`contract:` in `acm_generation.yaml`): **99 pairs (38 `Adjacent`, 61 `ConstantTransform`), 20 of them declared by upstream**, fingerprint
-`sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
+The contract (`contract:` in `acm_generation.yaml`): **179 pairs (46 `Adjacent`, 133 `ConstantTransform`), 20 of them declared by upstream**, fingerprint
+`sha256:75c1ab9a0d97ec9bd144af9003077d282bf53b8edfec262ef705a9d9a3926331`, re-derived on 1 Nov when the P-03 item 24 equipment added eight fixed
+geometry links (80 new pairs: 8 `Adjacent`, 72 `ConstantTransform`; none removed or relabelled; 179 of 990 pairs of 45 geometry links disabled,
+811 enabled). It was 99 pairs (38 + 61), fingerprint `sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
 (four new pairs, one relabelled `Adjacent` to `ConstantTransform`); it was 95 pairs (37 + 58) from 16 Oct, when the lift column's two stages got placeholder
 boxes (follow-up (a)); it was 83 pairs (38 + 45) in P15 and 113 pairs (36 + 77) with the fixed mast; P15 re-derived it (the model <!-- decision-allow: LIFT historical: the matrix count with the superseded fixed mast -->
 changed and the contract is the file, so this is a contract change, in the diff). **The by-construction set shrank from 77 to 45 on purpose:** a

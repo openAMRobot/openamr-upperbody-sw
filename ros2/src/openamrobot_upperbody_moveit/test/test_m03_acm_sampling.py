@@ -109,7 +109,8 @@ def test_m03_1_every_disabled_pair_has_a_reason_that_can_be_shown_at_every_lift_
     })
     assert summary["result"] == "PASS", "\n" + done.stdout[-3500:]
     assert [r["lift_stop"] for r in results] == list(STOPS)
-    assert all(len(r["constant_transform"]["pairs"]) == 61 for r in results)     # 77 in P12A, 45 in P15; 58 with the column's placeholder boxes; 61 with the adapter plate (P28)
+    # 77 in P12A, 45 in P15; 58 with the column's placeholder boxes; 61 with the adapter plate (P28); 133 with the P-03 item 24 equipment (1 Nov)
+    assert all(len(r["constant_transform"]["pairs"]) == 133 for r in results)
     assert all(not r["constant_transform"]["cross_check_with_sampled_states"]["disagreements"] for r in results)
 
 

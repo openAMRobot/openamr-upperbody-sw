@@ -168,11 +168,15 @@ def test_the_counts_the_report_states():
     # P28, 28 Oct: the adapter plate is a geometry link under the carriage, and the arm profile stands on it: 99 = 20 + 18 + 61 (the plate is the
     # carriage's and the profile's neighbour; the profile and the carriage are no longer neighbours but a constant pair; the plate joins the
     # two arm base links in the constant set; the stages' pair across lift_joint stays Adjacent, so nesting the inner stage moved no pair).
-    assert len(pairs) == 99 and labelled == {"Adjacent": 38, "ConstantTransform": 61}
-    assert len(adjacent) == 36 and len(up) == 20
+    # Item 24, 1 Nov: the P-03 item 24 equipment adds eight geometry links on fixed joints: 179 = 20 + 26 + 133. Each new link is its parent's
+    # neighbour (+8 Adjacent: tablet and head light on the profile, the rod on the plate, the flag on the rod, the second E-stop and the three
+    # stop sensors on the column base) and joins its side's constant set (+72 ConstantTransform: the static ones with the base's links, the
+    # moving ones with the plate, the profile, the carriage and the arm base links). Nothing spans the lift and no existing pair changed.
+    assert len(pairs) == 179 and labelled == {"Adjacent": 46, "ConstantTransform": 133}
+    assert len(adjacent) == 44 and len(up) == 20
     assert set(up) - adjacent == {("openarm_left_ee_link1", "openarm_left_ee_link2"), ("openarm_right_ee_link1", "openarm_right_ee_link2")}, \
         "the two finger pairs are siblings through two movable joints: upstream's declaration is their only reason"
-    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 61
+    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 133
 
 
 @pytest.mark.parametrize("base_plate", BASE_PLATES)
@@ -182,10 +186,11 @@ def test_the_by_construction_set_is_61_not_77_because_a_prismatic_joint_now_lies
     nothing else: a constant pair has both its links on one side of lift_joint, and every pair that was constant only because the
     mast was fixed has left the set. 61 is what remains (58 until P28): the base's own links among themselves (the lift column's fixed stage,
     lift_column_base_link, among them since follow-up (a)) and, above the lift, the adapter plate, the arm profile and the arm base links among
-    themselves and the profile with the carriage (P28 added the plate's two and the profile-carriage one)."""
+    themselves and the profile with the carriage (P28 added the plate's two and the profile-carriage one). 133 since the P-03 item 24
+    equipment (1 Nov): its eight fixed geometry links join their side's constant set, and none spans the lift (asserted below)."""
     root = urdf_root(base_plate)
     constant = derive_mod.constant_pairs(root) - derive_mod.structural_adjacent(root) - set(upstream_pairs())
-    assert len(constant) == 61
+    assert len(constant) == 133
     t = split.urdf_tree(root)
     def above_the_lift(link):
         return "lift_joint" in [j for j in split.movable_joints_between(t, "base_footprint", link)]
