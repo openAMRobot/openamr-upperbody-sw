@@ -406,6 +406,7 @@ def generate_launch_description():
 
     joint_state_merger = Node(
         package=GAZEBO, executable="joint_state_merger.py", name="joint_state_publisher",
+        exec_name="joint_state_publisher",  # preserve the existing strict launch/process contract
         output="screen",
         parameters=[{"use_sim_time": True, "source_list": ["/base/joint_states", "/arm/joint_states"], "rate": 50}])
 
