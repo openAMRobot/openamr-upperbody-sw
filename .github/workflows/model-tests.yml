@@ -294,6 +294,7 @@ jobs:
       # one window capture each (evidence/renders/rviz/capture_rviz.py, run in place). Pictures for a person to look at: not A6 or A7 evidence,
       # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only).
       - name: V01 RViz captures (pictures, not evidence)
+        timeout-minutes: 15
         if: always()
         continue-on-error: true
         working-directory: ws
