@@ -203,7 +203,7 @@ fails G02; a launch without the stop handler fails G02 (the canary above).
   running; the tests choose their own.
 - Stopping the launch with a signal to the `ros2 launch` process only (not Ctrl-C in its terminal) leaves the simulator
   running unless the shutdown handler could reach it; `pgrep -af 'gz sim'` shows what is left.
-- The model is spawned 0.15 m above the ground plane and settles in the first moment.
+- The spawn height and pitch come from the expanded URDF's drive-cylinder and castor-sphere support surfaces, with 1 micrometre numerical clearance. The nominal zero-state COM selects the loaded castor pair. At the current baseline this gives about 2.004 mm height and 0.0077001 rad pitch; these are calculated world-placement results, not a second set of hardware dimensions. All joint initial positions stay zero. A level 3 mm spawn tipped onto the front castors and exceeded the unchanged M02 joint-limit excursion gate; the contact-aligned startup did not. The rear castors still have approximately 4.2 mm clearance: this does not resolve the hardware contact-plane conflict or validate the nominal masses.
 - `ros2 action send_goal` is slow while a simulator is running; read results against `/clock`, as the tests do.
 
 ## Not here

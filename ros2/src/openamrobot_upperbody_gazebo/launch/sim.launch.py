@@ -243,7 +243,7 @@ if __name__ == "__main__" and len(sys.argv) in (3, 4) and sys.argv[1] == "--stop
 
 from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, RegisterEventHandler
+from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, OpaqueFunction, RegisterEventHandler
 from launch.conditions import IfCondition, UnlessCondition
 from launch.event_handlers import OnProcessExit, OnProcessStart, OnShutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -265,10 +265,13 @@ MESH_PACKAGES = ("openamrobot_description", "openarm_description", DESCRIPTION)
 # task 0). Gripper motion needs BULLET_FEATHERSTONE_ENGINE, and the launch does not hide that behind the default: pass it.
 DEFAULT_PHYSICS_ENGINE = "gz-physics-dartsim-plugin"          # the tests record it
 BULLET_FEATHERSTONE_ENGINE = "gz-physics-bullet-featherstone-plugin"   # honours the URDF <mimic>; what G02 and M02 pass
-# The 0.100 m wheel radius is 2 mm below base_footprint (axle height 0.098 m).
-# A 3 mm root offset leaves 1 mm free, avoiding the former artificial 150 mm drop.
-# test_spawn_clearance checks this against the expanded wheel collision geometry.
-SPAWN_HEIGHT = "0.003"
+# Derive world placement from the same expanded URDF supplied to the simulator.
+# Load the sibling by path because launch files are installed as share assets.
+import importlib.util
+_support_spec = importlib.util.spec_from_file_location('spawn_support', os.path.join(os.path.dirname(__file__), 'spawn_support.py'))
+_support = importlib.util.module_from_spec(_support_spec)
+_support_spec.loader.exec_module(_support)
+ground_support_pose = _support.ground_support_pose
 CONTROLLER_MANAGER_TIMEOUT = "120"      # s the spawners wait for the controller manager that the simulator hosts
 # s the joint_state_broadcaster's switch may take. The spawner's default is 5 s; on a slow machine (CPU-only rendering, the simulator at
 # about 0.01x real time during startup) the first switch timed out, the spawner exited 1, and the arm and gripper spawners still started,
@@ -294,6 +297,14 @@ def after_joint_state_broadcaster(event, context):
     if event.returncode == 0:
         return [spawner(name) for name in ARM_AND_GRIPPER_CONTROLLERS]
     return [LogInfo(msg=f"joint_state_broadcaster spawner exited {event.returncode}: the arm and gripper spawners are not started")]
+
+
+def spawn_robot(context, robot_description):
+    z, pitch = ground_support_pose(robot_description.evaluate(context))
+    return [LogInfo(msg=f"URDF support-plane spawn: z={z:.12g} m, pitch={pitch:.12g} rad; joint angles unchanged"),
+            Node(package="ros_gz_sim", executable="create", output="screen",
+                 arguments=["-name", "openamrobot", "-topic", "robot_description",
+                            "-x", "0", "-y", "0", "-z", str(z), "-P", str(pitch)])]
 
 
 def generate_launch_description():
@@ -351,9 +362,7 @@ def generate_launch_description():
                                  name="robot_state_publisher", output="screen",
                                  parameters=[{"use_sim_time": True, "robot_description": robot_description}])
 
-    spawn = Node(package="ros_gz_sim", executable="create", output="screen",
-                 arguments=["-name", "openamrobot", "-topic", "robot_description",
-                            "-x", "0", "-y", "0", "-z", SPAWN_HEIGHT])
+    spawn = OpaqueFunction(function=spawn_robot, kwargs={"robot_description": robot_description})
 
     # Platform-sw's bridge, by reference: it bridges exactly the topics Nav2 and docking consume, under their names.
     platform_bridge = Node(
