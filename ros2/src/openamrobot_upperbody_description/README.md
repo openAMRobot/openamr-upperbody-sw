@@ -290,6 +290,29 @@ checkout (C02) or with the `openamrobot-manipulation` baseline pin (C01), so it 
 Every pin is a full 40-hex hash in quotes: unquoted, YAML reads an all-digit hash as a number, and a prefix cannot be compared
 exactly.
 
+## CI
+
+`.github/workflows/model-tests.yml` (workflow **Model tests**) builds the combined model on `ubuntu-24.04` with ROS 2 Jazzy in a workspace of this
+repository, `openamr-platform-sw` at the platform pin (`openamr_platform_sw` in `config/upstream_pins.yaml` when present, else the default in the
+workflow) and the `openarm_description` and `openarm_ros2` pins of `config/upstream_pins.yaml` under `src/upstream/` (so C02 compares them).
+`rosdep` installs the dependencies, test dependencies included, of the packages `colcon build --packages-up-to` needs; the job log and summary
+list the ROS, MoveIt and Gazebo package versions. The dependencies' build is cached on the three pins; this repository's packages are always built
+fresh.
+
+| Job | When | What it runs | Uploads |
+|---|---|---|---|
+| `a6` | every pull request, every push to `main` | `verify_a6.sh` headless (60 min limit) | `a6-evidence`: `evidence/<ts>_dev.json`, the test XML |
+| `a7` | on demand | Gazebo Harmonic from `rosdep`, headless server with software rendering; `run_a7_regression.sh` once (120 min limit) | `a7-evidence`: `evidence/<ts>_a7.json`, the test XML, the colcon logs |
+
+A job fails if its script exits non-zero (a `FAIL`, evidence that cannot be assembled, a dirty tree) or if no test case executed: nothing
+found, or every case skipped (`tools/count_ci_tests.py`). The job summary lists test cases per package as discovered / skipped / executed / failed;
+`colcon test-result` prints a larger total because it also counts each registered CTest test once, and the summary prints that sum too. To start A7:
+**Actions** tab, **Model tests**, **Run workflow** (pick the branch), or add the label `run-a7` to a pull request (it then runs again on every
+push while the label stays). The jobs use no secrets and reach no hardware endpoint.
+
+**CI results are A6 (`static+mock`) or A7 (`simulation`) evidence only**: never hardware, physical acceptance, release readiness or safety
+evidence. A7 on a hosted runner has no GPU and runs slower than real time.
+
 ## Known limitations
 
 Nothing in this package is a measured value or a hardware result. In particular:
