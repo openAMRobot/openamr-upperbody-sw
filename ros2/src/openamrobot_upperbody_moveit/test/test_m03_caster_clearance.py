@@ -8,8 +8,8 @@ clear. platform-sw's reviewer asked for "a small repeatable old-box-fails/new-bo
 base is bumped; this is it, here, because M03 is ours and what fails when it returns is our check.
 
 No ROS runtime and no simulator. The geometry is read from the expanded combined URDF (the base is platform-sw's, by reference) and evaluated
-analytically (an axis-aligned box against a sphere is exact). The "old box" is the SAME model with the box bottom lowered to 0.050 m (top unchanged), so
-the test follows whatever base is pinned instead of carrying a copy of it. The pair oracle handed to `acm_derive.derive` answers for the five links in
+analytically (an axis-aligned box against a sphere is exact). The historical regression reconstructs its original 26 mm-radius support spheres and lowers the box bottom to 0.050 m.
+The current CAD-derived 17.5 mm-radius spheres are checked separately; using them in the historical fixture would erase the old failure. The pair oracle handed to `acm_derive.derive` answers for the five links in
 question only (the four pairs); that is enough to show what the derivation does with a permanent collision, which is the finding M03 reports."""
 import copy
 
@@ -24,6 +24,7 @@ from test_acm_derive import forward_kinematics, rpy_matrix
 CASTER_WHEELS = ("fl_wheel_link", "fr_wheel_link", "bl_wheel_link", "br_wheel_link")
 OLD_BOX_BOTTOM_M = 0.050          # #70
 NEW_BOX_BOTTOM_M = 0.055          # #71
+CAD_SPHERE_TOP_M = 0.035       # 35 mm tyre, CAD base_mesh_map.yaml VSTH_35_6K_G15
 CASTER_SPHERE_TOP_M = 0.052421    # as reported in #71's review: centre 0.026421 + radius 0.026 above the floor
 NEW_CLEARANCE_M = 0.0026          # #71's own figure, 2.6 mm; the vertical gap is the minimum distance because each sphere is below the box footprint
 
@@ -97,7 +98,20 @@ def new_body():
     return urdf_root("bp000")
 
 
-def test_the_pinned_base_has_its_box_bottom_at_0_055_and_the_caster_spheres_top_at_0_0524(new_body):
+def historical_castors(root):
+    """Restore the precise legacy sphere geometry without changing any joint frame."""
+    out = copy.deepcopy(root)
+    for name in CASTER_WHEELS:
+        collision = out.find(f"link[@name='{name}']/collision")
+        collision.find("origin").set("xyz", "0 0 0")
+        collision.find("geometry/sphere").set("radius", "0.026")
+    return out
+
+
+@pytest.mark.parametrize("historical,top", [(False, CAD_SPHERE_TOP_M), (True, CASTER_SPHERE_TOP_M)])
+def test_the_pinned_chassis_bottom_and_both_documented_castor_envelopes(new_body, historical, top):
+    if historical:
+        new_body = historical_castors(new_body)
     bottom, _ = box_bottom_and_top(new_body)
     assert bottom == pytest.approx(NEW_BOX_BOTTOM_M, abs=1e-6), f"chassis box bottom {bottom:.6f} m: the pinned base is not platform-sw #71 (or a later base moved it)"
     poses = forward_kinematics(new_body, {})
@@ -107,16 +121,19 @@ def test_the_pinned_base_has_its_box_bottom_at_0_055_and_the_caster_spheres_top_
             s = link.find("collision/geometry/sphere")
             o = link.find("collision/origin")
             tops.append((poses[link.get("name")] @ np.array(floats(o.get("xyz") if o is not None else None) + [1.0]))[2] + float(s.get("radius")))
-    assert tops and all(t == pytest.approx(CASTER_SPHERE_TOP_M, abs=1e-5) for t in tops), tops
+    assert tops and all(t == pytest.approx(top, abs=1e-5) for t in tops), tops
 
 
-def test_the_new_box_clears_every_caster_sphere_by_about_2_6_mm(new_body):
+@pytest.mark.parametrize("historical,clearance_m", [(False, 0.020), (True, NEW_CLEARANCE_M)])
+def test_the_new_box_clears_current_and_historical_castor_envelopes(new_body, historical, clearance_m):
+    if historical:
+        new_body = historical_castors(new_body)
     clearance = box_sphere_clearances(new_body)
-    assert min(clearance.values()) == pytest.approx(NEW_CLEARANCE_M, abs=2e-4), clearance
+    assert min(clearance.values()) == pytest.approx(clearance_m, abs=2e-4), clearance
 
 
 def test_the_old_box_overlaps_every_caster_sphere_by_about_2_4_mm():
-    old = with_box_bottom(urdf_root("bp000"), OLD_BOX_BOTTOM_M)
+    old = with_box_bottom(historical_castors(urdf_root("bp000")), OLD_BOX_BOTTOM_M)
     clearance = box_sphere_clearances(old)
     assert all(v < 0 for v in clearance.values()), clearance
     assert max(clearance.values()) == pytest.approx(OLD_BOX_BOTTOM_M - CASTER_SPHERE_TOP_M, abs=2e-5), clearance      # -2.421 mm
@@ -125,7 +142,7 @@ def test_the_old_box_overlaps_every_caster_sphere_by_about_2_4_mm():
 def test_the_derivation_reports_the_old_box_as_four_permanent_collisions_and_the_new_box_as_none(new_body):
     """What M03 (and regenerate_acm.sh) turn into a FAIL: a constant pair that collides in every state is neither disabled nor hidden."""
     four = sorted(pair_key("base_link", w) for w in CASTER_WHEELS)
-    old = with_box_bottom(new_body, OLD_BOX_BOTTOM_M)
+    old = with_box_bottom(historical_castors(new_body), OLD_BOX_BOTTOM_M)
     matrix_old, report_old = acm_derive.derive(old, {}, oracle(old))
     assert report_old["constant_and_colliding"] == four, report_old["constant_and_colliding"]
     assert not any(p in matrix_old for p in four), "a permanent collision must not be disabled"

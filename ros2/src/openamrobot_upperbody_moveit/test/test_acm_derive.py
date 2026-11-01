@@ -168,24 +168,25 @@ def test_the_counts_the_report_states():
     # P28, 28 Oct: the adapter plate is a geometry link under the carriage, and the arm profile stands on it: 99 = 20 + 18 + 61 (the plate is the
     # carriage's and the profile's neighbour; the profile and the carriage are no longer neighbours but a constant pair; the plate joins the
     # two arm base links in the constant set; the stages' pair across lift_joint stays Adjacent, so nesting the inner stage moved no pair).
-    assert len(pairs) == 99 and labelled == {"Adjacent": 38, "ConstantTransform": 61}
-    assert len(adjacent) == 36 and len(up) == 20
+    # D8 Proposed contract #23: 20 upstream + 35 derived Adjacent + 265 clear fixed pairs.
+    assert len(pairs) == 320 and labelled == {"Adjacent": 55, "ConstantTransform": 265}
+    assert len(adjacent) == 53 and len(up) == 20
     assert set(up) - adjacent == {("openarm_left_ee_link1", "openarm_left_ee_link2"), ("openarm_right_ee_link1", "openarm_right_ee_link2")}, \
         "the two finger pairs are siblings through two movable joints: upstream's declaration is their only reason"
-    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 61
+    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 265
 
 
 @pytest.mark.parametrize("base_plate", BASE_PLATES)
-def test_the_by_construction_set_is_61_not_77_because_a_prismatic_joint_now_lies_between_the_base_and_the_arms(base_plate):
-    """P12A certified 77 pairs by construction (P11 got 77 by a different route). P15 EXPECTS fewer: a prismatic joint between two links
-    removes them from what a fixed transform certifies, and the lift is such a joint. This asserts the shrink is exactly that and
-    nothing else: a constant pair has both its links on one side of lift_joint, and every pair that was constant only because the
-    mast was fixed has left the set. 61 is what remains (58 until P28): the base's own links among themselves (the lift column's fixed stage,
-    lift_column_base_link, among them since follow-up (a)) and, above the lift, the adapter plate, the arm profile and the arm base links among
-    themselves and the profile with the carriage (P28 added the plate's two and the profile-carriage one)."""
+def test_d8_constant_pairs_never_span_the_prismatic_lift(base_plate):
+    """D8 adds fixed equipment on each side of the lift, giving 265 fixed pairs.
+
+    Every constant pair must remain on one side of lift_joint. Equipment cannot
+    turn a base-to-moving-assembly pair into a constant transform. The previous
+    plate-only model had 61 such pairs; the underlying rejection rule is unchanged.
+    """
     root = urdf_root(base_plate)
     constant = derive_mod.constant_pairs(root) - derive_mod.structural_adjacent(root) - set(upstream_pairs())
-    assert len(constant) == 61
+    assert len(constant) == 265
     t = split.urdf_tree(root)
     def above_the_lift(link):
         return "lift_joint" in [j for j in split.movable_joints_between(t, "base_footprint", link)]
