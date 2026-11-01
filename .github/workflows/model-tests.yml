@@ -292,13 +292,15 @@ jobs:
 
       # V01 RViz captures: the six V01 configurations (L1000, L1175, L1350 x bp000, bp050), the mock MoveIt stack with RViz2 on a virtual display,
       # one window capture each (evidence/renders/rviz/capture_rviz.py, run in place). Pictures for a person to look at: not A6 or A7 evidence,
-      # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only). Bounded twice so a hung
-      # capture cannot run the job into its 120-minute limit before Result: `timeout` ends the script at 40 min (each shot takes about 3 to 4 min,
-      # at most about 5), timeout-minutes ends the step at 45; the upload below then keeps whatever shots and logs exist.
+      # not a check, and they never change this job's result (continue-on-error; the Result step below reads A7_RC only). Then three rear views
+      # (one per lift stop, bp000; tools/v01_rear_captures/capture_rear.py) so the second E-stop on the static column's rear face is in view.
+      # Bounded so a hung capture cannot run the job into its 120-minute limit before Result: `timeout` ends the six views at 30 min and the rear
+      # views at 15 min (each shot takes about 1 to 2 min, at most about 5), timeout-minutes ends the step at 50; the upload below then keeps
+      # whatever shots and logs exist.
       - name: V01 RViz captures (pictures, not evidence)
         if: always()
         continue-on-error: true
-        timeout-minutes: 45
+        timeout-minutes: 50
         working-directory: ws
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
@@ -308,7 +310,13 @@ jobs:
           source install/setup.bash
           Xvfb :0 -screen 0 1600x1200x24 > xvfb_captures.log 2>&1 &
           sleep 3
-          DISPLAY=:0 timeout --kill-after=60s 40m python3 src/openamr-upperbody-sw/evidence/renders/rviz/capture_rviz.py v01_rviz_captures
+          set +e
+          DISPLAY=:0 timeout --kill-after=60s 30m python3 src/openamr-upperbody-sw/evidence/renders/rviz/capture_rviz.py v01_rviz_captures
+          front=$?
+          DISPLAY=:0 timeout --kill-after=60s 15m python3 src/openamr-upperbody-sw/tools/v01_rear_captures/capture_rear.py v01_rviz_captures/rear
+          rear=$?
+          echo "V01 captures exit status: six views $front, rear views $rear (pictures only; not part of the A7 result)"
+          [ "$front" -eq 0 ] && [ "$rear" -eq 0 ]
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

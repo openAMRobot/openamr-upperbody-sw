@@ -106,3 +106,10 @@ Reads the expanded URDF (poses, box and cylinder sizes) and prints the two block
 `drawn.head_light.window`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
 (`lift_static_profile_top_below_column_top`). `test_item24_docs_model_values.py` compares the output with a verbatim fixture of the blocks
 (docs `cd780d6`), 0.5 mm tolerance; `--model-js <model.js>` compares with a live file (exit 1 on a difference).
+
+### `v01_rear_captures/`: three rear views for V01
+
+`capture_rear.py <outdir>` takes one RViz shot from behind (and a little to the left) per lift stop at bp000, so the second E-stop on the
+static column's rear face and the stop sensors on its left face are in view. It reuses the P19 script `evidence/renders/rviz/capture_rviz.py`
+unchanged, pointed at this directory (`capture.launch.py` with `rear_capture.rviz`; `xgrab.py` runs the P19 grabber). The a7 job runs it after
+the six P19 views and uploads both with the artifact `v01-rviz-captures` (rear views under `rear/`). Pictures for a person, not evidence.
