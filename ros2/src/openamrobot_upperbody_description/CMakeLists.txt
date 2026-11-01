@@ -68,6 +68,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(p28_lift_geometry test/test_p28_lift_geometry.py TIMEOUT 600)
   # P-03 item 24 equipment: parents, static/moving side, poses = datums, stop-sensor heights, mass report (1 Nov 2026)
   ament_add_pytest_test(item24_equipment test/test_item24_equipment.py TIMEOUT 600)
+  # tools/export_docs_model_values.py on the expanded URDF equals the docs model.js blocks the item 24 datums came from (0.5 mm)
+  ament_add_pytest_test(item24_docs_model_values test/test_item24_docs_model_values.py TIMEOUT 600)
   ament_add_pytest_test(evidence_dir test/test_evidence_dir.py TIMEOUT 600)
   # the organisation's merge-marker scan, run on the tracked files with canaries (P27); needs git, skips outside a checkout
   ament_add_pytest_test(merge_markers test/test_merge_markers.py TIMEOUT 120)

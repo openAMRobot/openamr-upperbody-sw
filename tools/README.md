@@ -94,3 +94,15 @@ default state and every named arm pose of the SRDF. Every (moving equipment link
 (`acm_scene`). It moves nothing and decides nothing. Portrait assumes the landscape centre as the pivot, which is **not stated** (datum
 `getac_tablet_portrait_pivot` is null), and keeps the head light where the model has it. A control (the flag on its rod, touching by
 design) shows the check sees a contact. Exit 0 whatever it finds, 2 when it could not run.
+
+### `export_docs_model_values.py`: the URDF, written as the docs model's CHEST-JSON and LIFT-JSON
+
+```bash
+python3 tools/export_docs_model_values.py [--urdf expanded.urdf] [--base-plate bp000]
+```
+
+Reads the expanded URDF (poses, box and cylinder sizes) and prints the two blocks in the format of openamrobot-docs
+`docs/assets/roadmap/model/model.js`. Not exported, because the URDF does not carry them: `second_estop.glb_node`, `second_estop.glb_axis` and
+`drawn.head_light.window`. One value comes from its datum: `second_estop.below_top` is measured from the docs model's static profile top
+(`lift_static_profile_top_below_column_top`). `test_item24_docs_model_values.py` compares the output with a verbatim fixture of the blocks
+(docs `cd780d6`), 0.5 mm tolerance; `OPENAMR_DOCS_MODEL_JS=<model.js>` adds a comparison with a live file.
