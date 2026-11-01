@@ -42,7 +42,7 @@ SENSOR_LINKS = ["head_camera_*", "*_wrist_camera_*"]
 # P-03 item 24 equipment (upper_body_equipment.xacro). Massed ones (tablet, head light) report in `equipment`; the others carry no
 # <inertial> (no stated mass, provenance group `equipment_no_mass`) and would report in `equipment` too the day they get one.
 EQUIPMENT_LINKS = ["getac_tablet_link", "head_light_link", "second_estop_link", "lift_stop_sensor_*_link", "lift_flag_rod_link",
-                   "lift_flag_link"]
+                   "lift_flag_link", "head_camera_bracket_link"]
 # Group -> the datums whose value is a link mass in that group (combined_robot.xacro: lift_mass). A group draws a mass from a
 # datum only if it is listed here and its provenance entry names the datum; test_t10_mass_datums_are_the_ones_the_xacro_reads
 # keeps the list honest. The null datum of the fallback column (lift_mass_tl3_400) is not listed: it is never a link mass.
@@ -221,7 +221,7 @@ def test_d8_supplier_masses_are_counted_once_on_the_moving_equipment():
     from urdf_utils import fixed_fk
     root, datums = expand(), load_datums()["datums"]
     mapping = {"getac_tablet_link": "getac_tablet_mass", "head_light_link": "head_light_mass",
-               "head_camera_housing_link": "head_camera_body_mass"}
+               "head_camera_link": "head_camera_mass"}
     expected = 0.0
     for link, datum in mapping.items():
         entry = datums[datum]

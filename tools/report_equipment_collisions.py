@@ -24,7 +24,7 @@ import subprocess
 import sys
 import tempfile
 
-MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link"]
+MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link", "head_camera_link", "head_camera_bracket_link"]
 BASE_PLATES = ["bp000", "bp050"]
 ORIENTATIONS = ["landscape", "portrait"]
 PIVOT_ASSUMPTION = ("portrait box centred where the landscape box is centred (pivot not stated: datum getac_tablet_portrait_pivot is null); "
@@ -66,12 +66,14 @@ def worker(base_plate, orientation, out_path):
         arm_links = [n for n in scene.link_names if n.startswith(("openarm_left_", "openarm_right_"))]
         geometry = {l.get("name") for l in scene.urdf_root.findall("link") if l.find("collision") is not None}
         arm_links = [n for n in arm_links if n in geometry]
-        pairs = [(e, a) for e in MOVING_EQUIPMENT for a in arm_links]
+        modelled_equipment = [e for e in MOVING_EQUIPMENT if e in geometry]
+        visual_only_equipment = sorted(set(MOVING_EQUIPMENT) - geometry)
+        pairs = [(e, a) for e in modelled_equipment for a in arm_links]
         # information: the moving equipment against every other geometry link (mounting faces that touch by design show up here; the
         # SRDF disables those as Adjacent); and a control that the check sees a collision at all
         others = sorted(geometry - set(arm_links) - set(MOVING_EQUIPMENT))
-        other_pairs = [(e, o) for e in MOVING_EQUIPMENT for o in others] + [
-            (a, b) for i, a in enumerate(MOVING_EQUIPMENT) for b in MOVING_EQUIPMENT[i + 1:]]
+        other_pairs = [(e, o) for e in modelled_equipment for o in others] + [
+            (a, b) for i, a in enumerate(modelled_equipment) for b in modelled_equipment[i + 1:]]
         srdf = ET.fromstring(scene.config["robot_description_semantic"])
         poses = {}
         for state in srdf.findall("group_state"):
@@ -92,7 +94,8 @@ def worker(base_plate, orientation, out_path):
                    "colliding": bool(scene.colliding([("lift_flag_rod_link", "lift_flag_link")]))}
     with open(out_path, "w") as f:
         json.dump({"base_plate": base_plate, "orientation": orientation, "tablet_box": tablet, "pairs_checked": len(pairs),
-                   "arm_links": arm_links, "rows": rows,
+                   "arm_links": arm_links, "rows": rows, "modelled_equipment": modelled_equipment,
+                   "visual_only_equipment_not_collision_validated": visual_only_equipment,
                    "control": control}, f, indent=1)
     sys.stdout.flush()
     os._exit(0)
@@ -123,7 +126,8 @@ def main(argv=None):
     print(f"portrait: {PIVOT_ASSUMPTION}")
     for result in results:
         print(f"\n{result['orientation']} {result['base_plate']}: tablet box {result['tablet_box']}, {result['pairs_checked']} pairs "
-              f"(4 moving equipment links x {len(result['arm_links'])} arm links)")
+              f"({len(result['modelled_equipment'])} moving equipment links x {len(result['arm_links'])} arm links)")
+        print(f"  Visual-only; physical collision geometry not validated: {result['visual_only_equipment_not_collision_validated']}")
         for row in result["rows"]:
             hits = ", ".join(f"{a} <-> {b}" for a, b in row["colliding"]) or "none"
             other = ", ".join(f"{a} <-> {b}" for a, b in row["other_links_colliding"]) or "none"

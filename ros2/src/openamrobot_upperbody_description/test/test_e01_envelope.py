@@ -136,14 +136,19 @@ def test_e01_the_height_grows_with_the_lift_by_the_stroke_and_the_head_camera_is
         tops[stop] = bounding_extents(root, _floor_z(), {"lift_joint": q})["height"]
     assert tops["L1350"]["max"] - tops["L1000"]["max"] == pytest.approx(0.350, abs=1e-9)
     assert tops["L1175"]["max"] - tops["L1000"]["max"] == pytest.approx(0.175, abs=1e-9)
-    # D8 adds the pitched camera housing above the lens-line frame. Check its
-    # upper rear corner independently, retaining the approved lens frame height.
-    dt = load_datums()["datums"]
-    depth, _, height = dt["head_camera_body_size"]["value"]
-    pitch = np.deg2rad(30)  # approved hp30 baseline
-    above_lens = (depth/2 - dt["head_camera_body_x"]["value"])*np.sin(pitch) + height/2*np.cos(pitch)
-    assert tops["L1350"]["max"] == pytest.approx(0.304 + 0.880 + 0.166 + 0.223 + above_lens, abs=1e-6)
-    assert tops["L1350"]["max_at"] == "head_camera_housing_link (visual box)"
+    # the head camera is the top of the structure at full lift. Until 1 Nov 2026 it was the lens frame itself (0.304 + 0.880 + 0.166 + 0.223 =
+    # 1.573); since the ZED Mini body is modelled on head_camera_link it is that box's highest corner: the rear top edge of the body pitched
+    # down hp30 about the lens line, above the lens by -x sin(30) + z/2 cos(30) with x its rear face (datums head_camera_size and
+    # head_camera_body_x_from_lens_line): 1.573 + 0.0263 = 1.5993 m
+    import math
+    datums = load_datums()["datums"]
+    depth, _, height = datums["head_camera_size"]["value"]
+    rear = datums["head_camera_body_x_from_lens_line"]["value"] - depth / 2
+    pitch = math.radians(30)
+    lens = 0.304 + 0.880 + 0.166 + 0.223
+    assert tops["L1350"]["max"] == pytest.approx(lens - rear * math.sin(pitch) + height / 2 * math.cos(pitch), abs=1e-6)
+    assert tops["L1350"]["max"] > lens
+    assert tops["L1350"]["max_at"].startswith("head_camera_link")
     assert tops["L1350"]["max"] <= float(UPPERBODY["geometry"]["max_assembled_height"])
 
 

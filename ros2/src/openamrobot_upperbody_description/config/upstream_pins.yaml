@@ -11,4 +11,4 @@ schema_version: 1
 pins:
   openarm_description: "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831"
   openarm_ros2: "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
-  openamr_platform_sw: "5d575816eaea81d9edc7e929fa04881b178b4cba"
+  openamr_platform_sw: "acc427d7ad9b1f90591011f1824d470a9a3fd883"

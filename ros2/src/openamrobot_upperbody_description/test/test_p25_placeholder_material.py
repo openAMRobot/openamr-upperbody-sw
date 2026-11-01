@@ -20,12 +20,13 @@ PALETTE = {
     'flag_steel': [.2, .22, .25, 1],
 }
 STRUCTURAL = {'lift_column_base_link':'structural_aluminum', 'lift_carriage_link':'structural_aluminum',
-              'arm_profile_link':'structural_aluminum', 'adapter_plate_link':'adapter_gray',
-              'head_camera_mount_link':'structural_aluminum'}
+              'arm_profile_link':'structural_aluminum', 'adapter_plate_link':'adapter_gray'}
 EQUIPMENT = {'placeholder_getac_tablet':'equipment_black', 'placeholder_head_light':'equipment_metal',
              'placeholder_second_estop_contact_block':'equipment_black', 'placeholder_second_estop_collar':'equipment_metal',
              'placeholder_second_estop_head':'estop_red', 'lift_stop_sensor_body':'sensor_dark',
-             'placeholder_lift_flag':'flag_steel'}
+             'placeholder_lift_flag':'flag_steel', 'placeholder_head_camera_body':'equipment_black',
+             'placeholder_head_camera_bracket_foot':'structural_aluminum',
+             'placeholder_head_camera_bracket_post':'structural_aluminum'}
 
 WRIST = {side+'_wrist_camera_link': 'equipment_black' for side in ['left','right']}
 

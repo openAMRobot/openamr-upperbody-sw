@@ -20,7 +20,7 @@ from conftest import MATRIX, SHARE, UPPERBODY, expand, load_datums, load_yaml
 from urdf_utils import fixed_fk, zero_pose_poses
 
 MOVING = {"getac_tablet_link": "arm_profile_link", "head_light_link": "arm_profile_link", "lift_flag_rod_link": "adapter_plate_link",
-          "lift_flag_link": "lift_flag_rod_link"}
+          "lift_flag_link": "lift_flag_rod_link", "head_camera_bracket_link": "head_camera_mount_link"}
 STATIC = {"second_estop_link": "lift_column_base_link", "lift_stop_sensor_l1000_link": "lift_column_base_link",
           "lift_stop_sensor_l1175_link": "lift_column_base_link", "lift_stop_sensor_l1350_link": "lift_column_base_link"}
 EQUIPMENT = {**MOVING, **STATIC}
@@ -65,6 +65,10 @@ def expected_poses():
                                                         column["retracted_length"] - v("lift_static_profile_top_below_column_top")
                                                         - v("second_estop_below_profile_top")), np.pi),
     }
+    lens_z = geo["arm_mount"]["z_above_column_top"] + geo["head_camera_lens"]["z_above_arm_mount"]
+    lens_x = geo["arm_mount"]["x_from_column_axis"] + geo["head_camera_lens"]["x_ahead_of_arm_mount"]
+    out["head_camera_bracket_link"] = ("lift_carriage_link", (lens_x - v("head_camera_bracket_x_behind_lens"), 0.0,
+                                                              geo["adapter_plate_thickness"] + profile["length"]), 0.0)
     for link, datum, _ in SENSOR_Z.values():
         out[link] = ("lift_column_base_link", (v("lift_stop_sensor_face_x"), sec_y / 2 + v("lift_stop_sensor_axis_from_face"), v(datum)), 0.0)
     return out
@@ -170,3 +174,62 @@ def test_item24_no_equipment_joint_is_in_ros2_control_or_movable():
     for link in EQUIPMENT:
         joint = by_child[link]
         assert joint.get("type") == "fixed" and joint.get("name") not in controlled, joint.get("name")
+
+
+# ---- head camera body (register HEAD-CAMERA-IDENTITY): the numbers below are the register's, written here on purpose, so a change of option B's
+# configuration or of the datums that moved the camera away from them fails this test instead of following along.
+HCI_LENS_AHEAD_OF_ARM_MOUNT = 0.042      # "lens 0.042 m ahead of and 0.223 m above the arm mount point, centred"
+HCI_LENS_ABOVE_ARM_MOUNT = 0.223
+HCI_BASELINE_PITCH_DEG = 30              # "pitch 15 to 35 degrees down in 5 degree steps about the lens line, baseline 30 degrees" (hp30)
+
+
+def _rot_y(deg):
+    a = np.radians(deg)
+    return np.array([[np.cos(a), 0, np.sin(a)], [0, 1, 0], [-np.sin(a), 0, np.cos(a)]])
+
+
+@pytest.mark.parametrize("base_plate,arm_package", MATRIX, ids=IDS)
+def test_item24_the_head_camera_body_sits_at_the_head_camera_identity_pose(base_plate, arm_package):
+    root = expand(base_plate=base_plate, arm_package=arm_package)
+    assert UPPERBODY["baseline"]["head_pitch"] == "hp30"
+    mount = fixed_fk(root, "lift_carriage_link", "openarm_left_base_link")
+    lens = fixed_fk(root, "lift_carriage_link", "head_camera_link")
+    assert lens[0, 3] - mount[0, 3] == pytest.approx(HCI_LENS_AHEAD_OF_ARM_MOUNT, abs=1e-12)
+    assert lens[2, 3] - mount[2, 3] == pytest.approx(HCI_LENS_ABOVE_ARM_MOUNT, abs=1e-12)
+    assert lens[1, 3] == pytest.approx(0.0, abs=1e-12), "the lens line is centred"
+    assert lens[:3, :3] == pytest.approx(_rot_y(HCI_BASELINE_PITCH_DEG), abs=1e-12), "head_camera_link is not pitched 30 degrees down (hp30)"
+    link = root.find("link[@name='head_camera_link']")
+    size = tuple(v("head_camera_size"))
+    visuals = [vis for vis in link.findall("visual") if vis.find("geometry/box") is not None]
+    assert len(visuals) == 1, "head_camera_link has no ZED Mini body visual"
+    collision = link.find("collision[@name='placeholder_head_camera_body']")
+    assert collision is not None, "head_camera_link has no ZED Mini body collision"
+    for element in (visuals[0], collision):
+        assert tuple(float(x) for x in element.find("geometry/box").get("size").split()) == pytest.approx(size)
+        assert [float(x) for x in element.find("origin").get("xyz").split()] == pytest.approx([v("head_camera_body_x_from_lens_line"), 0, 0])
+        assert [float(x) for x in element.find("origin").get("rpy").split()] == pytest.approx([0, 0, 0]), "the body pitches with the frame"
+    assert float(link.find("inertial/mass").get("value")) == pytest.approx(v("head_camera_mass")) == pytest.approx(0.0629)
+    # the body's centre in the carriage frame: on the lens line's plane, 13 mm behind the lens along the pitched optical axis
+    centre = lens @ np.array([v("head_camera_body_x_from_lens_line"), 0, 0, 1])
+    expected = lens[:3, 3] + _rot_y(HCI_BASELINE_PITCH_DEG) @ np.array([v("head_camera_body_x_from_lens_line"), 0, 0])
+    assert centre[:3] == pytest.approx(expected, abs=1e-12)
+
+
+@pytest.mark.parametrize("head_pitch,deg", [("hp15", 15), ("hp35", 35)])
+def test_item24_the_head_camera_body_pitches_with_head_pitch(head_pitch, deg):
+    root = expand(head_pitch=head_pitch)
+    assert fixed_fk(root, "lift_carriage_link", "head_camera_link")[:3, :3] == pytest.approx(_rot_y(deg), abs=1e-12)
+    assert root.find("link[@name='head_camera_link']/collision[@name='placeholder_head_camera_body']") is not None
+
+
+def test_item24_the_head_camera_mount_runs_from_the_profile_top_to_the_lens_line():
+    root = expand()
+    geo = UPPERBODY["geometry"]
+    bracket = fixed_fk(root, "lift_carriage_link", "head_camera_bracket_link")
+    lens = fixed_fk(root, "lift_carriage_link", "head_camera_link")
+    profile_top = geo["adapter_plate_thickness"] + geo["arm_profile"]["length"]
+    assert bracket[2, 3] == pytest.approx(profile_top, abs=1e-12), "the mount foot is not on the arm-profile top"
+    post = root.find("link[@name='head_camera_bracket_link']/visual[@name='placeholder_head_camera_bracket_post']")
+    height = float(post.find("geometry/box").get("size").split()[2])
+    assert bracket[2, 3] + height == pytest.approx(lens[2, 3], abs=1e-12), "the mount post does not reach the lens line"
+    assert lens[0, 3] - bracket[0, 3] == pytest.approx(v("head_camera_bracket_x_behind_lens"), abs=1e-12)

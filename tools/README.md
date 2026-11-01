@@ -110,4 +110,22 @@ Reads the expanded URDF (poses, box and cylinder sizes) and prints the two block
 
 The twin consumes PR #26's canonical `upper_body_equipment.xacro` and official frames. The historical docs fixture stays byte-for-byte unchanged. `export_docs_model_values.py --model-js ...` reports raw roadmap differences; tests reconcile only the named supplier dimensions in `SOURCE_RECONCILIATIONS`, reading their values from `datums.yaml`. The 0.5 mm comparison tolerance is unchanged. Falcon housing/window and SICK bracket dimensions are independently asserted against the selected manufacturer drawings. The bracket aperture is bounded from actual URDF collision rectangles.
 
-The provisional rod mounting corner is part of the rod's rigid assembly, with two additional boxes on its existing link. Head camera housing and light diffuser are additive details. No second item-24 model or alternate set of numeric configuration constants remains. No dynamic lift controller is supplied.
+The provisional rod mounting corner is part of the rod's rigid assembly, with two additional boxes on its existing link. The official head_camera_link owns the sole ZED Mini body and supplier mass; head_camera_bracket_link owns the sole provisional mount. The light diffuser remains an additive visual detail. No second item-24 model or alternate set of numeric configuration constants remains. No dynamic lift controller is supplied.
+
+### `v01_rear_captures/`: three rear views for V01
+
+`capture_rear.py <outdir>` takes one RViz shot from behind (and a little to the left) per lift stop at bp000, so the second E-stop on the
+static column's rear face and the stop sensors on its left face are in view. It reuses the P19 script `evidence/renders/rviz/capture_rviz.py`
+unchanged, pointed at this directory (`capture.launch.py` with `rear_capture.rviz`; `xgrab.py` runs the P19 grabber). The a7 job runs it after
+the six P19 views and uploads both with the artifact `v01-rviz-captures` (rear views under `rear/`). Pictures for a person, not evidence.
+
+### `report_hand_clearance.py`: REPORT ONLY, hand to base top cover at L1000, rest pose
+
+```bash
+python3 tools/report_hand_clearance.py [--json out.json]
+```
+
+bp000 and bp050, lift at 0 (L1000), every arm and finger joint at 0 (the stack's initial state: SRDF `home` + `open`). For each hand (the gripper
+links with collision geometry) it reports the minimum distance to the base top cover twice: MoveIt's distance to base_link's collision box (top
+0.295 m, what planning sees; SRDF not consulted) and the exact triangle distance to the visual cover mesh `base_covers.stl` (0 when the
+meshes cross; vertex-face and edge-edge otherwise), with the height gap as a certified lower bound. Exit 0 whatever it finds.

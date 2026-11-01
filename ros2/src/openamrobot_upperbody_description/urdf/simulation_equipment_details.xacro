@@ -3,29 +3,6 @@
 <!-- Additive simulation detail. Canonical item-24 equipment is upper_body_equipment.xacro.
      Positions remain provisional until M-09; no control or safety implementation. -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
-  <xacro:macro name="equipment_box" params="name parent size xyz rgba mass:=0">
-    <link name="${name}">
-      <visual>
-        <geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry>
-        <material name="${name}_finish"><color rgba="${rgba}"/></material>
-      </visual>
-      <collision><geometry><box size="${size[0]} ${size[1]} ${size[2]}"/></geometry></collision>
-      <xacro:if value="${mass > 0}">
-        <!-- Uniform-box approximation using a supplier mass, never mesh volume times arbitrary density. -->
-        <inertial>
-          <mass value="${mass}"/>
-          <inertia ixx="${mass*(size[1]**2+size[2]**2)/12}" ixy="0" ixz="0"
-                   iyy="${mass*(size[0]**2+size[2]**2)/12}" iyz="0"
-                   izz="${mass*(size[0]**2+size[1]**2)/12}"/>
-        </inertial>
-      </xacro:if>
-    </link>
-    <joint name="${name}_joint" type="fixed">
-      <parent link="${parent}"/><child link="${name}"/>
-      <origin xyz="${xyz[0]} ${xyz[1]} ${xyz[2]}"/>
-    </joint>
-  </xacro:macro>
-
   <xacro:macro name="openamr_simulation_equipment_details" params="datums">
     <xacro:property name="dt" value="${datums['datums']}"/>
     <xacro:property name="light" value="${dt['head_light_size']['value']}"/>
@@ -41,9 +18,6 @@
       <parent link="head_light_link"/><child link="head_light_window_link"/>
       <origin xyz="${light[0]/2} 0 0"/>
     </joint>
-    <xacro:equipment_box name="head_camera_housing_link" parent="head_camera_link"
-        size="${dt['head_camera_body_size']['value']}" xyz="${[dt['head_camera_body_x']['value'], 0, 0]}"
-        rgba="0.05 0.05 0.06 1" mass="${dt['head_camera_body_mass']['value']}"/>
 
   </xacro:macro>
 </robot>

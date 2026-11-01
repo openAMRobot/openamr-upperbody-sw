@@ -11,16 +11,16 @@ rules:
   everything_else: 'enabled: sampling falsifies and never certifies, so it is not a reason to disable a pair'
 counts:
   upstream_declared: 20
-  adjacent_derived: 27
-  constant_transform: 141
-  disabled_total: 188
+  adjacent_derived: 26
+  constant_transform: 127
+  disabled_total: 173
 deterministic: true
 contract:
   file: config/openamrobot.srdf
   what: 'every <disable_collisions> of the SRDF (section 1, upstream''s, and the derived block). This file is the contract: M03 validates it,
     and a change to it is a change to the contract'
-  fingerprint: sha256:2eede623367a5636712cbb3e22b12ae09bae0ec419e8f109e1bcb3117ad8863a
+  fingerprint: sha256:88d25de484d90cce85955c69504456fb0808dffca8ec11f3a14ded84e6f014c5
   pairs:
-    total: 188
-    Adjacent: 47
-    ConstantTransform: 141
+    total: 173
+    Adjacent: 46
+    ConstantTransform: 127

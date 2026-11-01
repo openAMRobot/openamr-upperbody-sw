@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""The provisional visual support connects existing rigid geometry; it is not hardware CAD."""
+"""The official provisional mount connects one camera body; it is not released hardware CAD."""
 import itertools
 import numpy as np
 import pytest
@@ -16,10 +16,17 @@ def vector(e, key):
 def test_support_touches_profile_and_housing_without_entering_forward_view(base_plate,head_pitch):
     root=expand(base_plate=base_plate,head_pitch=head_pitch)
     mount=root.find("link[@name='head_camera_mount_link']")
-    visuals=mount.findall('visual');assert len(visuals)==2
+    assert not mount.findall('visual'), 'duplicate support remains on the lens pivot'
     assert mount.find('collision') is None and mount.find('inertial') is None
+    bracket=root.find("link[@name='head_camera_bracket_link']")
+    visuals=bracket.findall('visual');assert len(visuals)==2
+    assert not bracket.findall('collision'), 'unreleased visual support must not invent physical contacts'
+    assert bracket.find('inertial') is None
+    assert root.find("link[@name='head_camera_housing_link']") is None, 'duplicate ZED Mini body'
+    body=root.find("link[@name='head_camera_link']")
+    assert len(body.findall('visual'))==len(body.findall('collision'))==len(body.findall('inertial'))==1
     foot,stem=visuals
-    ft=fixed_fk(root,'lift_carriage_link','head_camera_mount_link')@joint_origin(foot)
+    ft=fixed_fk(root,'lift_carriage_link','head_camera_bracket_link')@joint_origin(foot)
     profile=root.find("link[@name='arm_profile_link']/visual/geometry/box")
     pt=fixed_fk(root,'lift_carriage_link','arm_profile_link')
     size=vector(foot.find('geometry/box'),'size');ps=vector(profile,'size')
@@ -28,13 +35,14 @@ def test_support_touches_profile_and_housing_without_entering_forward_view(base_
     # Sample the stem cross-section inside the existing tilted housing. This
     # guards an actual visible connection for every supported camera pitch.
     st=joint_origin(stem);ss=vector(stem.find('geometry/box'),'size')
-    camera=fixed_fk(root,'head_camera_mount_link','head_camera_housing_link')
-    hs=vector(root.find("link[@name='head_camera_housing_link']/visual/geometry/box"),'size')
+    # The official bracket and pitched camera are siblings under the lens pivot.
+    lens=np.linalg.inv(fixed_fk(root,'head_camera_mount_link','head_camera_bracket_link'))@fixed_fk(root,'head_camera_mount_link','head_camera_link')
+    camera=lens@joint_origin(body.find('visual'))
+    hs=vector(body.find('visual/geometry/box'),'size')
     points=np.array([[x,0,z,1] for x,z in itertools.product(np.linspace(-ss[0]/2,ss[0]/2,25),np.linspace(-ss[2]/2,ss[2]/2,80))])
     in_housing=(np.linalg.inv(camera)@st@points.T).T[:,:3]
     assert np.any(np.all(np.abs(in_housing)<=hs/2+1e-12,axis=1)), 'support does not touch housing'
     # The support stays outside the ideal camera's forward near-clipped viewing cone.
-    lens=fixed_fk(root,'head_camera_mount_link','head_camera_link')
     for v in visuals:
         dims=vector(v.find('geometry/box'),'size')
         corners=np.array([list(p)+[1] for p in itertools.product(*[[-d/2,d/2] for d in dims])])
@@ -44,9 +52,10 @@ def test_support_touches_profile_and_housing_without_entering_forward_view(base_
 
 
 @pytest.mark.parametrize('height',[0.,.175,.350])
-def test_support_moves_with_lift_and_adds_no_new_frame_or_dynamics(height):
+def test_official_support_and_single_body_follow_lift_without_mount_mass(height):
     root=expand();poses=zero_pose_poses(root,{'lift_joint':height});zero=zero_pose_poses(root)
-    for name in ['head_camera_mount_link','head_camera_link','head_camera_optical_frame','head_camera_housing_link']:
+    for name in ['head_camera_mount_link','head_camera_link','head_camera_optical_frame','head_camera_bracket_link']:
         np.testing.assert_allclose(poses[name][:3,3]-zero[name][:3,3],[0,0,height],atol=1e-12)
+    assert root.find("link[@name='head_camera_bracket_link']/inertial") is None
     assert root.find("joint[@name='head_camera_mount_joint']/parent").get('link')=='lift_carriage_link'
     assert root.find("joint[@name='head_camera_pitch_joint']/origin").get('rpy')=='0 0.5235987755982988 0'

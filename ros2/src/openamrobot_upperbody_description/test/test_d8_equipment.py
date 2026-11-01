@@ -23,7 +23,7 @@ def test_static_equipment_stays_fixed_and_moving_equipment_follows_the_lift():
     root = expand()
     p0, p1 = zero_pose_poses(root), zero_pose_poses(root, {'lift_joint': .35})
     fixed = ['second_estop_link'] + [f'lift_stop_sensor_{s}_link' for s in ['l1000','l1175','l1350']]
-    moving = ['getac_tablet_link', 'head_light_link', 'head_camera_housing_link', 'lift_flag_link',
+    moving = ['getac_tablet_link', 'head_light_link', 'head_camera_link', 'lift_flag_link',
               'lift_flag_rod_link']
     for name in fixed:
         assert np.allclose(p1[name], p0[name], atol=1e-12)

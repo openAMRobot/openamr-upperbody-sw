@@ -66,9 +66,10 @@ ros2 run openamrobot_upperbody_moveit regenerate_acm.sh [--base-plate bp000]    
 ros2 run openamrobot_upperbody_moveit regenerate_acm.sh --write                        # replaces the contract (and the fingerprint): a decision, read the diff
 ```
 
-The integrated contract (`contract:` in `acm_generation.yaml`) has **188 pairs (47 `Adjacent`, 141 `ConstantTransform`), 20 declared by upstream**, fingerprint
-`sha256:2eede623367a5636712cbb3e22b12ae09bae0ec419e8f109e1bcb3117ad8863a`.
-It is derived from PR #26's canonical equipment plus the head camera housing, with the selected supplier envelopes/apertures and the rod corner within the rigid rod assembly. No permanent collision was waived. The official item-24 predecessor had 179 pairs (46 Adjacent, 133 ConstantTransform). It was 99 pairs (38 + 61), fingerprint `sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
+The integrated contract (`contract:` in `acm_generation.yaml`) has **173 pairs (46 `Adjacent`, 127 `ConstantTransform`), 20 declared by upstream**, fingerprint
+`sha256:88d25de484d90cce85955c69504456fb0808dffca8ec11f3a14ded84e6f014c5`.
+On 1 Nov, official PR #26's sole ZED Mini body and provisional mount replace the twin housing/support; platform #106 removes the legacy camera collision box. Existing derivation rules apply only to geometry-bearing links; the unreleased mount remains visual-only. The legacy camera geometry's 15 pairs are removed. No permanent collision is waived. Supplier envelopes/apertures and the rod corner remain. Historical twin: 188 pairs (47 Adjacent, 141 ConstantTransform); official #26 before #106: 198 pairs (49 + 149).
+It was 99 pairs (38 + 61), fingerprint `sha256:42b5d25db43a7c285da91c59b4351afea52ac0165062ecd90c3f8920cd0bb18a`, re-derived on 28 Oct (P28) when the adapter plate became a geometry link under the carriage and the arm profile its child
 (four new pairs, one relabelled `Adjacent` to `ConstantTransform`); it was 95 pairs (37 + 58) from 16 Oct, when the lift column's two stages got placeholder
 boxes (follow-up (a)); it was 83 pairs (38 + 45) in P15 and 113 pairs (36 + 77) with the fixed mast; P15 re-derived it (the model <!-- decision-allow: LIFT historical: the matrix count with the superseded fixed mast -->
 changed and the contract is the file, so this is a contract change, in the diff). **The by-construction set shrank from 77 to 45 on purpose:** a

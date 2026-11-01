@@ -217,39 +217,22 @@
 
     <!-- Head camera (ZED Mini). head_camera_mount_link is the pitch pivot on the
          lens line; head_camera_link is pitched down by head_pitch about y. -->
-    <!-- Provisional VISUAL-ONLY camera support, from the assembled roadmap's
-         head_camera_bracket (model.js cd780d6368625f4c653dfa287efc0688c37be82a).
-         Released bracket CAD is pending (upperbody-hw upper_body_option_B.md).
-         It adds no link/joint, mass, inertia or collision; its fixed camera-mount
-         frame is already carried by the lift. The camera pivot/optical pose is unchanged. -->
-    <!-- Visualization constant: roadmap support footprint/width, not a released bracket dimension. -->
-    <xacro:property name="openamr_head_support_width" value="0.030"/>
-    <!-- Visualization constant: roadmap foot thickness, visual only. -->
-    <xacro:property name="openamr_head_support_foot" value="0.006"/>
-    <!-- Visualization constant: roadmap stem depth, visual only. -->
-    <xacro:property name="openamr_head_support_depth" value="0.012"/>
-    <!-- Visualization constant: roadmap setback behind the lens line, visual only. -->
-    <xacro:property name="openamr_head_support_setback" value="0.030"/>
-    <xacro:property name="head_support_rise" value="${mount['z_above_column_top'] + lens['z_above_arm_mount'] - geo['adapter_plate_thickness'] - profile['length']}"/>
-    <link name="head_camera_mount_link">
-      <visual>
-        <origin xyz="${-openamr_head_support_setback} 0 ${-head_support_rise + openamr_head_support_foot/2}"/>
-        <geometry><box size="${openamr_head_support_width} ${openamr_head_support_width} ${openamr_head_support_foot}"/></geometry>
-        <xacro:openamr_finish material="structural_aluminum"/>
-      </visual>
-      <visual>
-        <origin xyz="${-openamr_head_support_setback} 0 ${-head_support_rise/2}"/>
-        <geometry><box size="${openamr_head_support_depth} ${openamr_head_support_width} ${head_support_rise}"/></geometry>
-        <xacro:openamr_finish material="structural_aluminum"/>
-      </visual>
-    </link>
-    <xacro:openamr_gazebo_finish link="head_camera_mount_link" material="structural_aluminum"/>
+    <!-- Official item-24 bracket owns the support geometry; this remains the lens-line pivot. -->
+    <link name="head_camera_mount_link"/>
     <joint name="head_camera_mount_joint" type="fixed">
       <parent link="lift_carriage_link"/>
       <child link="head_camera_mount_link"/>
       <origin xyz="${mount['x_from_column_axis'] + lens['x_ahead_of_arm_mount']} ${lens['y']} ${mount['z_above_column_top'] + lens['z_above_arm_mount']}" rpy="0 0 0"/>
     </joint>
-    <link name="head_camera_link"/>
+    <!-- With the datums (combined robot): the ZED Mini body (upper_body_equipment.xacro); without: a frame, as before. -->
+    <xacro:if value="${datums == ''}">
+      <link name="head_camera_link"/>
+    </xacro:if>
+    <xacro:unless value="${datums == ''}">
+      <link name="head_camera_link">
+        <xacro:openamrobot_head_camera_body datums="${datums}"/>
+      </link>
+    </xacro:unless>
     <joint name="head_camera_pitch_joint" type="fixed">
       <parent link="head_camera_mount_link"/>
       <child link="head_camera_link"/>

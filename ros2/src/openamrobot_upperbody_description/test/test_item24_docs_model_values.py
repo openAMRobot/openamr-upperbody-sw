@@ -32,6 +32,14 @@ def fixture():
     return doc
 
 
+def head_camera_source():
+    """The fixture's verbatim model.js source lines of the head camera (hash-checked), joined in line order."""
+    doc = fixture()["head_camera_source"]
+    text = "\n".join(doc["lines"][k] for k in sorted(doc["lines"], key=int))
+    assert hashlib.sha256(text.encode()).hexdigest() == doc["sha256"], "head_camera_source: the fixture was edited, not copied"
+    return text
+
+
 def leaves(value, prefix=""):
     """{dotted key: leaf} of a JSON value (list entries as key[i])."""
     if isinstance(value, dict):
@@ -71,6 +79,18 @@ def test_item24_the_export_matches_the_docs_with_explicit_supplier_reconciliatio
         reference = exporter.supplier_reference(json.loads(doc["blocks"][block]), block, load_datums()["datums"])
         problems = differences(reference, exported[block], exporter.NOT_EXPORTED[block])
         assert not problems, f"{block} at {base_plate} (docs {doc['commit'][:7]}):\n" + "\n".join(problems)
+    problems = differences(exporter.docs_head_camera(head_camera_source()), exported["HEAD-CAMERA"], exporter.NOT_EXPORTED["HEAD-CAMERA"])
+    assert not problems, f"HEAD-CAMERA at {base_plate} (docs {doc['commit'][:7]}):\n" + "\n".join(problems)
+
+
+def test_item24_the_head_camera_extractor_reads_the_docs_drawing():
+    """The model.js values the head-camera datums came from, read by the extractor from the verbatim source lines."""
+    docs = exporter.docs_head_camera(head_camera_source())
+    assert docs == {"ZED_X": 0.222, "ZED_ABOVE_SH": 0.223, "MOUNT_ABOVE_COL": 0.166, "pitch_deg": 30.0,
+                    "body": {"size": [0.0265, 0.1245, 0.0305], "x": -0.013},
+                    "bracket": {"back": 0.03, "foot": [0.03, 0.03, 0.006], "post": [0.012, 0.03]}}
+    with pytest.raises(ValueError):
+        exporter.docs_head_camera(head_camera_source().replace("box(zed", "box(cam"))
 
 
 def test_item24_the_comparison_can_fail():
@@ -85,7 +105,7 @@ def test_item24_the_comparison_can_fail():
 
 def test_item24_the_tool_skips_only_what_the_urdf_cannot_carry():
     assert exporter.NOT_EXPORTED == {"CHEST-JSON": ["second_estop.glb_node", "second_estop.glb_axis"],
-                                     "LIFT-JSON": []}
+                                     "LIFT-JSON": [], "HEAD-CAMERA": []}
 
 
 def test_raw_roadmap_comparison_keeps_supplier_conflicts_visible():
