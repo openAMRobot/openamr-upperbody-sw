@@ -1,6 +1,8 @@
 # OpenAMRobot 2.0: open-source mobile base with lift for OpenArm 2.0 dual arms
 
-![The combined model in RViz: mobile base, lift at L1350 and two OpenArm 2.0 arms](docs/media/hero.png)
+![OpenAMRobot 2.0 visualization (assembled, lift raised)](docs/media/hero.png)
+
+*OpenAMRobot 2.0 visualization (assembled, lift raised).*
 
 The combined model puts the mobile base, a 350 mm lift and two OpenArm 2.0 arms in one URDF/Xacro, with MoveIt and Gazebo, ready to fork.
 It is built for makers, developers, startups and labs taking OpenArm 2.0 mobile.
@@ -12,6 +14,8 @@ From the team behind [openamr-platform-sw](https://github.com/openAMRobot/openam
 The combined model is here: mobile base, 350 mm lift and two OpenArm 2.0 arms in one URDF, running with MoveIt and Gazebo (verification: [`docs/verification.md`](docs/verification.md)).
 The physical build is underway.
 Platform release v2.0.0-rc.1 lands 20 Nov 2026, the dual-arm hardware follows.
+
+Interactive 3D model: https://docs.openamrobot.ai/assets/roadmap/robot.html
 
 ## Model and design figures
 
@@ -63,6 +67,10 @@ source install/setup.bash
 ```
 
 ## Three ways in
+
+![The actual combined URDF in RViz at full lift (L1350)](docs/media/urdf_rviz_L1350.png)
+
+*The actual combined URDF in RViz at full lift (L1350). This is what the commands below load.*
 
 Run each command from a shell where the workspace is sourced.
 
