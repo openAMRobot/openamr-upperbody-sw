@@ -7,7 +7,7 @@
       -> base_link (platform-sw, 0.098 m above it) and everything platform-sw declares on it, near-field frames included
       -> lift_column_base_link                                  (option B, openamrobot_upperbody.xacro; datum column_axis_x_bp000)
            -> second_estop_link, lift_stop_sensor_{l1000,l1175,l1350}_link   (item 24 equipment, static: geometry only)
-           -> lift_joint (prismatic, 0..0.350 m, effort 0 velocity 0: no authority to command it) -> lift_carriage_link
+           -> lift_joint (prismatic, 0..0.350 m; mock/gazebo: 800 N, 0.018 m/s, planned; real: effort 0 velocity 0) -> lift_carriage_link
                 -> arm_profile_link -> getac_tablet_link, head_light_link          (P-03 item 24 equipment, upper_body_equipment.xacro)
                 -> adapter_plate_link -> lift_flag_rod_link -> lift_flag_link       (item 24)
                 -> head_camera_mount_link -> head_camera_link -> head_camera_optical_frame     (option B)
@@ -21,8 +21,12 @@
   composition: the arms, the lift column's inertial (datums), the sensors on the wrists, ros2_control. No mast: the shoulder
   height is the joint position of lift_joint (calibration IDs L1000 / L1175 / L1350 are joint positions, not arguments).
 
-  ros2_control (ros2_control.xacro): arms only, none for the base and none for the lift. hardware_profile picks the arm plugin:
-  mock = mock_components/GenericSystem, gazebo = gz_ros2_control/GazeboSimSystem, real = openarm_hardware/OpenArmHW (ADR-003).
+  ros2_control (ros2_control.xacro): the arms, and the lift in the simulated profiles only; none for the base. hardware_profile picks the
+  arm plugin: mock = mock_components/GenericSystem, gazebo = gz_ros2_control/GazeboSimSystem, real = openarm_hardware/OpenArmHW (ADR-003).
+  The lift (issue #17): with mock and gazebo, lift_joint has its own <ros2_control> system (a position command interface, on the same
+  plugin as the arms) and carries the DOLD V4 limits (datums lift_max_effort_*, lift_max_velocity_*, register LIFT), so MoveIt plans it
+  and lift_controller follows it. With real it has neither: effort 0 velocity 0 and no command interface (the lift node firmware owns the
+  lift, CTL-017).
 
   Args: an unknown value for any arg fails expansion with the list of accepted values. column, base_plate, head_pitch and
   base_tilt are option B's configuration IDs; their accepted values and baseline are read from upperbody_configuration.yaml.
@@ -116,6 +120,19 @@
   <xacro:if value="${column_cfg['retracted_length'] is None}">
     ${xacro.fatal("column '" + column + "': retracted length is pending supplier data; this configuration cannot be built yet")}
   </xacro:if>
+  <!-- The lift's simulated limits (issue #17): the DOLD figures of the selected column, only where the lift has a controller (arm_package
+       openarm, hardware_profile mock or gazebo). Anywhere else lift_joint keeps effort 0 velocity 0. -->
+  <xacro:property name="lift_commanded" lazy_eval="false" value="${arm_package == 'openarm' and hardware_profile in ['mock', 'gazebo']}"/>
+  <xacro:property name="lift_motion_by_column" lazy_eval="false"
+                  value="${dict(dold_v4_350=dict(effort=dt['lift_max_effort_dold_v4_350']['value'], velocity=dt['lift_max_velocity_dold_v4_350']['value']))}"/>
+  <xacro:if value="${lift_commanded}">
+    <xacro:if value="${column not in lift_motion_by_column}">
+      ${xacro.fatal("column '" + column + "': no lift effort and velocity datums; the simulated lift cannot be built for it")}
+    </xacro:if>
+    <xacro:openamr_require_datum name="lift_max_effort_${column}" value="${lift_motion_by_column[column]['effort']}" owner="Alex (F2S)"/>
+    <xacro:openamr_require_datum name="lift_max_velocity_${column}" value="${lift_motion_by_column[column]['velocity']}" owner="Alex (F2S)"/>
+  </xacro:if>
+  <xacro:property name="lift_limits" lazy_eval="false" value="${lift_motion_by_column[column] if lift_commanded else ''}"/>
   <xacro:property name="lift_section" lazy_eval="false" value="${dt['lift_column_section']['value']}"/>
   <xacro:property name="lift_inner" lazy_eval="false" value="${dt['lift_inner_section']['value']}"/>
   <xacro:property name="plate_section" lazy_eval="false" value="${dt['adapter_plate_section']['value']}"/>
@@ -135,7 +152,7 @@
                                emit_arm_mounts="${arm_package != 'openarm'}" column_inertial="${lift_inertial}"
                                column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], inner_x=lift_inner[0], inner_y=lift_inner[1])}"
                                adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 + plate_section[0] / 2)}"
-                               datums="${datums}"/>
+                               datums="${datums}" lift_limits="${lift_limits}"/>
 
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.
        none: the upper body only. -->
@@ -182,9 +199,11 @@
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_sensors.xacro"/>
     <xacro:openamr_upper_sensors datums="${datums}"/>
 
-    <!-- Arms only, and only here: so101 and none get no ros2_control. Needs the arm joints emitted above. -->
+    <!-- Only here: so101 and none get no ros2_control. Needs the arm joints emitted above. -->
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/ros2_control.xacro"/>
     <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"/>
+    <!-- The lift: mock and gazebo only (issue #17); real gets none. -->
+    <xacro:openamr_lift_ros2_control hardware_profile="${hardware_profile}"/>
   </xacro:if>
 
 </robot>

@@ -38,8 +38,8 @@ simulated time. For every joint with limits the result keeps the lowest and high
 The margin is a datum, `joint_rest_margin_rad` in datums.yaml, with its source and status there: not a literal here. The test reads it from the
 installed description package and records the value it used.
 
-What it does not cover, said so in the sidecar and never silently skipped: `lift_joint` (not under ros2_control; its state is
-joint_state_publisher's default zero, which is its lower stop by construction, so there is no physics rest position to read) and the wheels
+What it does not cover, said so in the sidecar and never silently skipped: `lift_joint` (prismatic, in m; it rests on its
+lower stop L1000 by construction, held there by lift_controller since issue #17, and the rad margin datum is not a margin for it) and the wheels
 (continuous, no limits).
 
 `simulation` class: how this model rests in this simulator on this machine. It says nothing about a physical robot or its limits.
@@ -81,8 +81,9 @@ MIN_SAMPLES_PER_JOINT = 50    # the same, per expected joint: a joint read fewer
 DATUM = "joint_rest_margin_rad"
 EXPECTED_PROCESSES = ["gazebo", "robot_state_publisher", "parameter_bridge", "create", "joint_state_publisher", "spawner"]
 NOT_MEASURED = {
-    "lift_joint": "not under ros2_control: its state is joint_state_publisher's default zero (= its lower stop L1000 by construction), "
-                          "not a physics reading, so there is no rest position of the simulator to compare with its limits",
+    "lift_joint": "a prismatic joint (m) whose rest is its lower stop L1000 by construction: the stroke's end and a calibration stop, where "
+                  "lift_controller holds it (under ros2_control in the simulated profiles since issue #17). The margin datum is in rad and is "
+                  "for the revolute joints, so there is no rest margin of the lift to compare with it",
 }
 
 
@@ -191,13 +192,14 @@ class TestRestPositionMargin(unittest.TestCase):
         self.assertTrue(self._spin_until(lambda: (clock.now().nanoseconds - t1) * 1e-9 >= WINDOW_SIM_S, 120.0), "the reading window did not elapse")
         window["on"] = False
         self.record["messages_in_window"] = count[0]
-        evaluation = evaluate_m07(readings, expected, limits, margin, MIN_SAMPLES_PER_JOINT)
+        evaluation = evaluate_m07(readings, expected, limits, margin, MIN_SAMPLES_PER_JOINT, not_measured=NOT_MEASURED)
         self.record.update({"verdict": evaluation["result"], "joints": evaluation["rows"], "joints_read": sorted(readings),
                             "joints_with_limits_read": len(evaluation["rows"]), "failing_joints": evaluation["failing_joints"],
                             "warned_joints": evaluation["warned_joints"], "coverage": evaluation["coverage"],
                             "samples_per_joint": evaluation["valid_samples_per_joint"],       # FINITE readings: what counts toward the minimum
                             "raw_samples_per_joint": evaluation["raw_samples_per_joint"],
                             "invalid_readings": evaluation["invalid_readings"],               # every rejected reading, by joint, kind and position
+                            "not_measured_excluded_from_margin": evaluation["not_measured_excluded_from_margin"],
                             "problems": evaluation["problems"]})
         self.assertGreaterEqual(count[0], MIN_MESSAGES, f"only {count[0]} joint-state messages in a {WINDOW_SIM_S} s window: not a measurement of a rest")
         self.assertFalse(evaluation["invalid_readings"], f"non-finite joint positions on /arm/joint_states: {evaluation['invalid_readings']}")

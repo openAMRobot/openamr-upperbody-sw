@@ -4,15 +4,17 @@ is already running (robot_state_publisher, the controller manager, joint states)
 openamrobot_upperbody_bringup's moveit.launch.py, which starts the stack too.
 
     ros2 launch openamrobot_upperbody_moveit move_group.launch.py [base_plate:=bp000] [hardware_profile:=mock|gazebo] [rviz:=false]
-                                                                  [clamp_joint_states:=true]
+                                                                  [clamp_joint_states:=auto]
 
 Args
   column, base_plate, head_pitch, base_tilt   option B's configuration IDs (defaults: its baseline dold_v4_350 / bp000 / hp30 / bt10)
   hardware_profile  mock | gazebo    which stack is running; `gazebo` also sets use_sim_time (the simulator's /clock)
   rviz              true | false     RViz2 with the MotionPlanning display (config/moveit.rviz)
-  clamp_joint_states  true | false   start joint_state_clamp.py and plan from /joint_states_clamped instead of /joint_states: the simulated
-                                     joint state with float noise past a limit (at most 1e-5 rad) taken off, counted and logged. Simulation only:
-                                     see joint_state_clamp.py for why it exists and what it is not. Nothing else reads the clamped topic
+  clamp_joint_states  auto | true | false   start joint_state_clamp.py and plan from /joint_states_clamped instead of /joint_states: the
+                                     simulated joint state with float noise past a limit (at most 1e-5 rad) taken off, counted and logged. Default
+                                     `auto` (issue #18): follows hardware_profile, on for the simulated profiles (mock, gazebo), off for any other
+                                     (a hardware profile: there a reading past a limit is real and must not be hidden). An explicit true or false
+                                     wins. See joint_state_clamp.py for why it exists and what it is not. Nothing else reads the clamped topic
 
 The configuration comes from MoveItConfigsBuilder over the combined xacro and this package's own files (moveit_config.py). Everything is
 simulation: nothing here claims a physical limit (ADR-009).
@@ -34,9 +36,11 @@ TRAJECTORY_EXECUTION = {
 
 
 CLAMPED_TOPIC = "/joint_states_clamped"       # what joint_state_clamp.py publishes
+CLAMP_DEFAULT_ARGUMENT = "auto"               # = joint_state_clamp.CLAMP_DEFAULT_ARGUMENT (test_joint_state_clamp_default.py holds them equal)
 
 
 def launch_setup(context, *args, **kwargs):
+    from openamrobot_upperbody_moveit.joint_state_clamp import clamp_enabled
     from openamrobot_upperbody_moveit.moveit_config import moveit_config
 
     ids = {key: LaunchConfiguration(key).perform(context) for key in ("column", "base_plate", "head_pitch", "base_tilt")}
@@ -45,7 +49,7 @@ def launch_setup(context, *args, **kwargs):
     config = moveit_config(hardware_profile=profile, **ids)
     parameters = [config.to_dict(), TRAJECTORY_EXECUTION, {"use_sim_time": use_sim_time, "publish_robot_description_semantic": True}]
 
-    clamp = LaunchConfiguration("clamp_joint_states").perform(context) == "true"
+    clamp = clamp_enabled(LaunchConfiguration("clamp_joint_states").perform(context), profile)
     # move_group plans from the clamped copy of /joint_states (a relative-name remap of the topic its planning scene monitor subscribes to);
     # robot_state_publisher, RViz and everything else keep the raw one.
     nodes = [Node(package="moveit_ros_move_group", executable="move_group", output="screen", parameters=parameters,
@@ -70,7 +74,8 @@ def generate_launch_description():
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("hardware_profile", default_value="mock", description="mock | gazebo: which stack is running"),
         DeclareLaunchArgument("rviz", default_value="false", description="true | false. RViz2 with the MotionPlanning display"),
-        DeclareLaunchArgument("clamp_joint_states", default_value="true",
-                              description="true | false. Plan from /joint_states_clamped (float noise past a limit clamped, counted, logged)"),
+        DeclareLaunchArgument("clamp_joint_states", default_value=CLAMP_DEFAULT_ARGUMENT,
+                              description="auto | true | false. Plan from /joint_states_clamped (float noise past a limit clamped, counted, "
+                                          "logged); auto follows hardware_profile: on for mock and gazebo, off otherwise (issue #18)"),
         OpaqueFunction(function=launch_setup),
     ])

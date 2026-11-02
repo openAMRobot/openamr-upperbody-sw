@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: MIT
 """M02: every named pose of both arms (and both grippers) plans and executes in Gazebo at option B's baseline configuration, through
-move_group, with a final joint error below 0.01 rad. The lift is at L1000 (lift_joint at its zero, which is where joint_state_publisher
-reports it and where the unactuated carriage rests on its limit): the simulator is not asked to move it (we have no authority to).
+move_group, with a final joint error below 0.01 rad, at lift stop L1000.
+
+S8 with the lift planned (issue #17): lift_joint is a planned joint with a gz_ros2_control interface and lift_controller. The run is M01's
+(a7_support.run_s8): both arms to `park`, the lift PLANNED from L1000 to L1175 and back (only between the stops, only with the arms reading
+`park`: the register LIFT rule as scenario design, not an interlock), then the twelve poses at L1000. The lift's state is the physics'.
 
 The stack is `moveit.launch.py sim:=gazebo headless:=true`: Gazebo Harmonic (server only), the base on platform-sw's DiffDrive plugin, the
-arms on gz_ros2_control, the five controllers, move_group on the simulator's clock. The poses are the same sequence as M01.
+arms and the lift on gz_ros2_control, the six controllers, move_group on the simulator's clock.
 
 THE PHYSICS ENGINE: this test passes `physics_engine:=gz-physics-bullet-featherstone-plugin` explicitly. sim.launch.py defaults to DART (the
 engine platform-sw tuned the base on; decided 6 Oct), and on DART the fingers do not follow the position command at the default gain and
@@ -35,11 +38,11 @@ from openamrobot_upperbody_moveit.move_group_client import MoveGroupClient  # no
 from openamrobot_upperbody_moveit.named_poses import GRIPPER_JOINT, SIDES  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from a7_support import (A7_ENABLED, ACCELERATION_SCALING, ARM_CONTROLLERS, CONTROLLERS_ACTIVE_WITHIN_S, SKIP_REASON, TOLERANCE,  # noqa: E402
-                        VELOCITY_SCALING, clamp_gate, clamp_record, named_pose_plan, run_sequence, stack_alive, stack_healthy,
+from a7_support import (A7_ENABLED, ACCELERATION_SCALING, CONTROLLERS_ACTIVE_WITHIN_S, LIFT_JOINT, LIFT_TOLERANCE_M, SIM_CONTROLLERS,  # noqa: E402
+                        SKIP_REASON, TOLERANCE, VELOCITY_SCALING, clamp_gate, clamp_record, named_pose_plan, run_s8, stack_alive, stack_healthy,
                         wait_for_controllers_active, write_run_sidecar)
 
-LIFT_STOP = "L1000"            # joint_state_publisher reports lift_joint at its default zero; no ros2_control interface moves it
+LIFT_STOP = "L1000"            # the stop the twelve poses run at; the lift is planned to L1175 and back first (issue #17)
 # The engine this check REQUIRES, passed explicitly on purpose (see the docstring); the launch's own default is DART.
 ENGINE_THE_GRIPPER_POSES_NEED = "gz-physics-bullet-featherstone-plugin"
 READY_WITHIN_S = 150.0
@@ -75,11 +78,14 @@ class TestNamedPosesInGazebo(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         rows = cls.record.get("poses", [])
+        lift = cls.record.get("lift_scenario") or {}
         gate = clamp_record(cls.client)
-        ok = bool(rows) and all(r["ok"] for r in rows) and gate["gate"]["passes"] and cls.record.get("controllers_active", False)
-        details = {"lift_stop": LIFT_STOP, "lift_joint_position_m": 0.0, "base_plate": "bp000",
-                   "lift_state_source": "joint_state_publisher's default (zero), not the physics: platform-sw's JointStatePublisher is "
-                                        "scoped to the wheels and the lift has no ros2_control interface",
+        ok = (bool(rows) and all(r["ok"] for r in rows) and gate["gate"]["passes"] and cls.record.get("controllers_active", False)
+              and bool(lift.get("moves")) and lift.get("moves_ok") == lift.get("moves_run"))
+        details = {"lift_stop": LIFT_STOP, "lift_joint_position_m": 0.0, "base_plate": "bp000", "lift_planned": True,
+                   "lift_state_source": "the physics, through lift_joint's gz_ros2_control interface (openamr_lift_gazebo) and "
+                                        "joint_state_broadcaster; lift_controller moves it",
+                   "lift_tolerance_m": LIFT_TOLERANCE_M,
                    "hardware": "gz_ros2_control/GazeboSimSystem (Gazebo Harmonic, headless)",
                    "physics_engine_used": ENGINE_THE_GRIPPER_POSES_NEED, "physics_engine_passed_explicitly": True,
                    "why_this_engine": "the launch defaults to DART, on which the gripper poses do not close (fingers do not follow the "
@@ -103,14 +109,15 @@ class TestNamedPosesInGazebo(unittest.TestCase):
         # Before the first pose: the arm controllers (and the rest of the five) must be ACTIVE. A pose sent while a controller is still
         # configuring is refused or dropped and then reads as a robot failure; that would be measuring the harness. If they never activate this
         # FAILs here, with their states, and no pose is sent.
-        ok, states, waited = wait_for_controllers_active(self.node, CONTROLLERS_ACTIVE_WITHIN_S)
-        self.record["controllers"] = {"required": list(ARM_CONTROLLERS), "states": states, "waited_s": waited, "timeout_s": CONTROLLERS_ACTIVE_WITHIN_S}
+        ok, states, waited = wait_for_controllers_active(self.node, CONTROLLERS_ACTIVE_WITHIN_S, names=SIM_CONTROLLERS)
+        self.record["controllers"] = {"required": list(SIM_CONTROLLERS), "states": states, "waited_s": waited, "timeout_s": CONTROLLERS_ACTIVE_WITHIN_S}
         self.record["controllers_active"] = ok
         self.assertTrue(ok, f"the controllers did not all reach active within {CONTROLLERS_ACTIVE_WITHIN_S:.0f} s (waited {waited} s): {states}; "
                             "no pose was sent")
-        joints = [f"openarm_{side}_joint{i}" for side in SIDES for i in range(1, 8)] + [GRIPPER_JOINT[s] for s in SIDES]
-        self.assertTrue(self.client.wait_for_joints(joints, 120.0), "/joint_states never listed all 16 controlled joints")
-        self.record["poses"], failures, self.record["start"] = run_sequence(self.client, named_pose_plan(), result_timeout=240.0)
+        joints = [f"openarm_{side}_joint{i}" for side in SIDES for i in range(1, 8)] + [GRIPPER_JOINT[s] for s in SIDES] + [LIFT_JOINT]
+        self.assertTrue(self.client.wait_for_joints(joints, 120.0), "/joint_states never listed all 17 controlled joints")
+        self.record["poses"], self.record["lift_scenario"], failures, self.record["start"] = run_s8(
+            self.client, LIFT_STOP, named_pose_plan(), result_timeout=240.0)
         self.assertFalse(failures, "\n".join(failures))
         self.assertEqual(len(self.record["poses"]), 4 * 2 + 2 * 2)
 

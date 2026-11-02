@@ -12,6 +12,7 @@ from openamrobot_upperbody_moveit.named_poses import GRIPPER_JOINT
 CONTROL_YAML = os.path.join(get_package_share_directory("openamrobot_upperbody_control"), "config", "arm_controllers.yaml")
 ARM_JOINTS = [f"openarm_{side}_joint{i}" for side in ("left", "right") for i in range(1, 8)]
 CONTROLLED = ARM_JOINTS + [GRIPPER_JOINT["left"], GRIPPER_JOINT["right"]]
+LIFT = "lift_joint"                       # a planned joint in the simulated profiles since issue #17
 ACCEL_SECONDS = 2.0                       # the rule written at the top of joint_limits.yaml
 
 
@@ -30,7 +31,7 @@ def test_kinematics_is_kdl_for_both_arms_and_names_srdf_groups():
 def test_joint_limits_entries_are_tagged_engineering_default_placeholder():
     """ADR-009 point 2: acceleration entries are tagged `source: engineering_default`, `status: placeholder`."""
     limits = load_yaml("joint_limits.yaml")["joint_limits"]
-    assert sorted(limits) == sorted(CONTROLLED)
+    assert sorted(limits) == sorted(CONTROLLED + [LIFT])
     for joint, entry in limits.items():
         assert entry["source"] == "engineering_default" and entry["status"] == "placeholder", joint
         assert entry["has_acceleration_limits"] is True and entry["max_acceleration"] > 0, joint
@@ -59,13 +60,17 @@ def test_the_moveit_controllers_are_the_ones_the_stack_spawns_with_the_joints_th
     ctl = controllers()["controller_manager"]["ros__parameters"]
     ours = load_yaml("moveit_controllers.yaml")["moveit_simple_controller_manager"]
     assert sorted(ours["controller_names"]) == sorted(["left_arm_controller", "right_arm_controller",
-                                                       "left_gripper_controller", "right_gripper_controller"])
+                                                       "left_gripper_controller", "right_gripper_controller", "lift_controller"])
     for name in ours["controller_names"]:
         assert name in ctl, f"{name} is not a controller of arm_controllers.yaml"
     for side in ("left", "right"):
         assert ours[f"{side}_arm_controller"]["joints"] == controllers()[f"{side}_arm_controller"]["ros__parameters"]["joints"]
         assert ours[f"{side}_gripper_controller"]["joints"] == [GRIPPER_JOINT[side]]
         assert controllers()[f"{side}_gripper_controller"]["ros__parameters"]["joint"] == GRIPPER_JOINT[side]
+    assert ours["lift_controller"]["joints"] == controllers()["lift_controller"]["ros__parameters"]["joints"] == [LIFT]
+    assert (ours["lift_controller"]["type"], ours["lift_controller"]["action_ns"]) == ("FollowJointTrajectory", "follow_joint_trajectory")
+    assert ctl["lift_controller"]["type"] == "joint_trajectory_controller/JointTrajectoryController"
+    assert controllers()["lift_controller"]["ros__parameters"]["command_interfaces"] == ["position"]
 
 
 def test_the_gripper_fork_is_option_1_and_the_controller_type_is_unchanged():
@@ -82,7 +87,7 @@ def test_the_gripper_fork_is_option_1_and_the_controller_type_is_unchanged():
     assert load_yaml("moveit_controllers.yaml")["moveit_controller_manager"] == "moveit_simple_controller_manager/MoveItSimpleControllerManager"
 
 
-def test_ompl_planning_covers_the_four_groups_and_the_defaults_are_moveits():
+def test_ompl_planning_covers_every_group_and_the_defaults_are_moveits():
     ompl = load_yaml("ompl_planning.yaml")
     groups = {g.get("name") for g in srdf_root().findall("group")}
     assert groups <= set(ompl)

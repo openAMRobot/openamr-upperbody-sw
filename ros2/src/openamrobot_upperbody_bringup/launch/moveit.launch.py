@@ -4,19 +4,22 @@
     ros2 launch openamrobot_upperbody_bringup moveit.launch.py [base_plate:=bp000] [sim:=mock|gazebo] [rviz:=false]
                                                               [lift_position:=0.0] [headless:=false] [physics_engine:=<gz-physics plugin>]
 
-  sim=mock     mock.launch.py (arms on mock_components/GenericSystem, five controllers active), a stub that reports the wheel joints at
-               rest (the base is not under ros2_control) and the lift at `lift_position` (no ros2_control interface: we have no
-               authority to command it), then move_group. Nothing else of the base runs.
-  sim=gazebo   openamrobot_upperbody_gazebo's sim.launch.py (Gazebo, the base on its DiffDrive plugin, the arms on gz_ros2_control, the
-               five controllers), then move_group on the simulator's clock.
+  sim=mock     mock.launch.py (arms and lift on mock_components/GenericSystem, six controllers active), a stub that reports the wheel
+               joints at rest (the base is not under ros2_control), then move_group. Nothing else of the base runs. With a non-zero
+               `lift_position`, one trajectory is sent to lift_controller to take the lift there from 0.
+  sim=gazebo   openamrobot_upperbody_gazebo's sim.launch.py (Gazebo, the base on its DiffDrive plugin, the arms and the lift on
+               gz_ros2_control, the six controllers), then move_group on the simulator's clock.
+  In both, lift_joint is a planned joint (issue #17): MoveIt group `lift`, lift_controller. The real profile has no command interface for it.
 
 Args
   column       dold_v4_350 | tl3_400   (default dold_v4_350; tl3_400 has no supplier data and does not expand)
   base_plate   bp000 | bp050             (default bp000: option B's baseline; column axis x +0.060 / +0.110 from base_link)
   head_pitch   hp15 | hp20 | hp25 | hp30 | hp35   (default hp30)
   base_tilt    bt05 | bt10 | bt15        (default bt10)
-  lift_position   sim:=mock only. m, the position of lift_joint the stub reports: 0.0 / 0.175 / 0.350 are the calibration stops
-                  L1000 / L1175 / L1350 (default 0.0: every joint at zero). With sim:=gazebo the merger's default is the same 0.0
+  lift_position   sim:=mock only. m, where lift_controller takes lift_joint after start-up (one FollowJointTrajectory goal at the
+                  DOLD no-load speed, sent when the controller's action server is up): 0.0 / 0.175 / 0.350 are the calibration stops
+                  L1000 / L1175 / L1350 (default 0.0: nothing is sent, the lift stays at its mock start 0). With sim:=gazebo the lift
+                  starts at the same 0.0 and nothing is sent. The A7 scenario does not use this: it PLANS the lift through MoveIt.
   sim             mock | gazebo
   rviz            true | false  RViz2 with the MotionPlanning display (config/moveit.rviz of the moveit package). With sim:=gazebo the
                   simulator's own RViz is not started: this one replaces it.
@@ -42,6 +45,31 @@ def include(package, launch_file, **launch_arguments):
     return IncludeLaunchDescription(PythonLaunchDescriptionSource(path), launch_arguments=launch_arguments.items())
 
 
+LIFT_SPEED_FRACTION = 0.5       # of the DOLD no-load speed (datum lift_max_velocity_*): the move to lift_position takes twice the fastest time
+
+
+def lift_to(position, column):
+    """sim:=mock: [] for 0.0, else one `ros2 action send_goal` to lift_controller (it waits for the action server) taking lift_joint from its
+    mock start 0 to `position` (m), refused outside 0 .. the column's stroke. Not a planned motion and not the A7 scenario: a viewing aid."""
+    if position == 0.0:
+        return []
+    import math
+    import yaml
+    from launch.actions import ExecuteProcess
+    share = get_package_share_directory("openamrobot_upperbody_description")
+    with open(share + "/config/upperbody_configuration.yaml") as f:
+        stroke = yaml.safe_load(f)["column"][column]["stroke"]
+    with open(share + "/config/datums.yaml") as f:
+        speed = yaml.safe_load(f)["datums"][f"lift_max_velocity_{column}"]["value"]
+    if not 0.0 <= position <= stroke:
+        raise RuntimeError(f"lift_position:={position}: lift_joint ranges 0 to {stroke} m")
+    seconds = math.ceil(position / (speed * LIFT_SPEED_FRACTION))
+    goal = ("{trajectory: {joint_names: [lift_joint], points: [{positions: [%r], velocities: [0.0], time_from_start: {sec: %d}}]}}"
+            % (position, seconds))
+    return [ExecuteProcess(cmd=["ros2", "action", "send_goal", "/lift_controller/follow_joint_trajectory",
+                                "control_msgs/action/FollowJointTrajectory", goal], output="log")]
+
+
 def launch_setup(context, *args, **kwargs):
     config = {key: LaunchConfiguration(key).perform(context) for key in ("column", "base_plate", "head_pitch", "base_tilt")}
     sim = LaunchConfiguration("sim").perform(context)
@@ -52,8 +80,8 @@ def launch_setup(context, *args, **kwargs):
         # The base is not under ros2_control, so on mock nothing reports its wheel joints and MoveIt warns every second that the
         # robot's complete state is unknown. The stub reports them at rest (the base does not move during manipulation, AD-30).
         stack = [include("openamrobot_upperbody_bringup", "mock.launch.py", rviz="false", **config),
-                 Node(package="openamrobot_upperbody_bringup", executable="base_joint_states_stub.py", output="log",
-                      parameters=[{"lift_position": float(LaunchConfiguration("lift_position").perform(context))}])]
+                 Node(package="openamrobot_upperbody_bringup", executable="base_joint_states_stub.py", output="log"),
+                 *lift_to(float(LaunchConfiguration("lift_position").perform(context)), config["column"])]
     else:
         sim_args = {**config, "headless": LaunchConfiguration("headless").perform(context), "rviz": "false"}
         engine = LaunchConfiguration("physics_engine").perform(context)
@@ -71,7 +99,7 @@ def generate_launch_description():
         DeclareLaunchArgument("head_pitch", default_value="hp30", description="hp15 | hp20 | hp25 | hp30 | hp35"),
         DeclareLaunchArgument("base_tilt", default_value="bt10", description="bt05 | bt10 | bt15"),
         DeclareLaunchArgument("lift_position", default_value="0.0",
-                              description="sim:=mock only: lift_joint position (m) the stub reports; 0.0 / 0.175 / 0.350 = L1000 / L1175 / L1350"),
+                              description="sim:=mock only: lift_joint's starting position (m); 0.0 / 0.175 / 0.350 = L1000 / L1175 / L1350"),
         DeclareLaunchArgument("sim", default_value="mock", description="mock | gazebo"),
         DeclareLaunchArgument("rviz", default_value="false", description="true | false. RViz2 with the MotionPlanning display"),
         DeclareLaunchArgument("headless", default_value="false", description="sim:=gazebo only: true runs gz sim -s (no window)"),

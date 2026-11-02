@@ -12,11 +12,28 @@ from ament_index_python.packages import get_package_share_directory
 
 UPSTREAM_TOP_LEVEL = ("assets/robot/openarm_v2.0/urdf/openarm_v20.urdf.xacro")
 BASE_JOINT_HINTS = ("wheel", "caster")        # platform-sw drive and caster joints: never under ros2_control
+LIFT_JOINT = "lift_joint"
+LIFT_SYSTEM_PREFIX = "openamr_lift_"          # issue #17: lift_joint's own <ros2_control> system, mock and gazebo only (ros2_control.xacro)
 
 
 def blocks(root):
     """The <ros2_control> elements of an expansion."""
     return root.findall("ros2_control")
+
+
+def arm_blocks(root):
+    """The arm <ros2_control> elements: every block but the lift's own system (issue #17)."""
+    return [b for b in blocks(root) if not (b.get("name") or "").startswith(LIFT_SYSTEM_PREFIX)]
+
+
+def lift_blocks(root):
+    """The lift's own <ros2_control> system(s): one in mock and gazebo, none in real (issue #17)."""
+    return [b for b in blocks(root) if (b.get("name") or "").startswith(LIFT_SYSTEM_PREFIX)]
+
+
+def arm_controlled_joints(root):
+    """controlled_joints without lift_joint: the arm joints a profile drives."""
+    return {k: v for k, v in controlled_joints(root).items() if k != LIFT_JOINT}
 
 
 def plugins(root):
@@ -64,4 +81,5 @@ def upstream_blocks(use_fake_hardware):
 
 
 def normalised(root):
-    return [re.sub(r"\s+", "", ET.tostring(b, encoding="unicode")) for b in blocks(root)]
+    """The ARM blocks, whitespace-normalised (the lift's own system is OpenAMRobot's, not upstream's, and is checked on its own)."""
+    return [re.sub(r"\s+", "", ET.tostring(b, encoding="unicode")) for b in arm_blocks(root)]

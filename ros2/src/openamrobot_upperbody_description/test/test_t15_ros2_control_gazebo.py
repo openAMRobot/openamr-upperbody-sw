@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
-"""T15: the `gazebo` profile drives the arms with gz_ros2_control/GazeboSimSystem, same joints and interfaces as `mock`.
+"""T15: the `gazebo` profile drives the arms and the lift with gz_ros2_control/GazeboSimSystem, same joints and interfaces as `mock`.
+
+The lift (issue #17) is its own system, openamr_lift_gazebo, on the same plugin; one model plugin loads every system.
 
 Expansion only: nothing launches Gazebo here (G01, in openamrobot_upperbody_gazebo, does). The block must not need a
 hardware plugin of the other profiles, and the base still has no ros2_control (its DiffDrive plugin is platform-sw's,
@@ -13,7 +15,7 @@ import pytest
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 
 from conftest import COMBINED, expand, expand_xml
-from ros2_control_utils import arm_joints_needing_an_interface, blocks, controlled_joints, element_text, plugins
+from ros2_control_utils import LIFT_JOINT, arm_joints_needing_an_interface, blocks, controlled_joints, element_text, lift_blocks, plugins
 
 GAZEBO = "gz_ros2_control/GazeboSimSystem"
 MODEL_PLUGIN_FILE = "gz_ros2_control-system"
@@ -21,8 +23,14 @@ MODEL_PLUGIN_CLASS = "gz_ros2_control::GazeboSimROS2ControlPlugin"
 
 
 def test_t15_gazebo_arms_use_gazebo_sim_system():
-    assert plugins(expand(hardware_profile="gazebo")) == [("openamr_arms_gazebo", GAZEBO)]
-    assert blocks(expand(hardware_profile="gazebo"))[0].get("type") == "system"
+    assert plugins(expand(hardware_profile="gazebo")) == [("openamr_arms_gazebo", GAZEBO), ("openamr_lift_gazebo", GAZEBO)]
+    assert {b.get("type") for b in blocks(expand(hardware_profile="gazebo"))} == {"system"}
+
+
+def test_t15_the_lift_is_its_own_gazebo_system_with_a_position_command_interface():
+    system, = lift_blocks(expand(hardware_profile="gazebo"))
+    assert [j.get("name") for j in system.findall("joint")] == [LIFT_JOINT]
+    assert controlled_joints(expand(hardware_profile="gazebo"))[LIFT_JOINT] == {"command": ["position"], "state": ["position", "velocity"]}
 
 
 def test_t15_gazebo_has_neither_mock_nor_hardware_plugin():
@@ -34,11 +42,11 @@ def test_t15_gazebo_has_neither_mock_nor_hardware_plugin():
 def test_t15_gazebo_controls_exactly_the_mock_joints_with_the_same_interfaces():
     gazebo, mock = expand(hardware_profile="gazebo"), expand(hardware_profile="mock")
     assert controlled_joints(gazebo) == controlled_joints(mock)
-    assert sorted(controlled_joints(gazebo)) == arm_joints_needing_an_interface(gazebo)
+    assert sorted(controlled_joints(gazebo)) == sorted(arm_joints_needing_an_interface(gazebo) + [LIFT_JOINT])
 
 
 def test_t15_the_base_has_no_ros2_control():
-    assert all(n.startswith("openarm_") for n in controlled_joints(expand(hardware_profile="gazebo")))
+    assert all(n.startswith("openarm_") or n == LIFT_JOINT for n in controlled_joints(expand(hardware_profile="gazebo")))
 
 
 def test_t15_finger_joint2_is_not_declared_and_stays_a_urdf_mimic():
@@ -74,7 +82,7 @@ def test_t15_without_the_arg_the_plugin_is_still_there_and_has_no_parameters_ele
     plugin, = _model_plugins(root)
     assert plugin.get("name") == MODEL_PLUGIN_CLASS and plugin.find("parameters") is None
     assert plugin.findall("*") == [], "an empty controllers_file must leave the plugin with no children at all"
-    assert [name for name, _ in plugins(root)] == ["openamr_arms_gazebo"], "the hardware contract is unchanged"
+    assert [name for name, _ in plugins(root)] == ["openamr_arms_gazebo", "openamr_lift_gazebo"], "the hardware contract is unchanged"
 
 
 def test_t15_the_arg_is_the_only_difference_it_adds_and_removes_one_element():

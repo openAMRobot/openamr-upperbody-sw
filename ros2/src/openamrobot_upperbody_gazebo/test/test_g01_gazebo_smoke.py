@@ -19,8 +19,9 @@ What it asserts, in order, against one running simulation (budget 90 s for every
      publisher would double the rate or repeat stamps, which looks like jitter and not like an error), `odom` is not a link
      of the description, and robot_state_publisher publishes nothing with `odom` in it (check W02 made visible);
   6  /joint_states has one publisher, and carries the two wheel joints, the sixteen arm joints and lift_joint, each once: a joint is
-     reported by one source only. lift_joint has no source of its own (platform-sw's JointStatePublisher is scoped to the wheels
-     and the lift has no ros2_control interface): the merger reports it at its default, zero, and nobody else may.
+     reported by one source only. lift_joint (issue #17, owner decision 1 Nov 2026) has a gz_ros2_control interface in this
+     profile, so joint_state_broadcaster reports it on /arm/joint_states, exactly once, and the base source never does. On the real
+     profile it has no interface and only the merger's default reports it (sim_test_support.lift_source_problems).
 
 Simulation evidence only. Nothing here says anything about a physical robot, and the numbers (rates, distances) are
 properties of this simulator on this machine. The base's physical numbers (wheel radius, separation, accelerations) are
@@ -307,8 +308,11 @@ class TestGazeboSmoke(unittest.TestCase):
         arm_joints = set(LEFT + RIGHT + FINGERS)
         self.assertTrue(set(WHEELS) <= merged and arm_joints <= merged, f"/joint_states is missing joints: {sorted((set(WHEELS) | arm_joints) - merged)}")
         base_names, arm_names = set(sources["/base/joint_states"][-1]), set(sources["/arm/joint_states"][-1])
-        self.assertIn(LIFT, merged, "lift_joint is not on /joint_states: robot_state_publisher publishes nothing above it")
-        self.assertNotIn(LIFT, base_names | arm_names, "a source other than the merger's default reports lift_joint")
+        # issue #17 (owner decision 1 Nov 2026): on gazebo lift_joint is reported exactly once, by joint_state_broadcaster; on real only the
+        # merger's default reports it. sim_test_support.lift_source_problems holds the rule; test_g01_lift_source.py tests it both ways.
+        from sim_test_support import lift_source_problems
+        lift_problems = lift_source_problems("gazebo", sources["/base/joint_states"], sources["/arm/joint_states"], merged)
+        self.assertFalse(lift_problems, "; ".join(lift_problems))
         self.assertEqual(base_names, set(WHEELS), "the base's joint states are not exactly the two wheels")
         self.assertTrue(arm_joints <= arm_names, "joint_state_broadcaster is missing arm joints")
         self.assertEqual(base_names & arm_names, set(), f"joints reported by both sources: {sorted(base_names & arm_names)}")

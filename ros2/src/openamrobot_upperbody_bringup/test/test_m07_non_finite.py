@@ -224,3 +224,35 @@ def test_the_far_end_of_the_range_is_not_an_inherited_limit_so_it_is_a_fail_even
         readings[joint] = [far + inside * offset] * MIN
         result = evaluate(readings, expected, limits)
         assert result["result"] == "FAIL" and result["failing_joints"] == [joint] and result["warned_joints"] == {}
+
+
+# --- not-measured joints are not judged (owner decision 1 Nov 2026, issue #17) -------------------------------------------------------------------
+
+def test_a_listed_not_measured_joint_at_its_limit_is_not_judged(expected, limits, mid):
+    """lift_joint is in M07's NOT_MEASURED and, since #17, on /arm/joint_states, resting on its lower stop (5e-8 m in A7). It must not be judged:
+    the verdict is the arm joints' alone, and the sidecar names it as excluded. Fails if a listed not-measured joint reaches the margin rule."""
+    readings = good(expected, mid)
+    readings["lift_joint"] = [5.0e-8] * MIN
+    judged = a7.evaluate_m07(readings, expected, limits, MARGIN, MIN, not_measured=LIFT)
+    assert judged["result"] == "PASS", judged["problems"]
+    assert "lift_joint" not in {r["joint"] for r in judged["rows"]} and "lift_joint" not in judged["failing_joints"]
+    assert judged["not_measured_excluded_from_margin"] == ["lift_joint"]
+    # without the exclusion the same readings FAIL on lift_joint: the test above is not vacuous
+    assert evaluate(readings, expected, limits)["failing_joints"] == ["lift_joint"]
+
+
+def test_a_measured_arm_joint_at_its_limit_still_fails_with_the_exclusion(expected, limits, mid):
+    """The exclusion is exactly the listed joints: a measured arm joint resting on a limit still FAILs (openarm_left_joint1, not one of the
+    upstream-limit joints that WARN, at its lower limit)."""
+    readings = good(expected, mid)
+    readings["lift_joint"] = [0.0] * MIN
+    readings["openarm_left_joint1"] = [limits["openarm_left_joint1"][0]] * MIN
+    judged = a7.evaluate_m07(readings, expected, limits, MARGIN, MIN, not_measured=LIFT)
+    assert judged["result"] == "FAIL" and judged["failing_joints"] == ["openarm_left_joint1"], judged["problems"]
+
+
+def test_a_non_finite_reading_on_a_not_measured_joint_still_fails_with_the_exclusion(expected, limits, mid):
+    readings = good(expected, mid)
+    readings["lift_joint"] = [NAN] * MIN
+    assert a7.evaluate_m07(readings, expected, limits, MARGIN, MIN, not_measured=LIFT)["result"] == "FAIL"
+

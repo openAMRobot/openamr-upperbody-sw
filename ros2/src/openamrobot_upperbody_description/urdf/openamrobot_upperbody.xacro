@@ -36,6 +36,10 @@
                      geometry.adapter_plate_thickness, resting on the carriage frame's
                      horizontal plane (the column top at lift 0) and centred laterally;
                      center_x is from the column axis (datum adapter_plate_section).
+    lift_limits      '' (none): lift_joint carries effort 0 velocity 0, so the model cannot be used to command the
+                     lift (the default, and what the real profile keeps). A dict {effort, velocity}: those limits on
+                     lift_joint; the combined robot passes the DOLD figures (datums lift_max_effort_*, lift_max_velocity_*)
+                     for the simulated profiles (mock, gazebo) only, where the lift is a planned joint with a controller.
     datums           '' (none): no equipment. The parsed datums.yaml: the P-03 item 24 equipment
                      of upper_body_equipment.xacro (placeholder geometry, fixed joints only) on
                      arm_profile_link, adapter_plate_link and lift_column_base_link. Needs
@@ -46,7 +50,7 @@
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_body_equipment.xacro"/>
 
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:=''">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -127,8 +131,9 @@
     </joint>
 
     <!-- Lift carriage: origin on the column axis at the column top. The lift
-         height is joint state. Effort and velocity limits are pending: they are
-         set to 0 so the model cannot be used to command the lift. -->
+         height is joint state. Effort and velocity are 0 unless lift_limits is
+         given (the combined robot's simulated profiles): with 0 the model cannot
+         be used to command the lift. -->
     <xacro:if value="${column_geometry == ''}">
       <link name="lift_carriage_link"/>
     </xacro:if>
@@ -151,7 +156,12 @@
       <child link="lift_carriage_link"/>
       <origin xyz="0 0 ${col['retracted_length']}" rpy="0 0 0"/>
       <axis xyz="0 0 1"/>
-      <limit lower="0.0" upper="${col['stroke']}" effort="0.0" velocity="0.0"/>
+      <xacro:if value="${lift_limits == ''}">
+        <limit lower="0.0" upper="${col['stroke']}" effort="0.0" velocity="0.0"/>
+      </xacro:if>
+      <xacro:unless value="${lift_limits == ''}">
+        <limit lower="0.0" upper="${col['stroke']}" effort="${lift_limits['effort']}" velocity="${lift_limits['velocity']}"/>
+      </xacro:unless>
     </joint>
 
     <!-- Adapter plate (P-03 rev19.6 item 18): its own link, carried by the carriage, under the arm profile. Its joint is at the box centre and

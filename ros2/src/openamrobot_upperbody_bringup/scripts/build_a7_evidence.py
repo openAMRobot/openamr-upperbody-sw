@@ -52,8 +52,10 @@ SIM_LIFT_STOP = "L1000"
 A7_CHECKS = [
     ("G01", "combined robot in Gazebo: arm controllers, arm goal, Nav2-facing topics unchanged"),
     ("G02", "grippers close in Gazebo and finger_joint2 follows finger_joint1 in the physics (Bullet-Featherstone, passed explicitly)"),
-    ("M01", "named poses plan and execute on mock at every lift calibration stop (L1000, L1175, L1350)"),
-    ("M02", "named poses plan and execute in Gazebo at the baseline configuration (lift_joint at L1000)"),
+    ("M01", "named poses plan and execute on mock at every lift calibration stop (L1000, L1175, L1350), the lift planned to each stop with both "
+            "arms in park (S8, issue #17)"),
+    ("M02", "named poses plan and execute in Gazebo at the baseline configuration (lift_joint at L1000), the lift planned to L1175 and back "
+            "with both arms in park (S8, issue #17)"),
     ("M03", "ACM: every disabled pair has a reason that can be shown (upstream-declared, Adjacent, ConstantTransform); every other pair is enabled"),
     ("M04", "a goal inside the nearest reachable structure volume (arm_profile_link) is rejected by planning (the base body is out of the arms' reach)"),
     ("M05", "per-hand gripper values: closed is each hand's own far limit, opposite signs (ADR-009 point 5); the single-number version fails both ways"),
@@ -103,7 +105,10 @@ CLAMP_DIAGNOSTIC_LABEL = ("DIAGNOSTIC ONLY: gates nothing. Activation and episod
 def run_summary(details):
     clamp = details.get("clamp") or {}
     diagnostic = clamp.get("diagnostic_only") or {}
+    lift = details.get("lift_scenario") or {}
     return {"poses_ok": details.get("poses_ok"), "poses_run": details.get("poses_run"), "worst_final_error_rad": details.get("worst_final_error_rad"),
+            "lift_planned": details.get("lift_planned"),
+            "lift_moves": {k: lift.get(k) for k in ("lift_moves_ok", "lift_moves_run", "moves_ok", "moves_run", "worst_lift_final_error_m")},
             "clamp": {"present": clamp.get("present"), "epsilon_rad": clamp.get("epsilon_rad"),
                       "gate": {k: (clamp.get("gate") or {}).get(k) for k in CLAMP_GATE_KEYS},
                       "diagnostic_only": {"label": CLAMP_DIAGNOSTIC_LABEL, **{k: diagnostic.get(k) for k in ("messages", "activations", "episodes")}}}}
@@ -271,15 +276,20 @@ def limitations(sidecars):
         "limits'; nothing here is a validated limit, a payload, a torque, or a statement about a physical robot",
         "the acceleration limits are engineering defaults (source: engineering_default, status: placeholder; rule: velocity / 2 s) written because "
         "upstream declares none (openamrobot-manipulation#10, ADR-009); M06 shows the plans need SOME limit and do not depend on its value",
-        "the lift is not under ros2_control and has no authority to be commanded (option B: effort 0, velocity 0): its state is the "
-        "operating point of a run (the mock stub's lift_position in M01; joint_state_publisher's default zero in Gazebo, not read from the "
-        "physics), and MoveIt plans the arms from it. The three lift stops are calibration IDs, not configuration IDs",
+        "the lift is a planned joint in the simulated profiles only (issue #17): mock and gazebo give lift_joint a position command interface and "
+        "the DOLD V4 limits (800 N, 0.018 m/s, register LIFT), MoveIt plans it (group lift) and lift_controller follows it. M01 and M02 move it "
+        "only between the calibration stops and only with both arms in park, as scenario design: it is not an interlock, and the real profile "
+        "has no command interface for the lift (the lift node firmware owns it, CTL-017). The lift's no-load speed is a catalogue figure, its "
+        "acceleration an engineering default; nothing here says how the real column moves under load. The three lift stops are calibration "
+        "IDs, not configuration IDs",
         "the lift column is two boxes, visual and collision (since b45d8f6; P28 changed their sizes): the outer (fixed) stage 240 x 60 mm and the "
         "inner (moving) stage 209.5 x 51 mm, from the DOLD Hexalift datasheet page 4 (datums lift_column_section, lift_inner_section; provisional, "
         "read from a raster drawing). The boxes are not the supplier's shapes: the outer collision is solid, so the stages still overlap in volume, "
         "and the inner stage's length is the stroke, not a datasheet figure. The adapter plate (360 x 100 x 10 mm, Alex, P-03 rev19.6 item 18) and "
         "arm_profile_link, option B's 340 mm box, are the other collision bodies of the upper structure",
-        "`park` is a placeholder copy of upstream's `home`, until the safe-pose definition lands under the manipulation action contract",
+        "`park` is a placeholder: upstream's `home` with joint4 at 0.1 rad instead of on its lower limit 0 (issue #17), until the safe-pose "
+        "definition lands under the manipulation action contract. Upstream's `home` (joint4 = 0) and the gripper `open` / `closed` states are "
+        "still ON a joint limit: M05 and the import comparison (ADR-007) pin them there, and test_named_pose_margins.py lists them",
         "the gripper controller is still the deprecated position_controllers/GripperActionController serving GripperCommand (option 1 of "
         "ADR-009 point 4): this report does not choose between the three gripper interfaces (manipulation#11)",
         "G02 and M02 pass the Bullet-Featherstone engine explicitly; sim.launch.py defaults to DART, the engine platform-sw tuned the base on, on "

@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-11-01.c"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-01.d"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -69,6 +69,22 @@ datums:
     ref: "TiMOTION TL3 400 mm (the fallback column): no supplier mass. Null on purpose, like its lengths in upperbody_configuration.yaml"
     owner: "Alex (F2S)"
     note: "HARD-FAIL: a null datum stops the expansion and names the datum (an expansion that cannot be built is stronger than a placeholder that expands and warns). Reclassified in P15; the datum is new."
+
+  lift_max_velocity_dold_v4_350:
+    value: 0.018
+    source: supplier
+    status: provisional
+    ref: "register LIFT (openAMRobot/.github decisions.yaml, P-03 rev20.2 item 26): 'DOLD Hexalift V4 350 mm (800 N push, 18 mm/s, order code BS-HM240G350530-MFF24)'. DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), V4: no-load speed 18 mm/s. https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf"
+    owner: "Alex (F2S) / supplier (DOLD)"
+    note: "m/s. The velocity limit of lift_joint in the mock and gazebo profiles only (combined_robot.xacro): it is what MoveIt plans the lift under and what the simulated lift_controller follows. The real profile keeps effort 0 velocity 0 and no command interface (the lift node firmware owns the lift, CTL-017; the register LIFT motion rule is enforced there, not here). A no-load catalogue figure, not a measurement: under the arms' load the real column is slower. Simulation only."
+
+  lift_max_effort_dold_v4_350:
+    value: 800.0
+    source: supplier
+    status: provisional
+    ref: "register LIFT (openAMRobot/.github decisions.yaml, P-03 rev20.2 item 26): 'DOLD Hexalift V4 350 mm (800 N push, ...)'. DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), V4: push rating 800 N. https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf"
+    owner: "Alex (F2S) / supplier (DOLD)"
+    note: "N. The effort limit of lift_joint in the mock and gazebo profiles only (combined_robot.xacro), so the simulated column can hold and move the carriage; the real profile keeps effort 0 velocity 0 and no command interface. The push rating, not a holding figure (the 800 N held with power off is a register LIFT release-gate item, outside this repository). Simulation only."
 
   lift_column_section:
     value: [0.240, 0.060]

@@ -121,3 +121,30 @@ def finger_angles(poses, side):
         rel = _q_mul(_q_inv(base), q(f"openarm_{side}_ee_link{index}"))
         out.append(sign * 2.0 * math.atan2(rel[0], rel[3]))
     return tuple(out)
+
+
+# --- who reports lift_joint (G01 test_g01_6; issue #17, owner decision 1 Nov 2026) ------------------------------------------------------
+# mock and gazebo: lift_joint has a ros2_control interface, so joint_state_broadcaster (the arm source, /arm/joint_states) reports it, exactly
+# once, and the base source never does. real: no interface, so neither source reports it and only the merger's default does (the old rule).
+LIFT_JOINT = "lift_joint"
+LIFT_REPORTED_BY_BROADCASTER = ("mock", "gazebo")
+
+
+def lift_source_problems(profile, base_messages, arm_messages, merged):
+    """Messages for every way the sources of lift_joint break the rule for `profile`; empty when they are right. `base_messages` and
+    `arm_messages` are lists of joint-name lists (one per message received on /base/joint_states and /arm/joint_states), `merged` the names
+    of the last /joint_states message."""
+    problems = []
+    if LIFT_JOINT not in merged:
+        problems.append("lift_joint is not on /joint_states: robot_state_publisher publishes nothing above it")
+    if any(LIFT_JOINT in names for names in base_messages):
+        problems.append("the base source (/base/joint_states) reports lift_joint")
+    arm_counts = [names.count(LIFT_JOINT) for names in arm_messages]
+    if profile in LIFT_REPORTED_BY_BROADCASTER:
+        if not arm_counts or any(n == 0 for n in arm_counts):
+            problems.append(f"{profile}: joint_state_broadcaster (/arm/joint_states) does not report lift_joint in every message")
+        if any(n > 1 for n in arm_counts):
+            problems.append(f"{profile}: lift_joint appears more than once in one /arm/joint_states message")
+    elif any(arm_counts):
+        problems.append(f"{profile}: a source other than the merger's default reports lift_joint (no interface on this profile)")
+    return problems

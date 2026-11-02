@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: MIT
-"""arm_controllers.yaml names only joints the arm <ros2_control> blocks declare, for every hardware profile.
+"""arm_controllers.yaml names only joints the <ros2_control> blocks declare, for every hardware profile.
+
+lift_controller (issue #17) drives lift_joint, which has an interface in the simulated profiles (mock, gazebo) only: on `real` the
+lift has none, so lift_controller cannot load there and nothing spawns it.
 
 Static check on the expansion (no controller_manager); the launch test L01 in openamrobot_upperbody_bringup is the
 runtime counterpart.
@@ -16,6 +19,8 @@ CONTROL = get_package_share_directory("openamrobot_upperbody_control")
 COMBINED = os.path.join(get_package_share_directory("openamrobot_upperbody_description"), "urdf", "combined_robot.xacro")
 ARM_CONTROLLERS = ("left_arm_controller", "right_arm_controller")
 GRIPPER_CONTROLLERS = ("left_gripper_controller", "right_gripper_controller")
+LIFT_CONTROLLER = "lift_controller"
+SIMULATED = ("mock", "gazebo")
 
 
 def _config():
@@ -34,11 +39,12 @@ def _declared(root):
             for b in root.findall("ros2_control") for j in b.findall("joint")}
 
 
-def test_controller_manager_lists_all_five_controllers_at_100_hz():
+def test_controller_manager_lists_all_six_controllers_at_100_hz():
     cm = _config()["controller_manager"]["ros__parameters"]
     assert cm["update_rate"] == 100
     assert sorted(k for k, v in cm.items() if isinstance(v, dict)) == sorted(
-        ("joint_state_broadcaster",) + ARM_CONTROLLERS + GRIPPER_CONTROLLERS)
+        ("joint_state_broadcaster",) + ARM_CONTROLLERS + GRIPPER_CONTROLLERS + (LIFT_CONTROLLER,))
+    assert cm[LIFT_CONTROLLER]["type"] == "joint_trajectory_controller/JointTrajectoryController"
     for name in ARM_CONTROLLERS:
         assert cm[name]["type"] == "joint_trajectory_controller/JointTrajectoryController"
     for name in GRIPPER_CONTROLLERS:
@@ -47,7 +53,7 @@ def test_controller_manager_lists_all_five_controllers_at_100_hz():
 
 def test_every_controller_has_a_parameter_block():
     config = _config()
-    for name in ARM_CONTROLLERS + GRIPPER_CONTROLLERS:
+    for name in ARM_CONTROLLERS + GRIPPER_CONTROLLERS + (LIFT_CONTROLLER,):
         assert "ros__parameters" in config[name], name
 
 
@@ -66,6 +72,13 @@ def test_controller_joints_are_declared_with_the_interfaces_they_need(profile):
         assert "joints" not in params, "GripperActionController reads `joint`, not `joints`"
         commands, states = declared[params["joint"]]
         assert "position" in commands and "position" in states
+    params = config[LIFT_CONTROLLER]["ros__parameters"]
+    assert params["joints"] == ["lift_joint"]
+    if profile in SIMULATED:
+        commands, states = declared["lift_joint"]
+        assert set(params["command_interfaces"]) <= set(commands) and set(params["state_interfaces"]) <= set(states)
+    else:
+        assert "lift_joint" not in declared, "the real profile declares no interface for the lift"
 
 
 @pytest.mark.parametrize("profile", ["mock", "gazebo", "real"])
@@ -73,6 +86,8 @@ def test_every_declared_joint_has_exactly_one_controller_and_the_mimic_has_none(
     config, root = _config(), _expansion(profile)
     controlled = [j for n in ARM_CONTROLLERS for j in config[n]["ros__parameters"]["joints"]]
     controlled += [config[n]["ros__parameters"]["joint"] for n in GRIPPER_CONTROLLERS]
+    if profile in SIMULATED:
+        controlled += config[LIFT_CONTROLLER]["ros__parameters"]["joints"]
     assert sorted(controlled) == sorted(_declared(root))
     assert len(controlled) == len(set(controlled))
     assert not [j for j in controlled if root.find(f"joint[@name='{j}']/mimic") is not None]

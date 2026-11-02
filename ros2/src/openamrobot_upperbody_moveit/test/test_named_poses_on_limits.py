@@ -7,16 +7,20 @@ function of the SRDF and URDF it is given, with no knowledge of either body, whi
 from conftest import srdf_text, urdf_text
 from openamrobot_upperbody_moveit.named_poses import ON_LIMIT_TOLERANCE, on_limit_report, poses_on_limits, read_group_states, urdf_joint_limits
 
-FOUR = ["openarm_left_finger_joint1", "openarm_left_joint4", "openarm_right_finger_joint1", "openarm_right_joint4"]
+# Upstream's `home` (joint4 = 0) and the gripper states are on a limit by construction; `park` no longer is (issue #17). lift_joint is listed
+# because its states L1000 and L1350 are the two ends of the stroke by definition (calibration stops, in m).
+ON_A_LIMIT = ["lift_joint", "openarm_left_finger_joint1", "openarm_left_joint4", "openarm_right_finger_joint1", "openarm_right_joint4"]
 
 
 def test_named_poses_on_a_joint_limit_are_listed_with_their_distance():
     report = on_limit_report(srdf_text(), urdf_text())
     rows = report["poses_on_a_limit"]
-    assert report["joints_on_a_limit"] == FOUR, report["joints_on_a_limit"]
+    assert report["joints_on_a_limit"] == ON_A_LIMIT, report["joints_on_a_limit"]
     assert all(abs(r["distance_rad"]) <= ON_LIMIT_TOLERANCE for r in rows)
     by = {(r["group"], r["pose"], r["joint"]): r for r in rows}
     assert by[("left_arm", "home", "openarm_left_joint4")]["limit"] == "lower"
+    assert ("left_arm", "park", "openarm_left_joint4") not in by and ("right_arm", "park", "openarm_right_joint4") not in by
+    assert by[("lift", "L1000", "lift_joint")]["limit"] == "lower" and by[("lift", "L1350", "lift_joint")]["limit"] == "upper"
     assert by[("right_gripper", "open", "openarm_right_finger_joint1")]["limit"] == "upper"
     assert by[("left_gripper", "open", "openarm_left_finger_joint1")]["limit"] == "lower"
     assert by[("left_gripper", "closed", "openarm_left_finger_joint1")]["limit"] == "upper"

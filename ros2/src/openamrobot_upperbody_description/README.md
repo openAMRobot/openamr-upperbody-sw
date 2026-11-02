@@ -24,7 +24,7 @@ base_footprint                  platform-sw (openamrobot_description), included 
   -> base_link                  0.098 m up, the drive-axle midpoint; the wheels, casters, lidar, base camera, IMU and the six
                                 near-field sensor frames (us_*, tof_*) are platform-sw's and hang from it
   -> lift_column_base_link      option B: on the base plate, 0.304 m up, x +0.060 (bp000) or +0.110 (bp050) from base_link
-       -> lift_joint            option B: prismatic, 0 .. 0.350 m, effort 0 and velocity 0 (we have no authority to command it)
+       -> lift_joint            option B: prismatic, 0 .. 0.350 m; real: effort 0 and velocity 0, no interface; mock/gazebo: 800 N, 0.018 m/s, planned (#17)
             -> lift_carriage_link
                  -> arm_profile_link                       option B: HFS6-60120, 340 mm, the one collision body of the structure
                  -> head_camera_mount_link -> head_camera_link -> head_camera_optical_frame     option B (ZED Mini)
@@ -114,8 +114,12 @@ WARN until someone answers `docs/v01_visual_check.md`.
 ## ros2_control
 
 `urdf/ros2_control.xacro` defines `openamr_arm_ros2_control(hardware_profile, controllers_file)`, called from `combined_robot.xacro` for
-`arm_package:=openarm` only. The mobile base never gets a `<ros2_control>` block (ADR-003), and neither does the lift: `lift_joint` has no interface because this
-repository has no authority to command it.
+`arm_package:=openarm` only. The mobile base never gets a `<ros2_control>` block (ADR-003). The lift gets one in the simulated profiles only
+(issue #17): `openamr_lift_ros2_control(hardware_profile)` gives `lift_joint` its own system (`openamr_lift_mock` on
+`mock_components/GenericSystem`, `openamr_lift_gazebo` on `gz_ros2_control/GazeboSimSystem`) with a position command interface, and
+`combined_robot.xacro` gives the joint the DOLD V4 limits from the datums (`lift_max_effort_dold_v4_350` 800 N,
+`lift_max_velocity_dold_v4_350` 0.018 m/s, register LIFT). With `real` the lift keeps effort 0 velocity 0 and no interface: the lift node
+firmware owns it (CTL-017).
 
 | `hardware_profile` | Arm plugin | How |
 |---|---|---|
@@ -353,7 +357,6 @@ Nothing in this package is a measured value or a hardware result. In particular:
   expansion that nothing has loaded:** `openarm_hardware` cannot be built here (it needs OpenArmCAN). Mock hardware reflects
   its command back as state, so L01 shows the controller wiring, not tracking performance. In Gazebo the arms' position
   interface is a velocity servo, so G01's tracking says nothing about the real arm.
-- **The lift's state is not from a physical source in simulation.** It has no `ros2_control` interface and platform-sw's
-  `JointStatePublisher` is scoped to the wheels, so on Gazebo `joint_state_publisher` reports it at zero and on mock a stub
-  reports the operating point (`lift_position`).
+- **The simulated lift is a catalogue column.** In mock and Gazebo it follows `lift_controller` under the DOLD V4 no-load speed and push
+  rating (issue #17); nothing says how the real column moves under load, and the real profile has no interface for it.
 - **No physical evidence.** Static expansion and forward kinematics in this package's report; a simulator in the Gazebo report.

@@ -15,9 +15,10 @@ reads `joint:` (a string), and upstream's `joints:` list makes it fail to config
 
 - **The mobile base is not under `ros2_control`.** The base keeps its existing drive plugin and its `/cmd_vel` and `/odom`
   interface; this package must not touch them.
-- **No lift controller.** The lift is option B's prismatic `lift_joint` with `effort="0" velocity="0"` on purpose: this repository has no
-  authority to command it, so it is in no `ros2_control` block and no controller here moves it. Its driver and interlocks belong to the
-  firmware and safety work packages; here its position is only the operating point the arms are planned from.
+- **`lift_controller` is for the simulated profiles only** (issue #17). In `mock` and `gazebo` `lift_joint` has a position command
+  interface and `lift_controller` (a JointTrajectoryController) follows MoveIt's lift plans. On `real` the lift is option B's prismatic
+  joint with `effort="0" velocity="0"` and no `ros2_control` interface, so this controller cannot load there and nothing spawns it: the lift's
+  driver and interlocks belong to the lift node firmware (CTL-017) and the work packages that own it.
 
 ## The gripper controller's deprecation warning: do not "fix" it
 

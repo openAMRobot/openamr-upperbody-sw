@@ -25,6 +25,24 @@ import math
 # that far inside it. The counters, not the epsilon, are what keeps this honest: a reading beyond the epsilon is never clamped.
 EPSILON = 1e-5
 
+# Where the clamp is on by default (issue #18, OA-65). Its justification is float noise of a SIMULATED joint resting on a limit, so its default
+# follows the profile of the stack: on for the simulated profiles, off for anything else, the hardware profile `real` included, where a reading
+# past a limit is a fact about the robot and the clamp could hide a real limit violation. Encoder resolution on hardware is not modelled here:
+# no epsilon is offered for it, so on hardware the clamp is off unless someone passes clamp_joint_states:=true on purpose.
+# move_group.launch.py's clamp_joint_states defaults to CLAMP_DEFAULT_ARGUMENT, which this resolves; an explicit true or false still wins.
+CLAMP_SIMULATED_PROFILES = ("mock", "gazebo")
+CLAMP_DEFAULT_ARGUMENT = "auto"
+
+
+def clamp_enabled(argument, hardware_profile):
+    """Whether move_group plans from the clamped joint state: `argument` is the launch argument clamp_joint_states ("auto", "true" or
+    "false"), `hardware_profile` the profile of the running stack. "auto" follows the profile (on for mock and gazebo, off otherwise)."""
+    if argument == CLAMP_DEFAULT_ARGUMENT:
+        return hardware_profile in CLAMP_SIMULATED_PROFILES
+    if argument in ("true", "false"):
+        return argument == "true"
+    raise ValueError(f"clamp_joint_states:={argument}: accepted values are {CLAMP_DEFAULT_ARGUMENT}, true, false")
+
 
 def clamp_position(value, lower, upper, epsilon=EPSILON):
     """(clamped value, overshoot, kind). `overshoot` is how far past the limit `value` is (0.0 if inside, inclusive). `kind` is "inside",

@@ -21,12 +21,18 @@
 #     GripperActionController reads `joint` and fails to configure with "Joint name cannot be empty" when it is absent;
 #   - the gripper controllers' command_interfaces and state_interfaces lists are dropped: GripperActionController has
 #     no such parameters (it always commands and reads position);
-#   - the commented-out joint_trajectory_controller alternative for the grippers is dropped.
+#   - the commented-out joint_trajectory_controller alternative for the grippers is dropped;
+#   - lift_controller (issue #17) is added: OpenAMRobot's, not upstream's (see below).
 # Everything else is upstream.
 #
 # One file for every hardware profile (mock, gazebo, real; ADR-003). The joints are the ones the arm <ros2_control>
 # blocks declare, openarm_{left,right}_joint1..7 and openarm_{left,right}_finger_joint1. finger_joint2 follows
 # finger_joint1 through the URDF <mimic> and has no controller. The base is not under ros2_control.
+#
+# lift_controller drives lift_joint, which has a <ros2_control> interface in the SIMULATED profiles only (mock and gazebo,
+# ros2_control.xacro openamr_lift_ros2_control): the mock and Gazebo launches spawn it after joint_state_broadcaster, like the arm
+# controllers. The real profile declares no interface for lift_joint, so on real this controller cannot be loaded and nothing spawns it:
+# the lift node firmware owns the lift (CTL-017).
 
 controller_manager:
   ros__parameters:
@@ -46,6 +52,9 @@ controller_manager:
 
     right_gripper_controller:
       type: position_controllers/GripperActionController
+
+    lift_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
 
 left_arm_controller:
   ros__parameters:
@@ -86,3 +95,13 @@ left_gripper_controller:
 right_gripper_controller:
   ros__parameters:
     joint: openarm_right_finger_joint1
+
+lift_controller:
+  ros__parameters:
+    joints:
+      - lift_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity

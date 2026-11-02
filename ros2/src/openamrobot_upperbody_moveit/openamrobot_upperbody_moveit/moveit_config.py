@@ -39,7 +39,8 @@ def lift_stops(column=None):
 
 def moveit_config(base_plate=None, hardware_profile="mock", srdf_file=None, *, column=None, head_pitch=None, base_tilt=None):
     """MoveItConfigs for the combined robot at option B's configuration (`base_plate`, `column`, `head_pitch`, `base_tilt`; each
-    defaults to the baseline). The lift is not an argument: it is a joint, and MoveIt sees it as one (no planning group). `hardware_profile`
+    defaults to the baseline). The lift is not an argument: it is a joint, planned in group `lift` (issue #17; its velocity limit is in the URDF
+    of the simulated profiles, so `hardware_profile` decides whether MoveIt sees the DOLD limits or the real profile's zeros). `hardware_profile`
     only selects the ros2_control block of the URDF, which MoveIt does not read; it is passed so that this URDF is the same text the
     controller manager and robot_state_publisher of that profile use.
     `srdf_file` replaces config/openamrobot.srdf (an absolute path); the mutation tests of M03 use it, nothing else does."""
