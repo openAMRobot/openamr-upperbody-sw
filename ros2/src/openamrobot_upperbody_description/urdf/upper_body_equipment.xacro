@@ -63,6 +63,8 @@
     <xacro:property name="cam" lazy_eval="false" value="${datums['datums']['head_camera_size']['value']}"/>
     <xacro:property name="cam_x" lazy_eval="false" value="${datums['datums']['head_camera_body_x_from_lens_line']['value']}"/>
     <xacro:property name="cam_m" lazy_eval="false" value="${datums['datums']['head_camera_mass']['value']}"/>
+    <xacro:if value="${'head_camera_link' in roadmap_links}"><xacro:openamr_roadmap_inertial link="head_camera_link"/></xacro:if>
+    <xacro:unless value="${'head_camera_link' in roadmap_links}">
     <inertial>
       <origin xyz="${cam_x} 0 0" rpy="0 0 0"/>
       <mass value="${cam_m}"/>
@@ -70,6 +72,7 @@
                iyy="${cam_m * (cam[0] * cam[0] + cam[2] * cam[2]) / 12}" iyz="0"
                izz="${cam_m * (cam[0] * cam[0] + cam[1] * cam[1]) / 12}"/>
     </inertial>
+    </xacro:unless>
     <xacro:openamrobot_equipment_box name="placeholder_head_camera_body" size="${cam}" xyz="${[cam_x, 0, 0]}"/>
   </xacro:macro>
 
@@ -92,7 +95,8 @@
                     value="${tablet_z - tablet[2] / 2 - eq['head_light_gap_below_tablet']['value'] - light[2] / 2}"/>
 
     <link name="getac_tablet_link">
-      <xacro:openamrobot_equipment_box_inertial mass="${eq['getac_tablet_mass']['value']}" size="${tablet}"/>
+      <xacro:if value="${'getac_tablet_link' in roadmap_links}"><xacro:openamr_roadmap_inertial link="getac_tablet_link"/></xacro:if>
+      <xacro:unless value="${'getac_tablet_link' in roadmap_links}"><xacro:openamrobot_equipment_box_inertial mass="${eq['getac_tablet_mass']['value']}" size="${tablet}"/></xacro:unless>
       <xacro:openamrobot_equipment_box name="placeholder_getac_tablet" size="${tablet}" xyz="${[0, 0, 0]}"/>
     </link>
     <xacro:openamrobot_placeholder_gazebo_material link="getac_tablet_link"/>
@@ -103,7 +107,8 @@
     </joint>
 
     <link name="head_light_link">
-      <xacro:openamrobot_equipment_box_inertial mass="${eq['head_light_mass']['value']}" size="${light}"/>
+      <xacro:if value="${'head_light_link' in roadmap_links}"><xacro:openamr_roadmap_inertial link="head_light_link"/></xacro:if>
+      <xacro:unless value="${'head_light_link' in roadmap_links}"><xacro:openamrobot_equipment_box_inertial mass="${eq['head_light_mass']['value']}" size="${light}"/></xacro:unless>
       <xacro:openamrobot_equipment_box name="placeholder_head_light" size="${light}" xyz="${[0, 0, 0]}"/>
     </link>
     <xacro:openamrobot_placeholder_gazebo_material link="head_light_link"/>

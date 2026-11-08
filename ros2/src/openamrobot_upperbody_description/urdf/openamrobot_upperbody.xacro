@@ -50,6 +50,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_body_equipment.xacro"/>
+  <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/roadmap_inertial.xacro"/>
 
   <xacro:macro name="openamrobot_upperbody"
       params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:='' carriage_inertial:=''">
@@ -104,7 +105,10 @@
 
     <!-- Column axis on the base-plate top face (height reference, 304 mm). -->
     <link name="lift_column_base_link">
-      <xacro:unless value="${column_inertial == ''}">
+      <xacro:if value="${'lift_column_base_link' in roadmap_links}">
+        <xacro:openamr_roadmap_inertial link="lift_column_base_link"/>
+      </xacro:if>
+      <xacro:unless value="${column_inertial == '' or 'lift_column_base_link' in roadmap_links}">
         <inertial>
           <origin xyz="0 0 ${column_inertial['com_z']}" rpy="0 0 0"/>
           <mass value="${column_inertial['mass']}"/>
@@ -140,7 +144,10 @@
          (adapter plate, arm profile, tablet mount, second E-stop, flag rod and flag) lumped on lift_carriage_link, from
          config/roadmap_mass_export.yaml (openamrobot-docs mass_export.yaml, groups.lift_carriage). '' (none): no inertial. -->
     <xacro:macro name="openamrobot_carriage_inertial">
-      <xacro:unless value="${carriage_inertial == ''}">
+      <xacro:if value="${'lift_carriage_link' in roadmap_links}">
+        <xacro:openamr_roadmap_inertial link="lift_carriage_link"/>
+      </xacro:if>
+      <xacro:unless value="${carriage_inertial == '' or 'lift_carriage_link' in roadmap_links}">
         <inertial>
           <origin xyz="${carriage_inertial['com'][0]} ${carriage_inertial['com'][1]} ${carriage_inertial['com'][2]}" rpy="0 0 0"/>
           <mass value="${carriage_inertial['mass']}"/>

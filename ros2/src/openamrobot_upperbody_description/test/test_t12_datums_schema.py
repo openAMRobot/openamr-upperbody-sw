@@ -205,7 +205,7 @@ def _consumer_inertia(section, tmp_path):
     doc["revision"] = "2099-01-01.a"
     path = tmp_path / "datums_section.yaml"
     path.write_text(yaml.safe_dump(doc))
-    root = ET.fromstring(expand_xml(datums_file=str(path)))
+    root = ET.fromstring(expand_xml(datums_file=str(path), roadmap_masses="false"))   # the datum box (roadmap export off)
     inertia = root.find("link[@name='lift_column_base_link']/inertial/inertia")
     mass = float(root.find("link[@name='lift_column_base_link']/inertial/mass").get("value"))
     return mass, *(float(inertia.get(k)) for k in ("ixx", "iyy", "izz"))

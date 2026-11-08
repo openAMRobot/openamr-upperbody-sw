@@ -36,6 +36,9 @@
 
   <!-- The defaults are option B's baseline; T01 asserts they equal upperbody_configuration.yaml's `baseline:`. -->
   <xacro:arg name="column" default="dold_v4_350"/>
+  <!-- roadmap_masses (8 Nov 2026): true (default) = every upper-body link with mass from config/roadmap_mass_export.yaml;
+       false = the datum inertials (lift as one box, equipment boxes), kept for the datum tests and the tl3_400 fallback -->
+  <xacro:arg name="roadmap_masses" default="true"/>
   <xacro:arg name="base_plate" default="bp000"/>
   <xacro:arg name="head_pitch" default="hp30"/>
   <xacro:arg name="base_tilt" default="bt10"/>
@@ -148,9 +151,12 @@
        openamrobot-docs docs/assets/roadmap/model/mass_export.yaml (config/roadmap_mass_export.yaml, test_roadmap_masses.py). -->
   <xacro:property name="roadmap_masses" lazy_eval="false"
                   value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/roadmap_mass_export.yaml')}"/>
-  <xacro:property name="carriage_src" lazy_eval="false" value="${roadmap_masses['groups']['lift_carriage']['links']['lift_carriage_link']}"/>
-  <xacro:property name="carriage_inertial" lazy_eval="false"
-                  value="${dict(mass=carriage_src['mass_kg'], com=carriage_src['com_m'], ixx=carriage_src['inertia_kgm2']['ixx'], iyy=carriage_src['inertia_kgm2']['iyy'], izz=carriage_src['inertia_kgm2']['izz'])}"/>
+  <!-- every upper-body link with mass reads its inertial from the export (roadmap_inertial.xacro); the base group is the
+       platform's (platform-sw reads the same export); the openarm group is the upstream link masses (not overridden). The export is the DOLD build: with
+       column tl3_400 every link keeps its datum inertial. -->
+  <xacro:property name="roadmap_links" lazy_eval="false"
+                  value="${dict([(l, e) for g, v in roadmap_masses['groups'].items() if g not in ('base', 'openarm') for l, e in v['links'].items()]) if column == 'dold_v4_350' and '$(arg roadmap_masses)' == 'true' else dict()}"/>
+  <xacro:property name="carriage_inertial" lazy_eval="false" value="''"/>
 
   <!-- Option B's upper body, on base_footprint: its heights are from the floor. With arm_package == openarm the upstream macro below
        declares openarm_{left,right}_base_link and their mount joints at the same pose (emit_arm_mounts false); with none or so101

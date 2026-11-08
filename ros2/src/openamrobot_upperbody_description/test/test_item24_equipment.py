@@ -255,7 +255,11 @@ def test_item24_the_head_camera_body_sits_at_the_head_camera_identity_pose(base_
         assert tuple(float(x) for x in element.find("geometry/box").get("size").split()) == pytest.approx(size)
         assert [float(x) for x in element.find("origin").get("xyz").split()] == pytest.approx([v("head_camera_body_x_from_lens_line"), 0, 0])
         assert [float(x) for x in element.find("origin").get("rpy").split()] == pytest.approx([0, 0, 0]), "the body pitches with the frame"
-    assert float(link.find("inertial/mass").get("value")) == pytest.approx(v("head_camera_mass")) == pytest.approx(0.0629)
+    # the ZED Mini (datum head_camera_mass) and its supplied mount ARM-011, counted once on head_camera_link (roadmap export, 8 Nov 2026)
+    export = load_yaml(os.path.join(SHARE, "config", "roadmap_mass_export.yaml"))
+    items = {i["bom"]: i["mass_kg"] for i in export["groups"]["sensors"]["links"]["head_camera_link"]["items"]}
+    assert items["ARM-003"] == pytest.approx(v("head_camera_mass"), abs=0.001) and v("head_camera_mass") == pytest.approx(0.0629)
+    assert float(link.find("inertial/mass").get("value")) == pytest.approx(sum(items.values()))
     # the body's centre in the carriage frame: on the lens line's plane, 13 mm behind the lens along the pitched optical axis
     centre = lens @ np.array([v("head_camera_body_x_from_lens_line"), 0, 0, 1])
     expected = lens[:3, 3] + _rot_y(HCI_BASELINE_PITCH_DEG) @ np.array([v("head_camera_body_x_from_lens_line"), 0, 0])

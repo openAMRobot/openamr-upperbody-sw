@@ -37,10 +37,14 @@ Register change openAMRobot/.github#90, change request openAMRobot/.github#89. D
   29 `Adjacent` + 145 `ConstantTransform`), was 198. The second E-stop's pairs with the base, wheels, castors, LiDAR, camera, column base and stop sensors are gone (it
   rides the lift now, so they are checked); its pairs with the adapter plate (`Adjacent`), arm profile, carriage, tablet, head light, head camera and bracket, flag rod,
   flag and both arm base links are new (`ConstantTransform`). `test_acm_derive.py` and `test_m03_acm_sampling.py` expect 194 / 145.
-- **Carriage masses from the roadmap model** (owner decision 8 Nov 2026, P-03 rev20.5 item 29: the roadmap model is the mass reference, one source):
-  `config/roadmap_mass_export.yaml` is a verbatim copy of openamrobot-docs `mass_export.yaml`; `combined_robot.xacro` reads `groups.lift_carriage` and
-  `lift_carriage_link` carries 3.335 kg (adapter plate, arm profile, tablet mount, second E-stop, flag rod and flag) with the export's centre of mass and box inertia.
-  New `test/test_roadmap_masses.py`; `mass_provenance.yaml` (lift) says so. Design values, not weighed.
+- **Upper-body masses from the roadmap model, every part once on the link where it sits** (owner decisions 8 Nov 2026, P-03 rev20.5 item 29 and rev20.6 item 30 A6):
+  `config/roadmap_mass_export.yaml` is a verbatim copy of openamrobot-docs `mass_export.yaml`, pinned by commit and SHA-256 in `config/roadmap_mass_export.source.yaml`.
+  New `urdf/roadmap_inertial.xacro`: every upper-body link with mass reads its inertial from the export: `lift_column_base_link` 9.10 kg (static DOLD share 8.89 kg of the
+  catalogue 11.7 kg, stop sensors, brackets, lift node), `lift_carriage_link` 6.72 kg (moving DOLD share 2.81 kg, adapter plate set, arm profile, Getac mount, second E-stop,
+  flag rod and flag), `getac_tablet_link`, `head_light_link`, `head_camera_link` (ZED Mini with its mount) and the two wrist camera links. The arm links keep the upstream
+  masses (the ARM-001 line). New xacro arg `roadmap_masses` (default `true`; `false` gives the datum inertials, kept for the datum tests and the TL3 fallback).
+  `test/test_roadmap_masses.py` checks the expanded URDF link by link against the export, the pin, and that nothing is counted twice; the T10, S4, item 24 and T12 tests
+  follow. `mass_provenance.yaml` says where each mass is. Design values, not weighed.
 
 ### Fixed (P29, 28 Oct 2026; test-only, one race and two false lines)
 
