@@ -26,7 +26,7 @@ groups:
     source: "datum lift_mass_dold_v4_350: the DOLD Hexalift V4 350 catalogue mass, 11.7 kg (Alex, rev19.0, 12 Oct 2026), on a uniform-box inertial of the outer section (datum lift_column_section, 240 x 60 mm, DOLD datasheet page 4) at mid-height of the retracted column; the catalogue does not split the mass between the fixed part and the moving stage"
     owner: "Alex (F2S) for the figure; A6 (this repo) for the box"
     datum: lift_mass_dold_v4_350
-    note: "The mass is a supplier catalogue figure, not weighed here: another owner's number, not verified by us. The box it sits on is a model choice (a uniform box of the outer section, all of the mass on the fixed side), not the supplier's mass distribution; the datasheet (page 5) lists 11.7 kg for the V4, the same figure."
+    note: "The mass is a supplier catalogue figure, not weighed here: another owner's number, not verified by us. The box it sits on is a model choice (a uniform box of the outer section, all of the mass on the fixed side), not the supplier's mass distribution; the datasheet (page 5) lists 11.7 kg for the V4, the same figure. lift_carriage_link also carries the parts that ride the carriage (adapter plate, arm profile, tablet mount, second E-stop, flag rod and flag) from config/roadmap_mass_export.yaml, the roadmap model's BOM 7.14 estimates (owner decision 8 Nov 2026, P-03 rev20.5 item 29: the roadmap model is the mass reference); design values, not weighed."
   openarm:
     state: external_nominal
     source: "upstream openarm_description's nominal link masses at the pinned commit (config/upstream_pins.yaml); arms and grippers, no body (ADR-008)"

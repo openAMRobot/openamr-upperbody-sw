@@ -33,9 +33,14 @@ Register change openAMRobot/.github#90, change request openAMRobot/.github#89. D
   `lift_flag_offset_from_face`, `lift_flag_rod_offset_from_face`. The corner bracket the docs model draws is not modelled (LIFT-JSON `corner_x`, not exported).
 - **Docs-model fixture refreshed** (`test/fixtures/docs_model_item24.json`, `merged: false`, base `8d743e2`); `tools/export_docs_model_values.py` exports the new
   CHEST-JSON and LIFT-JSON keys and equals the local model.js (`--model-js`: equal). Frame contract, READMEs and the tests that pinned the old values updated.
-- **Not done here (needs ROS):** the collision matrix in `openamrobot_upperbody_moveit/config/openamrobot.srdf` is not re-derived. `second_estop_link` moved across
-  `lift_joint`, so its `ConstantTransform` pairs with the static links are now wrong and its pairs with the moving links are missing; the new collisions (housing, shorter
-  fixed stage, longer inner stage, longer plate) also need the one evaluation `scripts/derive_acm.py` makes with moveit_py. Run `regenerate_acm.sh --write` and M03.
+- **Collision matrix re-derived** (`scripts/derive_acm.py --write`, ROS 2 Jazzy with moveit_py, after the review on #48): 194 disabled pairs (20 upstream +
+  29 `Adjacent` + 145 `ConstantTransform`), was 198. The second E-stop's pairs with the base, wheels, castors, LiDAR, camera, column base and stop sensors are gone (it
+  rides the lift now, so they are checked); its pairs with the adapter plate (`Adjacent`), arm profile, carriage, tablet, head light, head camera and bracket, flag rod,
+  flag and both arm base links are new (`ConstantTransform`). `test_acm_derive.py` and `test_m03_acm_sampling.py` expect 194 / 145.
+- **Carriage masses from the roadmap model** (owner decision 8 Nov 2026, P-03 rev20.5 item 29: the roadmap model is the mass reference, one source):
+  `config/roadmap_mass_export.yaml` is a verbatim copy of openamrobot-docs `mass_export.yaml`; `combined_robot.xacro` reads `groups.lift_carriage` and
+  `lift_carriage_link` carries 3.335 kg (adapter plate, arm profile, tablet mount, second E-stop, flag rod and flag) with the export's centre of mass and box inertia.
+  New `test/test_roadmap_masses.py`; `mass_provenance.yaml` (lift) says so. Design values, not weighed.
 
 ### Fixed (P29, 28 Oct 2026; test-only, one race and two false lines)
 

@@ -52,7 +52,7 @@
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_body_equipment.xacro"/>
 
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:=''">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:='' carriage_inertial:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -136,11 +136,26 @@
          height is joint state. Effort and velocity are 0 unless lift_limits is
          given (the combined robot's simulated profiles): with 0 the model cannot
          be used to command the lift. -->
+    <!-- carriage_inertial (owner decision 8 Nov 2026: the roadmap model is the mass reference): the parts that ride the carriage
+         (adapter plate, arm profile, tablet mount, second E-stop, flag rod and flag) lumped on lift_carriage_link, from
+         config/roadmap_mass_export.yaml (openamrobot-docs mass_export.yaml, groups.lift_carriage). '' (none): no inertial. -->
+    <xacro:macro name="openamrobot_carriage_inertial">
+      <xacro:unless value="${carriage_inertial == ''}">
+        <inertial>
+          <origin xyz="${carriage_inertial['com'][0]} ${carriage_inertial['com'][1]} ${carriage_inertial['com'][2]}" rpy="0 0 0"/>
+          <mass value="${carriage_inertial['mass']}"/>
+          <inertia ixx="${carriage_inertial['ixx']}" ixy="0" ixz="0" iyy="${carriage_inertial['iyy']}" iyz="0" izz="${carriage_inertial['izz']}"/>
+        </inertial>
+      </xacro:unless>
+    </xacro:macro>
     <xacro:if value="${column_geometry == ''}">
-      <link name="lift_carriage_link"/>
+      <link name="lift_carriage_link">
+        <xacro:openamrobot_carriage_inertial/>
+      </link>
     </xacro:if>
     <xacro:unless value="${column_geometry == ''}">
       <link name="lift_carriage_link">
+        <xacro:openamrobot_carriage_inertial/>
         <visual>
           <origin xyz="0 0 ${-column_geometry['inner_length'] / 2}" rpy="0 0 0"/>
           <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${column_geometry['inner_length']}"/></geometry>

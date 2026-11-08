@@ -144,6 +144,14 @@
                                 iyy=lift_mass * (lift_section[0] * lift_section[0] + lift_h * lift_h) / 12,
                                 izz=lift_mass * (lift_section[0] * lift_section[0] + lift_section[1] * lift_section[1]) / 12)}"/>
 
+  <!-- Carriage masses (owner decision 8 Nov 2026): the roadmap model is the reference; one source, copied verbatim from
+       openamrobot-docs docs/assets/roadmap/model/mass_export.yaml (config/roadmap_mass_export.yaml, test_roadmap_masses.py). -->
+  <xacro:property name="roadmap_masses" lazy_eval="false"
+                  value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/roadmap_mass_export.yaml')}"/>
+  <xacro:property name="carriage_src" lazy_eval="false" value="${roadmap_masses['groups']['lift_carriage']['links']['lift_carriage_link']}"/>
+  <xacro:property name="carriage_inertial" lazy_eval="false"
+                  value="${dict(mass=carriage_src['mass_kg'], com=carriage_src['com_m'], ixx=carriage_src['inertia_kgm2']['ixx'], iyy=carriage_src['inertia_kgm2']['iyy'], izz=carriage_src['inertia_kgm2']['izz'])}"/>
+
   <!-- Option B's upper body, on base_footprint: its heights are from the floor. With arm_package == openarm the upstream macro below
        declares openarm_{left,right}_base_link and their mount joints at the same pose (emit_arm_mounts false); with none or so101
        the mount frames are option B's own, so every expansion has them. -->
@@ -153,7 +161,7 @@
                                emit_arm_mounts="${arm_package != 'openarm'}" column_inertial="${lift_inertial}"
                                column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], fixed_length=lift_h - dt['lift_static_profile_top_below_column_top']['value'], inner_x=lift_inner[0], inner_y=lift_inner[1], inner_length=lift_inner[2])}"
                                adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 - dt['adapter_plate_rear_extension']['value'] + plate_section[0] / 2)}"
-                               datums="${datums}" lift_limits="${lift_limits}"/>
+                               datums="${datums}" lift_limits="${lift_limits}" carriage_inertial="${carriage_inertial}"/>
 
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.
        none: the upper body only. -->

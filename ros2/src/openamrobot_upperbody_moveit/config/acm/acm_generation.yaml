@@ -1,6 +1,6 @@
 schema_version: 2
 method: 'derived: scripts/derive_acm.py over the model''s kinematic tree and upstream''s own SRDF; no sampling, no seed (P12A)'
-date: '2026-11-01'
+date: '2026-11-08'
 base_plate: bp000
 lift_joint_position_m: 0.0
 moveit_version: 2.12.4
@@ -12,15 +12,15 @@ rules:
 counts:
   upstream_declared: 20
   adjacent_derived: 29
-  constant_transform: 149
-  disabled_total: 198
+  constant_transform: 145
+  disabled_total: 194
 deterministic: true
 contract:
   file: config/openamrobot.srdf
   what: 'every <disable_collisions> of the SRDF (section 1, upstream''s, and the derived block). This file is the contract: M03 validates it,
     and a change to it is a change to the contract'
-  fingerprint: sha256:4c464d7634e6b9625e85b66cd256093c3bd1d4dcfe4ffb08f4cb61327c0dfb2b
+  fingerprint: sha256:49250d8c4f6313d21adf668c597bd2db6af7aad0b422f9eb92b48bfe50095fcb
   pairs:
-    total: 198
+    total: 194
     Adjacent: 49
-    ConstantTransform: 149
+    ConstantTransform: 145
