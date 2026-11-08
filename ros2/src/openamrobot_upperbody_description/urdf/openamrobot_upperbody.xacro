@@ -23,19 +23,21 @@
                      {mass, com_z, ixx, iyy, izz}: it carries that inertial (the
                      combined robot supplies the sourced catalogue mass).
     column_geometry  '' (none): the column has no visual and no collision. A dict
-                     {section_x, section_y, inner_x, inner_y}: the two stages of the Hexalift,
-                     each a box, visual and collision (the collisions named placeholder_*): the
-                     OUTER (fixed) stage of section_x x section_y on lift_column_base_link
-                     (retracted length), the INNER (moving) stage of inner_x x inner_y on
-                     lift_carriage_link (stroke, below the carriage). The sections are the
-                     supplier's (datums lift_column_section and lift_inner_section); the
-                     inner stage's length is not, it is the stroke.
+                     {section_x, section_y, fixed_length, inner_x, inner_y, inner_length}: the
+                     two stages of the Hexalift, each a box, visual and collision (the
+                     collisions named placeholder_*): the OUTER (fixed) stage of section_x x
+                     section_y x fixed_length on lift_column_base_link, from the column base
+                     up, the INNER (moving) stage of inner_x x inner_y x inner_length on
+                     lift_carriage_link, below the carriage frame. All are the supplier's
+                     (datums lift_column_section, lift_inner_section and
+                     lift_static_profile_top_below_column_top, DOLD STEP of 8 Nov 2026).
     adapter_plate    '' (none): no adapter plate link. A dict {size_x, size_y, center_x}: the
                      plate under the arm profile, its own link adapter_plate_link on
                      lift_carriage_link, size_x fore-aft by size_y lateral by
                      geometry.adapter_plate_thickness, resting on the carriage frame's
                      horizontal plane (the column top at lift 0) and centred laterally;
-                     center_x is from the column axis (datum adapter_plate_section).
+                     center_x is from the column axis (datums adapter_plate_section and
+                     adapter_plate_rear_extension).
     lift_limits      '' (none): lift_joint carries effort 0 velocity 0, so the model cannot be used to command the
                      lift (the default, and what the real profile keeps). A dict {effort, velocity}: those limits on
                      lift_joint; the combined robot passes the DOLD figures (datums lift_max_effort_*, lift_max_velocity_*)
@@ -111,13 +113,13 @@
       </xacro:unless>
       <xacro:unless value="${column_geometry == ''}">
         <visual>
-          <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
-          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${col['retracted_length']}"/></geometry>
+          <origin xyz="0 0 ${column_geometry['fixed_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${column_geometry['fixed_length']}"/></geometry>
           <material name="placeholder_geometry"/>
         </visual>
         <collision name="placeholder_lift_column_fixed_stage">
-          <origin xyz="0 0 ${col['retracted_length'] / 2}" rpy="0 0 0"/>
-          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${col['retracted_length']}"/></geometry>
+          <origin xyz="0 0 ${column_geometry['fixed_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${column_geometry['fixed_length']}"/></geometry>
         </collision>
       </xacro:unless>
     </link>
@@ -140,13 +142,13 @@
     <xacro:unless value="${column_geometry == ''}">
       <link name="lift_carriage_link">
         <visual>
-          <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
-          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
+          <origin xyz="0 0 ${-column_geometry['inner_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${column_geometry['inner_length']}"/></geometry>
           <material name="placeholder_geometry"/>
         </visual>
         <collision name="placeholder_lift_column_moving_stage">
-          <origin xyz="0 0 ${-col['stroke'] / 2}" rpy="0 0 0"/>
-          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${col['stroke']}"/></geometry>
+          <origin xyz="0 0 ${-column_geometry['inner_length'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['inner_x']} ${column_geometry['inner_y']} ${column_geometry['inner_length']}"/></geometry>
         </collision>
       </link>
       <xacro:openamrobot_placeholder_gazebo_material link="lift_carriage_link"/>

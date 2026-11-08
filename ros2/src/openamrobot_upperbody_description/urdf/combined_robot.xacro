@@ -110,8 +110,9 @@
        Shape: a uniform box of the column's section (datum, axis convention x fore-aft, y lateral) and its retracted length (option B's
        config), centred at half of that length above lift_column_base_link. All of the mass is on the fixed side (the catalogue
        does not split it). Visual and collision (column_geometry): the OUTER stage a box of lift_column_section on lift_column_base_link,
-       the INNER stage a box of lift_inner_section (strictly smaller, from the same DOLD datasheet page) on lift_carriage_link; the inner
-       stage's length is the stroke, which the datasheet does not give as a length. The adapter plate (adapter_plate_section) is its own link. -->
+       its top lift_static_profile_top_below_column_top below the retracted column top, the INNER stage a box of lift_inner_section (section
+       and length, strictly smaller in section) on lift_carriage_link, its top at the carriage frame (DOLD STEP of 8 Nov 2026, P-03 rev20.4
+       item 28). The adapter plate (adapter_plate_section) is its own link, adapter_plate_rear_extension behind the column's rear face. -->
   <xacro:property name="lift_mass_by_column" lazy_eval="false"
                   value="${dict(dold_v4_350=dt['lift_mass_dold_v4_350']['value'], tl3_400=dt['lift_mass_tl3_400']['value'])}"/>
   <xacro:property name="lift_mass" lazy_eval="false" value="${lift_mass_by_column[column]}"/>
@@ -150,8 +151,8 @@
   <xacro:openamrobot_upperbody parent="base_footprint" column="${column}" base_plate="${base_plate}" head_pitch="${head_pitch}"
                                base_tilt="${base_tilt}" column_axis_x_bp000="${dt['column_axis_x_bp000']['value']}"
                                emit_arm_mounts="${arm_package != 'openarm'}" column_inertial="${lift_inertial}"
-                               column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], inner_x=lift_inner[0], inner_y=lift_inner[1])}"
-                               adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 + plate_section[0] / 2)}"
+                               column_geometry="${dict(section_x=lift_section[0], section_y=lift_section[1], fixed_length=lift_h - dt['lift_static_profile_top_below_column_top']['value'], inner_x=lift_inner[0], inner_y=lift_inner[1], inner_length=lift_inner[2])}"
+                               adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 - dt['adapter_plate_rear_extension']['value'] + plate_section[0] / 2)}"
                                datums="${datums}" lift_limits="${lift_limits}"/>
 
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.

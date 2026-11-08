@@ -89,11 +89,10 @@ or a workflow; the export is also run by a test of the description package (`tes
 python3 tools/report_equipment_collisions.py [--json out.json]
 ```
 
-bp000 and bp050, the tablet in landscape (the model) and portrait (P-03 rev20.2 item 26, never drawn), lift stops L1000 / L1175 / L1350, the
-default state and every named arm pose of the SRDF. Every (moving equipment link, arm link) pair is checked with the SRDF's list ignored
-(`acm_scene`). It moves nothing and decides nothing. Portrait assumes the landscape centre as the pivot, which is **not stated** (datum
-`getac_tablet_portrait_pivot` is null), and keeps the head light where the model has it. A control (the flag on its rod, touching by
-design) shows the check sees a contact. Exit 0 whatever it finds, 2 when it could not run.
+bp000 and bp050, the tablet as the model draws it (portrait on a fixed mount, the only position since P-03 rev20.4 item 28; the
+landscape-plus-portrait variant and its assumed pivot are gone), lift stops L1000 / L1175 / L1350, the default state and every named arm
+pose of the SRDF. Every (moving equipment link, arm link) pair is checked with the SRDF's list ignored (`acm_scene`). It moves nothing and
+decides nothing. A control (the flag on its rod, touching by design) shows the check sees a contact. Exit 0 whatever it finds, 2 when it could not run.
 
 ### `export_docs_model_values.py`: the URDF, written as the docs model's CHEST-JSON and LIFT-JSON
 

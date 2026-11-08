@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-11-01.d"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-08.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -16,8 +16,6 @@ report_only:
   - gross_mass_limit
   - f2s_vehicle_mass_estimate
   - joint_rest_margin_rad
-  - getac_tablet_portrait_size
-  - getac_tablet_portrait_pivot
 
 # Datums whose xacro consumer has not been written yet: <datum>: <step that will consume it>.
 # The step that adds the consumer deletes the entry in the same commit; T13 fails if it does not.
@@ -93,25 +91,33 @@ datums:
     status: provisional
     ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the two dimensioned drawings ('With mounting brackets' / 'Without mounting brackets'): 'Outer profile 240x60'. https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf ; matches option B drawing sheet 2 rev A. Alex, 22 Oct 2026 (the 240 mm side fore-aft is option B's own statement, upperbody_configuration.yaml column.dold_v4_350.description)"
     owner: "Alex (option B drawing) / supplier (DOLD)"
-    note: "Sourced since 28 Oct 2026 (P28). It was a placeholder [0.240, 0.240] whose lateral side was invented (set equal to x); it is no longer an invented number, and the CHANGELOG says so. The outer profile only: the moving stage is lift_inner_section. It sizes the inertia tensor of the column, the fixed stage's visual and collision box, and the adapter plate's rear edge. Provisional, not verified: the dimensions are read from a raster drawing in a supplier datasheet, not from a CAD model or a measured part. Column parent frame accepted by Alex on 30 Oct 2026 as modelled until supplier CAD (decision D4, P-03 rev20.1 item 25)."
+    note: "Sourced since 28 Oct 2026 (P28). It was a placeholder [0.240, 0.240] whose lateral side was invented (set equal to x); it is no longer an invented number, and the CHANGELOG says so. The outer profile only: the moving stage is lift_inner_section. It sizes the inertia tensor of the column, the fixed stage's visual and collision box, and the adapter plate's rear edge. Provisional, not verified: the dimensions are read from a raster drawing in a supplier datasheet, not from a CAD model or a measured part. Column parent frame accepted by Alex on 30 Oct 2026 as modelled until supplier CAD (decision D4, P-03 rev20.1 item 25). Confirmed by the DOLD supplier CAD Hexalift_EB530_Hub350_mit_Montagelaschen.STEP (owner, 8 Nov 2026; P-03 rev20.4 item 28): static profile 240 x 60 mm from 10 to 503 mm above the column base. NOT MODELLED from the same STEP: the foot with mounting tabs, 280 x 60.4 x 10 mm, and its four fixing screws on a 224 x 40 mm pattern (the fixed stage's box starts at the column base and keeps the 240 x 60 section down to it)."
 
   lift_inner_section:
-    value: [0.2095, 0.051]
-    axis_convention: {x: fore_aft, y: lateral}
+    value: [0.2095, 0.0533, 0.470]
+    axis_convention: {x: fore_aft, y: lateral, z: vertical}
     source: supplier
     status: provisional
-    ref: "DOLD Hexalift telescopic lifters datasheet (version 2023_08_16), page 4, the same two dimensioned drawings as lift_column_section: 'Inner profile 209.5x51' (bottom view, 209.5 and 51 dimensioned on the inner stage's end face). https://www.dold-mechatronik.de/documents/Datasheets/AluminumProfiles/TelescopicLifters/telescopic_lifters_en.pdf"
+    ref: "DOLD supplier CAD Hexalift_EB530_Hub350_mit_Montagelaschen.STEP (owner, 8 Nov 2026): inner stage 209.5 x 53.3 x 470 mm, its bottom 60 mm above the column base when retracted (top at the retracted column top, 530 mm). P-03 rev20.4 item 28; openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js M.DIMS.COL.INNER [.2095, .0533, .47] and scripts/roadmap_model/facts.yaml column.inner, inner_bottom_retracted. Was [0.2095, 0.051] from the DOLD Hexalift telescopic lifters datasheet (version 2023_08_16) page 4, 'Inner profile 209.5x51'"
     owner: "supplier (DOLD)"
-    note: "The moving (inner) stage of the Hexalift, carried by lift_carriage_link. Sourced: the datasheet gives it, so no placeholder was needed (P28). Two things are ours, not the datasheet's: (1) the drawing does not say which way the inner profile sits in the outer one, so it is taken the same way round (209.5 along the 240 side, 51 along the 60 side) and centred on the column axis (15.25 mm clear each side fore-aft, 4.5 mm each side laterally); (2) the stage's LENGTH is not in the datasheet, and the box keeps the stroke (0.350 m) it had before. Strictly smaller than lift_column_section on both axes, so the stage nests in the outer section instead of repeating it. The outer stage's collision is still a solid box, so the volumes still overlap (a hollow outer needs the housing wall, which the datasheet does not give). Length = stroke and centred accepted by Alex on 30 Oct 2026 as a placeholder until the DOLD STEP (decision D3, P-03 rev20.1 item 25)."
+    note: "The moving (inner) stage of the Hexalift, carried by lift_carriage_link: section 209.5 fore-aft x 53.3 lateral (the STEP; the datasheet drawing said 51), length 0.470 m, its top at the carriage frame (the column top at lift 0), so its bottom is 60 mm above the column base at L1000. The length was the stroke (0.350 m) until the STEP (decision D3, P-03 rev20.1 item 25, accepted that as a placeholder until the DOLD STEP). Centred on the column axis, 15.25 mm clear each side fore-aft and 3.35 mm laterally. Strictly smaller than lift_column_section on both section axes. The outer stage's collision is still a solid box, so the volumes still overlap."
 
   adapter_plate_section:
-    value: [0.360, 0.100]
+    value: [0.425, 0.100]
     axis_convention: {x: fore_aft, y: lateral}
     source: plan
     status: provisional
-    ref: "Alex, 22 Oct 2026, P-03 rev19.6 item 18: adapter plate 360 mm fore-aft x 100 mm lateral x 10 mm on the column top. The 360 is 240 of column plus 120 ahead of the column's front face (so the plate's rear edge is flush with the column's rear face and its front edge is 0.240 m ahead of the column axis, the arm profile's front face). The 10 mm thickness is geometry.adapter_plate_thickness in upperbody_configuration.yaml"
+    ref: "P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026; owner correction A6 of 2 Nov 2026): the adapter plate is one part, 6082-T6, 425 mm fore-aft x 100 mm lateral x 10 mm, with a 65 mm rear extension behind the column rear face for the flag rod. openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), STATE.md (A6 text) and docs/assets/roadmap/model/model.js /*LIFT-JSON*/ plate_rear_x -0.185 with the front edge at MOUNT_X + PROFILE.X / 2 = 0.240. The 10 mm thickness is geometry.adapter_plate_thickness in upperbody_configuration.yaml. Was [0.360, 0.100], rear edge flush with the column rear face (Alex, 22 Oct 2026, P-03 rev19.6 item 18)"
     owner: "Alex (option B)"
-    note: "A decision record, not a measurement. The rear-flush placement is derived from the sentence above, not stated as such: if the plate is not flush with the column's rear face, the plate's x position is wrong and nothing else. Closes the 10 mm gap under arm_profile_link (P25 finding 3). Rear-flush placement accepted by Alex on 30 Oct 2026 (decision D2, P-03 rev20.1 item 25)."
+    note: "A decision record, not a measurement. Front edge on the arm profile's front face (0.240 m ahead of the column axis), rear edge adapter_plate_rear_extension behind the column's rear face (0.240 + 0.120 + 0.065 = 0.425). Closes the 10 mm gap under arm_profile_link (P25 finding 3). The rear-flush placement accepted on 30 Oct 2026 (decision D2, P-03 rev20.1 item 25) is superseded by the extension."
+
+  adapter_plate_rear_extension:
+    value: 0.065
+    source: plan
+    status: provisional
+    ref: "P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026; owner correction A6 of 2 Nov 2026): 65 mm rear extension behind the column rear face. openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js /*LIFT-JSON*/ plate_rear_x -0.185 = column rear face -0.120 - 0.065 (scripts/roadmap_model/frames.py lift_rear_layout(): the rod's rear face or its M5 bolt edge distance, whichever reaches further back, on a 5 mm grid)"
+    owner: "Alex (option B)"
+    note: "How far the plate's rear edge is behind the column's rear face; it places adapter_plate_link (centre x = -column x / 2 - this + plate length / 2 = 0.0275 m from the column axis). Derived in the docs model from the flag rod position; stored here as the decided figure."
 
   left_wrist_camera_pose:
     value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
@@ -177,13 +183,13 @@ datums:
   # (column axis at the column top, lift 0 = L1000) for the moving parts, lift_column_base_link (column axis on the base-plate top) for
   # the static ones; x forward, y left, z up. tools/export_docs_model_values.py prints these back from the expanded URDF.
   getac_tablet_size:
-    value: [0.0176, 0.234, 0.1498]
+    value: [0.0176, 0.1498, 0.234]
     axis_convention: {x: fore_aft, y: lateral, z: vertical}
     source: supplier
     status: provisional
-    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.size; Getac ZX80 outer dimensions 234 x 149.8 x 17.6 mm"
+    ref: "P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026): Getac ZX80 portrait only, on a fixed mount (149.8 wide x 234 tall x 17.6 deep); openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.size (orientation portrait); Getac ZX80 outer dimensions 234 x 149.8 x 17.6 mm. Was landscape [0.0176, 0.234, 0.1498] (P-03 rev20.0 item 24) with a rotatable mount (P-03 rev20.2 item 26)"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "Default landscape position: 17.6 deep (screen forward), 234 across, 149.8 tall. Dock not drawn (as in the docs model)."
+    note: "Portrait, the only position: 17.6 deep (screen forward), 149.8 across, 234 tall. The rotatable mount and its landscape position are withdrawn, so the portrait envelope and pivot datums of P-03 rev20.2 item 26 are gone (this datum is the portrait box). Dock not drawn (as in the docs model)."
 
   getac_tablet_mass:
     value: 0.590
@@ -194,12 +200,12 @@ datums:
     note: "The tablet alone, no dock or mount: a supplier figure, not weighed here. Carried as a uniform box of getac_tablet_size."
 
   getac_tablet_z_above_column_top:
-    value: 0.246
+    value: 0.191
     source: plan
     status: placeholder
-    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.z"
+    ref: "P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026): the Getac centre 55 mm lower than the P-03 rev20.2 item 26 placeholder (0.246); openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ drawn.getac_tablet.z = 0.191 (scripts/roadmap_model/facts.yaml getac.lower_by 0.055)"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "Centre of the tablet above the column top at lift 0 (L1000), on lift_carriage_link."
+    note: "Centre of the tablet above the column top at lift 0 (L1000), on lift_carriage_link. Was 0.246; the docs model had 0.206 (40 mm lower) on 2 Nov 2026 and 0.191 (55 mm lower) on 8 Nov."
 
   chest_equipment_x_from_profile_front_face:
     value: 0.0
@@ -208,23 +214,6 @@ datums:
     ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems(): both boxes start at f = MOUNT_X + PROFILE.X / 2 (the arm-profile front face), slab x = f + depth / 2"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
     note: "The rear faces of the Getac box and the head light housing on the arm-profile front face; both centred laterally on the profile (the docs model sets no y)."
-
-  getac_tablet_portrait_size:
-    value: [0.0176, 0.1498, 0.234]
-    axis_convention: {x: fore_aft, y: lateral, z: vertical}
-    source: supplier
-    status: provisional
-    ref: "P-03 rev20.2 item 26 (rotatable tablet mount, second position portrait: 149.8 wide x 234 tall, rotation about the screen normal); Getac ZX80 outer dimensions"
-    owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "Report only: the portrait envelope is recorded, never drawn, and is not a configuration ID. Landscape with y and z exchanged (a quarter turn about x, the screen normal); T12 asserts that."
-
-  getac_tablet_portrait_pivot:
-    value: null
-    source: placeholder
-    status: placeholder
-    ref: "not stated: P-03 rev20.2 item 26 gives the rotation axis (the screen normal) but not the point it passes through, and model.js draws no portrait position"
-    owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "Report only. Source not stated. The portrait collision report assumes the pivot is the landscape centre and says so; that is an assumption of the report, not a datum."
 
   head_light_size:
     value: [0.020, 0.158, 0.017]
@@ -244,12 +233,12 @@ datums:
     note: "An upper bound from the task statement, not a weighed figure. Carried as a uniform box of head_light_size."
 
   head_light_gap_below_tablet:
-    value: 0.030
+    value: 0.010
     source: plan
     status: placeholder
-    ref: "P-03 rev20.0 item 24 equipment (P-03 rev20.1 item 25 D8); openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ gap_light_tablet (drawn.head_light.z = drawn.getac_tablet.z - getac height / 2 - gap - light height / 2 = 0.1326)"
+    ref: "P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026): the head light top edge 10 mm below the Getac bottom edge; openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js /*CHEST-JSON*/ gap_light_tablet (drawn.head_light.z = drawn.getac_tablet.z - getac height / 2 - gap - light height / 2 = 0.191 - 0.117 - 0.010 - 0.0085 = 0.0555)"
     owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "The head light top edge 30 mm below the Getac bottom edge. The head light height is derived from this, not stored twice."
+    note: "The head light top edge 10 mm below the Getac bottom edge (was 30 mm, P-03 rev20.0 item 24). The head light height is derived from this, not stored twice."
 
   second_estop_below_profile_top:
     value: 0.040
@@ -268,12 +257,12 @@ datums:
     note: "Panel face (the button axis origin of the GLB estop node, x 0.390 in base_link) 48 mm behind the static profile rear face, so the contact block stands on the rear face. The button faces rearward."
 
   lift_static_profile_top_below_column_top:
-    value: 0.018
-    source: plan
-    status: placeholder
-    ref: "P-03 rev20.0 item 24; openamrobot-docs cd780d6368625f4c653dfa287efc0688c37be82a (values identical at 7ae4a65215269b205838aca4cb1bd9ac2bed99b0; docs #66 changed labels only), docs/assets/roadmap/model/model.js chestItems(): static profile top = column top - D.COL.HEAD (0.012) - 0.006"
-    owner: "Alex (P-03 item 24; placeholders until M-09)"
-    note: "The docs model's static DOLD profile top (its top cap) is 18 mm below the retracted column top. Only the second E-stop height reads it; the column box itself is unchanged (retracted length)."
+    value: 0.025
+    source: supplier
+    status: provisional
+    ref: "DOLD supplier CAD Hexalift_EB530_Hub350_mit_Montagelaschen.STEP (owner, 8 Nov 2026): static profile to 503 mm plus a 2 mm top cover, top 505 mm above the column base; retracted top 530 mm. P-03 rev20.4 item 28; openamrobot-docs branch roadmap/2026-11-08-owner-decisions (not yet merged; working tree on 8d743e2503a6994c744cf0ed7405d8082f029f52), docs/assets/roadmap/model/model.js M.DIMS.COL (STATIC_PROFILE_TOP 0.503, STATIC_TOP 0.505, RETRACTED 0.53) and scripts/roadmap_model/facts.yaml column.static_top"
+    owner: "Alex (P-03 item 24) / supplier (DOLD)"
+    note: "The static (outer) stage's top, its 2 mm cover included, 25 mm below the retracted column top (0.530 - 0.505). Was 0.018, a placeholder of the docs model (head plate 12 mm plus 6 mm). It sets the length of the fixed stage's box on lift_column_base_link (retracted length minus this). Provisional, not verified: read from the supplier STEP's bounding boxes, not from a measured part."
 
   second_estop_head_size:
     value: [0.014, 0.040, 0.040]

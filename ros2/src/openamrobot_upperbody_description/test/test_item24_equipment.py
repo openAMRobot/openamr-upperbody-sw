@@ -117,10 +117,14 @@ def test_item24_chest_boxes_sit_on_the_profile_front_face_and_the_estop_block_on
     size = float(block.find("geometry/box").get("size").split()[0])
     inner_face = (estop @ np.array([bx - size / 2, 0, 0, 1]))[0]          # the block's face toward the column, in the column frame
     assert inner_face == pytest.approx(-v("lift_column_section")[0] / 2), "the contact block does not stand on the profile rear face"
+    # P-03 rev20.4 item 28: the Getac is portrait only, on a fixed mount: 149.8 wide, 234 tall, 17.6 deep, centre 0.191 above the column top
+    assert v("getac_tablet_size") == [0.0176, 0.1498, 0.234] and v("getac_tablet_z_above_column_top") == 0.191
+    assert "getac_tablet_portrait_size" not in load_datums()["datums"] and "getac_tablet_portrait_pivot" not in load_datums()["datums"]
     # the head light's top edge is the gap below the tablet's bottom edge (gap_light_tablet of the docs model)
     t = fixed_fk(root, "lift_carriage_link", "getac_tablet_link")[2, 3] - v("getac_tablet_size")[2] / 2
     h = fixed_fk(root, "lift_carriage_link", "head_light_link")[2, 3] + v("head_light_size")[2] / 2
-    assert t - h == pytest.approx(v("head_light_gap_below_tablet")) == pytest.approx(0.030)
+    # P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026): 10 mm, was 30 mm (P-03 rev20.0 item 24)
+    assert t - h == pytest.approx(v("head_light_gap_below_tablet")) == pytest.approx(0.010)
 
 
 @pytest.mark.parametrize("stop", sorted(SENSOR_Z))
@@ -178,7 +182,9 @@ def test_item24_no_equipment_joint_is_in_ros2_control_or_movable():
 
 # ---- head camera body (register HEAD-CAMERA-IDENTITY): the numbers below are the register's, written here on purpose, so a change of option B's
 # configuration or of the datums that moved the camera away from them fails this test instead of following along.
-HCI_LENS_AHEAD_OF_ARM_MOUNT = 0.042      # "lens 0.042 m ahead of and 0.223 m above the arm mount point, centred"
+# P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026; register change openAMRobot/.github#90): the lens 0.060 m ahead of the arm mount
+# point, was 0.042 (P-03 rev20.0 item 18).
+HCI_LENS_AHEAD_OF_ARM_MOUNT = 0.060      # "lens 0.060 m ahead of and 0.223 m above the arm mount point, centred"
 HCI_LENS_ABOVE_ARM_MOUNT = 0.223
 HCI_BASELINE_PITCH_DEG = 30              # "pitch 15 to 35 degrees down in 5 degree steps about the lens line, baseline 30 degrees" (hp30)
 

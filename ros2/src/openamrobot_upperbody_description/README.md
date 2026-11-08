@@ -324,17 +324,20 @@ Nothing in this package is a measured value or a hardware result. In particular:
 - **Base inertials are platform-sw CAD placeholders.** The base comes from `openamr-platform-sw` unchanged; its masses and
   inertias are CAD-export values. The arm masses are upstream nominal values, and the lift's 11.7 kg is a supplier catalogue
   figure (provisional), not a weighed one.
-- **The lift column is a mass on two boxes, the supplier's sections on both stages (P28).** The outer (fixed) stage is `lift_column_section`, 240 x 60 mm
-  (x fore-aft, option B's own statement of the 240 mm side, and the DOLD Hexalift datasheet page 4, "Outer profile 240x60"); the inner (moving) stage is
-  `lift_inner_section`, 209.5 x 51 mm (the same drawing, "Inner profile 209.5x51"), strictly smaller on both axes and centred on the column axis. Both are
-  visual and collision boxes: the outer, 0.530 m, on `lift_column_base_link`; the inner, 0.350 m (the stroke: the datasheet gives no stage length), on
-  `lift_carriage_link` below the carriage frame (opt-in `column_geometry`, which the combined robot passes). The outer section also sizes the inertia
-  tensor. **They are boxes, not the supplier's shapes**, and the outer collision is solid, so the two stages still overlap in volume (a hollow outer needs
-  the housing wall, which the datasheet does not give); the pair is a structural neighbour, so the collision matrix does not evaluate it. The adapter plate
-  (360 x 100 x 10 mm, `adapter_plate_section`, Alex 22 Oct, P-03 rev19.6 item 18) is its own link on the carriage, its rear edge flush with the column's rear
-  face (the 360 is 240 of column plus 120 ahead of the front face), and the arm profile stands on it (`arm_profile_link` is its child; its pose from the
-  carriage did not change). The whole catalogue mass sits on the fixed side at mid-height of the retracted column: the catalogue does not split it
-  between the fixed part and the moving stage.
+- **The lift column is a mass on two boxes, the supplier's sections on both stages (P28; lengths from the DOLD STEP, P-03 rev20.4 item 28).** The outer
+  (fixed) stage is `lift_column_section`, 240 x 60 mm (x fore-aft, option B's own statement of the 240 mm side, the DOLD Hexalift datasheet page 4,
+  "Outer profile 240x60", confirmed by the DOLD supplier CAD `Hexalift_EB530_Hub350_mit_Montagelaschen.STEP` of 8 Nov 2026); the inner (moving) stage is
+  `lift_inner_section`, 209.5 x 53.3 x 470 mm (the STEP; the datasheet drawing said 209.5 x 51 and gave no length), strictly smaller in section and
+  centred on the column axis. Both are visual and collision boxes: the outer, 0.505 m (to the static top, `lift_static_profile_top_below_column_top`
+  0.025 below the retracted top), on `lift_column_base_link`; the inner, 0.470 m, on `lift_carriage_link` with its top at the carriage frame, so its bottom
+  is 60 mm above the column base at L1000 (opt-in `column_geometry`, which the combined robot passes). The STEP's foot with mounting tabs
+  (280 x 60.4 x 10 mm, four screws on a 224 x 40 mm pattern) is not modelled. The outer section also sizes the inertia tensor. **They are boxes, not the
+  supplier's shapes**, and the outer collision is solid, so the two stages still overlap in volume; the pair is a structural neighbour, so the collision
+  matrix does not evaluate it. The adapter plate (one 6082-T6 part, 425 x 100 x 10 mm, `adapter_plate_section`, P-03 rev20.4 item 28; it was 360 mm,
+  P-03 rev19.6 item 18) is its own link on the carriage, its front edge on the arm profile's front face and its rear edge 65 mm behind the column's rear
+  face (`adapter_plate_rear_extension`, for the flag rod), and the arm profile stands on it (`arm_profile_link` is its child; its pose from the carriage
+  did not change). The whole catalogue mass sits on the fixed side at mid-height of the retracted column: the catalogue does not split it between the
+  fixed part and the moving stage.
 - **The base's pose above the floor is a decision record, not a measurement.** `base_link_height_above_floor` = 0.098 and the
   column axis at x +0.060 are P-03 rev19.0 values (provisional); T04 asserts the datum equals platform-sw's joint in the expansion.
 - **The arms are 62 mm apart at their bases** (option B's y = +-0.031). They do not touch at the home pose at any lift stop or

@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <!-- SPDX-License-Identifier: MIT -->
 <!--
-  P-03 item 24 upper-body equipment (P-03 rev20.1 item 25 D8; P-03 rev20.2 item 26 for the tablet mount): placeholder
+  P-03 item 24 upper-body equipment (P-03 rev20.1 item 25 D8; P-03 rev20.4 item 28 for the tablet, the second E-stop and the lift
+  stop sensors, owner decisions of 8 Nov 2026): placeholder
   geometry at the positions the documentation model draws (openamrobot-docs docs/assets/roadmap/model/model.js, blocks
   CHEST-JSON and LIFT-JSON, chestItems() and liftSensors()), so the robot description and the docs model are the same robot.
   Placeholders until work package M-09.
@@ -14,7 +15,7 @@
   (joint origins, inertia tensors) are computed here and stored nowhere.
 
     Moving (below lift_joint):
-      arm_profile_link  -> getac_tablet_link       Getac ZX80, landscape, screen forward, rear face on the profile front face
+      arm_profile_link  -> getac_tablet_link       Getac ZX80, portrait (fixed mount), screen forward, rear face on the profile front face
                         -> head_light_link         Falcon FLDL-i150x15-W, top edge head_light_gap_below_tablet below the tablet
       head_camera_link (option B's frame)          Stereolabs ZED Mini body box, pitched with the frame
       head_camera_mount_link -> head_camera_bracket_link   placeholder for the OpenArm-supplied mount, profile top to lens line
@@ -77,6 +78,8 @@
     <xacro:property name="plate_t" lazy_eval="false" value="${geo['adapter_plate_thickness']}"/>
     <xacro:property name="section" lazy_eval="false" value="${eq['lift_column_section']['value']}"/>
     <xacro:property name="plate_section" lazy_eval="false" value="${eq['adapter_plate_section']['value']}"/>
+    <xacro:property name="plate_centre_x" lazy_eval="false"
+                    value="${-section[0] / 2 - eq['adapter_plate_rear_extension']['value'] + plate_section[0] / 2}"/>
 
     <!-- ===== Chest: the Getac tablet and the head light on the arm-profile front face (moving) ===== -->
     <xacro:property name="x_front" lazy_eval="false" value="${eq['chest_equipment_x_from_profile_front_face']['value']}"/>
@@ -202,8 +205,8 @@
     <joint name="lift_flag_rod_joint" type="fixed">
       <parent link="adapter_plate_link"/>
       <child link="lift_flag_rod_link"/>
-      <!-- adapter_plate_link is at the plate's centre: rear edge flush with the column rear face, plate_t / 2 above its underside -->
-      <origin xyz="${rod_x - (-section[0] / 2 + plate_section[0] / 2)} ${rod_y} ${-plate_t / 2}" rpy="0 0 0"/>
+      <!-- adapter_plate_link is at the plate's centre: rear edge adapter_plate_rear_extension behind the column rear face, plate_t / 2 above its underside -->
+      <origin xyz="${rod_x - plate_centre_x} ${rod_y} ${-plate_t / 2}" rpy="0 0 0"/>
     </joint>
     <link name="lift_flag_link">
       <xacro:openamrobot_equipment_box name="placeholder_lift_flag" size="${flag}" xyz="${[0, 0, 0]}"/>
