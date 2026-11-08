@@ -6,10 +6,10 @@
     base_footprint (platform-sw: the root, on the floor under the drive-axle midpoint, REP 105)
       -> base_link (platform-sw, 0.098 m above it) and everything platform-sw declares on it, near-field frames included
       -> lift_column_base_link                                  (option B, openamrobot_upperbody.xacro; datum column_axis_x_bp000)
-           -> second_estop_link, lift_stop_sensor_{l1000,l1175,l1350}_link   (item 24 equipment, static: geometry only)
+           -> lift_stop_sensor_{l1000,l1175,l1350}_link   (item 24 equipment, static, on the column rear face: geometry only)
            -> lift_joint (prismatic, 0..0.350 m; mock/gazebo: 800 N, 0.018 m/s, planned; real: effort 0 velocity 0) -> lift_carriage_link
                 -> arm_profile_link -> getac_tablet_link, head_light_link          (P-03 item 24 equipment, upper_body_equipment.xacro)
-                -> adapter_plate_link -> lift_flag_rod_link -> lift_flag_link       (item 24)
+                -> adapter_plate_link -> second_estop_link, lift_flag_rod_link -> lift_flag_link   (item 24; P-03 rev20.4 item 28)
                 -> head_camera_mount_link -> head_camera_link -> head_camera_optical_frame     (option B)
                 -> openarm_{left,right}_base_link                (declared by the upstream arm macro, at option B's mount pose)
                      -> openarm_{left,right}_* arms + grippers   (upstream, one call per arm; ADR-008)

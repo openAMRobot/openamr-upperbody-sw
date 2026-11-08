@@ -5,6 +5,38 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (8 Nov 2026; owner decisions, P-03 rev20.4 item 28)
+
+The combined model now carries the values the roadmap model (openamrobot-docs branch `roadmap/2026-11-08-owner-decisions`, not yet merged) draws.
+Register change openAMRobot/.github#90, change request openAMRobot/.github#89. Datums revision `2026-11-08.b`, so every `config_id` changes.
+
+- **Head camera lens 0.060 m ahead of the arm mount** (`upperbody_configuration.yaml` `geometry.head_camera_lens.x_ahead_of_arm_mount`, was 0.042, P-03 rev20.0 item 18;
+  the docs model had 0.057 on 2 Nov 2026).
+- **Getac ZX80 portrait only, on a fixed mount.** `getac_tablet_size` is the portrait box `[0.0176, 0.1498, 0.234]` (was landscape), its centre 0.191 above the column top
+  (was 0.246: 55 mm lower than the P-03 rev20.2 item 26 placeholder). The rotatable mount is withdrawn: `getac_tablet_portrait_size` and `getac_tablet_portrait_pivot`
+  are deleted, and `tools/report_equipment_collisions.py` drops its portrait variant and assumed pivot. Head light top edge 10 mm below the Getac (`head_light_gap_below_tablet`
+  0.030 -> 0.010; head light centre 0.0555 above the column top).
+- **DOLD supplier CAD** (`Hexalift_EB530_Hub350_mit_Montagelaschen.STEP`, owner, 8 Nov 2026): `lift_static_profile_top_below_column_top` 0.018 (placeholder) -> 0.025
+  (supplier, provisional), and it now sets the fixed stage's box (0 to 0.505 m, was 0 to 0.530); `lift_inner_section` `[0.2095, 0.051]` -> `[0.2095, 0.0533, 0.470]`
+  (a triple: the stage length is no longer the stroke), its top at the carriage frame, bottom 60 mm above the column base at L1000; `lift_column_section` `[0.240, 0.060]`
+  confirmed. The STEP's foot (280 x 60.4 x 10 mm, four screws on 224 x 40 mm) is **not modelled** (noted in the datum).
+- **Adapter plate one 6082-T6 part, 425 x 100 x 10 mm, with a 65 mm rear extension** behind the column rear face for the flag rod (`adapter_plate_section` `[0.360, 0.100]`
+  -> `[0.425, 0.100]`, new datum `adapter_plate_rear_extension` 0.065; rear edge x -0.185 from the column axis, was flush at -0.120). The arm profile's pose is unchanged.
+- **Second E-stop on the moving adapter plate** behind the arm post, above the column axis, centred in y, button up, in a 64 x 50 x 50 mm housing envelope:
+  `second_estop_link` is now a child of `adapter_plate_link` (was `lift_column_base_link`, on the static profile rear face facing rearward). New datums
+  `second_estop_panel_above_plate` 0.048 and `second_estop_housing_size`; `second_estop_panel_behind_profile` and `second_estop_below_profile_top` are deleted. The three
+  E-stop part sizes are unchanged; their axis convention now says x is up. Geometry only, no safety logic.
+- **Lift stop sensors on the rear face of the static column** (owner correction A6): sensor axes along y, 28 mm behind the rear face (x -0.148), centred in y, sensing faces
+  toward +y (y 0.024); the bracket's face leg on the rear face. The flag rod sits behind them (x -0.183 to -0.163, y 0.028 to 0.048, 9 mm clear of the face discs) under the
+  plate's extension, the flag (now 45 fore-aft x 2 across x 20) on the rod's side face, 2 mm off the faces. New datums `lift_stop_sensor_axis_behind_rear_face` 0.028 and
+  `lift_flag_rod_clearance` 0.009; deleted `lift_stop_sensor_face_x`, `lift_stop_sensor_axis_from_face`, `lift_sensor_bracket_sensor_leg_from_back`,
+  `lift_flag_offset_from_face`, `lift_flag_rod_offset_from_face`. The corner bracket the docs model draws is not modelled (LIFT-JSON `corner_x`, not exported).
+- **Docs-model fixture refreshed** (`test/fixtures/docs_model_item24.json`, `merged: false`, base `8d743e2`); `tools/export_docs_model_values.py` exports the new
+  CHEST-JSON and LIFT-JSON keys and equals the local model.js (`--model-js`: equal). Frame contract, READMEs and the tests that pinned the old values updated.
+- **Not done here (needs ROS):** the collision matrix in `openamrobot_upperbody_moveit/config/openamrobot.srdf` is not re-derived. `second_estop_link` moved across
+  `lift_joint`, so its `ConstantTransform` pairs with the static links are now wrong and its pairs with the moving links are missing; the new collisions (housing, shorter
+  fixed stage, longer inner stage, longer plate) also need the one evaluation `scripts/derive_acm.py` makes with moveit_py. Run `regenerate_acm.sh --write` and M03.
+
 ### Fixed (P29, 28 Oct 2026; test-only, one race and two false lines)
 
 - **The AUX race in `test_zz_a_reading_beyond_the_epsilon_is_not_hidden` (P28 A7 run 2: 42 != 41).** Root cause: the test compared `activations` read **before** switching the injected value to -1e-3 with

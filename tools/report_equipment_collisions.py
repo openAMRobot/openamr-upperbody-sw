@@ -23,7 +23,8 @@ import subprocess
 import sys
 import tempfile
 
-MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link", "head_camera_link", "head_camera_bracket_link"]
+MOVING_EQUIPMENT = ["getac_tablet_link", "head_light_link", "lift_flag_rod_link", "lift_flag_link", "head_camera_link", "head_camera_bracket_link",
+                    "second_estop_link"]   # on the moving adapter plate since P-03 rev20.4 item 28
 BASE_PLATES = ["bp000", "bp050"]
 ORIENTATIONS = ["portrait"]          # the model's only tablet position (fixed mount, P-03 rev20.4 item 28)
 

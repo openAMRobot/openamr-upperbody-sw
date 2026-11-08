@@ -306,6 +306,8 @@ AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_
                                                                         "placeholder_second_estop_collar"),
                    "second_estop_contact_block_size": _equipment_box_assertion("second_estop_contact_block_size", "second_estop_link",
                                                                                "placeholder_second_estop_contact_block"),
+                   "second_estop_housing_size": _equipment_box_assertion("second_estop_housing_size", "second_estop_link",
+                                                                         "placeholder_second_estop_housing"),
                    "lift_flag_size": _equipment_box_assertion("lift_flag_size", "lift_flag_link", "placeholder_lift_flag"),
                    "head_camera_size": _equipment_box_assertion("head_camera_size", "head_camera_link", "placeholder_head_camera_body"),
                    "head_camera_bracket_foot_size": _equipment_box_assertion("head_camera_bracket_foot_size", "head_camera_bracket_link",
