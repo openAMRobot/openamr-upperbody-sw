@@ -87,6 +87,11 @@
        root is base_footprint (REP 105) and it declares the near-field frames, the base camera and the IMU: none of those is
        declared here (ADR-010 s4/s5 and the frame contract). It also declares the base_tilt arg, which is the same arg as above. -->
   <xacro:include filename="$(find openamrobot_description)/urdf/robo_urdf.urdf.xacro"/>
+  <!-- The base's wheel and caster friction, restated so that it reaches the converted SDF (see the file); gazebo profile only. -->
+  <xacro:if value="${hardware_profile == 'gazebo'}">
+    <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/base_contact_gazebo.xacro"/>
+    <xacro:openamr_base_contact_gazebo/>
+  </xacro:if>
 
   <!-- A6: planar base joint — present, DISABLED by default (AD-30: base and arm never move together in OpenAMRobot 2.0). Enable only for future whole-body planning experiments. -->
   <xacro:if value="${enable_planar_base == 'true'}">
@@ -136,7 +141,15 @@
     <xacro:openamr_require_datum name="lift_max_effort_${column}" value="${lift_motion_by_column[column]['effort']}" owner="Alex (F2S)"/>
     <xacro:openamr_require_datum name="lift_max_velocity_${column}" value="${lift_motion_by_column[column]['velocity']}" owner="Alex (F2S)"/>
   </xacro:if>
-  <xacro:property name="lift_limits" lazy_eval="false" value="${lift_motion_by_column[column] if lift_commanded else ''}"/>
+  <!-- lift_sim_margin (gazebo profile only): lift_joint's limits are widened by this much at each end. In DART (gz-physics
+       dartsim, DART 6.13 JointConstraint::update) a joint whose position or velocity limit constraint is active skips its servo
+       command for that step. lift_joint starts at 0.0, its lower limit, and gravity gives it a small downward velocity there every
+       step, so the velocity command from gz_ros2_control was never applied: the lift_controller goal reported success while the
+       carriage stayed at 0.0 (night-shift 2026-11-09 smoke, test 7). With 1 mm of slack the joint is held by its servo, not by the
+       limit. A simulation numerical margin, not a hardware value; mock and real keep 0..stroke exactly. -->
+  <xacro:property name="lift_sim_margin" lazy_eval="false" value="${0.001 if hardware_profile == 'gazebo' else 0.0}"/>
+  <xacro:property name="lift_limits" lazy_eval="false"
+                  value="${dict(lift_motion_by_column[column], sim_margin=lift_sim_margin) if lift_commanded else ''}"/>
   <xacro:property name="lift_section" lazy_eval="false" value="${dt['lift_column_section']['value']}"/>
   <xacro:property name="lift_inner" lazy_eval="false" value="${dt['lift_inner_section']['value']}"/>
   <xacro:property name="plate_section" lazy_eval="false" value="${dt['adapter_plate_section']['value']}"/>

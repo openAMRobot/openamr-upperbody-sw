@@ -184,7 +184,10 @@
         <limit lower="0.0" upper="${col['stroke']}" effort="0.0" velocity="0.0"/>
       </xacro:if>
       <xacro:unless value="${lift_limits == ''}">
-        <limit lower="0.0" upper="${col['stroke']}" effort="${lift_limits['effort']}" velocity="${lift_limits['velocity']}"/>
+        <!-- sim_margin (gazebo only, else 0): DART skips a servo (velocity) command on a joint that sits on a position limit, see
+             combined_robot.xacro "lift_sim_margin". -->
+        <xacro:property name="lift_sim_margin" lazy_eval="false" value="${lift_limits.get('sim_margin', 0.0)}"/>
+        <limit lower="${0.0 - lift_sim_margin}" upper="${col['stroke'] + lift_sim_margin}" effort="${lift_limits['effort']}" velocity="${lift_limits['velocity']}"/>
       </xacro:unless>
     </joint>
 
