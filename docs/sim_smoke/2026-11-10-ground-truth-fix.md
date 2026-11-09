@@ -69,6 +69,17 @@ Real-time factor about 0.36 on this runner.
 
 ## Not done
 
-- Nav2 (`nav2:=true`) was not run: the navigation2 packages are not installed on this runner.
+- Nav2 (`nav2:=true`) was not run on 9 Nov because the navigation2 packages were not installed on that runner. On 10 Nov, with
+  `ros-jazzy-navigation2` and `ros-jazzy-nav2-bringup` installed from apt and platform-sw's `openamrobot_nav2` at the pin, it was only
+  started, not driven. What was observed:
+  - controller_server, planner_server, bt_navigator, collision_monitor and velocity_smoother came up, and lifecycle_manager_navigation
+    activated controller_server.
+  - It then stopped at "Activating planner_server" for more than 3 minutes. The global costmap's frame is `map`, and this launch
+    starts no map source and no localization.
+  - platform-sw's `navigation_status_node` died at import: `No module named 'openamr_nav_msgs'`. That package is not in the pinned
+    workspace.
+  - The local costmap warned that its inflation radius (0.15 m) is smaller than the footprint's inscribed radius (0.30 m).
+  No navigation goal was sent. Nav2 in the integrated sim needs a map source (or SLAM) and the `openamr_nav_msgs` package. Both are
+  platform-sw's.
 - The Bullet-Featherstone engine was not re-measured after the fix. It is not the default, and the gripper tests (G02) use it.
 - The stop-polygon acceptance and the Gate A replay are not in this repository. They should read ground truth, as these tests now do.
