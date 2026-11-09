@@ -268,7 +268,8 @@ Result vocabulary: `PASS`, `FAIL`, `WARN`, `SKIP`. **`SKIP` and `WARN` are not `
 
 ### Roadmap parity
 
-The roadmap model of openamrobot-docs (`docs/assets/roadmap`) is the reference for placement (P-03 rev20.4 item 28). `test/fixtures/roadmap_parity.json`
+The roadmap model of openamrobot-docs (`docs/assets/roadmap`) is the reference for placement (P-03 rev20.4 item 28; item 30 of rev20.6
+supersedes item 28 on the lift fixing, the receiver keep-out and the slot band, none of which changes a drawn upper-body part). `test/fixtures/roadmap_parity.json`
 is its upper body as the pages build it, at a pinned docs commit (`commit`, `branch`, `merged` and the SHA-256 of `model.js`, `placement.json` and
 `finish.json` are in the file). `test/fixtures/roadmap_parity_map.yaml` says which URDF link is which roadmap part, which meshes the roadmap draws for
 looks only (the profiles' slot lines, the head light's window, the J1_A mount plates), and why each remaining roadmap part has no URDF counterpart
@@ -346,7 +347,9 @@ Nothing in this package is a measured value or a hardware result. In particular:
   centred on the column axis. Both are visual and collision boxes: the outer, 0.505 m (to the static top, `lift_static_profile_top_below_column_top`
   0.025 below the retracted top), on `lift_column_base_link`; the inner, 0.470 m, on `lift_carriage_link` with its top at the carriage frame, so its bottom
   is 60 mm above the column base at L1000 (opt-in `column_geometry`, which the combined robot passes). The STEP's foot with mounting tabs
-  (280 x 60.4 x 10 mm, four screws on a 224 x 40 mm pattern) is not modelled. The outer section also sizes the inertia tensor. **They are boxes, not the
+  (280 x 60.4 x 10 mm, `lift_foot_size`) is a visual box under the fixed stage; it is fixed to the lift base plate MEC-019 through its four tab
+  holes on the 260 x 30 mm pattern into M8 threads tapped in MEC-019 (P-03 rev20.6 item 30 A3, D-20, which supersedes item 28's 224 x 40 mm
+  pattern; that pattern is internal to the DOLD assembly). The holes and screws are not modelled. The outer section also sizes the inertia tensor. **They are boxes, not the
   supplier's shapes**, and the outer collision is solid, so the two stages still overlap in volume; the pair is a structural neighbour, so the collision
   matrix does not evaluate it. The adapter plate (one 6082-T6 part, 425 x 100 x 10 mm, `adapter_plate_section`, P-03 rev20.4 item 28; it was 360 mm,
   P-03 rev19.6 item 18) is its own link on the carriage, its front edge on the arm profile's front face and its rear edge 65 mm behind the column's rear

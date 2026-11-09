@@ -147,3 +147,39 @@ def test_the_plate_does_not_move_a_mount_or_a_stop():
     assert _origin(r, "openarm_left_base_link_mount_joint") == pytest.approx((0.180, 0.031, 0.166))
     assert _origin(r, "openarm_right_base_link_mount_joint") == pytest.approx((0.180, -0.031, 0.166))
     assert _origin(r, "lift_joint") == pytest.approx((0.0, 0.0, 0.530))
+
+
+# P-03 rev20.6 item 30 A3 (D-20) supersedes item 28 on the lift fixing: the robot fixes the DOLD foot through its four tab holes on the
+# 260 x 30 mm pattern (x fore-aft, y lateral, centred on the column axis) into M8 threads tapped in MEC-019. The 224 x 40 mm pattern that
+# item 28 named is internal to the DOLD assembly. The holes are not modelled; this pins that the decided pattern fits the modelled parts.
+FOOT_TAB_PATTERN = (0.260, 0.030)
+SUPERSEDED_ITEM_28_PATTERN = (0.224, 0.040)
+TAPPED_HOLE_EDGE_DISTANCE = 0.020          # roadmap design intent lift_base_plate.py EDGE (Cuma to confirm with the DOLD drawing)
+
+
+@pytest.mark.parametrize("base_plate", ["bp000", "bp050"])
+def test_the_item_30_a3_foot_tab_pattern_lies_in_the_foot_and_in_mec_019(base_plate):
+    from urdf_utils import fixed_fk
+    r = expand(base_plate=base_plate, arm_package="openarm")
+    foot_x, foot_y, _ = load_datums()["datums"]["lift_foot_size"]["value"]
+    plate_x, plate_y, _ = load_datums()["datums"]["lift_base_plate_size"]["value"]
+    axis = fixed_fk(r, "base_footprint", "lift_column_base_link")[0, 3]
+    centre = fixed_fk(r, "base_footprint", "lift_base_plate_link")[0, 3]
+    hx, hy = FOOT_TAB_PATTERN[0] / 2, FOOT_TAB_PATTERN[1] / 2
+    assert hx < foot_x / 2 and hy < foot_y / 2, "the 260 x 30 mm tab holes are not inside the DOLD foot"
+    holes_x = (axis - hx, axis + hx)
+    assert holes_x[0] - (centre - plate_x / 2) >= TAPPED_HOLE_EDGE_DISTANCE - 1e-9, "rear tapped hole closer than 20 mm to the plate end"
+    assert (centre + plate_x / 2) - holes_x[1] >= TAPPED_HOLE_EDGE_DISTANCE - 1e-9, "front tapped hole closer than 20 mm to the plate end"
+    assert plate_y / 2 - hy >= TAPPED_HOLE_EDGE_DISTANCE, "tapped holes too close to the plate's side edges"
+    expected = {"bp000": (-0.070, 0.190), "bp050": (-0.020, 0.240)}[base_plate]   # design intent placement_note of MEC-019
+    assert holes_x == pytest.approx(expected, abs=1e-9)
+
+
+def test_the_superseded_item_28_fixing_pattern_is_cited_only_as_dold_internal():
+    """The 224 x 40 mm pattern may appear in the datums only together with the statement that item 30 A3 replaced it."""
+    foot = load_datums()["datums"]["lift_foot_size"]
+    text = foot["ref"] + " " + foot["note"]
+    assert "260 x 30 mm" in text and "item 30 A3" in text
+    assert "224 x 40 mm" in text and ("DOLD-internal" in text or "internal to the DOLD assembly" in text)
+    plate = load_datums()["datums"]["lift_base_plate_size"]
+    assert "260 x 30 mm" in plate["ref"] and "224 x 40" not in plate["ref"] + plate["note"]
