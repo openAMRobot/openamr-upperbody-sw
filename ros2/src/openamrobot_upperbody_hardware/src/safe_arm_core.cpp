@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 namespace openamrobot_upperbody_hardware {
 
@@ -13,6 +14,31 @@ constexpr double kParallelOpenJoint = 0.044;
 constexpr double kParallelOpenMotor = -1.0472;
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 }  // namespace
+
+bool parse_read_timeout_ms(const std::string& text, double& seconds, std::string& why) {
+  if (text.find_first_not_of(" \t") == std::string::npos) {
+    why = "read_timeout_ms is not set: it has no default, give the bench-measured value (TODO(Om))";
+    return false;
+  }
+  double ms = 0.0;
+  size_t used = 0;
+  try {
+    ms = std::stod(text, &used);
+  } catch (const std::exception&) {
+    why = "read_timeout_ms '" + text + "' is not a number";
+    return false;
+  }
+  if (text.find_first_not_of(" \t", used) != std::string::npos) {
+    why = "read_timeout_ms '" + text + "' is not a number";
+    return false;
+  }
+  if (!std::isfinite(ms) || !(ms > 0.0)) {
+    why = "read_timeout_ms '" + text + "' must be finite and greater than 0";
+    return false;
+  }
+  seconds = ms / 1000.0;
+  return true;
+}
 
 double gripper_motor_to_joint(const std::string& ee_type, double motor_rad) {
   if (ee_type == "pinch_gripper") return motor_rad;
@@ -28,6 +54,9 @@ SafeArmCore::SafeArmCore(ArmPort& port, CoreConfig config)
     : port_(port), cfg_(std::move(config)), joints_(kArmDof + (cfg_.hand ? 1 : 0)) {
   if (cfg_.kp.size() != kArmDof || cfg_.kd.size() != kArmDof) {
     throw std::invalid_argument("kp and kd need one entry per arm joint");
+  }
+  if (!std::isfinite(cfg_.read_timeout_s) || !(cfg_.read_timeout_s > 0.0)) {
+    throw std::invalid_argument("read_timeout_s must be set to a finite value greater than 0 (no default, TODO(Om) bench)");
   }
   pos_state.assign(joints_, 0.0);
   vel_state.assign(joints_, 0.0);
