@@ -20,7 +20,7 @@
       head_camera_link (option B's frame)          Stereolabs ZED Mini body box, pitched with the frame
       head_camera_mount_link -> head_camera_bracket_link   placeholder for the OpenArm-supplied mount, profile top to lens line
       adapter_plate_link -> second_estop_link      on the plate top behind the arm post, on the column axis, button up
-                                                   (x = button axis, up), in its housing envelope
+                                                   (x = button axis, up), in its housing with its two flanges
                          -> lift_flag_rod_link     MISUMI 20 x 20 rod hanging from the plate's rear extension (frame at its top end)
                             -> lift_flag_link      SS400 flag, lift_flag_gap from the sensor faces (along y)
     Static (children of lift_column_base_link):
@@ -125,9 +125,15 @@
     <xacro:property name="es_collar" lazy_eval="false" value="${eq['second_estop_collar_size']['value']}"/>
     <xacro:property name="es_head" lazy_eval="false" value="${eq['second_estop_head_size']['value']}"/>
     <xacro:property name="es_housing" lazy_eval="false" value="${eq['second_estop_housing_size']['value']}"/>
+    <xacro:property name="es_flange" lazy_eval="false" value="${eq['second_estop_housing_flange_size']['value']}"/>
     <link name="second_estop_link">
       <xacro:openamrobot_equipment_box name="placeholder_second_estop_housing" size="${es_housing}"
                                        xyz="${[-panel_above + es_housing[0] / 2, 0, 0]}"/>
+      <!-- the housing's two mounting flanges on the plate top, one at each fore-aft end (z of this link is fore-aft) -->
+      <xacro:openamrobot_equipment_box name="placeholder_second_estop_housing_flange_rear" size="${es_flange}"
+                                       xyz="${[-panel_above + es_flange[0] / 2, 0, (es_housing[2] + es_flange[2]) / 2]}"/>
+      <xacro:openamrobot_equipment_box name="placeholder_second_estop_housing_flange_front" size="${es_flange}"
+                                       xyz="${[-panel_above + es_flange[0] / 2, 0, -(es_housing[2] + es_flange[2]) / 2]}"/>
       <xacro:openamrobot_equipment_box name="placeholder_second_estop_contact_block" size="${es_block}"
                                        xyz="${[-panel_above + es_block[0] / 2, 0, 0]}"/>
       <xacro:openamrobot_equipment_box name="placeholder_second_estop_collar" size="${es_collar}"

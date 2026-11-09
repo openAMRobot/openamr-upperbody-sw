@@ -24,7 +24,9 @@ LINKS = ["lift_column_base_link", "lift_carriage_link", "adapter_plate_link", "a
          "getac_tablet_link", "head_light_link", "second_estop_link", "lift_stop_sensor_l1000_link", "lift_stop_sensor_l1175_link",
          "lift_stop_sensor_l1350_link", "lift_flag_rod_link", "lift_flag_link",
          # the ZED Mini body on option B's head_camera_link and the OpenArm mount placeholder (1 Nov 2026)
-         "head_camera_link", "head_camera_bracket_link"]
+         "head_camera_link", "head_camera_bracket_link",
+         # the lift base plate MEC-019 (P-03 rev20.6 item 30 A3; roadmap parity, 9 Nov 2026)
+         "lift_base_plate_link"]
 MATERIAL = "placeholder_geometry"
 
 

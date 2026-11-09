@@ -23,14 +23,21 @@
                      {mass, com_z, ixx, iyy, izz}: it carries that inertial (the
                      combined robot supplies the sourced catalogue mass).
     column_geometry  '' (none): the column has no visual and no collision. A dict
-                     {section_x, section_y, fixed_length, inner_x, inner_y, inner_length}: the
-                     two stages of the Hexalift, each a box, visual and collision (the
-                     collisions named placeholder_*): the OUTER (fixed) stage of section_x x
-                     section_y x fixed_length on lift_column_base_link, from the column base
-                     up, the INNER (moving) stage of inner_x x inner_y x inner_length on
-                     lift_carriage_link, below the carriage frame. All are the supplier's
-                     (datums lift_column_section, lift_inner_section and
+                     {foot_x, foot_y, foot_z, section_x, section_y, fixed_length, inner_x, inner_y,
+                     inner_length}: the parts of the Hexalift, each a box (the collisions named
+                     placeholder_*): on lift_column_base_link the OUTER (fixed) stage of section_x x
+                     section_y x fixed_length from the column base up, visual and collision, and the
+                     foot of foot_x x foot_y x foot_z from the column base up, visual only; the INNER
+                     (moving) stage of inner_x x inner_y x inner_length on lift_carriage_link, below
+                     the carriage frame, visual and collision. All are the supplier's
+                     (datums lift_foot_size, lift_column_section, lift_inner_section and
                      lift_static_profile_top_below_column_top, DOLD STEP of 8 Nov 2026).
+    lift_base_plate  '' (none): no lift base plate link. A dict {size_x, size_y, size_z, center_x}:
+                     the lift base plate MEC-019 on its own link lift_base_plate_link, fixed to
+                     ${parent} (not to the column: it stays put for every base_plate), its top
+                     face at geometry.base_plate_top_z, centre center_x from ${parent} (datum
+                     lift_base_plate_size, P-03 rev20.6 item 30 A3). No inertial: the mass
+                     ledger carries its mass on base_link.
     adapter_plate    '' (none): no adapter plate link. A dict {size_x, size_y, center_x}: the
                      plate under the arm profile, its own link adapter_plate_link on
                      lift_carriage_link, size_x fore-aft by size_y lateral by
@@ -53,7 +60,7 @@
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/roadmap_inertial.xacro"/>
 
   <xacro:macro name="openamrobot_upperbody"
-      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:='' carriage_inertial:=''">
+      params="parent column base_plate head_pitch base_tilt column_axis_x_bp000 emit_arm_mounts:=true column_inertial:='' column_geometry:='' adapter_plate:='' datums:='' lift_limits:='' carriage_inertial:='' lift_base_plate:=''">
 
     <xacro:property name="cfg" lazy_eval="false"
         value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
@@ -125,6 +132,13 @@
           <origin xyz="0 0 ${column_geometry['fixed_length'] / 2}" rpy="0 0 0"/>
           <geometry><box size="${column_geometry['section_x']} ${column_geometry['section_y']} ${column_geometry['fixed_length']}"/></geometry>
         </collision>
+        <!-- The DOLD foot (visual only): its tabs reach 20 mm beyond the profile at each end, 10 mm tall on the lift base plate. The fixed
+             stage's box above is the link's one collision (tools/export_docs_model_values.py reads it as the only one). -->
+        <visual>
+          <origin xyz="0 0 ${column_geometry['foot_z'] / 2}" rpy="0 0 0"/>
+          <geometry><box size="${column_geometry['foot_x']} ${column_geometry['foot_y']} ${column_geometry['foot_z']}"/></geometry>
+          <material name="placeholder_geometry"/>
+        </visual>
       </xacro:unless>
     </link>
     <xacro:unless value="${column_geometry == ''}">
@@ -135,6 +149,25 @@
       <child link="lift_column_base_link"/>
       <origin xyz="${column_x} 0 ${geo['base_plate_top_z']}" rpy="0 0 0"/>
     </joint>
+
+    <!-- Lift base plate MEC-019 (P-03 rev20.6 item 30 A3): on the centre-frame arch, fixed to the base, the column foot on its top face. -->
+    <xacro:unless value="${lift_base_plate == ''}">
+      <link name="lift_base_plate_link">
+        <visual>
+          <geometry><box size="${lift_base_plate['size_x']} ${lift_base_plate['size_y']} ${lift_base_plate['size_z']}"/></geometry>
+          <material name="placeholder_geometry"/>
+        </visual>
+        <collision name="lift_base_plate">
+          <geometry><box size="${lift_base_plate['size_x']} ${lift_base_plate['size_y']} ${lift_base_plate['size_z']}"/></geometry>
+        </collision>
+      </link>
+      <xacro:openamrobot_placeholder_gazebo_material link="lift_base_plate_link"/>
+      <joint name="lift_base_plate_joint" type="fixed">
+        <parent link="${parent}"/>
+        <child link="lift_base_plate_link"/>
+        <origin xyz="${lift_base_plate['center_x']} 0 ${geo['base_plate_top_z'] - lift_base_plate['size_z'] / 2}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
 
     <!-- Lift carriage: origin on the column axis at the column top. The lift
          height is joint state. Effort and velocity are 0 unless lift_limits is

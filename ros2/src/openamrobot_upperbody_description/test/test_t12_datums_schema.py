@@ -293,6 +293,27 @@ def _head_camera_bracket_post_section_assertion(tmp_path):
     assert tuple(float(v) for v in box.get("size").split())[:2] == pytest.approx((x, y))
 
 
+def _lift_foot_size_assertion(tmp_path):
+    """x fore-aft, y lateral, z its height, on the foot's visual box (the foot is visual only), standing on the column base."""
+    x, y, z = 0.031, 0.057, 0.083
+    root = _expansion_with("lift_foot_size", (x, y, z), tmp_path)
+    feet = [v for v in root.findall("link[@name='lift_column_base_link']/visual")
+            if tuple(float(s) for s in v.find("geometry/box").get("size").split()) == pytest.approx((x, y, z))]
+    assert len(feet) == 1, "the foot's visual does not follow lift_foot_size"
+    assert [float(s) for s in feet[0].find("origin").get("xyz").split()] == pytest.approx([0.0, 0.0, z / 2]), "the foot is not on the column base"
+
+
+def _lift_base_plate_size_assertion(tmp_path):
+    """x fore-aft, y lateral, z thickness, on lift_base_plate_link; its top face stays at geometry.base_plate_top_z."""
+    from conftest import UPPERBODY
+    x, y, z = 0.331, 0.157, 0.013
+    root = _expansion_with("lift_base_plate_size", (x, y, z), tmp_path)
+    for kind in ("visual", "collision"):
+        assert _box(root, "lift_base_plate_link", kind) == pytest.approx((x, y, z)), f"the plate's {kind} does not follow lift_base_plate_size"
+    origin = [float(v) for v in root.find("joint[@name='lift_base_plate_joint']/origin").get("xyz").split()]
+    assert origin[2] + z / 2 == pytest.approx(UPPERBODY["geometry"]["base_plate_top_z"]), "the plate's top face is not the column base"
+
+
 # one entry per dimension list in datums.yaml: how the xacro consumes it, asserted against an expansion. A list with no entry here
 # FAILS (test_t12_every_dimension_list_has_its_assignment_asserted): a pair of dimensions whose axes are only a note in prose is
 # the V01-F1 defect (the 90 degree mast profile, wrong for six steps and not seen by one test).
@@ -308,6 +329,9 @@ AXIS_ASSERTIONS = {"lift_column_section": _lift_column_section_assertion, "lift_
                                                                                "placeholder_second_estop_contact_block"),
                    "second_estop_housing_size": _equipment_box_assertion("second_estop_housing_size", "second_estop_link",
                                                                          "placeholder_second_estop_housing"),
+                   "second_estop_housing_flange_size": _equipment_box_assertion("second_estop_housing_flange_size", "second_estop_link",
+                                                                                "placeholder_second_estop_housing_flange_rear"),
+                   "lift_foot_size": _lift_foot_size_assertion, "lift_base_plate_size": _lift_base_plate_size_assertion,
                    "lift_flag_size": _equipment_box_assertion("lift_flag_size", "lift_flag_link", "placeholder_lift_flag"),
                    "head_camera_size": _equipment_box_assertion("head_camera_size", "head_camera_link", "placeholder_head_camera_body"),
                    "head_camera_bracket_foot_size": _equipment_box_assertion("head_camera_bracket_foot_size", "head_camera_bracket_link",
