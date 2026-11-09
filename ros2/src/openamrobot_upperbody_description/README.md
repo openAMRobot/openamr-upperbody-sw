@@ -274,7 +274,12 @@ is its upper body as the pages build it, at a pinned docs commit (`commit`, `bra
 `finish.json` are in the file). `test/fixtures/roadmap_parity_map.yaml` says which URDF link is which roadmap part, which meshes the roadmap draws for
 looks only (the profiles' slot lines, the head light's window, the J1_A mount plates), and why each remaining roadmap part has no URDF counterpart
 (fasteners, harness, energy chain, design-intent brackets). A `pending` entry is an undecided difference; the test fails when it closes, so the
-allow-list cannot go stale. To refresh the fixture from a docs checkout (Node with Playwright and its Chromium):
+allow-list cannot go stale.
+
+**What the parity test proves.** It proves that the combined model matches the pinned fixture, not that either matches P-03 or the hardware.
+The fixture is taken from an unmerged openamrobot-docs PR head (`"merged": false` in the file); its `version_confirmation` block stays
+`confirmed: false` until Cuma (CAD owner) confirms that this roadmap version is the one to build to, and the test prints that status. The
+P-03 values themselves are pinned separately by the datum tests (`test_p28_lift_geometry.py`, `test_item24_equipment.py`). To refresh the fixture from a docs checkout (Node with Playwright and its Chromium):
 
 ```bash
 node scripts/roadmap_parity_dump.js <openamrobot-docs checkout> test/fixtures/roadmap_parity.json --branch main --merged true
