@@ -262,8 +262,23 @@ Result vocabulary: `PASS`, `FAIL`, `WARN`, `SKIP`. **`SKIP` and `WARN` are not `
 | T14 / T15 / T16 | `ros2_control` per profile, by expansion only: `mock` has `GenericSystem` and no `OpenArmHW`, `gazebo` has `GazeboSimSystem` for the same joints and interfaces plus the model plugin with the controller yaml, `real` has `OpenArmHW` with its CAN parameters; the base has none in any profile; `mock` and `real` equal upstream's own expansion; the finger-mimic multiplier is read from upstream's yaml (T15) |
 | L01 | launch test in `openamrobot_upperbody_bringup`: `mock.launch.py` brings all five controllers to `active` within 30 s and a trajectory on `left_arm_controller` moves `/joint_states` to the target |
 | E01 | **WARN, never PASS**: height, width and depth as lower bounds, per lift stop |
+| RP | roadmap parity (convergence phase 3 of the openamrobot-docs roadmap model): every mapped upper-body item (lift base plate, foot and stages, adapter plate, arm profile, chest equipment, head camera, second E-stop, stop sensors, flag rod and flag) within 0.5 mm of the roadmap's world box, and every OpenArm link frame within 0.5 mm and 0.2 deg, at bp000 L1000 / L1175 / L1350 and bp050 L1000 (`test_roadmap_parity.py`); see Roadmap parity below |
 | W01 | **PASS** since P15: the root is `base_footprint` and carries no inertial, so KDL consumers lose nothing (was a WARN) |
 | W02, V01 | **WARN**: see Known limitations |
+
+### Roadmap parity
+
+The roadmap model of openamrobot-docs (`docs/assets/roadmap`) is the reference for placement (P-03 rev20.4 item 28). `test/fixtures/roadmap_parity.json`
+is its upper body as the pages build it, at a pinned docs commit (`commit`, `branch`, `merged` and the SHA-256 of `model.js`, `placement.json` and
+`finish.json` are in the file). `test/fixtures/roadmap_parity_map.yaml` says which URDF link is which roadmap part, which meshes the roadmap draws for
+looks only (the profiles' slot lines, the head light's window, the J1_A mount plates), and why each remaining roadmap part has no URDF counterpart
+(fasteners, harness, energy chain, design-intent brackets). A `pending` entry is an undecided difference; the test fails when it closes, so the
+allow-list cannot go stale. To refresh the fixture from a docs checkout (Node with Playwright and its Chromium):
+
+```bash
+node scripts/roadmap_parity_dump.js <openamrobot-docs checkout> test/fixtures/roadmap_parity.json --branch main --merged true
+python3 test/test_roadmap_parity.py      # the comparison table
+```
 
 ### Configuration id
 

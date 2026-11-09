@@ -58,6 +58,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(t09_inertia test/test_t09_inertia.py TIMEOUT 600)
   ament_add_pytest_test(t10_mass_report test/test_t10_mass_report.py TIMEOUT 600)
   ament_add_pytest_test(roadmap_masses test/test_roadmap_masses.py TIMEOUT 600)
+  # Roadmap parity (convergence phase 3): every mapped upper-body item within 0.5 mm and 0.2 deg of the pinned roadmap fixture.
+  ament_add_pytest_test(roadmap_parity test/test_roadmap_parity.py TIMEOUT 600)
   ament_add_pytest_test(t13_visualization_constants test/test_t13_visualization_constants.py TIMEOUT 600)
   ament_add_pytest_test(e01_envelope test/test_e01_envelope.py TIMEOUT 600)
   ament_add_pytest_test(c01_config_id test/test_c01_config_id.py TIMEOUT 600)
