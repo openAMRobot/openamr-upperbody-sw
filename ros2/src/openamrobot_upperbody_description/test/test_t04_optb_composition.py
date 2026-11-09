@@ -113,7 +113,7 @@ def test_the_lift_joint_has_no_authority_to_be_commanded_on_real(arm_package):
     for profile in ("real",) if arm_package == "openarm" else HARDWARE_PROFILES:
         limit = lift_limit(arm_package=arm_package, hardware_profile=profile)
         assert (float(limit.get("effort")), float(limit.get("velocity"))) == (0.0, 0.0), (arm_package, profile)
-        assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0, LIFT_STROKE)
+        assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0, LIFT_STROKE), (arm_package, profile)
 
 
 @pytest.mark.parametrize("profile", ["mock", "gazebo"])
@@ -124,7 +124,25 @@ def test_the_simulated_lift_carries_the_dold_v4_limits_from_the_datums(profile):
     limit = lift_limit(arm_package="openarm", hardware_profile=profile)
     assert float(limit.get("effort")) == datums["lift_max_effort_dold_v4_350"]["value"] == 800.0
     assert float(limit.get("velocity")) == datums["lift_max_velocity_dold_v4_350"]["value"] == 0.018
+    margin = LIFT_SIM_MARGIN[profile]
+    assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0 - margin, LIFT_STROKE + margin)
+
+
+# The gazebo profile widens lift_joint's limits by 1 mm each end: in DART a joint on an active position or velocity limit skips its
+# servo command for the step, and the lift starts at its lower limit, so without slack it never moved (combined_robot.xacro,
+# lift_sim_margin). mock and real keep the stroke exactly, and nothing else of the joint changes.
+LIFT_SIM_MARGIN = {"mock": 0.0, "gazebo": 0.001}
+
+
+@pytest.mark.parametrize("profile", ["mock", "real"])
+def test_the_lift_sim_margin_is_gazebo_only(profile):
+    limit = lift_limit(arm_package="openarm", hardware_profile=profile)
     assert (float(limit.get("lower")), float(limit.get("upper"))) == (0.0, LIFT_STROKE)
+
+
+def test_the_gazebo_lift_starts_strictly_inside_its_limits():
+    limit = lift_limit(arm_package="openarm", hardware_profile="gazebo")
+    assert float(limit.get("lower")) < 0.0 < LIFT_STROKE < float(limit.get("upper")) <= LIFT_STROKE + 0.002
 
 
 def test_the_lift_is_in_ros2_control_only_in_the_simulated_profiles():

@@ -27,6 +27,7 @@ SINGLE_NODES = ("/robot_state_publisher", "/joint_state_publisher", "/controller
 # topic -> the publisher count a healthy run has (the real robot's names, D-10 for the IMU)
 SINGLE_PUBLISHER_TOPICS = ("/clock", "/odom", "/scan", "/imu/data_raw", "/joint_states", "/robot_description")
 LIFT_STOPS_M = {"L1000": 0.0, "L1175": 0.175, "L1350": 0.350}     # lift_joint positions of the SRDF states
+LIFT_LINK = "lift_carriage_link"    # the link lift_joint moves; its height in the world is the lift's ground truth
 LIFT_SECONDS = 14.0     # sim time per 0.175 m move; the DOLD no-load speed in the model is 0.018 m/s (9.7 s), plus margin
 ARMS = {side: [f"openarm_{side}_joint{i}" for i in range(1, 8)] for side in ("left", "right")}
 ARM_POSE = {"park": [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0], "raised": [0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0]}
@@ -53,6 +54,14 @@ def ground_truth_pose():
             q = {k: q.get(k, 0.0) for k in "xyzw"}
             return p.get("x", 0.0), p.get("y", 0.0), yaw_of(q)
     raise RuntimeError(f"no pose for {MODEL}")
+
+
+def link_height(link):
+    """z of one link of the model, from the simulator's own pose stream (not from joint states): ground truth for the lift."""
+    for entry in gz_json(f"/world/{WORLD}/dynamic_pose/info")["pose"]:
+        if entry["name"] == link:
+            return entry.get("position", {}).get("z", 0.0)
+    raise RuntimeError(f"no pose for {link}")
 
 
 def real_time_factor(window_s=10.0):
@@ -122,6 +131,10 @@ class Smoke:
 
     def _drive(self, linear, angular, sim_seconds):
         """Open loop: publish for `sim_seconds` of /clock time, then zero. Returns the ground-truth pose before and after."""
+        # The bridge must be subscribed before the first command, or the first seconds of it are lost (seen once: 0.22 m of 1 m, odom
+        # and ground truth equal, so not the physics).
+        if not self.wait_until(lambda: self.cmd_vel.get_subscription_count() > 0, 30.0):
+            raise RuntimeError("/cmd_vel has no subscriber")
         before = ground_truth_pose()
         odom_before = self.odom[-1]
         start = self.clock_stamps[-1][1]
@@ -176,13 +189,21 @@ class Smoke:
         error = max(abs(self.joint_state.get(j, math.inf) - p) for j, p in zip(joints, positions))
         return result.result().result.error_code, error, self.clock_stamps[-1][1] - t0
 
+    def lift_to(self, stop, from_m):
+        """One lift goal to an SRDF stop. final_error_m is from /joint_states; ground_truth_m is how far lift_carriage_link rose in the
+        simulator's own pose stream, so a goal that reports success while the carriage stays put cannot pass."""
+        target = LIFT_STOPS_M[stop]
+        before = link_height(LIFT_LINK)
+        code, error, took = self.follow("lift_controller", ["lift_joint"], [target], LIFT_SECONDS * max(abs(target - from_m), 0.05) / 0.175)
+        risen = link_height(LIFT_LINK) - before
+        return {"stop": stop, "target_m": target, "error_code": code, "final_error_m": error, "sim_seconds": took,
+                "commanded_rise_m": target - from_m, "ground_truth_rise_m": risen, "ground_truth_error_m": abs(risen - (target - from_m))}
+
     def lift_through_stops(self):
         rows, position = [], 0.0
-        for stop in ("L1175", "L1350"):
-            target = LIFT_STOPS_M[stop]
-            code, error, took = self.follow("lift_controller", ["lift_joint"], [target], LIFT_SECONDS * abs(target - position) / 0.175)
-            rows.append({"stop": stop, "target_m": target, "error_code": code, "final_error_m": error, "sim_seconds": took})
-            position = target
+        for stop in ("L1175", "L1350", "L1000"):
+            rows.append(self.lift_to(stop, position))
+            position = LIFT_STOPS_M[stop]
         return rows
 
     def arms_to(self, pose):

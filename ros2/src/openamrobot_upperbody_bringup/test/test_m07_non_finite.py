@@ -232,7 +232,8 @@ def test_a_listed_not_measured_joint_at_its_limit_is_not_judged(expected, limits
     """lift_joint is in M07's NOT_MEASURED and, since #17, on /arm/joint_states, resting on its lower stop (5e-8 m in A7). It must not be judged:
     the verdict is the arm joints' alone, and the sidecar names it as excluded. Fails if a listed not-measured joint reaches the margin rule."""
     readings = good(expected, mid)
-    readings["lift_joint"] = [5.0e-8] * MIN
+    # on its lower stop as the model states it (the gazebo profile's limit carries lift_sim_margin, combined_robot.xacro)
+    readings["lift_joint"] = [limits["lift_joint"][0] + 5.0e-8] * MIN
     judged = a7.evaluate_m07(readings, expected, limits, MARGIN, MIN, not_measured=LIFT)
     assert judged["result"] == "PASS", judged["problems"]
     assert "lift_joint" not in {r["joint"] for r in judged["rows"]} and "lift_joint" not in judged["failing_joints"]

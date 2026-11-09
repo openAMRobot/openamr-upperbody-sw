@@ -131,7 +131,10 @@ constraint on DART it is not driven and drifted freely (0.38 to 0.13 rad over ab
 does not close symmetrically on DART and **G02 stays on Bullet-Featherstone**. The fingers' joints carry no `<dynamics>` element in
 the URDF (no damping or friction is declared; what the SDF conversion or DART adds was not looked at), so "high damping" is not a
 property of the description. This is a tuning finding for Kunal, who tuned platform-sw's DART setup; nothing is filed upstream, and
-sdformat's missing DART mimic constraint is documented behaviour. What was ruled out earlier (P09): whether `finger_joint2` is
+sdformat's missing DART mimic constraint is documented behaviour. (10 Nov 2026: the lift showed the second candidate's mechanism in DART 6.13. `JointConstraint::update` skips a joint's servo command
+while its position or velocity limit constraint is active, and a joint resting on its lower limit under gravity keeps that
+constraint active. That was the cause of the lift not moving (`docs/sim_smoke/2026-11-10-ground-truth-fix.md`). It was not tested on
+the finger.) What was ruled out earlier (P09): whether `finger_joint2` is
 declared in `ros2_control`, whether the URDF `<mimic>` is present, the gripper controller type (a `JointTrajectoryController` on the
 finger behaves the same), `hold_joints`, and the left/right side.
 Under Bullet-Featherstone the URDF `<mimic>` (turned into an SDF mimic constraint by `sdformat`) is honoured on its own, so:
@@ -160,7 +163,7 @@ which also writes the `gazebo` evidence report. Each test starts a headless serv
 
 | | Budget | Asserts |
 |---|---|---|
-| G01 | 90 s (about 35 s), default engine (DART) | five controllers `active`; an arm goal completes and tracks while the other arm and the base stay still; platform-sw's bridge topics exist by name and type; `/cmd_vel` moves the base and `/odom` reports it; one publisher of `odom -> base_footprint`; `/joint_states` has one publisher carrying wheels, arms and `lift_joint` once each |
+| G01 | 90 s (about 35 s), default engine (DART) | five controllers `active`; an arm goal completes and tracks while the other arm and the base stay still; platform-sw's bridge topics exist by name and type; `/cmd_vel` moves the base in ground truth (the model's pose in the simulator) and `/odom` agrees with it; one publisher of `odom -> base_footprint`; `/joint_states` has one publisher carrying wheels, arms and `lift_joint` once each |
 | G02 | 90 s (about 20 s), Bullet-Featherstone passed explicitly | both grippers close, and `finger_joint2` follows `finger_joint1` in the physics (link poses, not `/joint_states`) |
 
 G02 and G01 also assert, after their launch has been torn down, that **no `gz sim` of their own `GZ_PARTITION` is still alive** (P16; M02 and

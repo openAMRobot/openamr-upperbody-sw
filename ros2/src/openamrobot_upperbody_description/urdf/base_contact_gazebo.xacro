@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!--
+  The base's wheel and caster contact, in the form the URDF to SDF conversion keeps (gazebo profile only).
+
+  platform-sw's gazebo_control.xacro (pinned in config/upstream_pins.yaml) writes the drive-wheel friction (mu 1.5, mu2 0.5,
+  fdir1 1 0 0) and the frictionless casters (mu 0, "to prevent them from catching and dragging") as a raw <surface> inside
+  <gazebo reference="...">. sdformat's URDF parser does not put a <surface> there into the link's collisions: the converted model
+  has no <surface> on any wheel collision, so every contact used the default friction (mu 1), and the four caster spheres
+  (fixed joints, lumped into base_footprint) dragged at mu 1 as hard as the drive wheels pushed. In DART the base then stood
+  still in ground truth while DiffDrive's odom, which integrates wheel speed, reported metres of travel (night-shift 2026-11-09
+  smoke, defect "base does not move").
+
+  This file restates platform-sw's own values, no new number, as <mu1>/<mu2>/<fdir1> under <gazebo reference>, which the
+  conversion does apply to every collision of the link (the lumped caster collisions included). The fix belongs in
+  platform-sw; when its pin carries one, delete this file and its include. TODO(Gazebo digital twin owners, P-03 D-12): make the same change in
+  openamr-platform-sw ros2/src/openamrobot_description/urdf/gazebo_control.xacro.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="openamr_base_contact_gazebo">
+    <xacro:macro name="openamr_drive_wheel_contact" params="link">
+      <gazebo reference="${link}">
+        <mu1>1.5</mu1>
+        <mu2>0.5</mu2>
+        <fdir1>1 0 0</fdir1>
+      </gazebo>
+    </xacro:macro>
+    <xacro:openamr_drive_wheel_contact link="left_wheel_link"/>
+    <xacro:openamr_drive_wheel_contact link="right_wheel_link"/>
+    <xacro:macro name="openamr_caster_contact" params="prefix">
+      <gazebo reference="${prefix}_wheel_link">
+        <mu1>0.0</mu1>
+        <mu2>0.0</mu2>
+      </gazebo>
+    </xacro:macro>
+    <xacro:openamr_caster_contact prefix="fl"/>
+    <xacro:openamr_caster_contact prefix="fr"/>
+    <xacro:openamr_caster_contact prefix="bl"/>
+    <xacro:openamr_caster_contact prefix="br"/>
+  </xacro:macro>
+</robot>
