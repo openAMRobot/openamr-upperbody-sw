@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: MIT
+# Roadmap parity map of the upper body (roadmap convergence phase 3, test_roadmap_parity.py): which URDF links are which parts of the
+# roadmap model (openamrobot-docs scripts/roadmap_model/link_map.yaml, upper-body entries), what the roadmap draws for looks only,
+# and every upper-body roadmap part that has no URDF counterpart, each with its reason. The roadmap side is the pinned fixture
+# roadmap_parity.json (scripts/roadmap_parity_dump.js); the URDF side is the expanded combined_robot.xacro at the same configuration.
+#
+# mapped: one entry per compared item, compared in every configuration of the fixture.
+#   urdf:    URDF links, compared as the union of their visuals (world box: centre = pose, extents = primitive size)
+#   roadmap: roadmap part ids; "part#i" selects the i-th part group
+#   rot:     also compare the orientation (URDF visual frame against the roadmap part group), 0.2 deg
+#   exclude: meshes of these parts that the comparison leaves out, each with its reason (matched by mesh name or material colour)
+#   pending: an intended difference that is not decided yet (reason); the test FAILS if a pending item is within tolerance, so the
+#            entry is removed in the commit that closes it
+# frames:   OpenArm links (upstream meshes): the link frame against the roadmap arm rig's frame, 0.5 mm and 0.2 deg
+# cosmetic: meshes the roadmap draws for looks only, left out of every comparison (reason)
+# roadmap_only: upper-body roadmap parts with no URDF visual: the URDF link they attach to and why they are not in the URDF
+# urdf_only: upper-body URDF links with a visual that the roadmap does not draw as a part (reason)
+tolerance: {mm: 0.5, deg: 0.2}
+
+cosmetic:
+  - {color: "2c3036", reason: "slot lines of the aluminium profiles (model.js slots() and the rod's slot lines, mats.slot): 2 mm strips drawn 0.2 mm outside the profile faces, so they add 1.2 mm per side to every profile; the profiles themselves are 240 x 60, 209.5 x 53.3, 120 x 60 and 20 x 20 mm"}
+
+mapped:
+  - {urdf: [lift_base_plate_link], roadmap: [lift_base_plate], note: "MEC-019, 350 x 140 x 10 mm (P-03 rev20.6 item 30 A3)"}
+  - {urdf: [lift_column_base_link], roadmap: ["lift_column#0"], note: "DOLD foot and static profile with its 2 mm top cover"}
+  - {urdf: [lift_carriage_link], roadmap: ["lift_column#1"], note: "DOLD inner stage"}
+  - {urdf: [adapter_plate_link], roadmap: [adapter_plate], note: "one 6082-T6 part, 425 x 100 x 10 mm with the 65 mm rear extension"}
+  - {urdf: [arm_profile_link], roadmap: [arm_profile], note: "MISUMI HFS6-60120",
+     exclude: [{color: "4a4f55", reason: "the two J1_A arm mount plates (90 x 90 x 1 mm, drawn on the profile side faces): the plate outline is pending with the OpenArm mount (the arm base link is upstream geometry)"},
+               {name: slot_cover_strip, reason: "the slot cover strips are their own roadmap part (slot_cover_strips, roadmap_only), drawn inside the arm profile group"}]}
+  - {urdf: [head_camera_bracket_link], roadmap: [head_camera_bracket]}
+  - {urdf: [head_camera_link], roadmap: [head_camera], rot: true, note: "ZED Mini at hp30, lens 60 mm ahead of J1_A (P-03 rev20.4 item 28)"}
+  - {urdf: [getac_tablet_link], roadmap: [getac_tablet], note: "Getac ZX80 portrait on a fixed mount, 55 mm lower (P-03 rev20.4 item 28)"}
+  - {urdf: [head_light_link], roadmap: [head_light], note: "top edge 10 mm below the Getac bottom edge (P-03 rev20.4 item 28)",
+     exclude: [{color: "e7f1f8", reason: "the diffuser window over the lit area (148 x 13 mm), drawn as a 1 mm slab in front of the 20 mm housing face so that it shows; the Falcon housing is 158 x 17 x 20 mm with the window in it"}]}
+  - {urdf: [second_estop_link], roadmap: [second_estop, rear_estop_housing],
+     note: "on the adapter plate behind the post, button up, in its housing with two flanges (P-03 rev20.4 item 28; housing outline of design_intent/rear_estop_housing.py)"}
+  - {urdf: [lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link], roadmap: [lift_stop_sensors, lift_sensor_brackets],
+     note: "three SICK IME12 with BEF-WN-M12 brackets on the static column rear face (P-03 rev20.4 item 28)"}
+  - {urdf: [lift_flag_rod_link], roadmap: [flag_rod], note: "MISUMI 20 x 20 rod under the plate's rear extension"}
+  - {urdf: [lift_flag_link], roadmap: [lift_flag]}
+
+frames:
+  left:
+    - {urdf: openarm_left_base_link, roadmap: base}
+    - {urdf: openarm_left_link1, roadmap: link1}
+    - {urdf: openarm_left_link2, roadmap: link2}
+    - {urdf: openarm_left_link3, roadmap: link3}
+    - {urdf: openarm_left_link4, roadmap: link4}
+    - {urdf: openarm_left_link5, roadmap: link5}
+    - {urdf: openarm_left_link6, roadmap: link6}
+    - {urdf: openarm_left_ee_base_link, roadmap: link7}
+    - {urdf: openarm_left_ee_link1, roadmap: finger1}
+    - {urdf: openarm_left_ee_link2, roadmap: finger2}
+  right:
+    - {urdf: openarm_right_base_link, roadmap: base}
+    - {urdf: openarm_right_link1, roadmap: link1}
+    - {urdf: openarm_right_link2, roadmap: link2}
+    - {urdf: openarm_right_link3, roadmap: link3}
+    - {urdf: openarm_right_link4, roadmap: link4}
+    - {urdf: openarm_right_link5, roadmap: link5}
+    - {urdf: openarm_right_link6, roadmap: link6}
+    - {urdf: openarm_right_ee_base_link, roadmap: link7}
+    - {urdf: openarm_right_ee_link1, roadmap: finger1}
+    - {urdf: openarm_right_ee_link2, roadmap: finger2}
+
+roadmap_only:
+  dp_lift: {attach: lift_column_base_link, reason: "disconnect bulkheads DP-LIFT-L / DP-LIFT-R on the lift base plate (P-03 rev20.5 item 29, lift cable openings); harness detail, no collision role"}
+  fasteners_col: {attach: lift_column_base_link, reason: "fastener schedule (roadmap only by design: fasteners)"}
+  fasteners_mov: {attach: lift_carriage_link, reason: "fastener schedule (roadmap only by design: fasteners)"}
+  flag_rod_guide: {attach: lift_column_base_link, reason: "open U-ring guide of the flag rod at the top of the static column (P-03 rev20.4 item 28); design-intent part, no stated size from the mechanical owner yet"}
+  getac_pocket: {attach: lift_carriage_link, reason: "fixed portrait mount of the Getac (design intent); its mass is in the export on lift_carriage_link, its outline sits behind the tablet against the profile front face"}
+  harness_fittings_col: {attach: lift_column_base_link, reason: "harness (roadmap only by design)"}
+  harness_fittings_mov: {attach: lift_carriage_link, reason: "harness (roadmap only by design)"}
+  harness_r24_mov: {attach: lift_carriage_link, reason: "harness (roadmap only by design)"}
+  harness_safe_col: {attach: lift_column_base_link, reason: "harness (roadmap only by design)"}
+  harness_safe_mov: {attach: lift_carriage_link, reason: "harness (roadmap only by design)"}
+  harness_sig_col: {attach: lift_column_base_link, reason: "harness (roadmap only by design)"}
+  harness_sig_mov: {attach: lift_carriage_link, reason: "harness (roadmap only by design)"}
+  harness_sleeve: {attach: lift_column_base_link, reason: "harness sleeving (roadmap only by design)"}
+  harness_sleeve_left: {attach: lift_column_base_link, reason: "harness sleeving (roadmap only by design)"}
+  lift_energy_chain: {attach: lift_column_base_link, reason: "lift energy chain, static run (harness); a collision volume behind the column is a candidate for the mechanical owner once the chain is selected"}
+  lift_energy_chain_moving: {attach: lift_carriage_link, reason: "lift energy chain, moving run (harness)"}
+  lift_node: {attach: lift_column_base_link, reason: "CTL-017 upper-body controller board envelope (P-03 rev20.6 item 30 A7); its mass is in the export on lift_column_base_link"}
+  rod_corner_bracket: {attach: lift_carriage_link, reason: "corner bracket of the flag rod under the plate (P-03 rev20.4 item 28); mass in the export on lift_carriage_link, size not stated by the mechanical owner"}
+  slot_cover_strips: {attach: arm_profile_link, reason: "cosmetic strips in the arm profile slots (finish, roadmap only by design)"}
+
+urdf_only:
+  left_wrist_camera_link: "drawn on robot.html as a page fitting, not a registry part (docs conflicts.yaml: wrist cameras)"
+  right_wrist_camera_link: "drawn on robot.html as a page fitting, not a registry part (docs conflicts.yaml: wrist cameras)"

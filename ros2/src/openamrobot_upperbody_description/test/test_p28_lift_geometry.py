@@ -46,6 +46,45 @@ def test_the_fixed_stage_ends_at_the_static_top_of_the_dold_step(root):
     assert _origin(root, "lift_joint")[2] == pytest.approx(0.530), "the retracted column top (the carriage frame at lift 0) did not move"
 
 
+def test_the_dold_foot_is_drawn_under_the_fixed_stage(root):
+    """P-03 rev20.4 item 28 (DOLD STEP): foot with mounting tabs 280 x 60.4 x 10 mm, centred on the column axis, from the column base up; the
+    roadmap model draws it (M.DIMS.COL.FOOT). Visual only: the link keeps one collision, the fixed stage's box from the column base."""
+    d = load_datums()["datums"]["lift_foot_size"]
+    assert d["value"] == [0.280, 0.0604, 0.010] and (d["source"], d["status"]) == ("supplier", "provisional")
+    assert "Hexalift_EB530_Hub350_mit_Montagelaschen.STEP" in d["ref"] and "item 28" in d["ref"]
+    visuals = root.findall("link[@name='lift_column_base_link']/visual")
+    feet = [v for v in visuals if [float(x) for x in v.find("origin").get("xyz").split()] == pytest.approx([0.0, 0.0, 0.005])]
+    assert len(visuals) == 2 and len(feet) == 1
+    assert tuple(float(x) for x in feet[0].find("geometry/box").get("size").split()) == pytest.approx((0.280, 0.0604, 0.010))
+    assert [c.get("name") for c in root.findall("link[@name='lift_column_base_link']/collision")] == ["placeholder_lift_column_fixed_stage"]
+
+
+@pytest.mark.parametrize("base_plate", ["bp000", "bp050"])
+def test_the_lift_base_plate_is_fixed_to_the_base_and_reaches_10_mm_past_the_foot(base_plate):
+    """P-03 rev20.6 item 30 A3 (D-20): MEC-019 is 350 x 140 x 10 mm, 10 mm longer at each end than the foot, one plate for bp000 and bp050
+    (the column moves on it, the plate does not); its top face is the column base (geometry.base_plate_top_z)."""
+    from conftest import UPPERBODY
+    from urdf_utils import fixed_fk
+    r = expand(base_plate=base_plate, arm_package="openarm")
+    d = load_datums()["datums"]["lift_base_plate_size"]
+    assert d["value"] == [0.350, 0.140, 0.010] and "item 30 A3" in d["ref"]
+    assert root_parent(r, "lift_base_plate_joint") == "base_footprint"
+    assert _box(r, "lift_base_plate_link") == _box(r, "lift_base_plate_link", "visual") == pytest.approx((0.350, 0.140, 0.010))
+    assert r.find("link[@name='lift_base_plate_link']/inertial") is None, "the mass ledger carries the plate on base_link: no second mass"
+    plate = fixed_fk(r, "base_footprint", "lift_base_plate_link")
+    column = fixed_fk(r, "base_footprint", "lift_column_base_link")
+    assert plate[:3, 3] == pytest.approx((0.085, 0.0, 0.299), abs=1e-12), "the plate moved with the base plate configuration"
+    assert plate[2, 3] + 0.005 == pytest.approx(column[2, 3]) == pytest.approx(UPPERBODY["geometry"]["base_plate_top_z"])
+    foot = load_datums()["datums"]["lift_foot_size"]["value"]
+    axes = [load_datums()["datums"]["column_axis_x_bp000"]["value"] + v["column_axis_offset_x"] for v in UPPERBODY["base_plate"].values()]
+    assert plate[0, 3] - 0.175 == pytest.approx(min(axes) - foot[0] / 2 - 0.010), "not 10 mm past the foot's rear end at bp000"
+    assert plate[0, 3] + 0.175 == pytest.approx(max(axes) + foot[0] / 2 + 0.010), "not 10 mm past the foot's front end at bp050"
+
+
+def root_parent(root, joint):
+    return root.find(f"joint[@name='{joint}']/parent").get("link")
+
+
 def test_the_carriage_is_the_inner_stage_not_a_second_copy_of_the_outer_box(root):
     d = load_datums()["datums"]["lift_inner_section"]
     # P-03 rev20.4 item 28: the DOLD STEP's inner stage, 209.5 x 53.3 x 470 mm (was 209.5 x 51 from the datasheet, length the stroke)

@@ -46,4 +46,4 @@ groups:
     state: placeholder
     source: none
     owner: "A6 (this repo)"
-    note: "These frames carry no <inertial>; their parts are counted once on the link they are fixed to (roadmap export): second_estop_link, lift_flag_rod_link, lift_flag_link on lift_carriage_link; lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link (sensors and brackets) on lift_column_base_link; head_camera_bracket_link on head_camera_link."
+    note: "These frames carry no <inertial>; their parts are counted once on the link they are fixed to (roadmap export): second_estop_link, lift_flag_rod_link, lift_flag_link on lift_carriage_link; lift_stop_sensor_l1000_link, lift_stop_sensor_l1175_link, lift_stop_sensor_l1350_link (sensors and brackets) on lift_column_base_link; head_camera_bracket_link on head_camera_link. lift_base_plate_link (MEC-019, P-03 rev20.6 item 30 A3) carries none either: the ledger puts its 1.293 kg on base_link (platform-sw reads that export)."

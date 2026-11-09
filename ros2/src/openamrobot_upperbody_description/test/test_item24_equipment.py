@@ -138,13 +138,15 @@ def test_item24_the_second_estop_stands_on_the_adapter_plate_button_up(base_plat
     assert estop[:3, 0] == pytest.approx((0.0, 0.0, 1.0), abs=1e-12), "the button axis (+x of second_estop_link) does not point up"
     assert estop[:3, 1] == pytest.approx((0.0, 1.0, 0.0), abs=1e-12)
     profile = UPPERBODY["geometry"]["arm_profile"]
-    for name in ("placeholder_second_estop_contact_block", "placeholder_second_estop_housing"):
+    for name in ("placeholder_second_estop_contact_block", "placeholder_second_estop_housing",
+                 "placeholder_second_estop_housing_flange_rear", "placeholder_second_estop_housing_flange_front"):
         c = root.find(f"link[@name='second_estop_link']/collision[@name='{name}']")
-        cx = float(c.find("origin").get("xyz").split()[0])
+        cx, _, cz = (float(x) for x in c.find("origin").get("xyz").split())
         size = [float(x) for x in c.find("geometry/box").get("size").split()]
         bottom = (estop @ np.array([cx - size[0] / 2, 0, 0, 1]))[2]
         assert bottom == pytest.approx(plate_top, abs=1e-12), f"{name}: does not stand on the adapter plate top"
-        rear, front = estop[0, 3] - size[2] / 2, estop[0, 3] + size[2] / 2      # z of the link is along the robot's x
+        centre_x = (estop @ np.array([cx, 0, cz, 1]))[0]                         # z of the link is along the robot's -x
+        rear, front = centre_x - size[2] / 2, centre_x + size[2] / 2
         assert front < profile["center_x_from_column_axis"] - profile["size_x"] / 2, f"{name}: reaches into the arm post"
         assert rear > plate[0, 3] - v("adapter_plate_section")[0] / 2, f"{name}: overhangs the plate's rear edge"
         assert size[1] / 2 <= v("adapter_plate_section")[1] / 2, f"{name}: overhangs the plate laterally"
@@ -153,6 +155,10 @@ def test_item24_the_second_estop_stands_on_the_adapter_plate_button_up(base_plat
         size = v(f"second_estop_{name}_size")
         assert size[1] <= housing[1] and size[2] <= housing[2], f"the {name} does not fit inside the housing envelope across"
     assert v("second_estop_contact_block_size")[0] <= housing[0]
+    # the housing box reaches the panel face (its top sheet carries the button), the flanges one at each end (design intent, 9 Nov 2026)
+    assert housing[0] == pytest.approx(v("second_estop_panel_above_plate"))
+    flange = v("second_estop_housing_flange_size")
+    assert flange[1] == housing[1] and housing[2] + 2 * flange[2] == pytest.approx(0.100)
 
 
 def test_item24_the_stop_sensors_are_behind_the_column_rear_face_centred_in_y():
