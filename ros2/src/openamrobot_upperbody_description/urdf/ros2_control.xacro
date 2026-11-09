@@ -21,6 +21,14 @@
       real    nothing: no command interface, no state interface. The lift node firmware owns the lift (CTL-017); the register LIFT
               rule (lift motion only in the stowed or carry pose with the base stopped) is enforced there, not by this repository.
 
+  real_arm_hardware (default upstream) picks the plugin of the real profile:
+
+      upstream  openarm_hardware/OpenArmHW (upstream's file, unchanged)
+      safe      openamrobot_upperbody_hardware/OpenArmSafeHW: the same parameters, no motion on activation, CAN loss and bus-off
+                reported as ERROR (WP openarm-safety, findings M-07). The block is upstream's, with that plugin and one more
+                parameter, read_timeout_ms (arm_read_timeout_ms, default 50, a software choice: TODO(Om) tune on the bench).
+                test_openarm_safe_plugin.py compares it with upstream's block, so any other difference fails.
+
   The arm joints are openarm_{left,right}_joint1..7 and openarm_{left,right}_finger_joint1. Upstream leaves
   openarm_*_finger_joint2 out of <ros2_control> (its declaration is commented out in the macro); the URDF <mimic> on
   finger_joint2 stays, so robot_state_publisher still moves it. The gazebo block does the same.
@@ -58,22 +66,68 @@
     </joint>
   </xacro:macro>
 
-  <xacro:macro name="openamr_arm_ros2_control" params="hardware_profile controllers_file:=''">
+  <xacro:macro name="openamr_safe_arm_system" params="name can_interface arm_prefix gains read_timeout_ms">
+    <!-- upstream's real block (openarm.bimanual.ros2_control.xacro @ 14ff67b), same parameter names and order, with the safe plugin
+         and read_timeout_ms. can_fd, ee_type and arm_type are the values the upstream call in the macro below uses. -->
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <param name="arm_type">v20</param>
+        <plugin>openamrobot_upperbody_hardware/OpenArmSafeHW</plugin>
+        <param name="can_interface">${can_interface}</param>
+        <param name="arm_prefix">${arm_prefix}</param>
+        <param name="can_fd">true</param>
+        <param name="ee_type">pinch_gripper</param>
+        <param name="kp1">${gains['joint1']['kp']}</param>
+        <param name="kp2">${gains['joint2']['kp']}</param>
+        <param name="kp3">${gains['joint3']['kp']}</param>
+        <param name="kp4">${gains['joint4']['kp']}</param>
+        <param name="kp5">${gains['joint5']['kp']}</param>
+        <param name="kp6">${gains['joint6']['kp']}</param>
+        <param name="kp7">${gains['joint7']['kp']}</param>
+        <param name="kd1">${gains['joint1']['kd']}</param>
+        <param name="kd2">${gains['joint2']['kd']}</param>
+        <param name="kd3">${gains['joint3']['kd']}</param>
+        <param name="kd4">${gains['joint4']['kd']}</param>
+        <param name="kd5">${gains['joint5']['kd']}</param>
+        <param name="kd6">${gains['joint6']['kd']}</param>
+        <param name="kd7">${gains['joint7']['kd']}</param>
+        <param name="read_timeout_ms">${read_timeout_ms}</param>
+      </hardware>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint1"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint2"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint3"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint4"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint5"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint6"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}joint7"/>
+      <xacro:openamr_gazebo_arm_joint joint_name="openarm_${arm_prefix}finger_joint1"/>
+    </ros2_control>
+  </xacro:macro>
+
+  <xacro:macro name="openamr_arm_ros2_control" params="hardware_profile controllers_file:='' real_arm_hardware:=upstream read_timeout_ms:=50">
     <xacro:if value="${hardware_profile in ['mock', 'real']}">
       <!-- What upstream's openarm_v20.urdf.xacro does before it calls the macro. -->
       <xacro:property name="openarm_robot_root" value="$(find openarm_description)/assets/robot/openarm_v2.0"/>
       <xacro:property name="gains_file" value="${openarm_robot_root + '/config/arm/control/control_gains.yaml'}"/>
       <xacro:property name="gains_dict" value="${xacro.load_yaml(gains_file)}"/>
 
-      <xacro:openarm_bimanual_ros2_control
-        arm_type="v20"
-        control_gains="${gains_dict}"
-        use_fake_hardware="${hardware_profile == 'mock'}"
-        ee_type="pinch_gripper"
-        left_arm_prefix="left_"
-        right_arm_prefix="right_"
-        left_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"
-        right_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"/>
+      <xacro:unless value="${hardware_profile == 'real' and real_arm_hardware == 'safe'}">
+        <xacro:openarm_bimanual_ros2_control
+          arm_type="v20"
+          control_gains="${gains_dict}"
+          use_fake_hardware="${hardware_profile == 'mock'}"
+          ee_type="pinch_gripper"
+          left_arm_prefix="left_"
+          right_arm_prefix="right_"
+          left_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"
+          right_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"/>
+      </xacro:unless>
+      <xacro:if value="${hardware_profile == 'real' and real_arm_hardware == 'safe'}">
+        <xacro:openamr_safe_arm_system name="openarm_left_hardware_interface" can_interface="can1" arm_prefix="left_"
+                                       gains="${gains_dict}" read_timeout_ms="${read_timeout_ms}"/>
+        <xacro:openamr_safe_arm_system name="openarm_right_hardware_interface" can_interface="can0" arm_prefix="right_"
+                                       gains="${gains_dict}" read_timeout_ms="${read_timeout_ms}"/>
+      </xacro:if>
     </xacro:if>
 
     <xacro:if value="${hardware_profile == 'gazebo'}">

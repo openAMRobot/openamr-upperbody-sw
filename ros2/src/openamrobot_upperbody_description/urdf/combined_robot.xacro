@@ -42,6 +42,10 @@
   <xacro:arg name="arm_package" default="openarm"/>
   <xacro:arg name="hardware_profile" default="mock"/>
   <xacro:arg name="enable_planar_base" default="false"/>
+  <!-- Plugin of the real arms: upstream (OpenArmHW, default) or safe (openamrobot_upperbody_hardware/OpenArmSafeHW), and the
+       safe plugin's read timeout in ms. Only hardware_profile real reads them. -->
+  <xacro:arg name="real_arm_hardware" default="upstream"/>
+  <xacro:arg name="arm_read_timeout_ms" default="50"/>
   <xacro:arg name="datums_file" default="$(find openamrobot_upperbody_description)/config/datums.yaml"/>
   <!-- Absolute path of the controller parameter file the gazebo profile hands to gz_ros2_control. Empty by default: the
        description declares the hardware contract and knows nothing about where a controller config lives (ADR-003); the launch
@@ -57,6 +61,8 @@
   <xacro:property name="arm_package" lazy_eval="false" value="'$(arg arm_package)'"/>
   <xacro:property name="hardware_profile" lazy_eval="false" value="'$(arg hardware_profile)'"/>
   <xacro:property name="enable_planar_base" lazy_eval="false" value="'$(arg enable_planar_base)'"/>
+  <xacro:property name="real_arm_hardware" lazy_eval="false" value="'$(arg real_arm_hardware)'"/>
+  <xacro:property name="arm_read_timeout_ms" lazy_eval="false" value="'$(arg arm_read_timeout_ms)'"/>
   <xacro:property name="datums_file" lazy_eval="false" value="'$(arg datums_file)'"/>
   <xacro:property name="controllers_file" lazy_eval="false" value="'$(arg controllers_file)'"/>
 
@@ -78,6 +84,7 @@
   <xacro:openamr_require_one_of arg="base_tilt" value="'${base_tilt}'" accepted="${upperbody['configuration_axes']['base_tilt']}"/>
   <xacro:openamr_require_one_of arg="arm_package" value="'${arm_package}'" accepted="${['openarm', 'so101', 'none']}"/>
   <xacro:openamr_require_one_of arg="hardware_profile" value="'${hardware_profile}'" accepted="${['mock', 'gazebo', 'real']}"/>
+  <xacro:openamr_require_one_of arg="real_arm_hardware" value="'${real_arm_hardware}'" accepted="${['upstream', 'safe']}"/>
   <xacro:openamr_require_one_of arg="enable_planar_base" value="'${enable_planar_base}'" accepted="${['true', 'false']}"/>
 
   <!-- Base: a full <robot> file from platform-sw, included unchanged; xacro merges its content. Since platform-sw 935efc7 its
@@ -201,7 +208,8 @@
 
     <!-- Only here: so101 and none get no ros2_control. Needs the arm joints emitted above. -->
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/ros2_control.xacro"/>
-    <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"/>
+    <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"
+                                    real_arm_hardware="${real_arm_hardware}" read_timeout_ms="${arm_read_timeout_ms}"/>
     <!-- The lift: mock and gazebo only (issue #17); real gets none. -->
     <xacro:openamr_lift_ros2_control hardware_profile="${hardware_profile}"/>
   </xacro:if>
