@@ -25,7 +25,7 @@
 
       upstream  openarm_hardware/OpenArmHW (upstream's file, unchanged)
       safe      openamrobot_upperbody_hardware/OpenArmSafeHW: the same parameters, no motion on activation, CAN loss and bus-off
-                reported as ERROR (WP openarm-safety, findings M-07). The block is upstream's, with that plugin and one more
+                reported as ERROR. The block is upstream's, with that plugin and one more
                 parameter, read_timeout_ms (arm_read_timeout_ms, default 50, a software choice: TODO(Om) tune on the bench).
                 test_openarm_safe_plugin.py compares it with upstream's block, so any other difference fails.
 
