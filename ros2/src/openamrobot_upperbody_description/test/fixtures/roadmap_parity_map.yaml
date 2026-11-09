@@ -17,6 +17,21 @@
 # urdf_only: upper-body URDF links with a visual that the roadmap does not draw as a part (reason)
 tolerance: {mm: 0.5, deg: 0.2}
 
+# Which roadmap version the fixture is, and whether the CAD owner has confirmed it. The parity test proves that the combined model matches
+# the pinned fixture, not that either matches P-03: the fixture is an unmerged openamrobot-docs PR head. `confirmed` stays false until
+# Cuma (CAD owner) confirms that this commit is the roadmap version to build to (P-03 rev20.6 item 30 included); then set confirmed: true,
+# confirmed_by and confirmed_on in the same commit. test_roadmap_parity.py checks that commit and source hashes equal the fixture's, and
+# warns on every run while it is unconfirmed. A new fixture resets it to false.
+version_confirmation:
+  commit: "61e682f8cd239b1bc6d596bf2e811d80df4fc1b4"
+  branch: pull/83/head
+  sources_sha256: {"docs/assets/roadmap/model/model.js": "f3fe53a2e977884e96b0aabb666a9805b412b74c1470de9c15089f0956d0a17f",
+                   "docs/assets/roadmap/model/placement.json": "692d9500a3b1de776c171e593fd3c9a1de21c94668a7d6f333cf09ba3bea61d7",
+                   "docs/assets/roadmap/model/finish.json": "c8bc0b4d899363c597d7f6ac6485b4f0ea1cc1eec1782d64c094a7cc022f31d1"}
+  confirmed: false
+  confirmed_by: null      # TODO(Cuma): confirm the roadmap version of the fixture
+  confirmed_on: null
+
 cosmetic:
   - {color: "2c3036", reason: "slot lines of the aluminium profiles (model.js slots() and the rod's slot lines, mats.slot): 2 mm strips drawn 0.2 mm outside the profile faces, so they add 1.2 mm per side to every profile; the profiles themselves are 240 x 60, 209.5 x 53.3, 120 x 60 and 20 x 20 mm"}
 

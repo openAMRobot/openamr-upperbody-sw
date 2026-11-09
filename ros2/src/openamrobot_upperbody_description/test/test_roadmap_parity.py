@@ -14,6 +14,7 @@ an intended, undecided difference: it is reported and must still differ, so a cl
 import json
 import math
 import os
+import warnings
 
 import numpy as np
 import pytest
@@ -151,6 +152,22 @@ def test_the_fixture_is_a_pinned_export_of_the_four_parity_configurations():
     assert set(DUMP["configs"]) == set(CONFIGS)
 
 
+def test_the_fixture_version_is_recorded_and_its_confirmation_is_explicit():
+    """The parity test proves model == fixture, not model == P-03. The map records which roadmap commit the fixture is and whether the CAD
+    owner (Cuma) confirmed it; the record must name the fixture's own commit and source hashes, so a refreshed fixture cannot inherit an old
+    confirmation. Unconfirmed is allowed (a WARN, printed on every run); confirmed needs who and when."""
+    v = PARITY["version_confirmation"]
+    assert v["commit"] == DUMP["commit"] and v["branch"] == DUMP["branch"], "the confirmation record names another roadmap commit than the fixture"
+    assert v["sources_sha256"] == DUMP["sources_sha256"], "the confirmation record's source hashes are not the fixture's"
+    assert isinstance(v["confirmed"], bool)
+    if v["confirmed"]:
+        assert v["confirmed_by"] and v["confirmed_on"], "a confirmed fixture names who confirmed it and when"
+    else:
+        assert v["confirmed_by"] is None and v["confirmed_on"] is None
+        warnings.warn(f"roadmap parity fixture {DUMP['commit'][:12]} ({DUMP['branch']}, merged: {DUMP['merged']}) is not confirmed by the "
+                      "CAD owner: parity proves model == fixture, not model == P-03", UserWarning)
+
+
 @pytest.mark.parametrize("config", sorted(CONFIGS))
 @pytest.mark.parametrize("item", MAPPED, ids=ITEM_IDS)
 def test_every_decided_item_is_within_half_a_millimetre_and_a_fifth_of_a_degree(poses, item, config):
@@ -238,3 +255,6 @@ if __name__ == "__main__":
             print(("ok      " if r["within"] else "PENDING " if item.get("pending") else "OUT     ") + _describe(item, config, r))
     within = sum(all(r["within"] for r in v) for v in rows.values())
     print(f"{len(rows)} mapped items, {within} within tolerance in every configuration, {len(rows) - within} not")
+    v = PARITY["version_confirmation"]
+    print(f"fixture {DUMP['commit'][:12]} ({DUMP['branch']}): " + (f"confirmed by {v['confirmed_by']} on {v['confirmed_on']}" if v["confirmed"]
+          else "NOT confirmed by the CAD owner; parity proves model == fixture, not model == P-03"))

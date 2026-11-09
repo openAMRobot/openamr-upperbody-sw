@@ -268,12 +268,18 @@ Result vocabulary: `PASS`, `FAIL`, `WARN`, `SKIP`. **`SKIP` and `WARN` are not `
 
 ### Roadmap parity
 
-The roadmap model of openamrobot-docs (`docs/assets/roadmap`) is the reference for placement (P-03 rev20.4 item 28). `test/fixtures/roadmap_parity.json`
+The roadmap model of openamrobot-docs (`docs/assets/roadmap`) is the reference for placement (P-03 rev20.4 item 28; item 30 of rev20.6
+supersedes item 28 on the lift fixing, the receiver keep-out and the slot band, none of which changes a drawn upper-body part). `test/fixtures/roadmap_parity.json`
 is its upper body as the pages build it, at a pinned docs commit (`commit`, `branch`, `merged` and the SHA-256 of `model.js`, `placement.json` and
 `finish.json` are in the file). `test/fixtures/roadmap_parity_map.yaml` says which URDF link is which roadmap part, which meshes the roadmap draws for
 looks only (the profiles' slot lines, the head light's window, the J1_A mount plates), and why each remaining roadmap part has no URDF counterpart
 (fasteners, harness, energy chain, design-intent brackets). A `pending` entry is an undecided difference; the test fails when it closes, so the
-allow-list cannot go stale. To refresh the fixture from a docs checkout (Node with Playwright and its Chromium):
+allow-list cannot go stale.
+
+**What the parity test proves.** It proves that the combined model matches the pinned fixture, not that either matches P-03 or the hardware.
+The fixture is taken from an unmerged openamrobot-docs PR head (`"merged": false` in the file); its `version_confirmation` block stays
+`confirmed: false` until Cuma (CAD owner) confirms that this roadmap version is the one to build to, and the test prints that status. The
+P-03 values themselves are pinned separately by the datum tests (`test_p28_lift_geometry.py`, `test_item24_equipment.py`). To refresh the fixture from a docs checkout (Node with Playwright and its Chromium):
 
 ```bash
 node scripts/roadmap_parity_dump.js <openamrobot-docs checkout> test/fixtures/roadmap_parity.json --branch main --merged true
@@ -336,9 +342,14 @@ evidence. A7 on a hosted runner has no GPU and runs slower than real time.
 
 Nothing in this package is a measured value or a hardware result. In particular:
 
-- **Base inertials are platform-sw CAD placeholders.** The base comes from `openamr-platform-sw` unchanged; its masses and
-  inertias are CAD-export values. The arm masses are upstream nominal values, and the lift's 11.7 kg is a supplier catalogue
-  figure (provisional), not a weighed one.
+- **Every mass is a design value, none is measured.** The base comes from `openamr-platform-sw` unchanged; its masses and
+  inertias are that repository's values. The upper-body masses are ledger values: `config/roadmap_mass_export.yaml` is the pinned
+  roadmap mass export built from the mass ledger (openamrobot-docs `scripts/roadmap_model/mass_ledger.yaml`, P-03 rev20.6 item 30 A6,
+  D-26): datasheet masses times quantity, custom parts estimated from their design-intent solids or from dimensions and material,
+  the DOLD lift's 11.7 kg catalogue figure split into a static share (8.89 kg) and a moving share (2.81 kg) by estimate. They are
+  **ledger values, not measured values**, until the as-built robot is weighed (item 30 A6: "design values until the robot is weighed";
+  Cuma reviews the custom-part estimates). `mass_provenance.yaml` keeps every group `external_nominal` (never `verified`) for that reason.
+  The arm masses are upstream nominal values.
 - **The lift column is a mass on two boxes, the supplier's sections on both stages (P28; lengths from the DOLD STEP, P-03 rev20.4 item 28).** The outer
   (fixed) stage is `lift_column_section`, 240 x 60 mm (x fore-aft, option B's own statement of the 240 mm side, the DOLD Hexalift datasheet page 4,
   "Outer profile 240x60", confirmed by the DOLD supplier CAD `Hexalift_EB530_Hub350_mit_Montagelaschen.STEP` of 8 Nov 2026); the inner (moving) stage is
@@ -346,13 +357,17 @@ Nothing in this package is a measured value or a hardware result. In particular:
   centred on the column axis. Both are visual and collision boxes: the outer, 0.505 m (to the static top, `lift_static_profile_top_below_column_top`
   0.025 below the retracted top), on `lift_column_base_link`; the inner, 0.470 m, on `lift_carriage_link` with its top at the carriage frame, so its bottom
   is 60 mm above the column base at L1000 (opt-in `column_geometry`, which the combined robot passes). The STEP's foot with mounting tabs
-  (280 x 60.4 x 10 mm, four screws on a 224 x 40 mm pattern) is not modelled. The outer section also sizes the inertia tensor. **They are boxes, not the
+  (280 x 60.4 x 10 mm, `lift_foot_size`) is a visual box under the fixed stage; it is fixed to the lift base plate MEC-019 through its four tab
+  holes on the 260 x 30 mm pattern into M8 threads tapped in MEC-019 (P-03 rev20.6 item 30 A3, D-20, which supersedes item 28's 224 x 40 mm
+  pattern; that pattern is internal to the DOLD assembly). The holes and screws are not modelled. The outer section also sizes the inertia tensor. **They are boxes, not the
   supplier's shapes**, and the outer collision is solid, so the two stages still overlap in volume; the pair is a structural neighbour, so the collision
   matrix does not evaluate it. The adapter plate (one 6082-T6 part, 425 x 100 x 10 mm, `adapter_plate_section`, P-03 rev20.4 item 28; it was 360 mm,
   P-03 rev19.6 item 18) is its own link on the carriage, its front edge on the arm profile's front face and its rear edge 65 mm behind the column's rear
   face (`adapter_plate_rear_extension`, for the flag rod), and the arm profile stands on it (`arm_profile_link` is its child; its pose from the carriage
-  did not change). The whole catalogue mass sits on the fixed side at mid-height of the retracted column: the catalogue does not split it between the
-  fixed part and the moving stage.
+  did not change). With `roadmap_masses:=true` (the default) the catalogue mass is split as the
+  ledger splits it: the static share on `lift_column_base_link`, the moving share on `lift_carriage_link`, each with box inertias (ledger
+  values, an estimate from dimensions and material, not the supplier's distribution). With `roadmap_masses:=false` the whole catalogue mass
+  sits on the fixed side at mid-height of the retracted column.
 - **The base's pose above the floor is a decision record, not a measurement.** `base_link_height_above_floor` = 0.098 and the
   column axis at x +0.060 are P-03 rev19.0 values (provisional); T04 asserts the datum equals platform-sw's joint in the expansion.
 - **The arms are 62 mm apart at their bases** (option B's y = +-0.031). They do not touch at the home pose at any lift stop or

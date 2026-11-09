@@ -423,8 +423,9 @@ def limitations(datums, sidecars):
     placeholders = sorted(n for n, d in datums["datums"].items() if d["status"] == "placeholder")
     out = [
         f"placeholder datums: {len(placeholders)} of {len(datums['datums'])} ({', '.join(placeholders)})",
-        "base inertials are platform-sw CAD-export placeholders, the lift mass is a catalogue figure (11.7 kg, provisional) on "
-        "a placeholder box, and the arm masses are upstream nominal values; none of them is a measured mass",
+        "base inertials are platform-sw CAD-export placeholders, the upper-body masses are ledger values from the pinned roadmap mass "
+        "export (P-03 rev20.6 item 30 A6: the DOLD catalogue 11.7 kg split static / moving by estimate, datasheet and design-intent "
+        "masses for the rest), and the arm masses are upstream nominal values; none of them is a measured mass",
         "T05 asserts the shoulder height at every lift stop (height(openarm_{left,right}_base_link) above the floor = "
         "lift_calibration_stops[stop]) and the three stops are calibration IDs, not inputs of the configuration id; it does not "
         "validate the datums themselves",
@@ -433,12 +434,12 @@ def limitations(datums, sidecars):
         "real envelope. A4 decides",
         "T10 reports what the description models. The battery, hub motors, electronics and the lift column's structure beyond "
         "its catalogue mass are not modelled, so the total is not the gross mass of the robot",
-        "the lift column is two boxes, visual and collision (since b45d8f6; P28 changed their sizes): the outer (fixed) stage 240 x 60 mm and the "
-        "inner (moving) stage 209.5 x 51 mm, both from the DOLD Hexalift datasheet page 4 (datums lift_column_section and lift_inner_section, "
-        "provisional: read from a raster drawing, not from CAD). The boxes are not the supplier's shapes: the outer stage's collision is solid, so the "
-        "two stages still overlap in volume (a hollow outer needs the housing wall, which the datasheet does not give), and the inner stage's length "
-        "is the stroke, not a datasheet figure. The adapter plate (360 x 100 x 10 mm, Alex 22 Oct, P-03 rev19.6 item 18) and the arm profile "
-        "(option B's 340 mm box) are the other collision bodies of the upper structure",
+        "the lift column is two boxes, visual and collision (since b45d8f6; P28 and the DOLD supplier STEP of 8 Nov 2026 set their sizes): the "
+        "outer (fixed) stage 240 x 60 mm to 505 mm and the inner (moving) stage 209.5 x 53.3 x 470 mm (datums lift_column_section and "
+        "lift_inner_section, provisional: read from the supplier CAD, not from a measured part), with the 280 x 60.4 x 10 mm foot as a visual "
+        "box and the lift base plate MEC-019 (350 x 140 x 10 mm, P-03 rev20.6 item 30 A3) as its own link. The boxes are not the supplier's "
+        "shapes: the outer stage's collision is solid, so the two stages still overlap in volume. The adapter plate (425 x 100 x 10 mm, "
+        "P-03 rev20.4 item 28) and the arm profile (option B's 340 mm box) are the other collision bodies of the upper structure",
         "T14, T15 and T16 are expansion checks: nothing here loads the gazebo or the real plugin (the gazebo profile report, "
         "G01 and G02, is where the gazebo one runs), and the real profile cannot even be built here (openarm_hardware needs "
         "OpenArmCAN)",
