@@ -131,6 +131,10 @@ class Smoke:
 
     def _drive(self, linear, angular, sim_seconds):
         """Open loop: publish for `sim_seconds` of /clock time, then zero. Returns the ground-truth pose before and after."""
+        # The bridge must be subscribed before the first command, or the first seconds of it are lost (seen once: 0.22 m of 1 m, odom
+        # and ground truth equal, so not the physics).
+        if not self.wait_until(lambda: self.cmd_vel.get_subscription_count() > 0, 30.0):
+            raise RuntimeError("/cmd_vel has no subscriber")
         before = ground_truth_pose()
         odom_before = self.odom[-1]
         start = self.clock_stamps[-1][1]
