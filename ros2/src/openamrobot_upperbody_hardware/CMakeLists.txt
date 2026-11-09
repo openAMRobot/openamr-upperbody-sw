@@ -45,6 +45,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_safe_arm_core test/test_safe_arm_core.cpp)
   target_link_libraries(test_safe_arm_core ${PROJECT_NAME}_core)
+
+  # scripts/openarm_can_setup.sh against a fake ip: needs a checkout (the script lives at the repository root)
+  find_package(ament_cmake_pytest REQUIRED)
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../../../scripts/openarm_can_setup.sh)
+    ament_add_pytest_test(openarm_can_setup test/test_openarm_can_setup.py TIMEOUT 120)
+  endif()
 endif()
 
 ament_export_targets(export_${PROJECT_NAME})
