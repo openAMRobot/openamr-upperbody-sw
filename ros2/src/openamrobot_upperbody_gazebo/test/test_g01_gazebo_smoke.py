@@ -62,7 +62,7 @@ from tf2_msgs.msg import TFMessage  # noqa: E402
 from trajectory_msgs.msg import JointTrajectoryPoint  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sim_test_support import ros_type_name, write_g_sidecar  # noqa: E402
+from sim_test_support import gz_link_poses, ros_type_name, write_g_sidecar  # noqa: E402
 
 from ament_index_python.packages import get_package_prefix as _prefix  # noqa: E402
 
