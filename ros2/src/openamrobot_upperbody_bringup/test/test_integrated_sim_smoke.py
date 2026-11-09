@@ -15,10 +15,11 @@ TestStack (must pass)
   4  /clock runs (messages per wall second above a floor) and the simulator's real-time factor is above RTF_FLOOR;
   5  both arms go to `raised` and back to `park` through their trajectory controllers.
 
-TestKnownDefects (pass while the defect is there; see docs/sim_smoke/2026-11-09.md)
-  6  the base, driven 1 m at 0.2 m/s, moves about 1 m in /odom and almost nothing in the simulator's own pose;
-  7  the lift trajectory goal reports success and lift_joint stays at 0 in /joint_states.
-Each asserts the defect as measured, so it fails the day the cause is fixed; then it is replaced by the plain assertion (see the docstrings).
+TestGroundTruth (the simulator's own poses, not only odom or the action result; see docs/sim_smoke/2026-11-09.md for the defect these
+replaced, fixed 10 Nov 2026)
+  6  the base, driven 1 m at 0.2 m/s, moves 1 m +- DRIVE_TOLERANCE_M in the simulator's own pose, and /odom agrees with it;
+  7  the lift goes L1000 -> L1175 -> L1350 -> L1000: each goal succeeds, lift_joint in /joint_states and the height of
+     lift_carriage_link in the simulator both reach the stop within LIFT_TOLERANCE_M.
 
 Simulation evidence only. Nothing here says anything about the physical robot."""
 import os
@@ -49,6 +50,7 @@ CLOCK_FLOOR_MSGS_PER_S = 50.0       # the world steps at 1 kHz; a hosted runner 
 RTF_FLOOR = 0.1
 ARM_TOLERANCE_RAD = 0.01
 DRIVE_TOLERANCE_M = 0.2             # of 1 m, on the simulator's own pose
+ODOM_AGREEMENT_M = 0.2              # |odom - ground truth| over the same 1 m: a base that does not move in the physics fails this
 LIFT_TOLERANCE_M = 0.01
 
 
@@ -106,21 +108,21 @@ class TestStack(Base):
                 self.assertLess(row["final_error_rad"], ARM_TOLERANCE_RAD, row)
 
 
-class TestKnownDefects(Base):
-    """Each test states the defect as measured on 9 Nov 2026 and passes while it is there. When one fails, the defect is fixed (or changed):
-    replace it with the plain assertion in its docstring and say so in docs/sim_smoke."""
+class TestGroundTruth(Base):
+    """The base and the lift, judged by the simulator's own poses and not only by what the stack reports. Until 10 Nov 2026 the goal and
+    odom said success while neither moved in the physics (docs/sim_smoke/2026-11-09.md); an odom-only or action-result-only check passes
+    in that state, these do not."""
 
-    def test_6_base_moves_in_odom_but_not_in_ground_truth(self):
-        """Fixed when: ground_truth_m is within DRIVE_TOLERANCE_M of 1.0."""
+    def test_6_base_moves_in_ground_truth_and_odom_agrees(self):
         row = Base.smoke.drive_forward(1.0, 0.2)
-        self.assertGreater(row["odom_m"], 1.0 - DRIVE_TOLERANCE_M, row)             # the wheels turned and the DiffDrive plugin integrated them
-        self.assertLess(row["ground_truth_m"], DRIVE_TOLERANCE_M, row)              # the chassis did not follow
+        self.assertLess(abs(row["ground_truth_m"] - 1.0), DRIVE_TOLERANCE_M, row)       # the chassis moved, measured by the simulator
+        self.assertLess(abs(row["odom_minus_truth_m"]), ODOM_AGREEMENT_M, row)          # and odometry says the same
 
-    def test_7_lift_goal_succeeds_but_lift_joint_stays_at_zero(self):
-        """Fixed when: the error is below LIFT_TOLERANCE_M."""
-        code, error, _ = Base.smoke.follow("lift_controller", ["lift_joint"], [support.LIFT_STOPS_M["L1175"]], support.LIFT_SECONDS)
-        self.assertEqual(code, 0)
-        self.assertGreater(error, support.LIFT_STOPS_M["L1175"] - LIFT_TOLERANCE_M)
+    def test_7_lift_moves_in_ground_truth_through_the_stops(self):
+        for row in Base.smoke.lift_through_stops():
+            self.assertEqual(row["error_code"], 0, row)
+            self.assertLess(row["final_error_m"], LIFT_TOLERANCE_M, row)                # lift_joint in /joint_states
+            self.assertLess(row["ground_truth_error_m"], LIFT_TOLERANCE_M, row)         # lift_carriage_link in the simulator
 
 
 class TestProcessesAlive(unittest.TestCase):

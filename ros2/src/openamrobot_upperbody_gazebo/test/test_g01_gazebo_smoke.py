@@ -11,7 +11,8 @@ What it asserts, in order, against one running simulation (budget 90 s for every
   3  the Nav2-facing topics are exactly platform-sw's: every entry of openamrobot_gazebo/config/gz_bridge.yaml exists under
      its name with its type. This is the ADR-003 / ADR-005 regression guard (our job was to add arms and move nothing of
      platform-sw's), and it reads platform-sw's own file, so it follows that file instead of a copy of it;
-  4  /cmd_vel still moves the base and /odom still reports it;
+  4  /cmd_vel moves the base in ground truth (the model's pose in the simulator, not only /odom), and /odom agrees within
+     ODOM_AGREEMENT_M;
   5  exactly one publisher of odom -> <the DiffDrive plugin's child frame>: base_footprint since platform-sw 935efc7 (REP 105: the
      odom child is the URDF root so that base_link keeps one parent; the test reads the frame from the plugin in the description,
      as it reads the bridge topics from platform-sw's file, so it follows platform-sw's decision and not a copy of it). Its
@@ -86,6 +87,8 @@ TRACK_TOLERANCE = 0.02          # rad
 BASE_STILL_WITHIN = 0.01        # m, while an arm moves
 DRIVE_SPEED = 0.2               # m/s, platform-sw's limit is 1.0
 DRIVE_SECONDS = 3.0             # simulated seconds
+ODOM_AGREEMENT_M = 0.1          # m, |odom - ground truth| over the drive above
+MODEL = "openamrobot"           # the name sim.launch.py spawns the model under
 DIFFDRIVE_ODOM_HZ = 50.0        # <odom_publish_frequency> in platform-sw's gazebo_control.xacro
 SINGLE_PUBLISHER_BAND = (35.0, 65.0)        # sim-time Hz: a second publisher would be near 100
 
@@ -225,6 +228,7 @@ class TestGazeboSmoke(unittest.TestCase):
     # --- 4 ---------------------------------------------------------------------------------------------------------------
     def test_g01_4_cmd_vel_moves_the_base_and_odom_reports_it(self):
         before = self._base_xy()
+        truth_before = gz_link_poses()[MODEL]["position"]
         count = len(self.odom)
         twist = Twist()
         twist.linear.x = DRIVE_SPEED
@@ -232,12 +236,18 @@ class TestGazeboSmoke(unittest.TestCase):
         self.cmd_vel.publish(Twist())
         self._spin_sim_seconds(0.5)
         after = self._base_xy()
+        truth_after = gz_link_poses()[MODEL]["position"]
         distance = math.hypot(after[0] - before[0], after[1] - before[1])
+        truth = math.hypot(truth_after.get("x", 0.0) - truth_before.get("x", 0.0), truth_after.get("y", 0.0) - truth_before.get("y", 0.0))
+        self.record["drive"] = {"cmd_vel_m_s": DRIVE_SPEED, "sim_seconds": DRIVE_SECONDS, "odom_moved_m": round(distance, 3),
+                                "ground_truth_moved_m": round(truth, 3), "odom_messages": len(self.odom) - count}
         # speed x time, less the DiffDrive plugin's own acceleration ramp (0.5 m/s^2): about 0.04 m at this speed
         self.assertGreater(distance, 0.8 * DRIVE_SPEED * DRIVE_SECONDS, f"/cmd_vel {DRIVE_SPEED} m/s for {DRIVE_SECONDS} s moved the base {distance:.3f} m")
+        # Ground truth, from the simulator's own pose of the model: odom integrates wheel speed and reported metres while the chassis
+        # stood still (defect fixed 10 Nov 2026, docs/sim_smoke/2026-11-09.md), so odom alone is not evidence that the base moved.
+        self.assertGreater(truth, 0.8 * DRIVE_SPEED * DRIVE_SECONDS, f"odom moved {distance:.3f} m but the model moved {truth:.3f} m in the simulator")
+        self.assertLess(abs(distance - truth), ODOM_AGREEMENT_M, f"odom {distance:.3f} m against ground truth {truth:.3f} m")
         self.assertGreater(len(self.odom) - count, 50, "/odom stopped publishing")
-        self.record["drive"] = {"cmd_vel_m_s": DRIVE_SPEED, "sim_seconds": DRIVE_SECONDS, "odom_moved_m": round(distance, 3),
-                                "odom_messages": len(self.odom) - count}
 
     # --- 5 ---------------------------------------------------------------------------------------------------------------
     def test_g01_5_exactly_one_publisher_of_odom_to_the_diffdrive_child_frame(self):
