@@ -7,6 +7,8 @@ install(PROGRAMS
   scripts/base_joint_states_stub.py
   scripts/build_a7_evidence.py
   scripts/run_a7_regression.sh
+  scripts/sim_smoke_measure.py
+  scripts/sim_smoke_support.py
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -44,6 +46,9 @@ if(BUILD_TESTING)
   # M07 (P17): at rest in Gazebo no joint sits within the joint_rest_margin_rad datum of a limit. Starts its own headless server like M02,
   # on its own domain and partition; FAILs by design while the right finger rests on its open limit.
   add_launch_test(test/test_m07_rest_position_margin.py TARGET m07_rest_position_margin TIMEOUT 300)
+  # Integrated simulation (robot_sim.launch.py, one gz server): stack checks and arm motion pass; base and lift motion are asserted as the defects they are
+  # until their cause is fixed (docs/sim_smoke/2026-11-09.md). Startup about a minute, two arm moves, the two defect checks about a minute each.
+  add_launch_test(test/test_integrated_sim_smoke.py TARGET integrated_sim_smoke TIMEOUT 600)
 endif()
 
 ament_package()
