@@ -12,7 +12,7 @@
 
   This file restates platform-sw's own values, no new number, as <mu1>/<mu2>/<fdir1> under <gazebo reference>, which the
   conversion does apply to every collision of the link (the lumped caster collisions included). The fix belongs in
-  platform-sw; when its pin carries one, delete this file and its include. TODO(Kunal): upstream the same change to
+  platform-sw; when its pin carries one, delete this file and its include. TODO(Gazebo digital twin owners, P-03 D-12): make the same change in
   openamr-platform-sw ros2/src/openamrobot_description/urdf/gazebo_control.xacro.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">

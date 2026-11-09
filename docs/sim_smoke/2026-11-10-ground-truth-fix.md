@@ -38,7 +38,7 @@ transport, with ros2_control systems and joints removed one at a time.
 
 - `openamrobot_upperbody_description/urdf/base_contact_gazebo.xacro` restates platform-sw's own friction values as `<mu1>`,
   `<mu2>` and `<fdir1>` under `<gazebo reference>`, which the conversion applies to every collision of the link, the lumped caster
-  collisions included. No new number. TODO(Kunal): make the same change in platform-sw's `gazebo_control.xacro`. When the pin
+  collisions included. No new number. TODO(Gazebo digital twin owners, P-03 D-12): make the same change in platform-sw's `gazebo_control.xacro`. When the pin
   carries it, delete this file. Test: `test_base_contact_gazebo.py`.
 - `combined_robot.xacro` adds `lift_sim_margin`, 0.001 m in the gazebo profile and 0 otherwise. lift_joint's simulated limits
   become -0.001 to 0.351 m. This is a numerical simulation margin, not a hardware value. mock and real keep 0 to 0.350 m exactly
