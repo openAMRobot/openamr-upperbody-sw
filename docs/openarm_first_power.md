@@ -11,27 +11,35 @@ parameters, not decisions. Run `scripts/openarm_can_setup.sh --help` for the CAN
 The real profile can use `openamrobot_upperbody_hardware/OpenArmSafeHW` instead of upstream's `openarm_hardware/OpenArmHW`:
 
 ```
-xacro combined_robot.xacro hardware_profile:=real real_arm_hardware:=safe arm_read_timeout_ms:=50
+xacro combined_robot.xacro hardware_profile:=real real_arm_hardware:=safe arm_read_timeout_ms:=<bench value>
 ```
 
-The default stays `real_arm_hardware:=upstream`. Use `safe` for every first power-up.
+`arm_read_timeout_ms` has no default. The expansion fails with `real_arm_hardware:=safe` until a number above 0 is given, and the
+plugin refuses to initialise without `read_timeout_ms`. The value is a bench measurement, `TODO(Om)`: this file does not suggest one.
+
+The default stays `real_arm_hardware:=upstream`. Use `safe` for every first power-up (see "Decision for the owner" below).
 
 | | upstream `OpenArmHW` (4e837e1) | `OpenArmSafeHW` |
 |---|---|---|
 | Activation | enables the motors, then moves both arms to joint zero | refuses unless every motor answered; enables; measures again; commands the measured position (command = state) |
-| `read()` | always OK | ERROR when a motor is silent longer than `read_timeout_ms`, never answered, the CAN link is down, or the bus went bus-off |
+| `read()` | always OK | ERROR when a motor is silent longer than `read_timeout_ms` (no default), never answered, the CAN link is down, or the bus went bus-off |
 | `write()` | always OK | ERROR when a frame cannot be sent or a command is not finite |
 | Gripper velocity and effort state | hard-coded 0 | NaN (not available) |
 | After the first fault | n/a | stays in ERROR until the hardware is activated again |
 
 What it does not do:
 
-- **Deactivation or an ERROR disables the motors, and a disabled arm is back-drivable.** It falls. The same happens at an E-stop.
-  This is why the arm is supported for the whole checklist.
+- **A disabled arm is back-drivable and falls.** Deactivation sends the disable frames (`on_deactivate`), and so does an E-stop
+  that cuts motor power. This is why the arm is supported for the whole checklist.
+- **What happens to the arm after an ERROR is not settled here.** The plugin only returns ERROR from `read()` or `write()`; it
+  sends no disable frame at that point, and it sends no more commands. What the Damiao motors do when commands stop (keep the last
+  MIT command, or time out and drop) and what the controller manager does with the component after ERROR (its error handling for
+  the installed ros2_control) are both unverified. `TODO(Om)`: observe both on the bench and write the result here. Until then,
+  assume the arm can drop or can keep pushing against its last command, and keep it supported.
 - It does not limit how far a command is from the current position. A bad trajectory still moves the arm. The first
   moves are small, slow and by hand.
 - It does not detect a motor that answers but is wrong. It detects silence.
-- `read_timeout_ms` (default 50) is a software choice. `TODO(Om)` tune it on the bench with the real loop rate.
+- `read_timeout_ms` has no default. `TODO(Om)` measure the reply interval on the bench at the real loop rate and choose it.
 - The gripper position mapping is upstream's, and upstream marks it approximate. Treat the gripper last.
 
 ## Before power
@@ -95,7 +103,8 @@ ip -details -statistics link show can1
    gravity is expected with low gains. Growing drift or a joint that heats fast: stop.
 6. Fault test (arm still supported, E-stop in reach):
    - Unplug the CAN cable of the arm. Within `read_timeout_ms` the controller manager must report the read error and the
-     hardware must go to ERROR. Do not rely on it to hold the arm: it disables the motors, and the arm will drop onto your hands.
+     hardware must go to ERROR. Do not rely on it to hold the arm: with the cable out no frame reaches the motors, and what
+     they do then is the open question above. Expect the arm to drop onto your hands.
    - Plug it back and bring the interface up again. The hardware does not recover by itself. Activate it again.
 7. First motion: one joint, a few degrees, slow, by `ros2 action send_goal` to the arm controller. Then each joint in turn.
    The gripper last.
@@ -112,7 +121,37 @@ ip -details -statistics link show can1
 | Parameter | Where | Status |
 |---|---|---|
 | Arm current limit and supply voltage | power setup | `TODO(Om)` from the motor datasheets and Enactic's guide |
-| `read_timeout_ms` (default 50) | `arm_read_timeout_ms` xacro arg | `TODO(Om)` tune on the bench |
+| `read_timeout_ms` (no default, the expansion fails without it) | `arm_read_timeout_ms` xacro arg | `TODO(Om)` bench measurement |
 | `txqueuelen` (default 64) | `openarm_can_setup.sh --txqueuelen` | `TODO(Om)` confirm on the bench |
 | Expected bus load | `canbusload` | `TODO(Om)` measure at the real loop rate |
+| Motor and controller behaviour after ERROR (see above) | bench | `TODO(Om)` observe and record |
 | Persistent CAN names per arm | udev rule | not done: needs the adapter or carrier on the unit |
+
+## Decision for the owner: should `safe` be the default?
+
+Today `real_arm_hardware:=upstream` is the default, so the safe plugin is opt-in and an operator who forgets the flag gets
+upstream's behaviour: both arms move to joint zero on activation, and CAN loss is never reported. The arms arrive in Berlin on
+23 Nov 2026. This is an owner decision (Om with Adnan, I1) and it is not made here. The code supports either answer with a
+one-word change of the `real_arm_hardware` default in `combined_robot.xacro` and the matching default in the
+`openamr_arm_ros2_control` macro, and `test_default_real_profile_is_still_upstream` then flips with it.
+
+For `safe` as the default: the first power-up cannot be done with the wrong plugin by forgetting a flag.
+Against: `read_timeout_ms` has no default (by design), so `safe` as the default makes every real expansion fail until the
+bench value exists, and a new default changes the real profile for anyone who already uses it. A middle way that needs no code
+change: keep `upstream` and make the launch or the deployment profile for the arms always pass `real_arm_hardware:=safe`.
+
+## Merging with the model branches
+
+This work was cut from `main`. The model branches (`model/2026-11-08-owner-decisions` and the branches stacked on it) were cut from
+the same `main`, so two files need attention when they meet this one:
+
+- `config/upstream_pins.yaml`: this branch adds the `openarm_can` pin. The model branch's pin file, where it differs, has to keep
+  that line. A merge of either of the model branches into this one, tried with `git merge`, auto-resolved with no conflict, because
+  those branches do not edit the pin file. Re-check after any rebase that the `openarm_can` pin is still there, and that
+  `test_c01_config_id.py` and `test_c02_upstream_pin.py` pass.
+- `urdf/ros2_control.xacro` and `urdf/combined_robot.xacro`: this branch changes the real-arm macro (`openamr_safe_arm_system`,
+  the `real_arm_hardware` and `arm_read_timeout_ms` args) and the call of `openamr_arm_ros2_control`. The model branches edit other
+  parts of `combined_robot.xacro` (masses, link geometry) and merged without a conflict, but a conflict is likely if one of them
+  is changed to touch the `openamr_arm_ros2_control` call or the arg block. Keep both sides: the model side's lines and the three
+  added args. After the merge run `test_openarm_safe_plugin.py` and `test_t16_ros2_control_real.py` (the real blocks must equal
+  upstream's except for the plugin and `read_timeout_ms`).
