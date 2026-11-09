@@ -30,7 +30,7 @@ CONTRACT_OWNER = {e["name"]: e["owner"] for e in CONTRACT["entries"] if e["kind"
 
 GROUPS = [  # key, label, what the number is (its provenance STATE is read from config/mass_provenance.yaml, not written here)
     ("base", "base (platform-sw)", "platform-sw CAD export"),
-    ("lift", "lift (ours)", "catalogue mass (lift_mass_dold_v4_350) on a placeholder box"),
+    ("lift", "lift (ours)", "ledger values (roadmap mass export): DOLD 11.7 kg split static / moving, plus parts"),
     ("openarm", "openarm_* (upstream)", "upstream nominal, arms + grippers, no body (ADR-008)"),
     ("sensors", "sensors (ours)", "ZED Mini with its mount and the wrist cameras, from the roadmap export"),
     ("equipment", "equipment (item 24)", "supplier masses (getac_tablet_mass, head_light_mass) on boxes"),
@@ -145,7 +145,7 @@ def report_lines(label, kg, links, datums, base_link_mass, provenance):
     if external:
         lines.append(f"  external_nominal groups (another owner's figure, not verified by us): {', '.join(external)}")
     lines += ["Not modelled (all F2S): " + ", ".join(NOT_MODELLED) + ".",
-              "  The lift row above is a catalogue mass on a placeholder box, not the structure. The total is",
+              "  The lift, sensors and equipment rows are ledger values (P-03 rev20.6 item 30 A6), not measured values. The total is",
               "  therefore what the description contains, not what the robot weighs.",
               f"  W01 (retired): base_link ({base_link_mass:.2f} kg of the base figure) is no longer the root, so KDL sees it."]
     return lines
@@ -491,3 +491,19 @@ def test_t10_mass_datums_are_the_ones_the_xacro_reads():
     export = load_yaml(os.path.join(SHARE, "config", "roadmap_mass_export.yaml"))
     dold = [i["mass_kg"] for g in export["groups"].values() for e in g["links"].values() for i in e["items"] if i["bom"].startswith("MEC-018")]
     assert len(dold) == 2 and sum(dold) == pytest.approx(lift_mass, abs=0.002)
+
+
+LEDGER_GROUPS = ("lift", "sensors", "equipment")   # the groups that read config/roadmap_mass_export.yaml
+
+
+def test_t10_ledger_groups_are_marked_ledger_values_not_measured_values():
+    """P-03 rev20.6 item 30 A6: the export's masses are design values until the robot is weighed. Every group that reads it says so, and
+    none of them may be `verified` (that needs the weighing record as `document`)."""
+    provenance = load_provenance()
+    for group in LEDGER_GROUPS:
+        entry = provenance[group]
+        assert entry["state"] == "external_nominal", f"{group}: a ledger value is not measured; it cannot be {entry['state']}"
+        text = (entry["source"] + " " + entry.get("note", "")).lower()
+        assert "roadmap" in text and "ledger value, not measured" in text, f"{group}: the provenance does not say ledger value, not measured"
+    lines, _ = _report()
+    assert any("ledger values" in line and "not measured" in line for line in lines), "the T10 report does not say the masses are ledger values"

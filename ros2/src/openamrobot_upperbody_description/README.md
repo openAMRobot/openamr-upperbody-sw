@@ -342,9 +342,14 @@ evidence. A7 on a hosted runner has no GPU and runs slower than real time.
 
 Nothing in this package is a measured value or a hardware result. In particular:
 
-- **Base inertials are platform-sw CAD placeholders.** The base comes from `openamr-platform-sw` unchanged; its masses and
-  inertias are CAD-export values. The arm masses are upstream nominal values, and the lift's 11.7 kg is a supplier catalogue
-  figure (provisional), not a weighed one.
+- **Every mass is a design value, none is measured.** The base comes from `openamr-platform-sw` unchanged; its masses and
+  inertias are that repository's values. The upper-body masses are ledger values: `config/roadmap_mass_export.yaml` is the pinned
+  roadmap mass export built from the mass ledger (openamrobot-docs `scripts/roadmap_model/mass_ledger.yaml`, P-03 rev20.6 item 30 A6,
+  D-26): datasheet masses times quantity, custom parts estimated from their design-intent solids or from dimensions and material,
+  the DOLD lift's 11.7 kg catalogue figure split into a static share (8.89 kg) and a moving share (2.81 kg) by estimate. They are
+  **ledger values, not measured values**, until the as-built robot is weighed (item 30 A6: "design values until the robot is weighed";
+  Cuma reviews the custom-part estimates). `mass_provenance.yaml` keeps every group `external_nominal` (never `verified`) for that reason.
+  The arm masses are upstream nominal values.
 - **The lift column is a mass on two boxes, the supplier's sections on both stages (P28; lengths from the DOLD STEP, P-03 rev20.4 item 28).** The outer
   (fixed) stage is `lift_column_section`, 240 x 60 mm (x fore-aft, option B's own statement of the 240 mm side, the DOLD Hexalift datasheet page 4,
   "Outer profile 240x60", confirmed by the DOLD supplier CAD `Hexalift_EB530_Hub350_mit_Montagelaschen.STEP` of 8 Nov 2026); the inner (moving) stage is
@@ -359,8 +364,10 @@ Nothing in this package is a measured value or a hardware result. In particular:
   matrix does not evaluate it. The adapter plate (one 6082-T6 part, 425 x 100 x 10 mm, `adapter_plate_section`, P-03 rev20.4 item 28; it was 360 mm,
   P-03 rev19.6 item 18) is its own link on the carriage, its front edge on the arm profile's front face and its rear edge 65 mm behind the column's rear
   face (`adapter_plate_rear_extension`, for the flag rod), and the arm profile stands on it (`arm_profile_link` is its child; its pose from the carriage
-  did not change). The whole catalogue mass sits on the fixed side at mid-height of the retracted column: the catalogue does not split it between the
-  fixed part and the moving stage.
+  did not change). With `roadmap_masses:=true` (the default) the catalogue mass is split as the
+  ledger splits it: the static share on `lift_column_base_link`, the moving share on `lift_carriage_link`, each with box inertias (ledger
+  values, an estimate from dimensions and material, not the supplier's distribution). With `roadmap_masses:=false` the whole catalogue mass
+  sits on the fixed side at mid-height of the retracted column.
 - **The base's pose above the floor is a decision record, not a measurement.** `base_link_height_above_floor` = 0.098 and the
   column axis at x +0.060 are P-03 rev19.0 values (provisional); T04 asserts the datum equals platform-sw's joint in the expansion.
 - **The arms are 62 mm apart at their bases** (option B's y = +-0.031). They do not touch at the home pose at any lift stop or
