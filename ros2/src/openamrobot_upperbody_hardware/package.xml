@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_hardware</name>
+  <version>0.0.0</version>
+  <description>Safe ros2_control hardware interface for OpenArm 2.0: no motion on activation, CAN loss and bus-off reported as ERROR. The safety core builds and is tested without the CAN library; the plugin needs openarm_can.</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <!-- hardware_interface, pluginlib and rclcpp are needed only for the plugin, which is built only when OpenArmCAN is found.
+       openarm_can has no rosdep key and is not a depend here, as in upstream's package it is built from source (pinned). -->
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -43,6 +43,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(t15_ros2_control_gazebo test/test_t15_ros2_control_gazebo.py TIMEOUT 600)
   ament_add_pytest_test(t15_finger_mimic_multiplier test/test_t15_finger_mimic_multiplier.py TIMEOUT 600)
   ament_add_pytest_test(t16_ros2_control_real test/test_t16_ros2_control_real.py TIMEOUT 600)
+  # real_arm_hardware:=safe swaps the plugin of the real arms and changes nothing else (WP openarm-safety)
+  ament_add_pytest_test(openarm_safe_plugin test/test_openarm_safe_plugin.py TIMEOUT 600)
   ament_add_pytest_test(t04_frame_contract test/test_t04_frame_contract.py TIMEOUT 600)
   # The combined robot IS option B's upper body plus the composition: every frame at the same pose, the rev19.0 numbers.
   ament_add_pytest_test(t04_optb_composition test/test_t04_optb_composition.py TIMEOUT 600)

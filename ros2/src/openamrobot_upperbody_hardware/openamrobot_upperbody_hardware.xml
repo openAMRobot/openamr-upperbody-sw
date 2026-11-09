@@ -1,0 +1,9 @@
+<library path="openamrobot_upperbody_hardware_plugin">
+  <class name="openamrobot_upperbody_hardware/OpenArmSafeHW"
+         type="openamrobot_upperbody_hardware::OpenArmSafeHW"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      OpenArm 2.0 ros2_control hardware interface that holds position on activation and reports CAN faults as ERROR.
+    </description>
+  </class>
+</library>
