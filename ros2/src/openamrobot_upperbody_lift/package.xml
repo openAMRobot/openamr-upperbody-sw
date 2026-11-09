@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>openamrobot_upperbody_lift</name>
+  <version>0.0.0</version>
+  <description>Real lift_joint state on the host: a relay from /base/aux_status to /joint_states (fresh and valid only), and a MoveIt guard that refuses to plan or execute on a missing or stale lift state. No lift commands (pending the I8 lift contract).</description>
+  <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
+  <license>MIT</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>moveit_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <!-- TODO(Evans): replace with openamr_base_msgs when openamrobot-interfaces publishes it -->
+  <exec_depend>openamrobot_upperbody_lift_msgs</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>
