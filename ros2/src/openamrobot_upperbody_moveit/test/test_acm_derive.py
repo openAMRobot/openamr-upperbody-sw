@@ -177,11 +177,14 @@ def test_the_counts_the_report_states():
     # and to each other; +16 ConstantTransform with the moving side's links). Nothing spans the lift and no existing pair changed.
     # P-03 rev20.4 item 28, 8 Nov: the second E-stop moves from the column base to the adapter plate: its Adjacent pair is now with the
     # plate (49 stays), and it leaves the static constant set (15 pairs) for the moving one (11 pairs): 194 = 20 + 29 + 145.
-    assert len(pairs) == 194 and labelled == {"Adjacent": 49, "ConstantTransform": 145}
-    assert len(adjacent) == 47 and len(up) == 20
+    # Roadmap parity, 9 Nov: the lift base plate MEC-019 is a geometry link fixed to base_footprint (P-03 rev20.6 item 30 A3): +2 Adjacent (base_link
+    # and lift_column_base_link, its neighbours across the geometry-free root) and +13 ConstantTransform (the base's other fixed links and the
+    # three stop sensors); the DOLD foot and the E-stop housing flanges are boxes on existing links and change no pair: 209 = 20 + 31 + 158.
+    assert len(pairs) == 209 and labelled == {"Adjacent": 51, "ConstantTransform": 158}
+    assert len(adjacent) == 49 and len(up) == 20
     assert set(up) - adjacent == {("openarm_left_ee_link1", "openarm_left_ee_link2"), ("openarm_right_ee_link1", "openarm_right_ee_link2")}, \
         "the two finger pairs are siblings through two movable joints: upstream's declaration is their only reason"
-    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 145
+    assert {p for p, r in pairs.items() if r == "ConstantTransform"} == constant - adjacent - set(up) and len(constant - adjacent - set(up)) == 158
 
 
 @pytest.mark.parametrize("base_plate", BASE_PLATES)
@@ -193,10 +196,11 @@ def test_the_by_construction_set_is_61_not_77_because_a_prismatic_joint_now_lies
     lift_column_base_link, among them since follow-up (a)) and, above the lift, the adapter plate, the arm profile and the arm base links among
     themselves and the profile with the carriage (P28 added the plate's two and the profile-carriage one). 133 since the P-03 item 24
     equipment (1 Nov): its eight fixed geometry links join their side's constant set, and none spans the lift (asserted below). 149 with
-    the head camera body and its mount (1 Nov). 145 since the second E-stop rides the adapter plate (8 Nov: -15 static, +11 moving)."""
+    the head camera body and its mount (1 Nov). 145 since the second E-stop rides the adapter plate (8 Nov: -15 static, +11 moving). 158 with
+    the lift base plate (9 Nov: +13 static, none across the lift)."""
     root = urdf_root(base_plate)
     constant = derive_mod.constant_pairs(root) - derive_mod.structural_adjacent(root) - set(upstream_pairs())
-    assert len(constant) == 145
+    assert len(constant) == 158
     t = split.urdf_tree(root)
     def above_the_lift(link):
         return "lift_joint" in [j for j in split.movable_joints_between(t, "base_footprint", link)]
