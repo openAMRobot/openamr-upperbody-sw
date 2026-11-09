@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -30,11 +31,16 @@ struct CoreConfig {
   std::string ee_type = "pinch_gripper";  // or "parallel_link", the two mappings upstream knows
   double gripper_kp = 5.0;
   double gripper_kd = 0.1;
-  // A reply older than this is a fault. Default is a software choice, not a hardware fact: TODO(Om) tune on the bench.
-  double read_timeout_s = 0.05;
+  // A reply older than this is a fault. There is deliberately no default: the number comes from a bench measurement
+  // (TODO(Om)), and SafeArmCore refuses to be built without a finite value greater than 0.
+  double read_timeout_s = std::numeric_limits<double>::quiet_NaN();
   // How often activation asks for state before giving up (the adapter's request_state() blocks briefly each time).
   int activation_attempts = 10;
 };
+
+// Parses the read_timeout_ms parameter text into seconds. False, with the reason in `why`, when the text is empty, not a
+// number, not finite or not greater than 0. Shared by the plugin and the tests, so "no default" has one definition.
+bool parse_read_timeout_ms(const std::string& text, double& seconds, std::string& why);
 
 // Upstream's gripper mapping (openarm_simple_hardware.cpp, marked approximate there). Pure functions, tested.
 double gripper_motor_to_joint(const std::string& ee_type, double motor_rad);

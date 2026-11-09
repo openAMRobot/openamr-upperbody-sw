@@ -43,9 +43,10 @@
   <xacro:arg name="hardware_profile" default="mock"/>
   <xacro:arg name="enable_planar_base" default="false"/>
   <!-- Plugin of the real arms: upstream (OpenArmHW, default) or safe (openamrobot_upperbody_hardware/OpenArmSafeHW), and the
-       safe plugin's read timeout in ms. Only hardware_profile real reads them. -->
+       safe plugin's read timeout in ms. Only hardware_profile real with real_arm_hardware safe reads the timeout, and it has NO
+       default: the value is a bench measurement (TODO(Om)), so the expansion fails until it is given. -->
   <xacro:arg name="real_arm_hardware" default="upstream"/>
-  <xacro:arg name="arm_read_timeout_ms" default="50"/>
+  <xacro:arg name="arm_read_timeout_ms" default=""/>
   <xacro:arg name="datums_file" default="$(find openamrobot_upperbody_description)/config/datums.yaml"/>
   <!-- Absolute path of the controller parameter file the gazebo profile hands to gz_ros2_control. Empty by default: the
        description declares the hardware contract and knows nothing about where a controller config lives (ADR-003); the launch

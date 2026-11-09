@@ -45,6 +45,12 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_safe_arm_core test/test_safe_arm_core.cpp)
   target_link_libraries(test_safe_arm_core ${PROJECT_NAME}_core)
+  if(TARGET ${PROJECT_NAME}_plugin)
+    # on_init refuses a missing read_timeout_ms (no default); needs the plugin, so only with openarm_can
+    ament_add_gtest(test_plugin_init test/test_plugin_init.cpp)
+    target_link_libraries(test_plugin_init ${PROJECT_NAME}_plugin)
+    ament_target_dependencies(test_plugin_init hardware_interface)
+  endif()
 
   # scripts/openarm_can_setup.sh against a fake ip: needs a checkout (the script lives at the repository root)
   find_package(ament_cmake_pytest REQUIRED)

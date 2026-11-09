@@ -26,7 +26,8 @@
       upstream  openarm_hardware/OpenArmHW (upstream's file, unchanged)
       safe      openamrobot_upperbody_hardware/OpenArmSafeHW: the same parameters, no motion on activation, CAN loss and bus-off
                 reported as ERROR. The block is upstream's, with that plugin and one more
-                parameter, read_timeout_ms (arm_read_timeout_ms, default 50, a software choice: TODO(Om) tune on the bench).
+                parameter, read_timeout_ms (arm_read_timeout_ms). It has no default: it is a bench measurement (TODO(Om)), and
+                the expansion fails with real_arm_hardware:=safe until a number greater than 0 is given.
                 test_openarm_safe_plugin.py compares it with upstream's block, so any other difference fails.
 
   The arm joints are openarm_{left,right}_joint1..7 and openarm_{left,right}_finger_joint1. Upstream leaves
@@ -104,7 +105,7 @@
     </ros2_control>
   </xacro:macro>
 
-  <xacro:macro name="openamr_arm_ros2_control" params="hardware_profile controllers_file:='' real_arm_hardware:=upstream read_timeout_ms:=50">
+  <xacro:macro name="openamr_arm_ros2_control" params="hardware_profile controllers_file:='' real_arm_hardware:=upstream read_timeout_ms:=''">
     <xacro:if value="${hardware_profile in ['mock', 'real']}">
       <!-- What upstream's openarm_v20.urdf.xacro does before it calls the macro. -->
       <xacro:property name="openarm_robot_root" value="$(find openarm_description)/assets/robot/openarm_v2.0"/>
@@ -123,6 +124,9 @@
           right_finger_mimic_multiplier="${pinch_finger_mimic_multiplier}"/>
       </xacro:unless>
       <xacro:if value="${hardware_profile == 'real' and real_arm_hardware == 'safe'}">
+        <!-- No default for the timeout: refuse to expand without a number greater than 0 (the plugin refuses it too). -->
+        <xacro:property name="openamr_read_timeout_check" lazy_eval="false"
+                        value="${None if (str(read_timeout_ms).replace('.', '', 1).isdigit() and float(read_timeout_ms) > 0) else xacro.fatal('arm_read_timeout_ms has no default and must be a number greater than 0 with real_arm_hardware:=safe (bench value, TODO(Om)); got ' + repr(read_timeout_ms))}"/>
         <xacro:openamr_safe_arm_system name="openarm_left_hardware_interface" can_interface="can1" arm_prefix="left_"
                                        gains="${gains_dict}" read_timeout_ms="${read_timeout_ms}"/>
         <xacro:openamr_safe_arm_system name="openarm_right_hardware_interface" can_interface="can0" arm_prefix="right_"

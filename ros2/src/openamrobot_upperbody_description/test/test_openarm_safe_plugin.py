@@ -17,7 +17,13 @@ SAFE = "openamrobot_upperbody_hardware/OpenArmSafeHW"
 UPSTREAM = "openarm_hardware/OpenArmHW"
 
 
+# read_timeout_ms has no default (bench value, TODO(Om)); tests pass an arbitrary number to get an expansion, which says nothing
+# about what the bench value is.
+T = 77
+
+
 def _safe(**kw):
+    kw.setdefault("arm_read_timeout_ms", T)
     return expand(hardware_profile="real", real_arm_hardware="safe", **kw)
 
 
@@ -42,9 +48,28 @@ def test_safe_blocks_equal_upstream_except_plugin_and_read_timeout():
     assert strip(_safe()) == upstream_blocks(False)
 
 
-def test_read_timeout_default_and_override():
-    assert [hardware_params(b)["read_timeout_ms"] for b in arm_blocks(_safe())] == ["50", "50"]
+def test_read_timeout_is_passed_through_to_both_arms():
+    assert [hardware_params(b)["read_timeout_ms"] for b in arm_blocks(_safe())] == [str(T)] * 2
     assert [hardware_params(b)["read_timeout_ms"] for b in arm_blocks(_safe(arm_read_timeout_ms=120))] == ["120", "120"]
+
+
+@pytest.mark.parametrize("bad", ["", "0", "-5", "abc", "nan", "inf"])
+def test_read_timeout_has_no_default_and_bad_values_are_refused(bad):
+    mappings = {"hardware_profile": "real", "real_arm_hardware": "safe"}
+    if bad != "":
+        mappings["arm_read_timeout_ms"] = bad
+    with pytest.raises(xacro.XacroException):
+        xacro.process_file(COMBINED, mappings=mappings)
+
+
+def test_the_arg_default_is_empty_not_a_number():
+    text = open(COMBINED).read()
+    assert re.search(r'name="arm_read_timeout_ms" default=""', text)
+
+
+def test_upstream_and_simulated_profiles_do_not_need_a_timeout():
+    for profile in ("mock", "gazebo", "real"):
+        assert expand(hardware_profile=profile) is not None
 
 
 def test_safe_controls_the_same_joints_as_upstream_real_and_no_lift():
@@ -61,6 +86,7 @@ def test_safe_has_no_mock_or_gazebo_plugin():
 
 @pytest.mark.parametrize("profile", ["mock", "gazebo"])
 def test_the_parameter_does_not_touch_simulated_profiles(profile):
+    # no timeout given: only the real profile reads it
     assert normalised(expand(hardware_profile=profile, real_arm_hardware="safe")) == normalised(expand(hardware_profile=profile))
 
 

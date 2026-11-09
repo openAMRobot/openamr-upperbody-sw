@@ -43,9 +43,11 @@ hardware_interface::CallbackReturn OpenArmSafeHW::on_init(const hardware_interfa
     }
     cfg.gripper_kp = std::stod(param(info, "kp_hand", std::to_string(cfg.gripper_kp)));
     cfg.gripper_kd = std::stod(param(info, "kd_hand", std::to_string(cfg.gripper_kd)));
-    cfg.read_timeout_s = std::stod(param(info, "read_timeout_ms", "50")) / 1000.0;
-    if (!(cfg.read_timeout_s > 0.0)) {
-      RCLCPP_ERROR(log(), "read_timeout_ms must be greater than 0");
+    // No default: the value is a bench measurement (TODO(Om)). Refuse to initialise without it.
+    std::string why;
+    const auto timeout = info.hardware_parameters.find("read_timeout_ms");
+    if (!parse_read_timeout_ms(timeout == info.hardware_parameters.end() ? "" : timeout->second, cfg.read_timeout_s, why)) {
+      RCLCPP_ERROR(log(), "%s", why.c_str());
       return CallbackReturn::ERROR;
     }
 

@@ -298,6 +298,37 @@ TEST(SafeArmCore, GripperMappings) {
   EXPECT_NEAR(gripper_joint_to_motor("parallel_link", 0.044), -1.0472, 1e-12);
 }
 
+TEST(SafeArmCore, ReadTimeoutHasNoDefaultAndMustBeSet) {
+  MockPort port;
+  CoreConfig cfg = config();
+  EXPECT_NO_THROW(SafeArmCore(port, cfg));
+  CoreConfig unset = config();
+  unset.read_timeout_s = CoreConfig().read_timeout_s;  // what a caller gets by not setting it
+  EXPECT_TRUE(std::isnan(unset.read_timeout_s));
+  EXPECT_THROW(SafeArmCore(port, unset), std::invalid_argument);
+  for (double bad : {0.0, -0.05, std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()}) {
+    CoreConfig c = config();
+    c.read_timeout_s = bad;
+    EXPECT_THROW(SafeArmCore(port, c), std::invalid_argument) << bad;
+  }
+}
+
+TEST(SafeArmCore, ParseReadTimeoutMs) {
+  double s = -1.0;
+  std::string why;
+  EXPECT_TRUE(parse_read_timeout_ms("80", s, why));
+  EXPECT_DOUBLE_EQ(s, 0.08);
+  EXPECT_TRUE(parse_read_timeout_ms(" 12.5 ", s, why));
+  EXPECT_DOUBLE_EQ(s, 0.0125);
+  for (const char* bad : {"", "  ", "abc", "0", "-3", "nan", "inf", "5ms", "1 2"}) {
+    s = -1.0;
+    why.clear();
+    EXPECT_FALSE(parse_read_timeout_ms(bad, s, why)) << bad;
+    EXPECT_FALSE(why.empty()) << bad;
+    EXPECT_DOUBLE_EQ(s, -1.0) << bad;  // untouched on failure
+  }
+}
+
 TEST(SafeArmCore, WrongGainCountThrows) {
   MockPort port;
   auto cfg = config();
