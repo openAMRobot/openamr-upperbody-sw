@@ -11,6 +11,11 @@ All notable changes to this repository. Evidence for the description is static a
   lift base plate MEC-019 through the four foot tab holes on the 260 x 30 mm pattern with 4 x DIN 7984 M8 x 14 class 8.8 into tapped M8 threads; the 224 x 40 mm
   pattern is internal to the DOLD assembly. Text only (the `lift_column_section` datum note and the description README); neither pattern is modelled, so no
   geometry changes. Datums revision `2026-11-08.b` -> `2026-11-10.a`, so every `config_id` changes.
+- **Mass inputs from the reviewed roadmap export on openamrobot-docs main** (`ff8ca57`, docs #84; was the branch export `eaa26aa`, 8 Nov 2026):
+  `config/roadmap_mass_export.yaml` is the verbatim copy, `roadmap_mass_export.source.yaml` carries the new commit and SHA-256. For the upper body only
+  `lift_column_base_link` changes: 9.100 -> 9.132 kg (the four DIN 7984 M8 x 14 foot screws, LFT-008, BOM Issue 7.15, D-20), com z 0.1239 -> 0.1234 m.
+  `lift_carriage_link` stays 6.721 kg. The base links still come from platform-sw at the platform pin (`131e500`), so the export's base figure (58.16 kg)
+  is not used yet: TODO, move the pin to the merge commit of platform-sw #126 when it exists.
 
 ### Changed (8 Nov 2026; owner decisions, P-03 rev20.4 item 28)
 
