@@ -17,6 +17,12 @@ All notable changes to this repository. Evidence for the description is static a
   `lift_carriage_link` stays 6.721 kg. The base links come from platform-sw at the merge commit of platform-sw #126 (`713574f`), which carries the
   export's base figure (58.16 kg).
 
+- **Collision matrix re-derived for the platform pin `713574f`** (`scripts/derive_acm.py --write`, ROS 2 Jazzy with moveit_py 2.12.4): 180 disabled pairs
+  (20 upstream + 28 `Adjacent` + 132 `ConstantTransform`), was 194; fingerprint `sha256:2263a2f6...a39d`. camera_link has no collision geometry since platform-sw #106
+  (a frame only; its placeholder box was removed), so its 14 pairs are gone: `Adjacent` with base_link and `ConstantTransform` with the four wheels, the four
+  castors, lidar_link, lift_column_base_link and the three stop sensors. None added or relabelled. `test_acm_derive.py` and `test_m03_acm_sampling.py` expect
+  180 / 132 (structural neighbours 46, was 47); the moveit README states the new contract.
+
 ### Changed (8 Nov 2026; owner decisions, P-03 rev20.4 item 28)
 
 The combined model now carries the values the roadmap model (openamrobot-docs branch `roadmap/2026-11-08-owner-decisions`, not yet merged) draws.
