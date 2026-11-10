@@ -267,7 +267,12 @@ MESH_PACKAGES = ("openamrobot_description", "openarm_description", DESCRIPTION)
 # task 0). Gripper motion needs BULLET_FEATHERSTONE_ENGINE, and the launch does not hide that behind the default: pass it.
 DEFAULT_PHYSICS_ENGINE = "gz-physics-dartsim-plugin"          # the tests record it
 BULLET_FEATHERSTONE_ENGINE = "gz-physics-bullet-featherstone-plugin"   # honours the URDF <mimic>; what G02 and M02 pass
-SPAWN_HEIGHT = "0.15"          # m above the ground plane; the model settles onto its wheels and casters in the first second
+# m above the ground plane: the resting height, so the model is placed on its drive wheels instead of dropped. The drive wheels' lowest point is
+# 0.002 m below base_footprint (wheel radius 0.100 on an axle at base_link, 0.098 above base_footprint; platform-sw's description at the pin),
+# and test_sim_spawn_height.py derives it from the expanded URDF. It was 0.15: the 0.148 m drop landed about 0.17 s of simulated time later and
+# the impact pushed lift_joint up to 1.2 mm past its lower stop in ground truth (-3.0e-4 m on /arm/joint_states), before lift_controller was
+# active; that was the A7 M02 failure of upperbody-sw #48 (14 local probe runs with only the spawn height changed; the PR text has the table).
+SPAWN_HEIGHT = "0.002"
 CONTROLLER_MANAGER_TIMEOUT = "120"      # s the spawners wait for the controller manager that the simulator hosts
 # s the joint_state_broadcaster's switch may take. The spawner's default is 5 s; on a slow machine (CPU-only rendering, the simulator at
 # about 0.01x real time during startup) the first switch timed out, the spawner exited 1, and the arm and gripper spawners still started,
@@ -352,7 +357,7 @@ def generate_launch_description():
 
     spawn = Node(package="ros_gz_sim", executable="create", output="screen",
                  arguments=["-name", "openamrobot", "-topic", "robot_description",
-                            "-x", "0", "-y", "0", "-z", SPAWN_HEIGHT])
+                            "-x", "0", "-y", "0", "-z", LaunchConfiguration("spawn_z")])
 
     # Platform-sw's bridge, by reference: it bridges exactly the topics Nav2 and docking consume, under their names.
     platform_bridge = Node(
@@ -416,6 +421,8 @@ def generate_launch_description():
                                           "pass gz-physics-bullet-featherstone-plugin for that (README)"),
         DeclareLaunchArgument("rviz", default_value="false",
                               description="true | false. RViz2 beside the simulator, fixed frame odom"),
+        DeclareLaunchArgument("spawn_z", default_value=SPAWN_HEIGHT,
+                              description="m above the ground plane the model is spawned at (A7 spawn-height diagnosis, upperbody-sw #48)"),
         *resource_paths,
         gz_sim_window,
         gz_sim_server,

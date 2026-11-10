@@ -203,7 +203,9 @@ fails G02; a launch without the stop handler fails G02 (the canary above).
   running; the tests choose their own.
 - Stopping the launch with a signal to the `ros2 launch` process only (not Ctrl-C in its terminal) leaves the simulator
   running unless the shutdown handler could reach it; `pgrep -af 'gz sim'` shows what is left.
-- The model is spawned 0.15 m above the ground plane and settles in the first moment.
+- The model is spawned at its resting height, 0.002 m (the drive wheels' lowest point below `base_footprint`), so it is placed, not dropped.
+  `spawn_z:=<m>` overrides it for diagnosis only. At the old 0.15 m the landing pushed `lift_joint` past its lower stop before
+  `lift_controller` was active and failed A7 M02 (upperbody-sw #48); `a7_lift_settle_probe.py` in the bringup package records that.
 - `ros2 action send_goal` is slow while a simulator is running; read results against `/clock`, as the tests do.
 
 ## Not here

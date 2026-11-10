@@ -21,6 +21,9 @@ groups:
     source: "platform-sw's CAD export: the inertials of openamrobot_description's urdf, included unchanged"
     owner: platform-sw
     note: "Not verified by us, and not a datum (ADR-005: the base is platform-sw's). W01: KDL drops base_link's own inertia."
+    # TODO(Tushar): the reviewed roadmap export (openamrobot-docs main ff8ca57) gives 58.16 kg on the base links; the combined model still carries
+    # platform-sw's CAD inertials at the platform pin (upstream_pins.yaml openamr_platform_sw, 131e500). Move that pin to the merge commit of
+    # platform-sw #126 once it is merged (it is not yet), then let the base group follow the export like the upper body does.
   lift:
     state: external_nominal
     source: "roadmap model export (config/roadmap_mass_export.yaml, groups lift and lift_carriage; owner decision 8 Nov 2026, P-03 rev20.5 item 29 and rev20.6 item 30 A6): the DOLD Hexalift V4 350 catalogue 11.7 kg (datum lift_mass_dold_v4_350) split from the supplier STEP geometry and the materials into a static share on lift_column_base_link (outer profile, foot, drive) and a moving share on lift_carriage_link (inner profile, top cap, push tube), each with box inertias"

@@ -151,10 +151,10 @@ class TestProcessesAlive(unittest.TestCase):
 
 @launch_testing.post_shutdown_test()
 class TestShutdown(unittest.TestCase):
-    def test_g02_processes_started_and_exited_cleanly(self, proc_info):
+    def test_g02_processes_started_and_exited_cleanly(self, proc_info, proc_output):
         """The processes of the launch started, and none ended with a code that is neither 0 nor a documented shutdown behaviour (launch_guard.py)."""
         assert_launch_healthy(proc_info, expected=EXPECTED_PROCESSES, allowed=SIM_ALLOWED,
-                              record=lambda records: amend_g_sidecar("G02", "gripper_mimic", "process_exits", records))
+                              record=lambda records: amend_g_sidecar("G02", "gripper_mimic", "process_exits", records), proc_output=proc_output)
 
     def test_g02_no_gz_server_of_this_run_survives_the_teardown(self):
         """P16: after the launch has been torn down no `gz sim` carrying this run's GZ_PARTITION is still alive. `gz sim` is a ruby wrapper
