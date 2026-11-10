@@ -5,6 +5,13 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (10 Nov 2026; P-03 rev20.6 item 30, upperbody-sw #48 follow-up)
+
+- **Lift fixing text: 260 x 30 mm foot tab holes, not 224 x 40 mm** (P-03 item 30 A3, decisions D-20 and D-21, superseding item 28). The lift is fixed to the
+  lift base plate MEC-019 through the four foot tab holes on the 260 x 30 mm pattern with 4 x DIN 7984 M8 x 14 class 8.8 into tapped M8 threads; the 224 x 40 mm
+  pattern is internal to the DOLD assembly. Text only (the `lift_column_section` datum note and the description README); neither pattern is modelled, so no
+  geometry changes. Datums revision `2026-11-08.b` -> `2026-11-10.a`, so every `config_id` changes.
+
 ### Changed (8 Nov 2026; owner decisions, P-03 rev20.4 item 28)
 
 The combined model now carries the values the roadmap model (openamrobot-docs branch `roadmap/2026-11-08-owner-decisions`, not yet merged) draws.
@@ -19,7 +26,7 @@ Register change openAMRobot/.github#90, change request openAMRobot/.github#89. D
 - **DOLD supplier CAD** (`Hexalift_EB530_Hub350_mit_Montagelaschen.STEP`, owner, 8 Nov 2026): `lift_static_profile_top_below_column_top` 0.018 (placeholder) -> 0.025
   (supplier, provisional), and it now sets the fixed stage's box (0 to 0.505 m, was 0 to 0.530); `lift_inner_section` `[0.2095, 0.051]` -> `[0.2095, 0.0533, 0.470]`
   (a triple: the stage length is no longer the stroke), its top at the carriage frame, bottom 60 mm above the column base at L1000; `lift_column_section` `[0.240, 0.060]`
-  confirmed. The STEP's foot (280 x 60.4 x 10 mm, four screws on 224 x 40 mm) is **not modelled** (noted in the datum).
+  confirmed. The STEP's foot (280 x 60.4 x 10 mm) is **not modelled** (noted in the datum). The fixing pattern this entry first gave is superseded: see 10 Nov 2026 above.
 - **Adapter plate one 6082-T6 part, 425 x 100 x 10 mm, with a 65 mm rear extension** behind the column rear face for the flag rod (`adapter_plate_section` `[0.360, 0.100]`
   -> `[0.425, 0.100]`, new datum `adapter_plate_rear_extension` 0.065; rear edge x -0.185 from the column axis, was flush at -0.120). The arm profile's pose is unchanged.
 - **Second E-stop on the moving adapter plate** behind the arm post, above the column axis, centred in y, button up, in a 64 x 50 x 50 mm housing envelope:
