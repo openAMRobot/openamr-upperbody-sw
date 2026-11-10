@@ -25,6 +25,6 @@ def test_the_copy_is_the_reviewed_snapshot():
     assert export["snapshot"] == "9 Nov 2026" and "BOM Issue 7.15" in export["about"]
 
 
-def test_the_platform_pin_is_left_as_a_todo_for_platform_sw_126():
-    assert "TODO(Tushar)" in load("mass_provenance.yaml") and "platform-sw #126" in load("mass_provenance.yaml")
-    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "131e500fc4e5afc9f648cbd7dbf5b416280761fb"
+def test_the_platform_pin_is_the_platform_sw_126_merge():
+    assert "platform-sw #126" in load("mass_provenance.yaml")
+    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "713574fd2a5a9e38cde6b07c5b96ac4f380b3402"
