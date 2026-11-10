@@ -1,9 +1,9 @@
 {
- "_comment": "Verbatim copy of the two model.js blocks the P-03 item 24 datums came from, refreshed for P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026; datums.yaml revision 2026-11-08.b). Do not edit: refresh from openamrobot-docs with the new SHA when the docs model changes, and the datums with it. NOT YET MERGED in openamrobot-docs: copied from the working tree of branch roadmap/2026-11-08-owner-decisions, whose changes were uncommitted on top of `commit` (the docs main at the time); replace `commit` with the merge commit once the docs PR is merged and check the hashes still match.",
+ "_comment": "Verbatim copy of the two model.js blocks the P-03 item 24 datums came from, refreshed for P-03 rev20.4 item 28 (owner decisions of 8 Nov 2026; datums.yaml revision 2026-11-08.b). Do not edit: refresh from openamrobot-docs with the new SHA when the docs model changes, and the datums with it. Merged in openamrobot-docs as `commit` (#83, 10 Nov 2026); both blocks are byte-identical there and on docs main 86c706b.",
  "repository": "openAMRobot/openamrobot-docs",
- "commit": "8d743e2503a6994c744cf0ed7405d8082f029f52",
- "branch": "roadmap/2026-11-08-owner-decisions",
- "merged": false,
+ "commit": "329a7bcee1f93530c97a57621719d482a399d11b",
+ "branch": "main",
+ "merged": true,
  "path": "docs/assets/roadmap/model/model.js",
  "blocks": {
   "CHEST-JSON": "{\"second_estop\": {\"position\": \"adapter_top\", \"panel_above_plate\": 0.048, \"glb_node\": \"estop\", \"glb_axis\": [0.39, 0.13, 0.0445]}, \"order\": [\"head_light\", \"getac_tablet\"], \"drawn\": {\"head_light\": {\"z\": 0.0555, \"size\": [0.02, 0.158, 0.017], \"window\": [0.148, 0.013]}, \"getac_tablet\": {\"z\": 0.191, \"size\": [0.0176, 0.1498, 0.234], \"orientation\": \"portrait\"}}, \"gap_light_tablet\": 0.01}",

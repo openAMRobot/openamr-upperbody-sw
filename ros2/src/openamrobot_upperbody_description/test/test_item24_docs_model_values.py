@@ -3,8 +3,8 @@
 CHEST-JSON and LIFT-JSON values of openamrobot-docs model.js that the P-03 item 24 datums came from, within 0.5 mm.
 
 The model.js blocks are a verbatim fixture (test/fixtures/docs_model_item24.json, with the docs commit and a hash of each block), because CI
-has no checkout of openamrobot-docs. The fixture of P-03 rev20.4 item 28 (8 Nov 2026) was copied from the docs branch
-roadmap/2026-11-08-owner-decisions before it was merged (the fixture says so: `merged: false`). To compare with a live model.js, run the tool with --model-js (no skipped test stands in for it). Keys
+has no checkout of openamrobot-docs. The fixture of P-03 rev20.4 item 28 (8 Nov 2026) matches docs main at the
+#83 merge 329a7bc (the fixture says so: `merged: true`). To compare with a live model.js, run the tool with --model-js (no skipped test stands in for it). Keys
 the URDF cannot carry are listed by the tool (NOT_EXPORTED) and are the only ones not compared.
 """
 import hashlib
