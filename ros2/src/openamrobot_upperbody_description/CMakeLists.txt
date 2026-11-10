@@ -79,6 +79,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(build_evidence test/test_build_evidence.py TIMEOUT 600)
   # the detector of a gz server that outlives its launch, on decoy processes (P16); no ROS graph
   ament_add_pytest_test(launch_guard_gz_orphan test/test_launch_guard_gz_orphan.py TIMEOUT 120)
+  ament_add_pytest_test(launch_guard_move_group_segv test/test_launch_guard_move_group_segv.py TIMEOUT 60)
 endif()
 
 ament_package()

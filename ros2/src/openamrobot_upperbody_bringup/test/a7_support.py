@@ -35,6 +35,7 @@ LIFT_GROUP = "lift"
 BOTH_ARMS_GROUP = "both_arms"
 PARK = "park"
 LIFT_JOINT = "lift_joint"
+PRISMATIC_JOINTS = frozenset({LIFT_JOINT})      # the only prismatic joint of the combined model (the OpenArm fingers are revolute here); metres
 LIFT_CONTROLLER = "lift_controller"
 LIFT_STOPS = ("L1000", "L1175", "L1350")
 LIFT_TOLERANCE_M = 0.002        # m: the final lift_joint error a lift move must stay under (A7 scenario, simulation only)
@@ -220,19 +221,26 @@ def clamp_gate(stats):
         return {"passes": False, "reasons": ["no joint-state clamp counters in the run: no evidence about the overshoot at all"],
                 "epsilon_rad": EPSILON, "excursions_beyond_epsilon": None, "largest_overshoot_rad": None}
     excursions = int(stats.get("over_epsilon", 0))
+    # upperbody-sw #48: the clamp's counters are named *_rad, but a prismatic joint (lift_joint) is in metres. The numbers and the epsilon are
+    # unchanged; only the unit printed with them follows the joint.
+    def unit(joint):
+        return "m" if joint in PRISMATIC_JOINTS else "rad"
     largest = max(float(stats.get("max_magnitude_rad") or 0.0), float(stats.get("max_over_epsilon_rad") or 0.0))
     running = stats.get("epsilon_rad")
     reasons = []
+    over_joint = stats.get("max_over_epsilon_joint")
+    largest_joint = over_joint if float(stats.get("max_over_epsilon_rad") or 0.0) > float(stats.get("max_magnitude_rad") or 0.0) else stats.get(
+        "max_magnitude_joint")
     if excursions != 0:
-        reasons.append(f"{excursions} reading(s) beyond epsilon {EPSILON:g} rad (must be 0)")
+        reasons.append(f"{excursions} reading(s) beyond epsilon {EPSILON:g} (rad, or m on a prismatic joint; must be 0); worst on {over_joint}: "
+                       f"{float(stats.get('max_over_epsilon_rad') or 0.0):.3g} {unit(over_joint)}")
     if not largest < EPSILON:
-        reasons.append(f"largest overshoot {largest:.3g} rad is not below epsilon {EPSILON:g} rad")
+        reasons.append(f"largest overshoot {largest:.3g} {unit(largest_joint)} on {largest_joint} is not below epsilon {EPSILON:g} {unit(largest_joint)}")
     if running is None or float(running) > EPSILON:
         reasons.append(f"the running clamp's epsilon is {running!r}, wider than the {EPSILON:g} rad it was set to")
     return {"passes": not reasons, "reasons": reasons, "epsilon_rad": EPSILON, "excursions_beyond_epsilon": excursions,
             "excursions_must_be": 0, "largest_overshoot_rad": largest, "largest_overshoot_must_be_below_rad": EPSILON,
-            "largest_overshoot_joint": stats.get("max_over_epsilon_joint") if float(stats.get("max_over_epsilon_rad") or 0.0) > float(
-                stats.get("max_magnitude_rad") or 0.0) else stats.get("max_magnitude_joint")}
+            "largest_overshoot_joint": largest_joint, "largest_overshoot_unit": unit(largest_joint)}
 
 
 def clamp_record(client):
@@ -458,7 +466,7 @@ def stack_alive(proc_info):
     launch_guard.assert_no_process_died(proc_info)
 
 
-def stack_healthy(proc_info, expected, simulator=False, sidecar=None):
+def stack_healthy(proc_info, expected, simulator=False, sidecar=None, proc_output=None):
     """After the launch: every process in `expected` started and every process exited cleanly, allowing move_group's known SIGSEGV at stop and,
     with the simulator, its documented shutdown exits (launch_guard.py has the list and the reasons). With the simulator, also that no `gz sim`
     carrying this test's own GZ_PARTITION survived the teardown (P16): looked at FIRST, so that a failed health check does not leave the
@@ -484,7 +492,7 @@ def stack_healthy(proc_info, expected, simulator=False, sidecar=None):
             ev.amend_sidecar(sidecar[0], sidecar[1], "process_exits", records, directory=ev.evidence_dir(share))
     try:
         launch_guard.assert_launch_healthy(proc_info, expected=expected, allowed=launch_guard.SIM_ALLOWED if simulator else launch_guard.MOVE_GROUP_ALLOWED,
-                                           record=record)
+                                           record=record, proc_output=proc_output)
     finally:
         if report is not None:
             assert not report["survivors"], launch_guard.gz_survivor_message(report)
