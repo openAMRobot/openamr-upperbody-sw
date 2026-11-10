@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """The mass export is the reviewed one on openamrobot-docs main (ff8ca57, docs #84), not a branch snapshot, and the platform pin is
-left for platform-sw #126 (a TODO, not a guessed commit). test_roadmap_masses.py checks the SHA-256 of the copy against this pin."""
+the platform-sw #126 merge (713574f). test_roadmap_masses.py checks the SHA-256 of the copy against this pin."""
 import os
 
 import yaml

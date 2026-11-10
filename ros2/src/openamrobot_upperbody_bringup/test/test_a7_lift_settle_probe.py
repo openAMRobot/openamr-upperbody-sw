@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""The pure parts of scripts/a7_lift_settle_probe.py (upperbody-sw #48): the lift joint origin from the URDF and the per-phase summary."""
+"""The pure parts of scripts/a7_lift_settle_probe.py (upperbody-sw #48): the lift joint origin from the URDF, the ground truth from Gazebo poses and the per-phase summary."""
 import importlib.util
 import os
 
@@ -44,3 +44,29 @@ def test_the_summary_finds_the_ci_excursion_and_uses_the_clamp_epsilon_unchanged
 
 def test_a_quiet_run_has_nothing_beyond_epsilon():
     assert probe.summarise([sample("ground_truth", -3.6e-7), sample("clamped", 0.0)])["beyond_epsilon_count"] == {}
+
+
+def test_ground_truth_subtracts_the_spawn_height():
+    # spawned at 0.002 m, lift at zero: the joint position is 0, not +0.002 m (review 5840679401)
+    z0 = 0.828
+    model_z, gt, x = probe.ground_truth_from_poses([("openamrobot", 0.0, 0.002), ("lift_carriage_link", 0.06, 0.002 + z0)], z0)
+    assert model_z == pytest.approx(0.002) and gt == pytest.approx(0.0, abs=1e-12) and x == pytest.approx(0.06)
+
+
+def test_ground_truth_shows_a_lower_limit_excursion_at_nonzero_spawn():
+    z0 = 0.828
+    _, gt, _ = probe.ground_truth_from_poses([("lift_carriage_link", 0.06, 0.002 + z0 - 3.0e-4), ("openamrobot", 0.0, 0.002)], z0)
+    assert gt == pytest.approx(-3.0e-4)
+    s = probe.summarise([sample("ground_truth", gt)])
+    assert s["beyond_epsilon_count"] == {"ground_truth": 1}
+
+
+def test_ground_truth_follows_a_settling_base():
+    z0 = 0.828
+    _, gt, _ = probe.ground_truth_from_poses([("openamrobot", 0.0, -0.004), ("lift_carriage_link", 0.06, -0.004 + z0 + 0.175)], z0)
+    assert gt == pytest.approx(0.175)
+
+
+def test_no_model_pose_means_no_ground_truth():
+    model_z, gt, _ = probe.ground_truth_from_poses([("lift_carriage_link", 0.06, 0.83)], 0.828)
+    assert model_z is None and gt is None

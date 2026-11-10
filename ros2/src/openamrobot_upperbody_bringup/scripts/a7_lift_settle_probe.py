@@ -71,6 +71,25 @@ def summarise(samples, epsilon=EPSILON_M):
             "first_beyond_epsilon": first, "worst": {src: min(s["value"] for s in beyond if s["source"] == src) for src in first}}
 
 
+def ground_truth_from_poses(poses, joint_origin_z, model="openamrobot", carriage="lift_carriage_link"):
+    """Lift joint position from one Gazebo world-frame pose message.
+
+    poses: (name, x, z) per entry. The carriage world z minus the model root world z minus the URDF
+    root-to-joint origin z is the joint position; the spawn height and any settling of the base cancel.
+    Without the model pose in the same message there is no ground truth (never a world-z guess).
+    Returns (model_z, ground_truth, carriage_x); entries are None when absent.
+    """
+    model_z = carriage_z = carriage_x = None
+    for name, x, z in poses:
+        if name == model:
+            model_z = z
+        elif name == carriage:
+            carriage_z, carriage_x = z, x
+    if model_z is None or carriage_z is None:
+        return model_z, None, carriage_x
+    return model_z, carriage_z - model_z - joint_origin_z, carriage_x
+
+
 class Recorder:
     def __init__(self, node, joint_origin_z, world):
         from control_msgs.msg import JointTrajectoryControllerState
@@ -109,11 +128,12 @@ class Recorder:
 
     def on_poses(self, msg):
         stamp = msg.header.stamp.sec + msg.header.stamp.nsec * 1e-9      # gz.msgs.Time: sec and nsec
-        for pose in msg.pose:
-            if pose.name == "lift_carriage_link":
-                self.add("ground_truth", pose.position.z - self.z0, stamp, x=pose.position.x)
-            elif pose.name == "openamrobot":
-                self.add("model_z", pose.position.z, stamp)
+        model_z, ground_truth, x = ground_truth_from_poses(
+            ((p.name, p.position.x, p.position.z) for p in msg.pose), self.z0)
+        if model_z is not None:
+            self.add("model_z", model_z, stamp)
+        if ground_truth is not None:
+            self.add("ground_truth", ground_truth, stamp, x=x)
 
 
 def controller_states(node, timeout=2.0):
