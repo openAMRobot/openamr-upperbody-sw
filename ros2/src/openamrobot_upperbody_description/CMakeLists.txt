@@ -69,6 +69,8 @@ if(BUILD_TESTING)
   # the three placeholder boxes have one explicit colour in the URDF and in the SDF (P25)
   ament_add_pytest_test(p25_placeholder_material test/test_p25_placeholder_material.py TIMEOUT 600)
   ament_add_pytest_test(p28_lift_geometry test/test_p28_lift_geometry.py TIMEOUT 600)
+  # P29: quantify placeholder lift-stage collision-box overlap; not mechanical clearance.
+  ament_add_pytest_test(p29_lift_stage_envelope test/test_p29_lift_stage_envelope.py TIMEOUT 600)
   # P-03 item 24 equipment: parents, static/moving side, poses = datums, stop-sensor heights, mass report (1 Nov 2026)
   ament_add_pytest_test(item24_equipment test/test_item24_equipment.py TIMEOUT 600)
   # tools/export_docs_model_values.py on the expanded URDF equals the docs model.js blocks the item 24 datums came from (0.5 mm)
