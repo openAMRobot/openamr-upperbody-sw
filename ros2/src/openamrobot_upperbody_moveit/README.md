@@ -67,7 +67,12 @@ ros2 run openamrobot_upperbody_moveit regenerate_acm.sh [--base-plate bp000]    
 ros2 run openamrobot_upperbody_moveit regenerate_acm.sh --write                        # replaces the contract (and the fingerprint): a decision, read the diff
 ```
 
-The contract (`contract:` in `acm_generation.yaml`): **198 pairs (49 `Adjacent`, 149 `ConstantTransform`), 20 of them declared by upstream**, fingerprint
+The contract (`contract:` in `acm_generation.yaml`): **180 pairs (48 `Adjacent`, 132 `ConstantTransform`), 20 of them declared by upstream**, fingerprint
+`sha256:2263a2f658a2d2d3d4f1e93b5e6aed7e4f691b11a276767153eaf10701a3a39d`, re-derived on 10 Nov when the platform pin moved to `713574f` (the merge of
+platform-sw #126): camera_link has no collision geometry since platform-sw #106, so its 14 pairs are gone (1 `Adjacent` with base_link, 13 `ConstantTransform`
+with the base side's links); none added or relabelled; 180 of 1035 pairs of 46 geometry links disabled, 855 enabled. It was 194 pairs (49 + 145), fingerprint
+`sha256:49250d8c4f6313d21adf668c597bd2db6af7aad0b422f9eb92b48bfe50095fcb`, re-derived on 8 Nov (P-03 rev20.4 item 28) when the second E-stop moved onto
+the adapter plate (15 static `ConstantTransform` pairs gone, 11 moving ones new; 194 of 1081 pairs disabled, 887 enabled). It was 198 pairs (49 + 149), fingerprint
 `sha256:4c464d7634e6b9625e85b66cd256093c3bd1d4dcfe4ffb08f4cb61327c0dfb2b`, re-derived on 1 Nov when the ZED Mini body (head_camera_link) and the
 OpenArm mount placeholder (head_camera_bracket_link) became geometry links (19 new pairs: 3 `Adjacent`, 16 `ConstantTransform`; none removed or
 relabelled; 198 of 1081 pairs of 47 geometry links disabled, 883 enabled). It was 179 pairs (46 + 133), fingerprint

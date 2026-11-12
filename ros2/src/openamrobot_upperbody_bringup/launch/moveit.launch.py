@@ -87,6 +87,9 @@ def launch_setup(context, *args, **kwargs):
         engine = LaunchConfiguration("physics_engine").perform(context)
         if engine:
             sim_args["physics_engine"] = engine
+        spawn_z = LaunchConfiguration("gazebo_spawn_z").perform(context)    # not "spawn_z": an empty one would shadow sim.launch.py's default
+        if spawn_z:
+            sim_args["spawn_z"] = spawn_z
         stack = [include("openamrobot_upperbody_gazebo", "sim.launch.py", **sim_args)]
     move_group = include("openamrobot_upperbody_moveit", "move_group.launch.py", hardware_profile=sim, rviz=rviz, **config)
     return [*stack, move_group]
@@ -105,5 +108,7 @@ def generate_launch_description():
         DeclareLaunchArgument("headless", default_value="false", description="sim:=gazebo only: true runs gz sim -s (no window)"),
         DeclareLaunchArgument("physics_engine", default_value="",
                               description="sim:=gazebo only: gz-physics plugin; empty = sim.launch.py's default (DART)"),
+        DeclareLaunchArgument("gazebo_spawn_z", default_value="",
+                              description="sim:=gazebo only: spawn height in m; empty = sim.launch.py's default"),
         OpaqueFunction(function=launch_setup),
     ])

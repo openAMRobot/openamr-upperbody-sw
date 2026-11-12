@@ -46,7 +46,7 @@ mkdir -p ~/openamr_ws/src/upstream
 cd ~/openamr_ws/src
 git clone https://github.com/openAMRobot/openamr-upperbody-sw.git
 git clone https://github.com/openAMRobot/openamr-platform-sw.git
-git -C openamr-platform-sw checkout 131e500fc4e5afc9f648cbd7dbf5b416280761fb
+git -C openamr-platform-sw checkout 713574fd2a5a9e38cde6b07c5b96ac4f380b3402
 git clone https://github.com/enactic/openarm_description.git upstream/openarm_description
 git -C upstream/openarm_description checkout 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
 git clone https://github.com/enactic/openarm_ros2.git upstream/openarm_ros2
@@ -144,7 +144,7 @@ Decision of record: P-03 revision 18.9 item 18, 9 October 2026. Heights are from
 | Arm mount point | `openarm_{side}_base_link` at x = column axis + 0.180 m, y = ±0.031 m, roll/pitch/yaw 0 |
 | Shoulder height | 1.000 m at lift 0 (0.304 + 0.530 + 0.166), 1.350 m at lift 0.350 (0.304 + 0.880 + 0.166) |
 | Lift joint | `lift_joint`, prismatic, 0 to 0.350 m; calibration stops `L1000`, `L1175`, `L1350` |
-| Head camera | ZED Mini on the lift carriage, lens 0.042 m ahead of and 0.223 m above the arm mount point, y = 0 (P-03 rev20.0 item 18, 28 Oct 2026) |
+| Head camera | ZED Mini on the lift carriage, lens 0.060 m ahead of and 0.223 m above the arm mount point, y = 0 (P-03 rev20.4 item 28, 8 Nov 2026; was 0.042 m, P-03 rev20.0 item 18) |
 | Maximum assembled height | 1.700 m |
 
 Configuration IDs: `column` (`dold_v4_350`, `tl3_400`), `base_plate` (`bp000`, `bp050`), `head_pitch` (`hp15` to `hp35` in 5 degree steps, baseline `hp30`, P-03 rev20.0 item 17), `base_tilt` (`bt05`, `bt10`, `bt15`). The IDs, baselines and geometry live in [`config/upperbody_configuration.yaml`](ros2/src/openamrobot_upperbody_description/config/upperbody_configuration.yaml), the single input for the xacro arguments, the tests and the configuration hash. `tl3_400` is refused until its column lengths are available from the supplier. The upstream `openarm_body_link0` is not used.

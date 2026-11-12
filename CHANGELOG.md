@@ -5,6 +5,65 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (10 Nov 2026; P-03 rev20.6 item 30, upperbody-sw #48 follow-up)
+
+- **Lift fixing text: 260 x 30 mm foot tab holes, not 224 x 40 mm** (P-03 item 30 A3, decisions D-20 and D-21, superseding item 28). The lift is fixed to the
+  lift base plate MEC-019 through the four foot tab holes on the 260 x 30 mm pattern with 4 x DIN 7984 M8 x 14 class 8.8 into tapped M8 threads; the 224 x 40 mm
+  pattern is internal to the DOLD assembly. Text only (the `lift_column_section` datum note and the description README); neither pattern is modelled, so no
+  geometry changes. Datums revision `2026-11-08.b` -> `2026-11-10.a`, so every `config_id` changes.
+- **Mass inputs from the reviewed roadmap export on openamrobot-docs main** (`ff8ca57`, docs #84; was the branch export `eaa26aa`, 8 Nov 2026):
+  `config/roadmap_mass_export.yaml` is the verbatim copy, `roadmap_mass_export.source.yaml` carries the new commit and SHA-256. For the upper body only
+  `lift_column_base_link` changes: 9.100 -> 9.132 kg (the four DIN 7984 M8 x 14 foot screws, LFT-008, BOM Issue 7.15, D-20), com z 0.1239 -> 0.1234 m.
+  `lift_carriage_link` stays 6.721 kg. The base links come from platform-sw at the merge commit of platform-sw #126 (`713574f`), which carries the
+  export's base figure (58.16 kg).
+
+- **Collision matrix re-derived for the platform pin `713574f`** (`scripts/derive_acm.py --write`, ROS 2 Jazzy with moveit_py 2.12.4): 180 disabled pairs
+  (20 upstream + 28 `Adjacent` + 132 `ConstantTransform`), was 194; fingerprint `sha256:2263a2f6...a39d`. camera_link has no collision geometry since platform-sw #106
+  (a frame only; its placeholder box was removed), so its 14 pairs are gone: `Adjacent` with base_link and `ConstantTransform` with the four wheels, the four
+  castors, lidar_link, lift_column_base_link and the three stop sensors. None added or relabelled. `test_acm_derive.py` and `test_m03_acm_sampling.py` expect
+  180 / 132 (structural neighbours 46, was 47); the moveit README states the new contract.
+
+### Changed (8 Nov 2026; owner decisions, P-03 rev20.4 item 28)
+
+The combined model now carries the values the roadmap model (openamrobot-docs branch `roadmap/2026-11-08-owner-decisions`, not yet merged) draws.
+Register change openAMRobot/.github#90, change request openAMRobot/.github#89. Datums revision `2026-11-08.b`, so every `config_id` changes.
+
+- **Head camera lens 0.060 m ahead of the arm mount** (`upperbody_configuration.yaml` `geometry.head_camera_lens.x_ahead_of_arm_mount`, was 0.042, P-03 rev20.0 item 18;
+  the docs model had 0.057 on 2 Nov 2026).
+- **Getac ZX80 portrait only, on a fixed mount.** `getac_tablet_size` is the portrait box `[0.0176, 0.1498, 0.234]` (was landscape), its centre 0.191 above the column top
+  (was 0.246: 55 mm lower than the P-03 rev20.2 item 26 placeholder). The rotatable mount is withdrawn: `getac_tablet_portrait_size` and `getac_tablet_portrait_pivot`
+  are deleted, and `tools/report_equipment_collisions.py` drops its portrait variant and assumed pivot. Head light top edge 10 mm below the Getac (`head_light_gap_below_tablet`
+  0.030 -> 0.010; head light centre 0.0555 above the column top).
+- **DOLD supplier CAD** (`Hexalift_EB530_Hub350_mit_Montagelaschen.STEP`, owner, 8 Nov 2026): `lift_static_profile_top_below_column_top` 0.018 (placeholder) -> 0.025
+  (supplier, provisional), and it now sets the fixed stage's box (0 to 0.505 m, was 0 to 0.530); `lift_inner_section` `[0.2095, 0.051]` -> `[0.2095, 0.0533, 0.470]`
+  (a triple: the stage length is no longer the stroke), its top at the carriage frame, bottom 60 mm above the column base at L1000; `lift_column_section` `[0.240, 0.060]`
+  confirmed. The STEP's foot (280 x 60.4 x 10 mm) is **not modelled** (noted in the datum). The fixing pattern this entry first gave is superseded: see 10 Nov 2026 above.
+- **Adapter plate one 6082-T6 part, 425 x 100 x 10 mm, with a 65 mm rear extension** behind the column rear face for the flag rod (`adapter_plate_section` `[0.360, 0.100]`
+  -> `[0.425, 0.100]`, new datum `adapter_plate_rear_extension` 0.065; rear edge x -0.185 from the column axis, was flush at -0.120). The arm profile's pose is unchanged.
+- **Second E-stop on the moving adapter plate** behind the arm post, above the column axis, centred in y, button up, in a 64 x 50 x 50 mm housing envelope:
+  `second_estop_link` is now a child of `adapter_plate_link` (was `lift_column_base_link`, on the static profile rear face facing rearward). New datums
+  `second_estop_panel_above_plate` 0.048 and `second_estop_housing_size`; `second_estop_panel_behind_profile` and `second_estop_below_profile_top` are deleted. The three
+  E-stop part sizes are unchanged; their axis convention now says x is up. Geometry only, no safety logic.
+- **Lift stop sensors on the rear face of the static column** (owner correction A6): sensor axes along y, 28 mm behind the rear face (x -0.148), centred in y, sensing faces
+  toward +y (y 0.024); the bracket's face leg on the rear face. The flag rod sits behind them (x -0.183 to -0.163, y 0.028 to 0.048, 9 mm clear of the face discs) under the
+  plate's extension, the flag (now 45 fore-aft x 2 across x 20) on the rod's side face, 2 mm off the faces. New datums `lift_stop_sensor_axis_behind_rear_face` 0.028 and
+  `lift_flag_rod_clearance` 0.009; deleted `lift_stop_sensor_face_x`, `lift_stop_sensor_axis_from_face`, `lift_sensor_bracket_sensor_leg_from_back`,
+  `lift_flag_offset_from_face`, `lift_flag_rod_offset_from_face`. The corner bracket the docs model draws is not modelled (LIFT-JSON `corner_x`, not exported).
+- **Docs-model fixture refreshed** (`test/fixtures/docs_model_item24.json`, `merged: false`, base `8d743e2`); `tools/export_docs_model_values.py` exports the new
+  CHEST-JSON and LIFT-JSON keys and equals the local model.js (`--model-js`: equal). Frame contract, READMEs and the tests that pinned the old values updated.
+- **Collision matrix re-derived** (`scripts/derive_acm.py --write`, ROS 2 Jazzy with moveit_py, after the review on #48): 194 disabled pairs (20 upstream +
+  29 `Adjacent` + 145 `ConstantTransform`), was 198. The second E-stop's pairs with the base, wheels, castors, LiDAR, camera, column base and stop sensors are gone (it
+  rides the lift now, so they are checked); its pairs with the adapter plate (`Adjacent`), arm profile, carriage, tablet, head light, head camera and bracket, flag rod,
+  flag and both arm base links are new (`ConstantTransform`). `test_acm_derive.py` and `test_m03_acm_sampling.py` expect 194 / 145.
+- **Upper-body masses from the roadmap model, every part once on the link where it sits** (owner decisions 8 Nov 2026, P-03 rev20.5 item 29 and rev20.6 item 30 A6):
+  `config/roadmap_mass_export.yaml` is a verbatim copy of openamrobot-docs `mass_export.yaml`, pinned by commit and SHA-256 in `config/roadmap_mass_export.source.yaml`.
+  New `urdf/roadmap_inertial.xacro`: every upper-body link with mass reads its inertial from the export: `lift_column_base_link` 9.10 kg (static DOLD share 8.89 kg of the
+  catalogue 11.7 kg, stop sensors, brackets, lift node), `lift_carriage_link` 6.72 kg (moving DOLD share 2.81 kg, adapter plate set, arm profile, Getac mount, second E-stop,
+  flag rod and flag), `getac_tablet_link`, `head_light_link`, `head_camera_link` (ZED Mini with its mount) and the two wrist camera links. The arm links keep the upstream
+  masses (the ARM-001 line). New xacro arg `roadmap_masses` (default `true`; `false` gives the datum inertials, kept for the datum tests and the TL3 fallback).
+  `test/test_roadmap_masses.py` checks the expanded URDF link by link against the export, the pin, and that nothing is counted twice; the T10, S4, item 24 and T12 tests
+  follow. `mass_provenance.yaml` says where each mass is. Design values, not weighed.
+
 ### Fixed (P29, 28 Oct 2026; test-only, one race and two false lines)
 
 - **The AUX race in `test_zz_a_reading_beyond_the_epsilon_is_not_hidden` (P28 A7 run 2: 42 != 41).** Root cause: the test compared `activations` read **before** switching the injected value to -1e-3 with

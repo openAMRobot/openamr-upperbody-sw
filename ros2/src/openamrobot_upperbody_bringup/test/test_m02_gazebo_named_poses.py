@@ -141,5 +141,5 @@ class TestProcessesAlive(unittest.TestCase):
 @launch_testing.post_shutdown_test()
 @unittest.skipUnless(A7_ENABLED, SKIP_REASON)  # tracking: openAMRobot/openamr-upperbody-sw#16
 class TestShutdown(unittest.TestCase):
-    def test_m02_processes_started_and_exited_cleanly(self, proc_info):
-        stack_healthy(proc_info, expected=EXPECTED_PROCESSES, simulator=True, sidecar=("M02", f"gazebo_{LIFT_STOP}"))
+    def test_m02_processes_started_and_exited_cleanly(self, proc_info, proc_output):
+        stack_healthy(proc_info, expected=EXPECTED_PROCESSES, simulator=True, sidecar=("M02", f"gazebo_{LIFT_STOP}"), proc_output=proc_output)
