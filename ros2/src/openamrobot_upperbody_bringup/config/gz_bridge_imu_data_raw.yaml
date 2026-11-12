@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# The real robot publishes the base IMU on /imu/data_raw (decision D-10: the EKF's imu0 is /imu/data_raw). platform-sw's gz_bridge.yaml
+# bridges the simulated IMU as /imu. This second bridge puts the same gz topic on the real name, so a consumer written for the robot
+# runs unchanged in the simulator. Remove it when platform-sw's bridge uses the real name (see docs/sim_smoke/2026-11-09.md).
+- ros_topic_name: "imu/data_raw"
+  gz_topic_name: "imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
