@@ -21,7 +21,8 @@ groups:
     source: "platform-sw's CAD export: the inertials of openamrobot_description's urdf, included unchanged"
     owner: platform-sw
     note: "Not verified by us, and not a datum (ADR-005: the base is platform-sw's). W01: KDL drops base_link's own inertia."
-    # Platform pin (upstream_pins.yaml openamr_platform_sw) is the merge commit of platform-sw #126 (713574f, 10 Nov 2026), whose base links
+    # Platform pin (upstream_pins.yaml openamr_platform_sw) is platform-sw main 8e7a454 (merge of platform-sw #93, 13 Nov 2026: ToF cliff pitch
+    # 10 deg). The base inertials are unchanged since the merge commit of platform-sw #126 (713574f, 10 Nov 2026), whose base links
     # carry the reviewed roadmap export (openamrobot-docs main ff8ca57): base_link 49.948 kg, complete base 58.163 kg. The hub motor inertial
     # there is a provisional approximation (owner decision 10 Nov 2026), valid for integration, not for dynamics acceptance.
   lift:
