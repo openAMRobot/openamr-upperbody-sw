@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (14 Nov 2026; night-shift actuator-ledger, proposal)
+
+- **Actuator and electrical ledger** `config/actuator_ledger.yaml` with `config/actuator_ledger.schema.json`: one entry per actuator or bus
+  node (2 x ZLLG80ASM250-L-B hub motor, ZLAC8015D V4.2, DOLD Hexalift V4 350, CTL-017 lift node, Daly BMS, and the 8 OpenArm v2.0 motors
+  per arm including the gripper). Every value carries unit (SI), source, status and owner; unknown values are null with status `unknown` and
+  a note naming what closes them. Data only: no URDF, xacro, controller, firmware or launch file reads it, and `config_id` does not change.
+- **`test/test_actuator_ledger.py`**: schema validation, provenance of every value, and equality of the ledger's arm and lift limits with the
+  expanded combined URDF. Not yet registered in `CMakeLists.txt` (outside this package's paths), so `colcon test` does not run it yet; run it
+  with `python3 -m pytest test/test_actuator_ledger.py`.
+
 ### Changed (10 Nov 2026; P-03 rev20.6 item 30, upperbody-sw #48 follow-up)
 
 - **Lift fixing text: 260 x 30 mm foot tab holes, not 224 x 40 mm** (P-03 item 30 A3, decisions D-20 and D-21, superseding item 28). The lift is fixed to the
