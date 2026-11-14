@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
 # Actuator and electrical ledger for the combined OpenAMRobot 2.0 + OpenArm v2.0 model (proposal).
 #
 # One entry per actuator or bus node. Every quantity is {value, unit, source, status, owner, note?}.
@@ -20,18 +20,18 @@ actuators:
   description: 'Left drive wheel: hub servo motor with encoder and fail-safe brake, driven by the ZLAC8015D'
   urdf_joint: left_wheel_joint
   part:
-    value: ZLTECH ZLLG80ASM250-L-B (double-shaft brake version, 200 mm wheel)
+    value: ZLTECH ZLLG80ASM250-L-B2 (double shaft, integrated brake, 1024-line encoder, 200 mm wheel)
     unit: null
-    source: BOM Issue 7.15 row DRV-001; P-03 item 21; register DRIVETRAIN
+    source: BOM Issue 7.15 row DRV-001; platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
     status: datasheet
     owner: Evans
   revision:
-    value: null
+    value: V1.01 (drawing dated 2026-10-09)
     unit: null
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: Exact brake-equipped drawing revision not filed (BOM DRV-001, open gate Q-02).
+    note: Selected 2.0 drivetrain part per the platform-hw readme.
   bus:
     value: CAN1 (through the ZLAC8015D, not a bus node itself)
     unit: null
@@ -59,61 +59,55 @@ actuators:
     status: proposed
     owner: Evans
   gear_ratio:
-    value: null
+    value: 1.0
     unit: '1'
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'Not stated in any input. Do not assume direct drive. TODO(Evans): ZLTECH drawing.'
+    note: 'Hub motor: the tyre is on the motor. The drawing gives speeds at the wheel.'
   rated_torque:
-    value: null
+    value: 5.5
     unit: N*m
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet torque-speed curve at 24 V (F2A evidence).'
   peak_torque:
-    value: null
+    value: 16.0
     unit: N*m
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   rated_speed:
-    value: null
+    value: 20.944
     unit: rad/s
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md (200 rpm)
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   max_speed:
-    value: null
+    value: 27.227
     unit: rad/s
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md (260 rpm peak)
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet. The robot limit is the 0.5 m/s speed ceiling, see zlac8015d.'
+    note: The robot limit is the 0.5 m/s speed ceiling, see zlac8015d.
   rated_current:
-    value: null
+    value: 6.5
     unit: A
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   peak_current:
-    value: null
+    value: 19.0
     unit: A
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   rated_voltage:
-    value: null
+    value: 24.0
     unit: V
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: Motor winding rating not in any input; only the brake coil is rated (24 V).
   supply_bus_voltage_nominal:
     value: null
     unit: null
@@ -230,18 +224,18 @@ actuators:
   description: 'Right drive wheel: hub servo motor with encoder and fail-safe brake, driven by the ZLAC8015D'
   urdf_joint: right_wheel_joint
   part:
-    value: ZLTECH ZLLG80ASM250-L-B (double-shaft brake version, 200 mm wheel)
+    value: ZLTECH ZLLG80ASM250-L-B2 (double shaft, integrated brake, 1024-line encoder, 200 mm wheel)
     unit: null
-    source: BOM Issue 7.15 row DRV-001; P-03 item 21; register DRIVETRAIN
+    source: BOM Issue 7.15 row DRV-001; platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
     status: datasheet
     owner: Evans
   revision:
-    value: null
+    value: V1.01 (drawing dated 2026-10-09)
     unit: null
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: Exact brake-equipped drawing revision not filed (BOM DRV-001, open gate Q-02).
+    note: Selected 2.0 drivetrain part per the platform-hw readme.
   bus:
     value: CAN1 (through the ZLAC8015D, not a bus node itself)
     unit: null
@@ -269,61 +263,55 @@ actuators:
     status: proposed
     owner: Evans
   gear_ratio:
-    value: null
+    value: 1.0
     unit: '1'
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'Not stated in any input. Do not assume direct drive. TODO(Evans): ZLTECH drawing.'
+    note: 'Hub motor: the tyre is on the motor. The drawing gives speeds at the wheel.'
   rated_torque:
-    value: null
+    value: 5.5
     unit: N*m
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet torque-speed curve at 24 V (F2A evidence).'
   peak_torque:
-    value: null
+    value: 16.0
     unit: N*m
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   rated_speed:
-    value: null
+    value: 20.944
     unit: rad/s
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md (200 rpm)
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   max_speed:
-    value: null
+    value: 27.227
     unit: rad/s
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md (260 rpm peak)
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet. The robot limit is the 0.5 m/s speed ceiling, see zlac8015d.'
+    note: The robot limit is the 0.5 m/s speed ceiling, see zlac8015d.
   rated_current:
-    value: null
+    value: 6.5
     unit: A
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   peak_current:
-    value: null
+    value: 19.0
     unit: A
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: 'TODO(Evans): ZLTECH datasheet.'
   rated_voltage:
-    value: null
+    value: 24.0
     unit: V
-    source: null
-    status: unknown
+    source: platform-hw @8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250 ZLLG80ASM250-L-B2 V1.01 double-shaft drawing (dated 2026-10-09) and readme.md
+    status: datasheet
     owner: Evans
-    note: Motor winding rating not in any input; only the brake coil is rated (24 V).
   supply_bus_voltage_nominal:
     value: null
     unit: null
