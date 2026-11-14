@@ -5,6 +5,14 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (14 Nov 2026; platform pin to platform-sw main 8e7a454)
+
+- **Platform pin `713574f` -> `8e7a454`** (`config/upstream_pins.yaml`, README checkout line): the merge of platform-sw #93, decision NEAR-FIELD-FRAMES
+  (P-03 rev19.7 item 19 D6, register 20 Oct 2026). The only model change is the TF-Luna cliff sensor pitch, `tof_front` and `tof_rear` 20 -> 10 deg down
+  (`sensor_frames.yaml`, `sensors.xacro`). Neither link has collision geometry or an inertial, so the collision matrix (180 pairs), the masses and the
+  `roadmap_mass_export.yaml` copy are unchanged. The other platform-sw commit in the range (#121) changes tests only. Datums revision unchanged.
+  A6 and A7 rerun on this pin; the evidence report records platform-sw `8e7a454`. Register PLATFORM-PIN follows this pin once it is merged.
+
 ### Changed (10 Nov 2026; P-03 rev20.6 item 30, upperbody-sw #48 follow-up)
 
 - **Lift fixing text: 260 x 30 mm foot tab holes, not 224 x 40 mm** (P-03 item 30 A3, decisions D-20 and D-21, superseding item 28). The lift is fixed to the

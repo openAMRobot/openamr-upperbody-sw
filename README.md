@@ -46,7 +46,7 @@ mkdir -p ~/openamr_ws/src/upstream
 cd ~/openamr_ws/src
 git clone https://github.com/openAMRobot/openamr-upperbody-sw.git
 git clone https://github.com/openAMRobot/openamr-platform-sw.git
-git -C openamr-platform-sw checkout 713574fd2a5a9e38cde6b07c5b96ac4f380b3402
+git -C openamr-platform-sw checkout 8e7a45428d06b015cdf488ca8e182c450039afbc
 git clone https://github.com/enactic/openarm_description.git upstream/openarm_description
 git -C upstream/openarm_description checkout 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
 git clone https://github.com/enactic/openarm_ros2.git upstream/openarm_ros2
