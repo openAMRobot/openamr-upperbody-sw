@@ -5,6 +5,47 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (15 Nov 2026; Build 1 scene: the whole robot in one Gazebo world on five virtual CAN buses)
+
+Base: main `b15bcb6`, with the head `6fe5e9c` of the open pull request #66 merged in by an explicit merge commit. Other inputs, not
+merged: openamr-platform-sw main `0741778`, the package `openamrobot_sil` of its open #141 (`8bc5d1a`, contains #139 `4a44f7d`), the form of
+one sensor block of its open #105 (`acc427d`), audits `audit/2026-09-28` at `be17653`. Simulation only: no hardware, no safety function.
+
+- **New package `openamrobot_build1_scene`.** One launch, `build1.launch.py`, for the full combined model in one Gazebo Harmonic world:
+  floor, an aisle with shelves, a work shelf, the AprilTag dock at a fixed pose, a tote, an item, a payload and obstacles. The world, the
+  Nav2 map and the MoveIt collision objects come from one file, `config/scene.yaml`, where every number is sourced, derived or estimated.
+  The Use Case 1 baseline gives the shelf heights, the work span and the parking distance. It gives no aisle, shelf or tote size and no floor
+  friction: those are estimated.
+- **Run profiles of the phase 1 baseline.** `firmware_sil` (default) and `faults`: ZLAC8015D, Daly BMS and CTL-017 emulators of
+  `openamrobot_sil` on `vcan_drive`, `vcan_bms` and `vcan_aux`, the arm motor emulators and the unmodified upstream driver on `vcan_arm_l`
+  and `vcan_arm_r` (CAN FD), with the host test client or `stm32:=renode_readonly`. `fast` and `fine`: no device, position controllers
+  and the base DiffDrive plugin. `geometry` is refused: it has no physics. Physics steps 1 ms and 1/1500 s.
+- **One dynamics owner and one command path per joint and per profile.** Gazebo owns the dynamics. The map is `config/command_map.yaml`
+  and the package README. `single_writer_check.py` checks the running system: `/tf` frames, `/odom`, `/joint_states`, every command
+  topic, action servers, claimed command interfaces and the Gazebo command topics.
+- **Conflicts of the phase 1 single-writer map, inside this scene.** SW-01: the docking nodes are not started, `collision_monitor` is the
+  one writer of `/cmd_vel`. SW-03: in the device profiles the DiffDrive plugin is taken out of the plant model and
+  `wheel_command_adapter.py` applies the drive emulator's demand per wheel. SW-06: the lift leaves `ros2_control` in the device profiles and
+  moves through CTL-017 only. SW-08: `base_state_adapter.py` writes `/odom`, `odom` to `base_footprint` and the base and lift joint
+  states from what came over the buses. SW-09: `finger_joint2` is owned by the engine's mimic constraint or by
+  `finger_mimic_follower.py`, never both. SW-10: one frame chain, the model's. Each has a test. Nothing in openamr-platform-sw is edited.
+- **Sensors.** The wrapper `urdf/build1_robot.urdf.xacro` adds Gazebo sensors on frames the description already has: base and head
+  RGB-D, two wrist cameras, all with optical frames. Their parameters are unverified. No link, joint, limit or mass is changed.
+- **Nav2 and MoveIt 2.** The platform's Nav2 launch files and parameters, a footprint that follows the floor projection of the arms
+  (`footprint_publisher.py`), MoveIt for both arms with the scene objects (`planning_scene_loader.py`), one RViz configuration and a checklist.
+- **Scenarios.** Fourteen headless launch tests with a quantitative log each: drive 2 m and turn 90 degrees against ground truth, lift at
+  three heights with and without permit, both arms to a shelf pose at two lift heights, grasp of a tote item, bus loss on each bus, stale
+  sensors, cancel and resume, arm power cut while holding, the single-writer check, and real-time factor, controller rates and missed
+  updates per profile. Fault cases record what the stack does today next to a simulation-only reference, labelled expected behaviour and
+  not certified safety behaviour. Limits are in Gazebo time. A slow machine gives BLOCKED where a host-clock device rule cannot hold.
+- **CAN FD.** `setup_vcan_all.sh` sets MTU 72 on the arm buses or says BLOCKED. `test_canfd_vcan.py` checks FD frames on the wire.
+- **Replay hook.** `replay_<bus>:=<candump file>` plays a trace into a bus in place of its emulator (`can_replay.py`).
+  `test_replay_vcan.py` uses two short synthetic traces.
+- **CI.** `.github/workflows/build1-scene-tests.yml`, ubuntu-24.04, Jazzy, vcan by modprobe. BLOCKED is counted apart and fails the job.
+- **Finding.** With the pinned models DART drives the base correctly and its grippers do not move in `fast` and `fine`. Bullet Featherstone
+  moves the grippers and the base does not turn. DART is the default of the scene. `docs/build1_scene.md` has the numbers.
+- **Docs.** `docs/build1_scene.md`: what is modelled, assumed and not modelled.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,

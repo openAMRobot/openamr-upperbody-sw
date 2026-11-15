@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: MIT
+# The Build 1 scene. One file is the source of the Gazebo world, the Nav2 map, the MoveIt collision objects
+# and the scenario stations. generate_world.py, the launch file and the tests read it.
+#
+# Every number has a status:
+#   sourced    a document states the value. `source` names the document and the item.
+#   derived    computed from sourced values. `source` says how.
+#   estimated  no document in scope states it. It is a working value for simulation only.
+# Simulation input only. Nothing here is a measurement of a site or of a built robot.
+schema_version: 1
+world_name: build1
+
+sources:
+  UC1: "Use Case 1 Requirements Baseline rev18.6 (8 Nov 2026), read in audits audit/2026-09-28 at 6b13302"
+  M-01: "M-01 Mechanical CAD Design Work Package rev19.10, read in audits audit/2026-09-28 at 6b13302"
+  E-01: "E-01 Safety and Power Distribution Baseline rev1.8, read in audits audit/2026-09-28 at 6b13302"
+  PLATFORM: "openamr-platform-sw main 0741778 (openamrobot_description, openamrobot_docking, openamrobot_nav2)"
+
+# The baseline states work heights, the robot envelope and a parking distance.
+# It states no aisle width, no shelf depth, no tote size and no floor friction. Those are estimated here.
+robot_envelope:
+  width: {value: 0.65, unit: m, status: sourced, source: "UC1 item UC1-05, width limit"}
+  depth: {value: 0.80, unit: m, status: sourced, source: "UC1 item UC1-05, depth limit"}
+  chassis: {value: [0.780, 0.582], unit: m, status: sourced, source: "M-01, steel chassis 780 x 582 mm"}
+
+floor:
+  size: {value: [14.0, 10.0], unit: m, status: estimated, source: "room for the stations below"}
+  friction:
+    mu: {value: 0.8, unit: "1", status: estimated,
+         source: "no measured coefficient exists. UC1 item UC1-09 states a level indoor floor only"}
+    note: "The wheel coefficients come from PLATFORM (#135) and are simulation estimates too."
+
+aisle:
+  width: {value: 1.50, unit: m, status: estimated,
+          source: "not in UC1. Chosen as the 0.65 m envelope width plus 0.425 m free on each side"}
+  length: {value: 3.60, unit: m, status: estimated, source: "three shelf units of 1.20 m"}
+  centre: [3.0, 2.5, 0.0]     # x, y, yaw of the aisle centre line start. The aisle runs along +x.
+
+shelf:
+  unit_length: {value: 1.20, unit: m, status: estimated, source: "not in UC1"}
+  depth: {value: 0.40, unit: m, status: estimated, source: "not in UC1"}
+  board_thickness: {value: 0.02, unit: m, status: estimated, source: "not in UC1"}
+  post: {value: 0.04, unit: m, status: estimated, source: "not in UC1"}
+  levels:
+    - {value: 0.82, unit: m, status: sourced, source: "UC1 site heights table, 82 cm surface"}
+    - {value: 1.09, unit: m, status: sourced, source: "UC1 site heights table, 109 cm surface"}
+  work_span: {value: [0.65, 1.40], unit: m, status: sourced, source: "UC1, arm work span about 65 to 140 cm"}
+  units_per_side: 3
+
+# One shelf unit stands alone in the open area. The arm and grasp scenarios use it.
+work_shelf:
+  pose: [0.0, -3.0, 0.0]       # x, y, yaw of the unit centre. Its front face looks along +y.
+  parking_gap: {value: 0.30, unit: m, status: sourced, source: "UC1, the robot parks about 30 cm away"}
+
+dock:
+  model_uri: "model://apriltag_dock"
+  pose: {value: [6.5, 0.0, 0.30, 0.0, 0.0, 3.14159], status: estimated,
+         source: "fixed for repeatability. Height 0.30 m as in PLATFORM walled_world.sdf"}
+  tag: {family: 36h11, ids: [0, 1, 2], size: 0.16, status: sourced,
+        source: "PLATFORM openamrobot_docking simulation tag size. The real tag size is a placeholder there"}
+
+tote:
+  size: {value: [0.40, 0.30, 0.06], unit: m, status: estimated,
+         source: "not in UC1. 400 x 300 mm footprint, low wall so that a side grasp clears it"}
+  wall: {value: 0.005, unit: m, status: estimated, source: "not in UC1"}
+  mass: {value: 0.6, unit: kg, status: estimated, source: "not in UC1"}
+  level: 0                     # stands on work shelf level 0 (0.82 m)
+  offset: [0.0, 0.04]          # along the shelf, and inward from the shelf front edge
+
+item:
+  size: {value: [0.035, 0.035, 0.14], unit: m, status: estimated,
+         source: "not in UC1. Narrower than the open finger gap of the model"}
+  mass: {value: 0.15, unit: kg, status: estimated, source: "not in UC1. UC1 item UC1-19 allows at most 1 kg per gripper"}
+  friction: {value: 1.0, unit: "1", status: estimated, source: "not measured"}
+  offset: [-0.16, 0.045]       # in the tote: along the shelf from the tote centre, and inward from the tote front wall
+
+payload:
+  size: {value: [0.20, 0.15, 0.10], unit: m, status: estimated, source: "not in UC1"}
+  mass: {value: 1.0, unit: kg, status: sourced, source: "UC1 item UC1-19, at most 1 kg per gripper in the carry pose"}
+  level: 1                     # stands on work shelf level 1 (1.09 m)
+
+obstacles:
+  - {name: obstacle_box_a, shape: box, size: [0.40, 0.40, 0.50], pose: [2.5, -1.5, 0.3], status: estimated}
+  - {name: obstacle_box_b, shape: box, size: [0.60, 0.30, 0.30], pose: [4.5, 0.8, 0.0], status: estimated}
+  - {name: obstacle_post, shape: cylinder, radius: 0.10, height: 1.00, pose: [1.5, 1.2, 0.0], status: estimated}
+
+# Where the robot is spawned. `origin` has 3 m of free floor ahead of it.
+stations:
+  origin: {pose: [0.0, 0.0, 0.0], note: "open floor, drive and lift scenarios"}
+  work_shelf: {derived_from: work_shelf, note: "front of the footprint parking_gap from the shelf front"}
+  aisle_entry: {pose: [2.2, 2.5, 0.0], note: "at the mouth of the aisle"}
+
+physics_profiles:
+  fine: {max_step_size: 0.00066667, real_time_factor: 1.0, default: true,
+         source: "1/1500 s, the step of openamr-upperbody-sw #66 worlds/empty.sdf"}
+  fast: {max_step_size: 0.001, real_time_factor: 1.0,
+         source: "1 ms, the step of the two software-in-the-loop worlds"}
+
+map:
+  resolution: {value: 0.05, unit: m, status: derived, source: "PLATFORM nav2_params.yaml costmap resolution"}
+  margin: 1.0
