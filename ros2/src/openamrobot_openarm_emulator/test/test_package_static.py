@@ -114,6 +114,42 @@ def test_launch_arguments_reach_the_simulator_side_controller_file(sil_launch):
     assert left["timing"]["model"] is False and right["timing"]["model"] is False
 
 
+def test_the_launch_expands_the_simulated_model_without_the_simulator_dynamics_profile():
+    """Effort-driven joints on 1 ms steps: the profile's joint damping is stepped explicitly and is unstable without the rotor inertia
+    (README, "Damping and the physics step"). The launch must ask for sim_dynamics off, and with it the model has no <dynamics> on an
+    OpenArm joint. The numbers behind it are recomputed from the profile and the model."""
+    with open(os.path.join(PACKAGE, "launch", "sil.launch.py")) as f:
+        source = f.read()
+    assert re.search(r'hardware_profile="gazebo",\s*sim_dynamics="off"', source), "sil.launch.py no longer switches the profile off"
+    try:
+        import xacro
+        from ament_index_python.packages import get_package_share_directory
+        description = get_package_share_directory("openamrobot_upperbody_description")
+        get_package_share_directory("openarm_description")
+        get_package_share_directory("openamrobot_description")
+    except Exception as error:      # noqa: BLE001
+        pytest.skip(f"description packages are not installed: {error}")
+    combined = os.path.join(description, "urdf", "combined_robot.xacro")
+    off = xacro.process_file(combined, mappings={"hardware_profile": "gazebo", "sim_dynamics": "off"}).documentElement
+    on = xacro.process_file(combined, mappings={"hardware_profile": "gazebo"}).documentElement
+
+    def openarm_dynamics(root):
+        return [j.getAttribute("name") for j in root.getElementsByTagName("joint")
+                if j.getAttribute("name").startswith("openarm_") and j.getElementsByTagName("dynamics")]
+    assert openarm_dynamics(off) == [] and len(openarm_dynamics(on)) == 18
+    with open(os.path.join(description, "config", "sim_dynamics", "openarm_v2.yaml")) as f:
+        profile = yaml.safe_load(f)
+    with open(os.path.join(PACKAGE, "config", "sim_controllers.yaml")) as f:
+        inertias = yaml.safe_load(f)["/**/left_arm_emulator"]["ros__parameters"]["damping_inertia"]
+    joints = [f"openarm_left_joint{i}" for i in range(1, 8)] + ["openarm_left_finger_joint1"]
+    step = 0.001
+    explicit = [profile["joints"][j]["damping"]["value"] * step / inertia for j, inertia in zip(joints, inertias)]
+    with_rotor = [profile["joints"][j]["damping"]["value"] * step / (inertia + profile["joints"][j]["armature"]["value"])
+                  for j, inertia in zip(joints, inertias)]
+    assert max(explicit) > 2.0, "the profile's damping would now be stable on 1 ms steps: the launch could use it"
+    assert max(with_rotor) < 2.0, "with the reflected rotor inertia the same damping is stable"
+
+
 def test_setup_vcan_script_reports_blocked_or_creates(tmp_path):
     """The script either brings an interface up and says whether it carries CAN FD, or says BLOCKED and exits 3. Whichever
     this machine allows is accepted here; the hosted CI job requires the first (its workflow fails on BLOCKED)."""

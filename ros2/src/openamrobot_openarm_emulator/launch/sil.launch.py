@@ -7,7 +7,7 @@ What it starts, in this order of dependence
   setup_vcan.sh          creates vcan_arm_l and vcan_arm_r, with CAN FD (MTU 72) where the kernel allows, and reports it
   gz sim                 this package's world (1 ms physics, real time, no sensor rendering)
   /sim side: the plant
-    robot_state_publisher   the combined model at hardware_profile:=gazebo, unchanged
+    robot_state_publisher   the combined model at hardware_profile:=gazebo with sim_dynamics:=off (no joint damping or friction)
     ros_gz_sim create       spawns it; its gz_ros2_control plugin starts a controller manager at /sim/controller_manager
     spawners                joint_state_broadcaster (/sim/joint_states: what the physics does), lift_controller, and the two
                             emulators left_arm_emulator and right_arm_emulator, each on its own interface
@@ -176,8 +176,13 @@ def launch_setup(context):
     handle, controllers_file = tempfile.mkstemp(prefix="openarm_sil_controllers_", suffix=".yaml")
     with os.fdopen(handle, "w") as f:
         yaml.safe_dump(controllers, f)
+    # sim_dynamics off: the gazebo profile's joint damping (config/sim_dynamics/openarm_v2.yaml) is not used here. This launch drives
+    # the joints by effort on 1 ms steps, and the physics steps joint damping explicitly: damping times the step over the link inertia
+    # about the joint is 0.35 to 6.6 for these joints (above 2 on four of the eight), and an explicit step is only stable below 2 (README, "Damping and the physics
+    # step"). The upstream values assume the reflected rotor inertia, which URDF cannot carry. With them on, the CI run of this
+    # launch had an arm that should hold still swinging by more than 1 rad. The position-servo simulation is not affected.
     sim_urdf = sim_description(xacro(os.path.join(description_share, "urdf", "combined_robot.xacro"),
-                                     hardware_profile="gazebo", controllers_file=controllers_file))
+                                     hardware_profile="gazebo", sim_dynamics="off", controllers_file=controllers_file))
     real_urdf = xacro(os.path.join(share, "urdf", "openarm_sil_real.urdf.xacro"), hardware_profile="real",
                       left_can_interface=left_can, right_can_interface=right_can, can_fd="true" if can_fd else "false")
 

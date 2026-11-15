@@ -43,6 +43,10 @@ if(BUILD_TESTING)
   ament_add_pytest_test(t15_ros2_control_gazebo test/test_t15_ros2_control_gazebo.py TIMEOUT 600)
   ament_add_pytest_test(t15_finger_mimic_multiplier test/test_t15_finger_mimic_multiplier.py TIMEOUT 600)
   ament_add_pytest_test(t16_ros2_control_real test/test_t16_ros2_control_real.py TIMEOUT 600)
+  # simulator dynamics profile (config/sim_dynamics/openarm_v2.yaml): schema, a source for every value, the pins, the joint list
+  ament_add_pytest_test(sim_dynamics_profile test/test_sim_dynamics_profile.py TIMEOUT 600)
+  # the expansion: <dynamics> on all 16 arm and gripper joints of the simulated model, none in the real profile, nothing else moved
+  ament_add_pytest_test(sim_dynamics_urdf test/test_sim_dynamics_urdf.py TIMEOUT 600)
   ament_add_pytest_test(t04_frame_contract test/test_t04_frame_contract.py TIMEOUT 600)
   # The combined robot IS option B's upper body plus the composition: every frame at the same pose, the rev19.0 numbers.
   ament_add_pytest_test(t04_optb_composition test/test_t04_optb_composition.py TIMEOUT 600)

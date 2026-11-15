@@ -189,21 +189,23 @@
     </group_state>
 
     <!-- Gripper states, one value PER HAND, never one number for both (ADR-009 point 5). The two hands take opposite-signed
-         GripperCommand positions, upstream's convention: left finger_joint1 range [0, 0.7854], right [-0.7854, 0]. `open` is the
-         end both ranges share (0). `closed` is the FAR END of each hand's own range, read from the URDF limits: not a grasp
-         aperture, and not a statement about what the gripper closes on. A single "close" value would be outside the right
-         hand's range (or the left hand's) without any error at the point it is written; test_gripper_sign.py is what catches it. -->
+         GripperCommand positions, upstream's convention: left finger_joint1 range [0, 0.7854], right [-0.7854, 0]. `closed` is the
+         end both ranges share (0): the gripper motor's zero is the closed hand (upstream docs, driver and MuJoCo model; in this URDF
+         the fingertips are 0.1 mm apart at 0 and 139 mm apart at the far end). `open` is the FAR END of each hand's own range, read
+         from the URDF limits: fully open, not a grasp aperture. A single "open" value would be outside the right hand's range (or
+         the left hand's) without any error at the point it is written; test_gripper_sign.py is what catches it.
+         Until 14 Nov 2026 the two names were the other way round (`open` 0, `closed` at the far end): a `closed` command opened the hand. -->
     <group_state name="open" group="left_gripper">
-        <joint name="openarm_left_finger_joint1" value="0"/>
-    </group_state>
-    <group_state name="closed" group="left_gripper">
         <joint name="openarm_left_finger_joint1" value="0.7854"/>
     </group_state>
+    <group_state name="closed" group="left_gripper">
+        <joint name="openarm_left_finger_joint1" value="0"/>
+    </group_state>
     <group_state name="open" group="right_gripper">
-        <joint name="openarm_right_finger_joint1" value="0"/>
+        <joint name="openarm_right_finger_joint1" value="-0.7854"/>
     </group_state>
     <group_state name="closed" group="right_gripper">
-        <joint name="openarm_right_finger_joint1" value="-0.7854"/>
+        <joint name="openarm_right_finger_joint1" value="0"/>
     </group_state>
 
     <!-- ===== 3. Derived: self-collision matrix (README, "The SRDF") ================================================= -->

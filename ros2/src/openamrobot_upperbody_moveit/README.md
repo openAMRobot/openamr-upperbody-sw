@@ -93,8 +93,8 @@ prismatic joint between two links removes them from what a fixed transform certi
 | `left_arm`, `right_arm` | `hands_up` | joint 4 = 1.5 rad, the rest 0 | upstream's, imported |
 | `left_arm`, `right_arm`, `both_arms` | `park` | **`home` with joint 4 = 0.1 rad** | **placeholder**: `home` moved off joint 4's lower limit (issue #17), until Adnan's safe-pose definition lands under the manipulation action contract. It was deliberately given no safer-looking shape: a placeholder that looks deliberate gets trusted |
 | `lift` | `L1000` / `L1175` / `L1350` | 0 / 0.175 / 0.350 m | ours (issue #17); the calibration stops (register ARM-MOUNT, CONFIG-IDS); `L1000` and `L1350` are the ends of the stroke |
-| `left_gripper` | `open` / `closed` | 0 / **+0.7854** | ours; `closed` is the far end of the left finger's own URDF range |
-| `right_gripper` | `open` / `closed` | 0 / **-0.7854** | ours; `closed` is the far end of the right finger's own URDF range |
+| `left_gripper` | `open` / `closed` | **+0.7854** / 0 | ours; `open` is the far end of the left finger's own URDF range, `closed` is 0 |
+| `right_gripper` | `open` / `closed` | **-0.7854** / 0 | ours; `open` is the far end of the right finger's own URDF range, `closed` is 0 |
 
 `home` has `openarm_*_joint4 = 0`, which is exactly that joint's lower limit. See "Known limitations".
 
@@ -106,12 +106,21 @@ them changes those checks, which is not this package's to decide.
 
 ### The two grippers take opposite-signed commands (ADR-009 point 5)
 
-`GripperCommand` positions are `[0, 0.7854]` on the left hand and `[-0.7854, 0]` on the right. A "close the gripper" written as one
+`GripperCommand` positions are `[0, 0.7854]` on the left hand and `[-0.7854, 0]` on the right. An "open the gripper" written as one
 number is valid for one hand and out of range for the other, and nothing fails where it is written. So the values above are written
-**per hand**, `named_poses.closed_value(side, limits)` derives each hand's value from its own URDF limit, and
+**per hand**, `named_poses.open_value(side, limits)` derives each hand's value from its own URDF limit, and
 `test/test_gripper_sign.py` (check **M05**, adopted 7 Oct) fails the single-number version in both directions, by hand, plus a state that
-is in range but not the far limit, a missing state and an extra joint. The sign is also exercised live: M01 and M02 close and open
+is in range but not the far limit, a missing state and an extra joint. The sign is also exercised live: M01 and M02 open and close
 each hand with its own value through the real controllers.
+
+**Which end is which (corrected 14 Nov 2026).** Zero is the closed hand; the far end of each range is the open hand. Until that date the
+SRDF and M05 had the two names the other way round (`open` 0, `closed` at the far end), so a `closed` command opened the hand, and M05
+passed because it asserted the same convention. The evidence: upstream's docs ("the closed position is used as zero by default"), its
+driver (`openarm_can`: "0=closed, 1=open"), its MuJoCo model (ratio 0 closed, 1 fully open at the range end away from 0), and this
+model's own geometry: the fingertip collision meshes are 0.1 mm apart at 0 and 139 mm apart at the far end. M05 now measures that gap on
+the expanded URDF and fails the swapped names. The motions the tests command are the same as before (to the far end and back to 0);
+only the names changed, so tables below that were measured earlier name the far end `closed`. The motor sign per hand on the real
+gripper is still not documented upstream and needs a bench check.
 
 ## The collision matrix disables only what can be justified (M03)
 

@@ -41,7 +41,7 @@ Args
             platform-sw tuned the base's DiffDrive on, so this launch does not re-baseline someone else's physics).
             DART cannot run this model's grippers: its fingers do not follow position commands and it has no mimic
             constraint, so finger_joint2 never follows finger_joint1. Pass gz-physics-bullet-featherstone-plugin to
-            close the grippers (G02 does). See the package README.
+            move the grippers (G02 does). See the package README.
   rviz      true | false     (default false) RViz2 with the fixed frame `odom`, beside the simulator, for a person
 """
 import json
@@ -324,6 +324,9 @@ def generate_launch_description():
     # The description knows nothing about where a controller config lives (ADR-003); this launch depends on both packages, so it
     # is what hands the controller manager inside the simulator its parameter file, as an absolute path.
     controllers_file = os.path.join(get_package_share_directory(CONTROL), "config", "arm_controllers.yaml")
+    # The simulation overlay, read after it: the upstream controller rate and the gripper max_effort, for the simulation only
+    # (sim_overlay.yaml says where each value comes from). arm_controllers.yaml itself is the same file every profile uses.
+    controllers_overlay_file = os.path.join(get_package_share_directory(CONTROL), "config", "sim_overlay.yaml")
 
     robot_description = ParameterValue(
         Command([
@@ -335,6 +338,7 @@ def generate_launch_description():
             " base_tilt:=", LaunchConfiguration("base_tilt"),
             " hardware_profile:=gazebo",
             " controllers_file:=", controllers_file,
+            " controllers_overlay_file:=", controllers_overlay_file,
         ]),
         value_type=str,
     )
@@ -417,7 +421,7 @@ def generate_launch_description():
         DeclareLaunchArgument("headless", default_value="false",
                               description="true | false. gz sim -s: server only, no Gazebo window"),
         DeclareLaunchArgument("physics_engine", default_value=DEFAULT_PHYSICS_ENGINE,
-                              description="gz-physics plugin; default DART (platform-sw's), which cannot close the grippers: "
+                              description="gz-physics plugin; default DART (platform-sw's), which cannot move the grippers: "
                                           "pass gz-physics-bullet-featherstone-plugin for that (README)"),
         DeclareLaunchArgument("rviz", default_value="false",
                               description="true | false. RViz2 beside the simulator, fixed frame odom"),
