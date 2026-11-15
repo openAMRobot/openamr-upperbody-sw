@@ -179,6 +179,11 @@ kinematics, `config/sim_dynamics/openarm_v2.yaml`, and reach only the simulated 
   therefore runs without reflected rotor inertia. A MuJoCo model built from the MuJoCo-facing URDF must set joint `armature` from the
   profile; no exporter is in this repository yet. The effort and velocity limits in the profile are copies of the URDF's, for
   reference; the URDF keeps its own and the test compares them.
+- **A limit found in CI (15 Nov 2026): position-servo joints only.** In Gazebo the damping is stepped explicitly. Without the rotor
+  inertia, damping times a 1 ms step over the link inertia about the joint is up to 6.6, and an explicit step is only stable below 2.
+  The position interface of `gz_ros2_control` drives the joint by a velocity constraint and is not affected (A7 passes). A joint driven
+  by effort is: the software-in-the-loop launch (`openamrobot_openarm_emulator`) had an arm swinging with the damping on, so it
+  expands the model with `sim_dynamics:=off`. With the armature the same ratio would be at most 0.42.
 - **Where it applies.** `hardware_profile:=gazebo` (by default), and `sim_dynamics:=on` for a MuJoCo-facing URDF. **Never the real
   profile**: `hardware_profile:=real` has no `<dynamics>` on any OpenArm joint and its expansion is the same text as before, and
   `sim_dynamics:=on` with `real` stops the expansion. `mock` has none by default (it has no physics).

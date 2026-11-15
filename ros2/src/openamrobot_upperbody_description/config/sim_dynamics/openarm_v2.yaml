@@ -105,6 +105,11 @@ simulators:
     damping: applied. URDF <dynamics damping> becomes the SDF joint damping.
     friction: applied. URDF <dynamics friction> becomes the SDF joint friction, a constant torque that opposes motion.
     armature: not applied. URDF has no element for rotor inertia and this change adds none to the links. The value is carried for MuJoCo.
+    limit: >-
+      Position-servo joints only (gz_ros2_control position interface, as openamrobot_upperbody_gazebo runs them). For effort-driven
+      joints on 1 ms steps the damping is stepped explicitly and is unstable without the rotor inertia: damping times the step over
+      the link inertia about the joint is up to 6.6, and the limit is 2. The software-in-the-loop launch
+      (openamrobot_openarm_emulator) therefore expands the model with sim_dynamics off.
   mujoco:
     damping: applied. The MuJoCo URDF importer reads <dynamics damping>.
     friction: applied. The MuJoCo URDF importer reads <dynamics friction> as frictionloss.

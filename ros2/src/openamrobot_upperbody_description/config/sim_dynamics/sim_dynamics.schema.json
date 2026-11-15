@@ -227,6 +227,9 @@
         },
         "armature": {
           "$ref": "#/definitions/text"
+        },
+        "limit": {
+          "$ref": "#/definitions/text"
         }
       }
     }
