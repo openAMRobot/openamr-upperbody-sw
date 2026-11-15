@@ -110,6 +110,9 @@ jobs:
       - name: Workspace layout
         working-directory: ws
         run: |
+          # platform main has openamrobot_sil since #139 (69847ab). The #145 pin carries the newer copy; colcon refuses
+          # two packages of one name, so main's copy is ignored and only the pinned one is built.
+          touch src/openamr-platform-sw/ros2/src/openamrobot_sil/COLCON_IGNORE
           ls src src/pins/platform-pr145/ros2/src
           for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr145 src/upstream/*; do
             echo "$d $(git -C "$d" rev-parse HEAD)"
