@@ -5,6 +5,13 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (15 Nov 2026, 23:59 Kyiv; WS0 repin of the Build 1 scene)
+
+Main `37b93f5` (with #66 in its merged form) merged into this branch. Pins moved: openamr-platform-sw main `0741778` to `69847ab`
+(adds #138 sensor profiles and #139 `openamrobot_sil`; Nav2, description and docking unchanged), the `openamrobot_sil` input from
+#141 `8bc5d1a` to #145 `8c5bd52` (provisional; contains #141, the #144 fix for the late SDO reply and main), #65 read-only head to
+`d1515b1`. `test_docs_and_pins.py` checks the new hashes. The scenario results below were taken on the old pins and must be rerun.
+
 ### Added (15 Nov 2026; Build 1 scene: the whole robot in one Gazebo world on five virtual CAN buses)
 
 Base: main `b15bcb6`, with the head `6fe5e9c` of the open pull request #66 merged in by an explicit merge commit. Other inputs, not

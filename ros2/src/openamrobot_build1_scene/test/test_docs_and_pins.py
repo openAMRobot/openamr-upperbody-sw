@@ -27,15 +27,15 @@ def own_text_files():
 
 def test_pins_are_full_hashes_and_say_how_each_input_is_used():
     pins = load_yaml("config", "pins.yaml")["pins"]
-    assert {"upperbody_sw_main", "upperbody_sw_pr66", "upperbody_sw_pr65", "platform_sw_main", "platform_sw_pr141", "platform_sw_pr139",
+    assert {"upperbody_sw_main", "upperbody_sw_pr66", "upperbody_sw_pr65", "platform_sw_main", "platform_sw_pr145", "platform_sw_pr139",
             "platform_sw_pr105", "audits", "openarm_ros2", "openarm_can", "openarm_description"} <= set(pins)
     for name, pin in pins.items():
         assert re.fullmatch(r"[0-9a-f]{40}", pin["sha"]), name
         assert pin["use"].strip(), name
-    assert pins["upperbody_sw_main"]["sha"].startswith("b15bcb6")
-    assert pins["platform_sw_main"]["sha"].startswith("0741778")
-    assert pins["platform_sw_pr141"]["sha"].startswith("8bc5d1a") and pins["platform_sw_pr139"]["sha"].startswith("4a44f7d")
-    assert pins["upperbody_sw_pr66"]["sha"].startswith("6fe5e9c") and pins["upperbody_sw_pr65"]["sha"].startswith("e3b5cb8")
+    assert pins["upperbody_sw_main"]["sha"].startswith("37b93f5")
+    assert pins["platform_sw_main"]["sha"].startswith("69847ab")
+    assert pins["platform_sw_pr145"]["sha"].startswith("8c5bd52") and pins["platform_sw_pr139"]["sha"].startswith("69847ab")
+    assert pins["upperbody_sw_pr66"]["sha"].startswith("6fe5e9c") and pins["upperbody_sw_pr65"]["sha"].startswith("d1515b1")
 
 
 def test_arm_driver_pins_equal_those_of_the_emulator_package():

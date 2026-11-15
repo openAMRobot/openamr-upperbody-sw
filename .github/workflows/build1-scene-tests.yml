@@ -61,7 +61,7 @@ jobs:
           python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
           import re, sys, yaml
           pins = yaml.safe_load(open(sys.argv[1]))["pins"]
-          for key in ("platform_sw_main", "platform_sw_pr141", "openarm_ros2", "openarm_can", "openarm_description"):
+          for key in ("platform_sw_main", "platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
               value = pins[key]["sha"]
               assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
               print(f"{key}={value}")
@@ -76,12 +76,12 @@ jobs:
           path: ws/src/openamr-platform-sw
           persist-credentials: false
 
-      # openamr-platform-sw #141 (open): only the package openamrobot_sil. Nothing else of that head is built.
+      # openamr-platform-sw #145 (open, provisional): only the package openamrobot_sil. Nothing else of that head is built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openAMRobot/openamr-platform-sw
-          ref: ${{ steps.pins.outputs.platform_sw_pr141 }}
-          path: ws/src/pins/platform-pr141
+          ref: ${{ steps.pins.outputs.platform_sw_pr145 }}
+          path: ws/src/pins/platform-pr145
           sparse-checkout: ros2/src/openamrobot_sil
           sparse-checkout-cone-mode: true
           persist-credentials: false
@@ -110,8 +110,8 @@ jobs:
       - name: Workspace layout
         working-directory: ws
         run: |
-          ls src src/pins/platform-pr141/ros2/src
-          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr141 src/upstream/*; do
+          ls src src/pins/platform-pr145/ros2/src
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr145 src/upstream/*; do
             echo "$d $(git -C "$d" rev-parse HEAD)"
           done | tee ../pins.txt
           { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

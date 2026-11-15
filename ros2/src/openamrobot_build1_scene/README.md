@@ -47,11 +47,11 @@ The workspace of the repository README, plus two things. They are the pins of
 
 | Input | Pin | How it is used |
 |---|---|---|
-| openamr-upperbody-sw main | `b15bcb6` | branch point |
+| openamr-upperbody-sw main | `37b93f5` | merged in (branch point `b15bcb6`) |
 | openamr-upperbody-sw #66 (open) | `6fe5e9c` | merged into this branch by an explicit merge commit |
-| openamr-upperbody-sw #65 (open) | `e3b5cb8` | read only, not merged |
-| openamr-platform-sw main | `0741778` | checked out whole: description, Nav2, perception, docking model |
-| openamr-platform-sw #141 (open) | `8bc5d1a` | only `ros2/src/openamrobot_sil`. It contains #139 (`4a44f7d`) |
+| openamr-upperbody-sw #65 (open) | `d1515b1` | read only, not merged |
+| openamr-platform-sw main | `69847ab` | checked out whole (Nav2, description, docking unchanged since `0741778`): description, Nav2, perception, docking model |
+| openamr-platform-sw #145 (open, provisional) | `8c5bd52` | only `ros2/src/openamrobot_sil`. Contains #141, #144 and main (#139 merged as `69847ab`) |
 | openamr-platform-sw #105 (open) | `acc427d` | not checked out. The base RGB-D sensor block follows it |
 | audits `audit/2026-09-28` | `be17653` | Use Case 1 baseline, M-01, E-01, phase 1 baseline |
 | openarm_ros2, openarm_can, openarm_description | as `sil_pins.yaml` | the unmodified upstream driver |
