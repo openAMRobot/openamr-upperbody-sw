@@ -124,6 +124,7 @@ OpenArm 2.0 components come from the official [OpenArm](https://github.com/enact
 - **Bringup:** launch files composing the base, upper body and arm integration from `openamrobot-manipulation`.
 - **Configuration metadata:** selected configuration IDs, model/configuration identity and calibration references.
 - **Lift control integration:** the lift height is joint state of `lift_joint`; the lift driver and its interlocks are owned by the firmware and safety work packages.
+- **OpenArm software in the loop:** `openamrobot_openarm_emulator` runs the unmodified upstream arm driver over Linux virtual CAN against emulated motors whose motion comes from Gazebo, with fault injection. Simulation only, no safety function. See its [README](ros2/src/openamrobot_openarm_emulator/README.md).
 
 ### Current development scope
 1. Combined URDF/Xacro with a correct TF tree, collision geometry and documented mounting transforms.

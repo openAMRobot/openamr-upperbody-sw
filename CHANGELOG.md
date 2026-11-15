@@ -5,6 +5,38 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
+
+- **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,
+  with enactic/openarm_can `bfd4e52`, tag 1.4.1) talks over Linux virtual CAN to emulated Damiao motors. One emulator per arm, each on its own
+  SocketCAN interface (`vcan_arm_l`, `vcan_arm_r`). Design input: the digital-twin audit of 28 Sep 2026 (openAMRobot/audits,
+  `digital-twin/openarm/openarm_interface.md`, section 5). Simulation only. No safety logic. The combined model is not changed.
+- **Frames.** The emulated motors answer enable, disable, set zero, clear error, MIT, position-velocity, velocity and position-force commands,
+  refresh, and parameter read, write and save, with the real state layout (position, velocity, torque, two temperatures, status or error code).
+  The codec is written independently and tested bit for bit against the upstream encoder and decoder.
+- **Motion from Gazebo through ros2_control.** Each emulator is a controller (`openamrobot_openarm_emulator/OpenArmCanEmulator`) in the
+  controller manager that `gz_ros2_control` hosts: it reads joint position and velocity, runs the MIT law and commands joint effort every physics
+  step. The Gazebo position servo is not used for the arms on this path.
+- **Timing.** A model of one shared bus per arm gives each frame its length in bits at 1 and 5 Mbit/s, one frame at a time, lowest id first.
+  Motor reply latency is a parameter and is 0 until it is measured.
+- **Fault injection:** CAN loss, single-motor timeout, over-voltage, over-temperature, E-stop power cut (bus up, motors silent, then reset), any
+  motor fault code, and a configurable supply voltage (25.6 to 29.2 V on the robot). Parameters of the emulator controllers; `inject_fault.py` sets them.
+- **Launch `sil.launch.py`:** creates the vcan interfaces (CAN FD with MTU 72 where the kernel allows, and it reports when not), starts Gazebo
+  with the combined model, both emulators, the real driver pinned by commit, and an example arm trajectory. The simulator's controller manager is
+  `/sim/controller_manager`; the real driver's is `/controller_manager`.
+- **Tests and CI.** `test_codec`, `test_motor_model`, `test_real_driver`, `test_package_static` and `test_sil_launch`, registered in the package's
+  CMakeLists.txt. New workflow `.github/workflows/openarm-emulator-tests.yml` builds the driver at the pins, creates vcan on the hosted runner and
+  runs them. A test that needs vcan or the driver and cannot have it is BLOCKED, counted apart, and the job does not pass.
+- **Driver behaviour recorded, not fixed** (the tests assert what upstream does today): every arm joint is driven to zero on activation, with a
+  step command first; the gripper is sent 0.044 rad on activation; `read()` and `write()` return OK on CAN loss, with the interface down and
+  during a power cut, with the state frozen; motor fault codes and temperatures are decoded and not acted on; after a power cut the motors are
+  only re-enabled by deactivating and activating the hardware component.
+- **Numerical damping treatment.** At a 1 ms physics step the MIT damping gain makes the light links chatter at torque saturation. The emulator
+  attenuates the part of its torque above 200 Hz as an implicit step of the damping term would, using each link's inertia from the URDF. Static
+  torque is unchanged. This is numerical, not a motor model; the package README says why.
+- **Assumptions.** Motor behaviour that no source in scope fixes (state after power-up, reply while disabled, fault thresholds, CAN timeout,
+  reply latency, speed at 25.6 to 29.2 V) is a parameter with a default, listed in the package README for bench measurement.
+
 ### Changed (14 Nov 2026; platform pin to platform-sw main 8e7a454)
 
 - **Platform pin `713574f` -> `8e7a454`** (`config/upstream_pins.yaml`, README checkout line): the merge of platform-sw #93, decision NEAR-FIELD-FRAMES
