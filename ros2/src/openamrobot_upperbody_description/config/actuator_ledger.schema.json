@@ -88,6 +88,8 @@
         "status": {
           "enum": [
             "datasheet",
+            "upstream_config",
+            "upstream_urdf",
             "cad",
             "measured",
             "estimated",
@@ -130,6 +132,8 @@
             "status": {
               "enum": [
                 "datasheet",
+                "upstream_config",
+                "upstream_urdf",
                 "cad",
                 "measured",
                 "estimated",

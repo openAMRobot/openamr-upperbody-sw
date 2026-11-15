@@ -530,14 +530,14 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (SAFE bus 25.6 V nominal, up to 29.2 V); BOM Issue 7.15 Electrical sheet
-    status: datasheet
+    status: decision
     owner: Evans
     note: Raw SAFE bus behind K1/K2 (P-03 item 21).
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (SAFE bus 25.6 V nominal, up to 29.2 V); BOM Issue 7.15 Electrical sheet
-    status: datasheet
+    status: decision
     owner: Evans
     note: Whether the driver input range covers this is gate Q-03.
   brake_present:
@@ -611,8 +611,8 @@ actuators:
       communication power-down protection time'
     status: proposed
     owner: Evans
-    note: Factory default is 0 (no action on host loss). Written and read back at commissioning, saved (2010h) only
-      after acceptance.
+    note: 'Open question, not settled: platform-fw #20 still compares 500 ms and 250 ms (Evans). Factory default is 0 (no action on host loss). Written and read back at commissioning, saved (2010h) only
+      after acceptance.'
   extra:
     host_heartbeat_consumer_timeout:
       value: 0.3
@@ -768,14 +768,14 @@ actuators:
     value: 24.0
     unit: V
     source: 'E-01 rev1.8 (lift: DOLD rated 24 V, max 7 A, via SAFE 24 V converter MEAN WELL DDR-240B-24)'
-    status: datasheet
+    status: decision
     owner: Evans
     note: Regulated SAFE 24 V converter output, removed by an E-stop.
   supply_bus_voltage_max:
     value: 24.0
     unit: V
     source: 'E-01 rev1.8 (lift: DOLD rated 24 V, max 7 A, via SAFE 24 V converter MEAN WELL DDR-240B-24)'
-    status: datasheet
+    status: decision
     owner: Evans
     note: Regulated output; converter input 16.8 to 33.6 V.
   brake_present:
@@ -1016,7 +1016,7 @@ actuators:
     value: 24.0
     unit: V
     source: E-01 rev1.8
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: null
@@ -1231,13 +1231,13 @@ actuators:
     value: 25.6
     unit: V
     source: BOM Issue 7.15 row PWR-001
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8
-    status: datasheet
+    status: decision
     owner: Evans
   brake_present:
     value: null
@@ -1359,7 +1359,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 9.0
@@ -1419,13 +1419,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -1505,56 +1505,56 @@ actuators:
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml (left preset
         reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.3963
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml (left preset
         reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 40.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 16.755
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 45.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 54.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.75
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.896
@@ -1605,7 +1605,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 9.0
@@ -1665,13 +1665,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -1751,56 +1751,56 @@ actuators:
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml (left preset
         reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 0.17453
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml (left preset
         reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 40.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 16.755
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 45.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 54.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.5
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.896
@@ -1851,7 +1851,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 40.0
@@ -1910,13 +1910,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -1995,55 +1995,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 27.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.4454
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 10.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 28.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.0
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.362
@@ -2094,7 +2094,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 40.0
@@ -2153,13 +2153,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -2238,55 +2238,55 @@ actuators:
       value: 0.0
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 2.4435
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 27.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.4454
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 10.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 28.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 60.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.0
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.362
@@ -2337,7 +2337,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -2397,13 +2397,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -2482,55 +2482,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.7
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -2581,7 +2581,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -2641,13 +2641,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -2726,55 +2726,55 @@ actuators:
       value: -0.7854
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 0.7854
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.6
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -2825,7 +2825,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -2885,13 +2885,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -2970,55 +2970,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.5
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -3069,7 +3069,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -3128,13 +3128,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -3214,56 +3214,56 @@ actuators:
       unit: rad
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml (left
         preset reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 0.7854
       unit: rad
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml (left
         preset reflect)
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.0
       unit: rad/s
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 5.0
       unit: N*m/rad
       source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp (GRIPPER_KP)
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.1
       unit: N*m*s/rad
       source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp (GRIPPER_KD)
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -3282,7 +3282,7 @@ actuators:
       value: 750.0
       unit: Hz
       source: openarm_ros2 @4e837e1 bringup controllers config
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
 - id: openarm_right_joint1
   kind: joint_motor
@@ -3327,7 +3327,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 9.0
@@ -3387,13 +3387,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -3472,55 +3472,55 @@ actuators:
       value: -1.3963
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 3.4907
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 40.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 16.755
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 45.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 54.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.75
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.896
@@ -3571,7 +3571,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 9.0
@@ -3631,13 +3631,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -3716,55 +3716,55 @@ actuators:
       value: -0.17453
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 3.3161
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 40.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 16.755
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 45.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 54.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.5
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.896
@@ -3815,7 +3815,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 40.0
@@ -3874,13 +3874,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -3959,55 +3959,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 27.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.4454
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 10.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 28.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 70.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.0
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.362
@@ -4058,7 +4058,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 40.0
@@ -4117,13 +4117,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -4202,55 +4202,55 @@ actuators:
       value: 0.0
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 2.4435
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 27.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.4454
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 10.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 28.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 60.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 2.0
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.362
@@ -4301,7 +4301,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -4361,13 +4361,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -4446,55 +4446,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.7
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -4545,7 +4545,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -4605,13 +4605,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -4690,55 +4690,55 @@ actuators:
       value: -0.7854
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 0.7854
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.6
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -4789,7 +4789,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -4849,13 +4849,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -4934,55 +4934,55 @@ actuators:
       value: -1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 1.5708
       unit: rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 20.944
       unit: rad/s
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 10.0
       unit: N*m/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.5
       unit: N*m*s/rad
       source: openarm_description @14ff67b assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -5033,7 +5033,7 @@ actuators:
     value: MIT (position, velocity, feed-forward torque with kp, kd)
     unit: null
     source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
   gear_ratio:
     value: 10.0
@@ -5092,13 +5092,13 @@ actuators:
     value: 25.6
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
   supply_bus_voltage_max:
     value: 29.2
     unit: V
     source: E-01 rev1.8 (arms on the raw SAFE bus, 25.6 V nominal, up to 29.2 V; gate ARM-VOLT open)
-    status: datasheet
+    status: decision
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
@@ -5177,55 +5177,55 @@ actuators:
       value: -0.7854
       unit: rad
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     joint_upper_limit:
       value: 0.0
       unit: rad
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_effort_limit:
       value: 7.0
       unit: N*m
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     urdf_velocity_limit:
       value: 5.0
       unit: rad/s
       source: openarm_description @14ff67b assets/end_effector/pinch_gripper/config/joint/joint_limits.yaml
-      status: datasheet
+      status: upstream_urdf
       owner: Om with Adnan
     mit_p_max:
       value: 12.5
       unit: rad
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_v_max:
       value: 30.0
       unit: rad/s
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_t_max:
       value: 10.0
       unit: N*m
       source: openarm_can @bfd4e52 (1.4.1) include/openarm/damiao_motor/dm_motor_constants.hpp MOTOR_LIMIT_PARAMS
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kp:
       value: 5.0
       unit: N*m/rad
       source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp (GRIPPER_KP)
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     mit_kd:
       value: 0.1
       unit: N*m*s/rad
       source: openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp (GRIPPER_KD)
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan
     motor_mass:
       value: 0.3
@@ -5244,5 +5244,5 @@ actuators:
       value: 750.0
       unit: Hz
       source: openarm_ros2 @4e837e1 bringup controllers config
-      status: datasheet
+      status: upstream_config
       owner: Om with Adnan

@@ -16,7 +16,7 @@ from conftest import ARG_DEFAULTS, SHARE, expand, load_yaml
 
 LEDGER_FILE = os.path.join(SHARE, "config", "actuator_ledger.yaml")
 LEDGER_SCHEMA = os.path.join(SHARE, "config", "actuator_ledger.schema.json")
-KNOWN = {"datasheet", "cad", "measured", "estimated", "proposed", "decision"}
+KNOWN = {"datasheet", "upstream_config", "upstream_urdf", "cad", "measured", "estimated", "proposed", "decision"}
 EMPTY = {"unknown", "not_applicable"}
 
 # ledger quantity -> URDF <limit> attribute
@@ -149,3 +149,20 @@ def test_ledger_limits_equal_combined_urdf(urdf_limits):
                 bad.append(f"{joint}.{attr}: ledger {q['value']} != URDF {urdf_limits[joint][attr]}")
     assert checked > 0, "no limits compared"
     assert not bad, "\n".join(bad)
+
+
+def test_left_and_right_arm_motor_data_agree():
+    """Motor-class data must be identical on both arms; only side-specific fields may differ."""
+    data = load_yaml(LEDGER_FILE)
+    by_id = {a["id"]: a for a in data["actuators"]}
+    compared = 0
+    for left_id, left in by_id.items():
+        if not left_id.startswith("openarm_left_"):
+            continue
+        right = by_id[left_id.replace("openarm_left_", "openarm_right_")]
+        for key in ("part", "gear_ratio", "rated_torque", "peak_torque", "rated_speed", "max_speed",
+                    "rated_current", "peak_current", "rated_voltage"):
+            assert left[key]["value"] == right[key]["value"], f"{left_id} vs right: {key}"
+            assert left[key]["status"] == right[key]["status"], f"{left_id} vs right: {key} status"
+            compared += 1
+    assert compared > 0
