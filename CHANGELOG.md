@@ -5,6 +5,21 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (15 Nov 2026; head camera simulation from the ZED Mini datasheet)
+
+- **Gazebo sensor on `head_camera_link`.** `urdf/camera_sensors.xacro` adds an `rgbd_camera` (colour and depth) on the head camera frame, published
+  in `head_camera_optical_frame` on `/head_camera/rgbd`, for every `arm_package` and hardware profile. Every number comes from the new
+  `config/sensor_profiles.yaml` and from nothing else: horizontal field of view 102 deg, 1280 x 720, 30 Hz, clip 0.1 to 15 m (Stereolabs ZED Mini
+  datasheet v1.3 and product page, each value with document, revision and URL). Gazebo derives the vertical angle (about 69.5 deg) from the
+  horizontal one, so the simulated view is taller than the real 57 deg; the datasheet angle is kept in the profile as documentation.
+- **Unknowns stay unknown.** Noise and latency of the head camera have no source: no noise element is written, and the datasheet depth accuracy
+  (1.0 % at 2 m, 1.8 % at 4 m) is an error bound and is not used as noise. The two wrist cameras have no fixed part (BOM ARM-004), so all their
+  profile values are null with `needed` and `owner`, and they get no sensor. A sensor appears for a link as soon as its profile values are filled in.
+- **Test `s5_camera_sensors`** (registered in CMake): every profile value has a source or status unknown, every sensor value is the profile's
+  value (also on a changed profile), the xacro holds no sensor number of its own, and the expansion with and without sensors differs only in
+  `<gazebo>` blocks. `test_p25_placeholder_material` now looks for the material block among the several `<gazebo reference>` blocks of a link.
+  Kinematics, masses, joint limits and datums are unchanged. Simulation only; the sensor is an ideal pinhole camera.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,

@@ -1,0 +1,157 @@
+# SPDX-License-Identifier: MIT
+# Upper-body camera behaviour profiles, one entry per camera link, with the source of every number.
+#
+# Same format as openamr-platform-sw config/sensor_profiles.yaml (the `documents` block, then `frames`, each value a mapping),
+# so one reader can open both files. The keys under `frames` are link ids of the combined model: the Gazebo sensor of
+# urdf/camera_sensors.xacro is attached to that link and publishes in `optical_frame`. This file says how a camera behaves
+# (field of view, resolution, rate, clip range, noise); where it sits is datums.yaml and option B's frames.
+#
+# Every value is a mapping:
+#   value:   the number, or null when it is not known
+#   unit:    the unit of the number
+#   source:  document, revision and SHA-256, or the vendor URL; null only when value is null
+#   status:  datasheet  = printed in the manufacturer's datasheet or product page
+#            measured   = measured on the robot or on the bench (none yet)
+#            estimated  = a project estimate, not from a datasheet or a measurement
+#            unknown    = no source yet; value is null and `needed` names the document or test
+#   note:    optional, how the number must be read
+#   needed:  required for unknown, what is missing
+#   owner:   required for unknown, who closes it
+# A missing number is never replaced by a guess. A datasheet accuracy figure is not a noise standard deviation and is kept
+# apart from it.
+#
+# urdf/camera_sensors.xacro reads this file and nothing else. A camera link gets a Gazebo sensor only when every value the
+# sensor needs (color: fov_horizontal, width, height, frame_rate, range_min, range_max; depth: range_min, range_max) is not
+# null. A noise element is written only when the noise value is not null. test/test_s5_camera_sensors.py checks both.
+#
+# Simulation only. Nothing here is a hardware result, and the Gazebo sensor is an ideal pinhole camera: no distortion, no
+# rolling shutter, no latency, no stereo matching error.
+
+documents:
+  zed_mini_datasheet: &doc_zed_mini_ds >-
+    Stereolabs ZED Mini Camera Overview and Datasheet, document version 1.3 (July 2026), 5 pages, SKU ZED-121210, sections
+    Technical Specifications and Depth Sensing, read 15 Nov 2026 from
+    https://cdn.sanity.io/files/s18ewfw4/staging/14fab5dad2a9f36ce7f1e8024c3959a9611b990a.pdf/ZED-Mini-Datasheet.pdf
+    (SHA-256 of the download dd8e0563c2482d06a66b747b03c7880d1368347975566c1844be66e3ba7e5469, computed 15 Nov 2026). Not yet
+    filed in the project datasheet index
+  zed_mini_page: &doc_zed_mini_page >-
+    Stereolabs ZED Mini product page, Technical Specifications table, read 15 Nov 2026 from
+    https://www.stereolabs.com/en-in/store/products/zed-mini (the page lists 720p at 60, 30 or 15 FPS; the datasheet lists
+    720p at 60 only)
+  openarm_site: &doc_openarm_site >-
+    OpenArm project site, https://docs.openarm.dev, overview page, read 15 Nov 2026: OpenArm 2.0 has "a compact parallel
+    gripper with in-hand camera". The page gives no camera part, sensor, lens, resolution or rate, and the hardware pages
+    that would (OpenArm 2.0, General) were not reachable on 15 Nov 2026
+
+frames:
+  head_camera_link:
+    sensor: Stereolabs ZED Mini
+    part: ZED-121210
+    optical_frame: head_camera_optical_frame
+    gz_topic: /head_camera/rgbd
+    # The simulated camera is the left image of the pair and its depth map (the datasheet gives the depth map at the native
+    # video resolution). Gazebo's rgbd_camera has one field of view, one image size and one rate for both.
+    channels:
+      color:
+        fov_horizontal:
+          {value: 102.0, unit: deg, source: *doc_zed_mini_ds, status: datasheet,
+           note: "maximum horizontal field of view, 'Max. 102 (H) x 57 (V) x 118 (D)'; the datasheet does not say at which
+                  output mode it applies"}
+        fov_vertical:
+          {value: 57.0, unit: deg, source: *doc_zed_mini_ds, status: datasheet,
+           note: "documentation only. Gazebo derives the vertical angle from the horizontal one and the image aspect: a
+                  pinhole at 102 deg and 16:9 gives about 69.5 deg, not 57, so the simulated view is taller than the real one"}
+        fov_diagonal:
+          {value: 118.0, unit: deg, source: *doc_zed_mini_ds, status: datasheet, note: "documentation only, not used"}
+        width:
+          {value: 1280, unit: px, source: *doc_zed_mini_ds, status: datasheet,
+           note: "one eye of the 2 x (1280 x 720) side-by-side mode. The mode is a simulation choice, TODO(Vineeth): set it to
+                  the mode the driver launch will use; the datasheet modes are 2208 x 1242 at 15 fps, 1920 x 1080 at 30,
+                  1280 x 720 at 60 and 672 x 376 at 100"}
+        height:
+          {value: 720, unit: px, source: *doc_zed_mini_ds, status: datasheet, note: "same mode as width"}
+        frame_rate:
+          {value: 30.0, unit: Hz, source: *doc_zed_mini_page, status: datasheet,
+           note: "720p at 30 FPS is listed on the product page, not in the datasheet; the rate is a simulation choice,
+                  TODO(Vineeth), and also keeps the render load of three cameras down"}
+        range_min:
+          {value: 0.1, unit: m, source: *doc_zed_mini_ds, status: datasheet,
+           note: "the lower end of the depth range, used as the near clip of the colour image too: the datasheet gives no
+                  colour near limit"}
+        range_max:
+          {value: 15.0, unit: m, source: *doc_zed_mini_ds, status: datasheet,
+           note: "'Depth Range Max 0.1 m to 15 m'; used as the far clip of the colour image too. The ideal range is 0.1 to 9 m"}
+        noise_stddev:
+          {value: null, unit: fraction of full scale (0 to 1), source: null, status: unknown,
+           needed: "image noise of the ZED Mini at the chosen mode and exposure; the datasheet gives none",
+           owner: Vineeth}
+        latency:
+          {value: null, unit: s, source: null, status: unknown,
+           needed: "image stamp to topic publication delay on the Jetson with the ZED wrapper, measured",
+           owner: Vineeth}
+      depth:
+        range_min:
+          {value: 0.1, unit: m, source: *doc_zed_mini_ds, status: datasheet}
+        range_max:
+          {value: 15.0, unit: m, source: *doc_zed_mini_ds, status: datasheet,
+           note: "maximum depth range; the ideal range is 0.1 to 9 m"}
+        range_ideal_max:
+          {value: 9.0, unit: m, source: *doc_zed_mini_ds, status: datasheet, note: "documentation only, not used"}
+        accuracy_2m:
+          {value: 1.0, unit: percent of distance, source: *doc_zed_mini_ds, status: datasheet,
+           note: "'< 1.0 % at 2 m', an upper bound on the error. An accuracy limit, not a noise standard deviation, so it is
+                  not applied as noise"}
+        accuracy_4m:
+          {value: 1.8, unit: percent of distance, source: *doc_zed_mini_ds, status: datasheet,
+           note: "'< 1.8 % at 4 m', same reading as accuracy_2m"}
+        noise_stddev:
+          {value: null, unit: m, source: null, status: unknown,
+           needed: "standard deviation of one depth sample on a flat target at 0.5, 1, 2 and 4 m, from a bench test or a
+                    vendor figure; the datasheet gives accuracy only",
+           owner: Vineeth}
+        latency:
+          {value: null, unit: s, source: null, status: unknown,
+           needed: "image stamp to depth topic publication delay with the ZED wrapper, measured; depends on the depth mode",
+           owner: Vineeth}
+
+  left_wrist_camera_link:
+    sensor: OpenArm 2.0 in-hand camera, part not fixed
+    part: null
+    optical_frame: left_wrist_camera_optical_frame
+    gz_topic: /left_wrist_camera/image
+    # No Gazebo sensor: the part is not fixed (BOM ARM-004 says the SKU is to be confirmed from the supplier kit). Every value
+    # below is unknown and urdf/camera_sensors.xacro adds nothing for this link until they are filled in.
+    channels: &wrist_channels
+      color:
+        fov_horizontal:
+          {value: null, unit: deg, source: null, status: unknown,
+           needed: "camera part number and datasheet from the OpenArm 2.0 supplier kit (BOM ARM-004); the OpenArm site names
+                    an in-hand camera but gives no part or optics",
+           owner: Om}
+        width:
+          {value: null, unit: px, source: null, status: unknown,
+           needed: "same datasheet, and the mode the kit driver uses", owner: Om}
+        height:
+          {value: null, unit: px, source: null, status: unknown, needed: "same datasheet, and the mode the kit driver uses", owner: Om}
+        frame_rate:
+          {value: null, unit: Hz, source: null, status: unknown, needed: "same datasheet, and the mode the kit driver uses", owner: Om}
+        range_min:
+          {value: null, unit: m, source: null, status: unknown,
+           needed: "minimum focus distance from the datasheet; it matters at grasp range", owner: Om}
+        range_max:
+          {value: null, unit: m, source: null, status: unknown,
+           needed: "no datasheet value is needed for an RGB camera if the project picks a simulation far clip; the owner decides",
+           owner: Om}
+        noise_stddev:
+          {value: null, unit: fraction of full scale (0 to 1), source: null, status: unknown,
+           needed: "image noise from the datasheet or a bench test", owner: Vineeth}
+        latency:
+          {value: null, unit: s, source: null, status: unknown,
+           needed: "image stamp to topic publication delay over the kit USB topology, measured", owner: Vineeth}
+
+  right_wrist_camera_link:
+    sensor: OpenArm 2.0 in-hand camera, part not fixed
+    part: null
+    optical_frame: right_wrist_camera_optical_frame
+    gz_topic: /right_wrist_camera/image
+    channels: *wrist_channels
