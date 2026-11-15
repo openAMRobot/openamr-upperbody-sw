@@ -117,6 +117,13 @@ def test_simulator_controllers_have_no_lift_controller_and_the_step_rate(scene):
     assert EMULATOR_CONTROLLERS["/**/controller_manager"]["ros__parameters"]["update_rate"] == 1000, "the source must not be edited"
 
 
+def test_plant_joint_state_rate_can_be_lowered_without_touching_the_emulators(scene):
+    config = support.sim_controllers(EMULATOR_CONTROLLERS, scene, "fast", state_rate=100)
+    assert config["/**/joint_state_broadcaster"] == {"ros__parameters": {"update_rate": 100}}
+    assert config["/**/controller_manager"]["ros__parameters"]["update_rate"] == 1000
+    assert "/**/joint_state_broadcaster" not in support.sim_controllers(EMULATOR_CONTROLLERS, scene, "fast")
+
+
 def test_a_replayed_arm_bus_has_no_emulator(scene):
     config = support.sim_controllers(EMULATOR_CONTROLLERS, scene, "fast", replayed_buses={"vcan_arm_l": "trace.log"})
     assert "left_arm_emulator" not in config["/**/controller_manager"]["ros__parameters"] and "/**/left_arm_emulator" not in config

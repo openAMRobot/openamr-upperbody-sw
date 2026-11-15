@@ -176,8 +176,12 @@ def launch_setup(context):
     handle, controllers_file = tempfile.mkstemp(prefix="openarm_sil_controllers_", suffix=".yaml")
     with os.fdopen(handle, "w") as f:
         yaml.safe_dump(controllers, f)
+    # sim_dynamics off: this launch keeps the plant it was verified with (main b15bcb6). With the joint damping and friction of
+    # the sim dynamics profile on, the arms are not held at zero before the emulators activate with Bullet Featherstone, and the
+    # driver's step to zero then starts from the joint limits (seen in CI on 15 Nov 2026). openamrobot_build1_scene runs the
+    # same emulators with the dynamics on, on DART.
     sim_urdf = sim_description(xacro(os.path.join(description_share, "urdf", "combined_robot.xacro"),
-                                     hardware_profile="gazebo", controllers_file=controllers_file))
+                                     hardware_profile="gazebo", controllers_file=controllers_file, sim_dynamics="off"))
     real_urdf = xacro(os.path.join(share, "urdf", "openarm_sil_real.urdf.xacro"), hardware_profile="real",
                       left_can_interface=left_can, right_can_interface=right_can, can_fd="true" if can_fd else "false")
 

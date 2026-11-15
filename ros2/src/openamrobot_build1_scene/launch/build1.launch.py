@@ -52,6 +52,8 @@ Args
   headless         true | false (default false)
   driver_rate      auto | Hz (default auto: every second physics step, 500 Hz at 1 ms, 750 Hz at 1/1500 s)
   driver_clock     sim | wall (default sim): the clock of the real driver's controller manager
+  sim_state_rate   Hz | step (default 100): rate of /sim/joint_states, the plant's own joint states. step publishes at
+                   every physics step, which costs real-time factor. The emulators always run at every step
   replay_drive, replay_bms, replay_aux, replay_arm_l, replay_arm_r
                    a candump -L file. It is played into that bus in place of the bus's emulator
   replay_loop      true | false (default true)
@@ -115,6 +117,10 @@ def bus_problem(mtus):
     if classic:
         return (f"{', '.join(classic)} do not carry CAN FD (MTU {[mtus[b] for b in classic]}, {support.CAN_FD_MTU} needed). "
                 "The arm buses are CAN FD. This launch does not fall back to classic CAN")
+    wide = [bus for bus in support.BASE_BUSES if mtus[bus] != support.CLASSIC_CAN_MTU]
+    if wide:
+        return (f"{', '.join(wide)} are not classic CAN (MTU {[mtus[b] for b in wide]}, {support.CLASSIC_CAN_MTU} needed). "
+                "A new vcan interface takes the kernel default, which is 2060 on recent kernels")
     return None
 
 
@@ -207,7 +213,8 @@ def launch_setup(context):
 
     if devices:
         with open(os.path.join(emulator_share, "config", "sim_controllers.yaml")) as f:
-            sim_controllers = support.sim_controllers(yaml.safe_load(f), scene, step, replayed_buses=replays)
+            sim_controllers = support.sim_controllers(yaml.safe_load(f), scene, step, replayed_buses=replays,
+                                                      state_rate=0 if value("sim_state_rate") == "step" else int(value("sim_state_rate")))
         sim_controllers_file = temp_yaml("build1_sim_controllers_", sim_controllers)
         driver_rate = support.driver_update_rate(scene, step, value("driver_rate"))
         driver_sim_time = value("driver_clock") == "sim"
@@ -220,7 +227,8 @@ def launch_setup(context):
         root_urdf = xacro(os.path.join(emulator_share, "urdf", "openarm_sil_real.urdf.xacro"), hardware_profile="real",
                           left_can_interface=support.ARM_BUSES["left"], right_can_interface=support.ARM_BUSES["right"], can_fd="true")
         info.update(stm32=stm32, emulator_rate_hz=support.sim_update_rate(scene, step), driver_rate_hz=driver_rate,
-                    driver_clock="gazebo" if driver_sim_time else "wall", replayed_buses=sorted(replays))
+                    driver_clock="gazebo" if driver_sim_time else "wall", replayed_buses=sorted(replays),
+                    sim_state_rate=value("sim_state_rate"))
     else:
         overlay = os.path.join(control_share, "config", "sim_overlay.yaml") if support.direct_overlay_needed(step) else ""
         sim_urdf = xacro(wrapper, hardware_profile="gazebo", controllers_file=os.path.join(control_share, "config", "arm_controllers.yaml"),
@@ -416,6 +424,8 @@ def generate_launch_description():
         DeclareLaunchArgument("rviz", default_value="false", choices=boolean, description="Start RViz with rviz/build1.rviz"),
         DeclareLaunchArgument("headless", default_value="false", choices=boolean, description="gz sim -s: server only, no window"),
         DeclareLaunchArgument("driver_rate", default_value="auto", description="auto | Hz of the real driver's controller manager"),
+        DeclareLaunchArgument("sim_state_rate", default_value="100",
+                              description="Hz of /sim/joint_states, or step for every physics step. Device profiles only"),
         DeclareLaunchArgument("driver_clock", default_value="sim", choices=["sim", "wall"],
                               description="Clock of the real driver's controller manager"),
         DeclareLaunchArgument("replay_loop", default_value="true", choices=boolean, description="Repeat a replayed trace"),

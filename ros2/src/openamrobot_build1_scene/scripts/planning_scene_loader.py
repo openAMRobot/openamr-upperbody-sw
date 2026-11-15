@@ -43,6 +43,7 @@ class PlanningSceneLoader(Node):
                                                QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
         self.create_subscription(String, "/build1/planning_scene/exclude", self.on_exclude, 10)
         self.last_pose, self.last_sent = None, None
+        self.startup_sends = 0
         self.create_timer(0.5, self.tick)
 
     def on_exclude(self, msg):
@@ -72,8 +73,13 @@ class PlanningSceneLoader(Node):
         now = self.get_clock().now()
         moved = self.last_pose is None or math.hypot(pose[0] - self.last_pose[0], pose[1] - self.last_pose[1]) > 0.01 \
             or abs(math.atan2(math.sin(pose[2] - self.last_pose[2]), math.cos(pose[2] - self.last_pose[2]))) > 0.01
-        if not moved and self.last_sent is not None and (now - self.last_sent).nanoseconds < 5e9:
-            return
+        # Sent when the base has moved or the list changed. At start it is sent three times, 5 s apart, so that a
+        # move_group that came up late has it. Not sent periodically after that: every update makes MoveIt check its
+        # running plan again.
+        if not moved and self.last_sent is not None:
+            if self.startup_sends >= 3 or (now - self.last_sent).nanoseconds < 5e9:
+                return
+        self.startup_sends += 1
         message = PlanningScene(is_diff=True)
         c, s = math.cos(-pose[2]), math.sin(-pose[2])
         names = set()

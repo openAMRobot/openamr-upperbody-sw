@@ -16,7 +16,7 @@ import build1_harness  # noqa: E402
 
 @pytest.mark.launch_test
 def generate_test_description():
-    return build1_harness.description(nav2="true", moveit="true", extra_sensors="false")
+    return build1_harness.description(nav2="true", moveit="true", extra_sensors="false", sim_state_rate="step")
 
 
 class TestScn10Profiles(unittest.TestCase):

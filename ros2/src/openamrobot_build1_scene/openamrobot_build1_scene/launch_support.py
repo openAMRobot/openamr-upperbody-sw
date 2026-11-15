@@ -127,7 +127,7 @@ def direct_overlay_needed(step):
     return step == "fine"
 
 
-def sim_controllers(source, scene, profile, replayed_buses=(), supply_voltage=25.6, timing_model=True):
+def sim_controllers(source, scene, profile, replayed_buses=(), supply_voltage=25.6, timing_model=True, state_rate=0):
     """The simulator-side controller file: openamrobot_openarm_emulator's, without the lift controller,
     with the rate of the physics profile, and without the emulator of a replayed arm bus."""
     config = copy.deepcopy(source)
@@ -135,6 +135,10 @@ def sim_controllers(source, scene, profile, replayed_buses=(), supply_voltage=25
     manager["update_rate"] = sim_update_rate(scene, profile)
     manager.pop("lift_controller", None)
     config.pop("/**/lift_controller", None)
+    if state_rate:
+        # The simulator's joint_state_broadcaster runs inside the physics thread. Publishing at every step costs
+        # real-time factor. The emulators are not affected: they keep the rate of the physics step.
+        config["/**/joint_state_broadcaster"] = {"ros__parameters": {"update_rate": int(state_rate)}}
     for side, interface in ARM_BUSES.items():
         name = f"{side}_arm_emulator"
         if interface in replayed_buses:

@@ -16,7 +16,7 @@ import build1_harness  # noqa: E402
 
 @pytest.mark.launch_test
 def generate_test_description():
-    return build1_harness.description(profile="faults", sensors="false", nav2="false", moveit="false")
+    return build1_harness.description(profile="faults", sensors="false", nav2="false", moveit="false", driver_rate="100")
 
 
 class TestScn05BusLoss(unittest.TestCase):

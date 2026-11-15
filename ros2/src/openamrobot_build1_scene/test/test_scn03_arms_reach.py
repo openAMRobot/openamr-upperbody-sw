@@ -16,7 +16,7 @@ import build1_harness  # noqa: E402
 
 @pytest.mark.launch_test
 def generate_test_description():
-    return build1_harness.description(station="work_shelf", sensors="false", nav2="false", moveit="true")
+    return build1_harness.description(station="work_shelf", sensors="false", nav2="false", moveit="true", driver_rate="100")
 
 
 class TestScn03ArmsReach(unittest.TestCase):

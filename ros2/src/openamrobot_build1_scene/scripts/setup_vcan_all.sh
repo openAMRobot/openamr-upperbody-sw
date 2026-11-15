@@ -28,15 +28,22 @@ for iface in $BASE $ARMS; do
       || blocked "cannot create $iface (vcan module missing or no permission; on Ubuntu install linux-modules-extra-$(uname -r))"
   fi
 done
-for iface in $ARMS; do
-  if [ "$(cat "/sys/class/net/$iface/mtu")" != "72" ]; then
-    $SUDO ip link set "$iface" down
-    $SUDO ip link set "$iface" mtu 72 || blocked "cannot set MTU 72 on $iface: this kernel's vcan has no CAN FD"
+# A new vcan interface takes the kernel's default MTU. On recent kernels that is 2060 (CAN XL), on older ones 16.
+# Neither is assumed: the base buses are set to classic CAN and the arm buses to CAN FD.
+set_mtu() {
+  if [ "$(cat "/sys/class/net/$1/mtu")" != "$2" ]; then
+    $SUDO ip link set "$1" down
+    $SUDO ip link set "$1" mtu "$2" || blocked "cannot set MTU $2 on $1 ($3)"
   fi
-done
+}
+for iface in $BASE; do set_mtu "$iface" 16 "classic CAN"; done
+for iface in $ARMS; do set_mtu "$iface" 72 "this kernel's vcan has no CAN FD"; done
 for iface in $BASE $ARMS; do
   $SUDO ip link set "$iface" up || blocked "cannot bring $iface up"
   echo "$iface: up, mtu $(cat "/sys/class/net/$iface/mtu")"
+done
+for iface in $BASE; do
+  [ "$(cat "/sys/class/net/$iface/mtu")" = "16" ] || blocked "$iface has MTU $(cat "/sys/class/net/$iface/mtu"), classic CAN is 16"
 done
 for iface in $ARMS; do
   [ "$(cat "/sys/class/net/$iface/mtu")" = "72" ] || blocked "$iface has MTU $(cat "/sys/class/net/$iface/mtu"), CAN FD needs 72"

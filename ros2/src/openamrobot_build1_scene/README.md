@@ -89,6 +89,7 @@ profile, the baseline lock, the hash of the expanded model and the engine.
 | `create_vcan` | `true`, `false` | `true` | run `setup_vcan_all.sh` first |
 | `driver_rate` | `auto`, Hz | `auto` | real driver's controller manager. Every second physics step |
 | `driver_clock` | `sim`, `wall` | `sim` | clock of the real driver's controller manager |
+| `sim_state_rate` | Hz, `step` | `100` | rate of `/sim/joint_states`. `step` is every physics step and costs real-time factor |
 | `replay_drive`, `replay_bms`, `replay_aux`, `replay_arm_l`, `replay_arm_r` | a `candump -L` file | empty | replay hook |
 
 ## Single-writer map
@@ -212,7 +213,9 @@ Stale sensors are injected by stopping the process of the sensor bridge (`inject
 
 The arm buses are CAN FD. Nothing here assumes classic CAN behaviour.
 
-- `setup_vcan_all.sh` sets MTU 72 on `vcan_arm_l` and `vcan_arm_r` and fails with BLOCKED if it cannot.
+- `setup_vcan_all.sh` sets MTU 72 on `vcan_arm_l` and `vcan_arm_r` and MTU 16 on the three base buses, and fails with
+  BLOCKED if it cannot. It assumes no default: a new vcan interface has MTU 2060 (CAN XL) on recent kernels, as on the
+  CI runner, and 16 on older ones.
 - The launch refuses arm buses without MTU 72. It does not fall back to classic CAN.
 - `test_canfd_vcan.py` sends FD frames with bit rate switch, reads them back as 72 bytes, shows that a classic-only
   socket does not see them, and shows that the base buses refuse them.

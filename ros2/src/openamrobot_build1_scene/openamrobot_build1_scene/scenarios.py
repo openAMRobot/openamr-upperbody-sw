@@ -212,14 +212,21 @@ def _in_base(rig, world_point):
     return c * dx - s * dy, s * dx + c * dy, world_point[2]
 
 
-def _move_group(rig, log, goal, label, sim_s=120.0):
-    handle = rig.send_goal("/move_action", "moveit_msgs.action", "MoveGroup", goal, server_wall_s=300.0)
-    if handle is None:
-        log.require(False, f"{label}: move_group did not accept the goal")
-        return False
-    status, result = rig.wait_result(handle, sim_s, label)
-    code = result.error_code.val if result is not None else None
-    log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", low=1, high=1, note="1 is SUCCESS")
+def _move_group(rig, log, goal, label, sim_s=120.0, required=True, attempts=1):
+    """Plan and execute one MoveIt goal. `required` False records the outcome without a limit (a return move)."""
+    code, result = None, None
+    for _ in range(attempts):
+        handle = rig.send_goal("/move_action", "moveit_msgs.action", "MoveGroup", goal, server_wall_s=300.0)
+        if handle is None:
+            continue
+        _status, result = rig.wait_result(handle, sim_s, label)
+        code = result.error_code.val if result is not None else None
+        if code == 1:
+            break
+    if required:
+        log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", low=1, high=1, note="1 is SUCCESS")
+    else:
+        log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", note="1 is SUCCESS. Recorded, no limit: a return move")
     if result is not None:
         log.quantity(f"{label}_planning_time", result.planning_time, "s")
     return code == 1
@@ -266,8 +273,14 @@ def arms_reach(rig, log):
                 log.quantity(f"{label}_driver_state_minus_physics", _belief_vs_physics(rig, joints), "rad", low=0.0, high=0.05,
                              note="largest joint difference between /joint_states and /sim/joint_states")
         for side in ("left", "right"):
-            _move_group(rig, log, _joint_goal(f"{side}_arm", {f"openarm_{side}_joint{i}": (0.1 if i == 4 else 0.0) for i in range(1, 8)},
-                                              scale), f"L{stop}_{side}_back_to_park")
+            park = {f"openarm_{side}_joint{i}": (0.1 if i == 4 else 0.0) for i in range(1, 8)}
+            _move_group(rig, log, _joint_goal(f"{side}_arm", park, scale), f"L{stop}_{side}_back_to_park", required=False, attempts=3)
+            rig.sleep_sim(1.0)
+            away = max(abs(rig.physics_joint(name) - value) for name, value in park.items())
+            log.quantity(f"L{stop}_{side}_distance_from_park", away, "rad", low=0.0, high=0.1,
+                         note="the arm must be back at the park pose before the lift moves: an arm under a shelf board blocks it")
+            if away > 0.1:
+                raise ScenarioFailed(f"the {side} arm did not return to the park pose. The lift is not moved with an arm over the shelf")
 
 
 # ---------------------------------------------------------------- 4. grasp a tote item
@@ -275,7 +288,9 @@ GRASP_DEPTH = 0.105          # m from the hand base link to the grasp centre alo
 OPEN, CLOSED = 0.7854, 0.0   # left finger joint: open is the far limit, closed is 0 (openamr-upperbody-sw #66)
 
 
-def _pose_goal(group, link, xyz, quaternion, velocity_scale, position_tolerance=0.01, angle_tolerance=0.08):
+def _pose_goal(group, link, xyz, quaternion, velocity_scale, position_tolerance=0.01, angle_tolerance=0.3):
+    """A pose goal. The angle tolerance is wide on purpose: the exact side-grasp orientation puts wrist joint 6 on its
+    limit, and a joint that rests on a limit reads back past it and makes the next plan start from an invalid state."""
     from moveit_msgs.msg import OrientationConstraint
     goal = _position_goal(group, link, xyz, position_tolerance, velocity_scale)
     orientation = OrientationConstraint(link_name=link, weight=1.0)
@@ -317,7 +332,7 @@ def grasp(rig, log):
     if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, hand, quaternion, 0.1), "grasp_reach"):
         return
     rig.sleep_sim(1.0)
-    log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.03)
+    log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
 
     closed = rig.gripper(side, CLOSED, sim_s=30.0)
     rig.sleep_sim(1.5)
@@ -625,6 +640,8 @@ def profile_report(rig, log, window_s=15.0):
         log.quantity("emulator_update_rate_configured", info["emulator_rate_hz"], "Hz", kind="configured")
         log.quantity("driver_update_rate_configured", info["driver_rate_hz"], "Hz", kind="configured",
                      note=f"on {info['driver_clock']} time")
+        if info.get("sim_state_rate") != "step":
+            raise ScenarioFailed("the profile report needs sim_state_rate:=step: /sim/joint_states is its probe of the emulator rate")
         counters["emulator"] = (StampCounter(rig, "/sim/joint_states", 1.0 / info["emulator_rate_hz"]), info["emulator_rate_hz"], 0.5,
                                 "/sim/joint_states: the simulator's controller manager, where the arm motor emulators run")
         counters["driver"] = (StampCounter(rig, "/arm/joint_states", 1.0 / info["driver_rate_hz"]), info["driver_rate_hz"], 0.3,

@@ -65,14 +65,14 @@ tote:
   wall: {value: 0.005, unit: m, status: estimated, source: "not in UC1"}
   mass: {value: 0.6, unit: kg, status: estimated, source: "not in UC1"}
   level: 0                     # stands on work shelf level 0 (0.82 m)
-  offset: [0.0, 0.04]          # along the shelf, and inward from the shelf front edge
+  offset: [0.0, 0.0]           # along the shelf, and inward from the shelf front edge
 
 item:
   size: {value: [0.035, 0.035, 0.14], unit: m, status: estimated,
          source: "not in UC1. Narrower than the open finger gap of the model"}
   mass: {value: 0.15, unit: kg, status: estimated, source: "not in UC1. UC1 item UC1-19 allows at most 1 kg per gripper"}
   friction: {value: 1.0, unit: "1", status: estimated, source: "not measured"}
-  offset: [-0.16, 0.045]       # in the tote: along the shelf from the tote centre, and inward from the tote front wall
+  offset: [-0.16, 0.035]       # in the tote: along the shelf from the tote centre, and inward from the tote front wall
 
 payload:
   size: {value: [0.20, 0.15, 0.10], unit: m, status: estimated, source: "not in UC1"}
