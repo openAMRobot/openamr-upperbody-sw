@@ -127,6 +127,39 @@ the castor spheres kept as separate bodies. Without the castor collisions the st
 the turn stayed at 0.0 degrees. The cause is open. DART is the default. With DART `finger_joint2` is owned by
 `finger_mimic_follower`.
 
+## Measured on 15 Nov 2026
+
+First runs. Simulation evidence only. The run identity of each number is in the scenario log of the CI run.
+
+| What | Profile | Where | Result |
+|---|---|---|---|
+| drive 2 m through Nav2 | `firmware_sil` | CI runner | 2.015 m ground truth for 2.015 m odometry |
+| turn 90 degrees through Nav2 | `firmware_sil` | CI runner | 81.8 degrees ground truth for 91.1 degrees odometry |
+| drive and turn | `fast` | CI runner | 2.052 m for 2.052 m, 87.9 degrees for 97.4 degrees |
+| every sensor topic stops | `faults` | CI runner | the base stops after 1.01 s and 0.20 m, and drives on when the sensors return |
+| STM32 role silent on CAN1 | `faults` | CI runner | the drive reports link loss, the base stops after 0.13 s and 0.03 m, and drives on when the link returns |
+| BMS silent on CAN2 | `faults` | CI runner | poll timeouts rise, the last voltage stays on the topic, the base still drives |
+| arm power cut while holding | `faults` | CI runner | the arm falls, the driver's state does not change, the controllers stay active, nothing re-enables the motors |
+| single-writer check | `firmware_sil`, `fast`, `fine` | CI runner | 0 problems, 27 topics, 5 actions |
+| grasp of the tote item | `fast`, Bullet Featherstone | development machine | fingers stop on the item at 0.43 rad, item rises 62 mm with the hand and holds |
+| cancel and resume | `fast` | development machine | base stops 0.47 s and 0.06 m after the cancel, arm holds, both resume |
+
+The turn on the spot over-reads by about 9 degrees in every profile: the wheels slip at the turn rate of the Nav2 spin
+behaviour with the wheel friction of the platform description. At 0.5 rad/s the over-read was 3.6 degrees.
+
+Real-time factor and rates on the CI runner, 4 cores, no graphics card:
+
+| Profile | Step | Real-time factor | Wall time per step | Controller rates measured, in Gazebo time |
+|---|---|---|---|---|
+| `fast` | 1 ms | 0.36 | 2.8 ms | 100.0 Hz of 100 Hz, 0 missed |
+| `fine` | 1/1500 s | 0.25 | 2.7 ms | 749.8 Hz of 750 Hz, 2.1 % missed |
+| `firmware_sil` | 1 ms | 0.27 | 3.8 ms | real driver 487 Hz of 500 Hz, 6.8 % missed. Plant joint states 616 Hz of 1000 Hz |
+| `firmware_sil` | 1/1500 s | 0.18 | 3.7 ms | real driver 730 Hz of 750 Hz, 7.3 % missed. Plant joint states 750 Hz of 1500 Hz |
+
+The plant joint states are a lower bound of the emulator rate: the broadcaster drops a message when its publisher is
+busy. At the 1/1500 s step the simulator's controller manager runs every second step. No Renode ran, so there is no
+Renode ratio.
+
 ## Time and slow machines
 
 Rule: `docs/architecture/sil-topology.md` section 6 of openamr-platform-sw #141. The clocks are not synchronised.
@@ -136,6 +169,10 @@ Rule: `docs/architecture/sil-topology.md` section 6 of openamr-platform-sw #141.
 - Timers inside the emulators run on the host clock. On a slow machine the plant is slow against them. Known case:
   the CTL-017 model faults below a real-time factor of about 0.5 while the lift moves. A scenario that meets it reports
   BLOCKED with the measured factor. BLOCKED is not PASS.
+- Seen on the CI runner: the device stack ran at a real-time factor of 0.26 to 0.50, and every lift move was BLOCKED.
+  The lift path over CAN3 has therefore no passing run yet. The refusal without permit was checked and passed.
+- Seen on the CI runner: the drive thread of the host test client of `openamrobot_sil` ended on an unexpected SDO
+  reply in four of nine runs. A late reply on a slow machine produces it. The rig reports such a run as BLOCKED.
 - The link-loss time of the drive, 250 ms of host time, is shorter in Gazebo time on a slow machine. The stop times
   in the bus loss log are therefore not stopping-time measurements.
 
