@@ -73,6 +73,8 @@ commit of `config/upstream_pins.yaml` (C02); the preset files keep upstream's ze
 | `enable_planar_base` | `true`, `false` | `false` | `true` adds a `world` link and `base_planar_joint` (type `planar`, axis `0 0 1`) above `base_footprint`. Off by default: base and arm never move together in OpenAMRobot 2.0. |
 | `datums_file` | path | `config/datums.yaml` | Alternative datum file, used by the tests. |
 | `controllers_file` | absolute path | empty | The controller parameter file the `gazebo` profile hands to `gz_ros2_control`. Empty: no `<parameters>` element. Supplied by the simulation launch; ignored by `mock` and `real`. See [ros2_control](#ros2_control). |
+| `controllers_overlay_file` | absolute path | empty | A second controller parameter file for the `gazebo` profile, emitted as a second `<parameters>` after `controllers_file` (a later file wins). The simulation launch passes the control package's `sim_overlay.yaml` (upstream update rate, gripper `max_effort`). Ignored by `mock` and `real`. |
+| `sim_dynamics` | `auto`, `on`, `off` | `auto` | Simulator joint dynamics on the OpenArm joints, from `config/sim_dynamics/openarm_v2.yaml`. `auto`: on for `gazebo`, off for `mock` and `real`. `on`: for a MuJoCo-facing URDF (with `hardware_profile:=mock`); **refused with `real`**. `off`: a simulation without them, for comparison. See [Simulator dynamics](#simulator-dynamics). |
 
 The defaults of the first four are option B's `baseline:`; T01 asserts they match. An unknown value for any arg stops expansion
 with an error that lists the accepted values. There is no `mast_id`. <!-- decision-allow: CONFIG-IDS historical/negative: mast_id is gone, or the inputs before P15 -->
@@ -150,6 +152,50 @@ does not, and upstream's commented-out declaration cannot load under Jazzy's `ro
 cannot have command interfaces"). The gazebo package's README has the measurements. The multiplier it follows is read from
 upstream's `joint_mimics.yaml`, never written in `ros2_control.xacro` (`test_t15_finger_mimic_multiplier.py` fails on a
 literal, including one equal to today's value).
+
+## Simulator dynamics
+
+The canonical model has no joint damping, friction or rotor inertia on the OpenArm joints: upstream's description gives none (its
+`friction.yaml` is empty at the pin and at main). A simulator needs them, so they live in one file that is kept apart from the
+kinematics, `config/sim_dynamics/openarm_v2.yaml`, and reach only the simulated outputs.
+
+| Joints | Motor | Damping N*m*s/rad | Friction N*m | Armature kg*m^2 |
+|---|---|---|---|---|
+| `openarm_{left,right}_joint1`, `joint2` | DM-J8009P-2EC | 1.0 | 0.2 | 0.016 |
+| `openarm_{left,right}_joint3`, `joint4` | DM4340 series | 0.9 | 0.1 | 0.030 |
+| `openarm_{left,right}_joint5` to `joint7` | DM-J4310-2EC | 0.9 | 0.04 | 0.002 |
+| `openarm_{left,right}_finger_joint1`, `finger_joint2` | DM-J4310-2EC (one per hand) | 0.6 | 0 | 0.002 |
+
+- **Where the values come from.** Upstream's MuJoCo model of OpenArm 2.0 (`enactic/openarm_mujoco` at `1daab06`,
+  `v2/openarm_bimanual.xml`, Apache-2.0), read on 14 Nov 2026. The file records the commit, the place in the source and the status
+  of every value, and a schema and a test refuse a value without them. Upstream describes its armatures as motor rotor readouts
+  times gear ratio squared, with the gearbox contribution unconfirmed. **None is a measurement of a delivered arm.** They replace
+  "no dynamics at all", and system identification on the purchased arms replaces them.
+- **What is applied.** `urdf/sim_dynamics.xacro` adds `<dynamics damping friction>` to the eighteen movable OpenArm joints (the
+  sixteen controlled ones and the two mimic followers). It does this by redefining the one upstream macro that emits every
+  joint's `<limit>`, with the same `<limit>` and the `<dynamics>` after it; the file's header says why and what a pin move must
+  re-check. Nothing else in the expansion changes: with those eighteen lines removed the text equals the expansion without them.
+- **What is not applied.** Armature: URDF has no element for it, and nothing is added to a link's inertia. Gazebo Harmonic
+  therefore runs without reflected rotor inertia. A MuJoCo model built from the MuJoCo-facing URDF must set joint `armature` from the
+  profile; no exporter is in this repository yet. The effort and velocity limits in the profile are copies of the URDF's, for
+  reference; the URDF keeps its own and the test compares them.
+- **Where it applies.** `hardware_profile:=gazebo` (by default), and `sim_dynamics:=on` for a MuJoCo-facing URDF. **Never the real
+  profile**: `hardware_profile:=real` has no `<dynamics>` on any OpenArm joint and its expansion is the same text as before, and
+  `sim_dynamics:=on` with `real` stops the expansion. `mock` has none by default (it has no physics).
+- **The gripper.** The profile also records which end is closed (zero) with the evidence, and a grip limit from the motor data:
+  3.0 N*m, the rated torque of the gripper motor, with its 2.5 A rated current. See the control package's README for how far that
+  limit is applied.
+
+```bash
+xacro .../urdf/combined_robot.xacro hardware_profile:=gazebo > /tmp/gazebo.urdf                  # <dynamics> on the OpenArm joints
+xacro .../urdf/combined_robot.xacro hardware_profile:=mock sim_dynamics:=on > /tmp/mujoco.urdf   # the same joints, for MuJoCo
+xacro .../urdf/combined_robot.xacro hardware_profile:=real > /tmp/real.urdf                      # none
+```
+
+`test/test_sim_dynamics_profile.py` checks the file (schema, a listed source and a locator for every value, a method for every
+estimate, full commit hashes, the pins equal `upstream_pins.yaml`, the joint list equals the model's, the limit copies equal the
+URDF's, upstream's `friction.yaml` is still empty). `test/test_sim_dynamics_urdf.py` checks the expansion (all 16 controlled joints
+and the two followers carry the profile's values in `gazebo`; none in `real`; nothing else moved).
 
 ## Add a configuration ID
 

@@ -50,6 +50,16 @@
        description declares the hardware contract and knows nothing about where a controller config lives (ADR-003); the launch
        that starts the simulation supplies it. Only the gazebo profile reads it. -->
   <xacro:arg name="controllers_file" default=""/>
+  <!-- A second controller parameter file for the gazebo profile, read after controllers_file (a later file wins). The simulation
+       launch passes the control package's sim_overlay.yaml: the simulation-only controller values (update rate, gripper max_effort).
+       Empty by default; only the gazebo profile reads it. -->
+  <xacro:arg name="controllers_overlay_file" default=""/>
+  <!-- Simulator joint dynamics on the OpenArm joints (config/sim_dynamics/openarm_v2.yaml, urdf/sim_dynamics.xacro):
+         auto (default)  on for hardware_profile gazebo, off for mock and real
+         on              on, for a MuJoCo-facing URDF (use with hardware_profile mock). Refused with hardware_profile real.
+         off             off, to compare a simulation with and without them
+       The real profile never carries <dynamics> on an OpenArm joint. -->
+  <xacro:arg name="sim_dynamics" default="auto"/>
 
   <!-- Args are read as raw strings: xacro would otherwise turn "false"/"true" (any case) and numerals into
        bool/number, and the accepted-value check below compares strings. The quotes + lazy_eval="false" keep them str. -->
@@ -62,6 +72,8 @@
   <xacro:property name="enable_planar_base" lazy_eval="false" value="'$(arg enable_planar_base)'"/>
   <xacro:property name="datums_file" lazy_eval="false" value="'$(arg datums_file)'"/>
   <xacro:property name="controllers_file" lazy_eval="false" value="'$(arg controllers_file)'"/>
+  <xacro:property name="controllers_overlay_file" lazy_eval="false" value="'$(arg controllers_overlay_file)'"/>
+  <xacro:property name="sim_dynamics" lazy_eval="false" value="'$(arg sim_dynamics)'"/>
 
   <xacro:property name="datums" value="${xacro.load_yaml(datums_file)}"/>
   <xacro:property name="upperbody" lazy_eval="false"
@@ -82,6 +94,13 @@
   <xacro:openamr_require_one_of arg="arm_package" value="'${arm_package}'" accepted="${['openarm', 'so101', 'none']}"/>
   <xacro:openamr_require_one_of arg="hardware_profile" value="'${hardware_profile}'" accepted="${['mock', 'gazebo', 'real']}"/>
   <xacro:openamr_require_one_of arg="enable_planar_base" value="'${enable_planar_base}'" accepted="${['true', 'false']}"/>
+  <xacro:openamr_require_one_of arg="sim_dynamics" value="'${sim_dynamics}'" accepted="${['auto', 'on', 'off']}"/>
+  <xacro:if value="${sim_dynamics == 'on' and hardware_profile == 'real'}">
+    <xacro:property name="openamr_sim_dynamics_on_real" lazy_eval="false"
+                    value="${xacro.fatal('sim_dynamics:=on with hardware_profile:=real: simulator joint dynamics are never applied to the real-hardware profile')}"/>
+  </xacro:if>
+  <xacro:property name="sim_dynamics_on" lazy_eval="false"
+                  value="${arm_package == 'openarm' and (sim_dynamics == 'on' or (sim_dynamics == 'auto' and hardware_profile == 'gazebo'))}"/>
 
   <!-- Base: a full <robot> file from platform-sw, included unchanged; xacro merges its content. Since platform-sw 935efc7 its
        root is base_footprint (REP 105) and it declares the near-field frames, the base camera and the IMU: none of those is
@@ -181,6 +200,10 @@
   </xacro:if>
   <xacro:if value="${arm_package == 'openarm'}">
     <xacro:include filename="$(find openarm_description)/assets/robot/openarm_v2.0/urdf/utils/openarm_v20_robot.xacro"/>
+    <!-- Simulator joint dynamics: after the upstream include (it redefines one upstream macro) and before the arm calls. -->
+    <xacro:if value="${sim_dynamics_on}">
+      <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/sim_dynamics.xacro"/>
+    </xacro:if>
     <xacro:property name="openarm_config_root" value="$(find openarm_description)/assets/robot/openarm_v2.0/config"/>
     <xacro:property name="left_preset_file" value="$(find openamrobot_upperbody_description)/config/openarm_preset_left.yaml"/>
     <xacro:property name="right_preset_file" value="$(find openamrobot_upperbody_description)/config/openarm_preset_right.yaml"/>
@@ -216,7 +239,8 @@
 
     <!-- Only here: so101 and none get no ros2_control. Needs the arm joints emitted above. -->
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/ros2_control.xacro"/>
-    <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"/>
+    <xacro:openamr_arm_ros2_control hardware_profile="${hardware_profile}" controllers_file="${controllers_file}"
+                                    controllers_overlay_file="${controllers_overlay_file}"/>
     <!-- The lift: mock and gazebo only (issue #17); real gets none. -->
     <xacro:openamr_lift_ros2_control hardware_profile="${hardware_profile}"/>
   </xacro:if>

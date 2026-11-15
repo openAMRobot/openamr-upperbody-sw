@@ -37,6 +37,52 @@ All notable changes to this repository. Evidence for the description is static a
 - **Assumptions.** Motor behaviour that no source in scope fixes (state after power-up, reply while disabled, fault thresholds, CAN timeout,
   reply latency, speed at 25.6 to 29.2 V) is a parameter with a default, listed in the package README for bench measurement.
 
+### Added (14 Nov 2026; simulator dynamics for the OpenArm 2.0 joints, simulation only)
+
+Base: main `895ce34`. Inputs: audits `audit/2026-09-28` (`digital-twin/openarm/`, gaps 3, 6, 9 and 10 of `findings.md`). Simulation only:
+no safety logic, no firmware, no change to a joint limit, origin, axis, mass or inertia. The real-hardware profile expands to the same text as before.
+
+- **Simulator dynamics profile, kept apart from the kinematics** (`config/sim_dynamics/openarm_v2.yaml`, schema `sim_dynamics.schema.json`).
+  Per joint and gripper: damping, friction, armature, and a copy of the URDF effort and velocity limits, each with its source, the place in
+  that source and a status. The values are upstream's own simulator values, from its MuJoCo model of OpenArm 2.0 (`openarm_mujoco` `1daab06`,
+  `v2/openarm_bimanual.xml`): joints 1 and 2 damping 1.0 N*m*s/rad, friction 0.2 N*m, armature 0.016 kg*m^2; joints 3 and 4 0.9, 0.1, 0.030;
+  joints 5 to 7 0.9, 0.04, 0.002; fingers 0.6, 0, 0.002. `openarm_description` gives none: its `friction.yaml` is empty at the pin `14ff67b`
+  and at main `38c64af`. The Isaac Lab asset (`cb7ff75`) is the 1.0 hand and has no joint friction or armature. Nothing is estimated except
+  two cross-checks that are not applied (the rotor inertia each armature implies, and a fingertip force), each with its method.
+  None of it is a measurement of a delivered arm.
+- **Applied through xacro to the simulated outputs only.** New `urdf/sim_dynamics.xacro` and xacro arg `sim_dynamics` (`auto`, `on`, `off`).
+  `hardware_profile:=gazebo` now has `<dynamics damping friction>` on the sixteen controlled arm and gripper joints and on the two finger mimic
+  followers. `sim_dynamics:=on` gives the same for a MuJoCo-facing URDF. `hardware_profile:=real` has none, and `sim_dynamics:=on` with `real`
+  stops the expansion. `mock` has none by default. The upstream macros take no dynamics argument, so the file redefines the one upstream macro
+  that emits every joint's `<limit>`, with the same `<limit>` and the `<dynamics>` after it; with the eighteen lines removed the expansion
+  equals the one without them. Armature is not applied: URDF has no element for it and no link inertia is changed.
+- **Controller rate in the simulation: 750 Hz, upstream's rate for the real driver** (`openarm_ros2` `4e837e1`,
+  `openarm_bringup/config/controllers/openarm_bimanual_controllers.yaml`). New `openamrobot_upperbody_control/config/sim_overlay.yaml`, handed to
+  `gz_ros2_control` after `arm_controllers.yaml` through the new xacro arg `controllers_overlay_file` (a second `<parameters>`).
+  `arm_controllers.yaml` is unchanged: mock and real stay at 100 Hz. `gz_ros2_control` updates on whole physics steps, so
+  `openamrobot_upperbody_gazebo/worlds/empty.sdf` now steps at 1/1500 s (was 1 ms). Measured: 499.5 Hz with 1 ms steps, 743.6 Hz with the new
+  step (most common interval between updates 1.333 ms). The simulation runs slower for it. A world with 1 ms steps runs the arm controllers at 500 Hz.
+- **Gripper grip limit from the motor data**: 3.0 N*m, the rated torque of the gripper motor (rated current 2.5 A), in the profile and as
+  `max_effort` of both gripper controllers in the simulation overlay. It is carried on the command path and not enforced: the position
+  command interface ignores `max_effort` and the URDF effort limit (7 N*m, the motor's peak) is unchanged.
+- **Tests, registered in CMake**: `test_sim_dynamics_profile.py` (schema, a source and locator for every value, a method for every estimate,
+  full commit hashes, the pins equal `upstream_pins.yaml`, the joint list equals the model's, the limit copies equal the URDF's),
+  `test_sim_dynamics_urdf.py` (`<dynamics>` on all 16 arm and gripper joints in `gazebo`, none in `real`, nothing else moved),
+  `test_sim_overlay_yaml.py` (the overlay equals the profile and adds no controller), `test_sim_control_rate.py` (the world step gives 750 Hz).
+
+### Fixed (14 Nov 2026; gripper `open` and `closed` were swapped in the SRDF)
+
+- **`open` is now the far end of each hand's range (+0.7854 left, -0.7854 right) and `closed` is 0.** They were the other way round, so a
+  `closed` command opened the hand. Audit finding 6 holds. Evidence: upstream docs ("the closed position is used as zero by default"), the
+  upstream driver (`openarm_can`: "0=closed, 1=open"), the upstream MuJoCo model (ratio 0 closed, 1 fully open at the range end away from 0),
+  and this model's geometry: the fingertip collision meshes are 0.1 mm apart at 0 and 139 mm apart at the far end.
+- **M05 now ties the names to the geometry.** It asserted the swapped convention and so passed with the defect. It now measures the fingertip
+  gap on the expanded URDF (under 1 mm at `closed`, over 100 mm at `open`), fails the swapped names, and still fails the single-number
+  version in both directions. `named_poses.open_value` is the per-hand far limit; `closed_value` is 0.
+- **Test sequences keep the same motion under the right names**: the gripper sequence of M01, M02 and M06 is `open` then `closed` (was `closed`
+  then `open`): to the far end and back to 0, as before. Text that said "close" for moving the fingers now says "move" or "reach the goal".
+  Not changed: the joint limits, the sign per hand, the controllers. The motor sign per hand on the real gripper is still undocumented upstream.
+
 ### Changed (14 Nov 2026; platform pin to platform-sw main 8e7a454)
 
 - **Platform pin `713574f` -> `8e7a454`** (`config/upstream_pins.yaml`, README checkout line): the merge of platform-sw #93, decision NEAR-FIELD-FRAMES
