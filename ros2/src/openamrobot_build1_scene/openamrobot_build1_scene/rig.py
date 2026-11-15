@@ -500,6 +500,20 @@ class Rig:
         if not future.done() or not all(r.successful for r in future.result().results):
             raise ScenarioFailed(f"could not set {name} on /sim/{side}_arm_emulator")
 
+    def drive_host_alive(self, wall_s=3.0):
+        """True when the host test client still reads the drive: its sample counter moves.
+        The drive thread of the pinned openamrobot_sil (#141) ends on an SDO reply it does not expect (KeyError in
+        canopen_common.read), which a late reply on a slow machine produces. After that the base cannot move."""
+        if not self.devices:
+            return True
+        first = (self.get("/sil/drive/status") or {}).get("samples")
+        end = time.monotonic() + wall_s
+        while time.monotonic() < end:
+            time.sleep(0.2)
+            if (self.get("/sil/drive/status") or {}).get("samples") != first:
+                return True
+        return False
+
     def base_stopped(self):
         """The provisional base-stopped rule of the firmware owner decisions of 13 Nov 2026: below 0.01 m/s and
         0.02 rad/s. The caller adds the 500 ms hold. Ground truth speeds."""
@@ -548,6 +562,9 @@ def run(scenario_name, function, needs_devices=False, **ready):
             else:
                 log.quantity("drive_emulator_plant_switches", rig.plant_switches, "switches", low=0, high=0,
                              note="the drive emulator must stay on Gazebo feedback for the whole run (SW-03)")
+        if rig.devices:
+            log.quantity("host_client_drive_thread_alive", rig.drive_host_alive(), "bool",
+                         note="false: the drive thread of openamrobot_sil's host test client ended during the run")
         stats = rig.get("/build1/rtf_stats") or {}
         for key in ("rtf_mean", "rtf_min", "rtf_max"):
             log.quantity(f"gazebo_{key}_whole_run", stats.get(key), "1", note="from rtf_monitor.py since its start")
@@ -562,6 +579,14 @@ def run(scenario_name, function, needs_devices=False, **ready):
     except Exception as error:  # noqa: BLE001 - the log must say what broke
         reason = f"{type(error).__name__}: {error}"
     finally:
+        try:
+            if result == "FAIL" and not rig.drive_host_alive():
+                result = "BLOCKED"
+                reason = ("the drive thread of the host test client stopped during this run (openamrobot_sil of "
+                          "openamr-platform-sw #141: an unexpected SDO reply ends it, seen on slow machines). The base could "
+                          "not be commanded. What failed after that: " + reason)
+        except Exception:  # noqa: BLE001 - the verdict above stands
+            pass
         path = log.write(result, reason=reason)
         rig.close()
     return result, reason, path

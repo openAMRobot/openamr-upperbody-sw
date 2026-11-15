@@ -266,9 +266,17 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
 - **Lift in MoveIt.** In the device profiles MoveIt cannot move the lift. The lift moves between calibrated stops
   through CTL-017 only.
 - **Seeds.** No seed is set. A repeated run is not guaranteed to be identical.
-- **Log lines to expect.** `gz_ros_control` reports that the controller period is faster than the simulation period at
-  the 1/1500 s step. The step is written 0.00066667 s, which is 10 ns longer than 1/1500 s. The emulators still run
-  every step.
+- **Emulator rate at the 1/1500 s step.** `gz_ros_control` reports that the controller period is faster than the
+  simulation period: the step is written 0.00066667 s, 10 ns longer than 1/1500 s. Measured on the CI runner, the
+  simulator's controller manager then publishes at 750 Hz, every second step, not at 1500 Hz. At the 1 ms step it
+  published at 616 Hz of the 1000 Hz asked for, at a real-time factor of 0.27.
+- **MoveIt from the activation pose.** With the real driver, joint 4 rests on its lower limit and reads about
+  0.0002 rad below it. MoveIt refuses a start state outside the limits. The scenarios leave the activation pose by a
+  joint command to the park pose first.
+- **Host test client on a slow machine.** The drive thread of `openamrobot_sil` (#141) ends on an SDO reply it does
+  not expect. The base then cannot be commanded. The rig detects it and reports BLOCKED.
+- **Lift on a slow machine.** On the CI runner the full device stack ran at a real-time factor of 0.26 to 0.50.
+  The CTL-017 model needs about 0.5 while the lift moves. Lift checks report BLOCKED there.
 
 ## Unverified parameters
 
