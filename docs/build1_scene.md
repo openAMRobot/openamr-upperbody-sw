@@ -146,6 +146,7 @@ First runs. Simulation evidence only. The run identity of each number is in the 
 | lift refuses a command without permit | `firmware_sil` | CI runner | refused, 0.000 m of motion, no replay after the permit |
 | replay of a synthetic BMS trace in place of the emulator | virtual CAN only | CI runner | passed in the first run: the host test client reported 26.4 V and 55 % |
 | grasp of the tote item | `fast`, Bullet Featherstone | development machine | fingers stop on the item at 0.43 rad, item rises 62 mm with the hand and holds |
+| cancel and resume, base and arm | `firmware_sil` | CI runner | base stops 0.09 s after the cancel and ends at 2.010 m of 2 m after the resume. The arm holds and resumes |
 | cancel and resume | `fast` | development machine | base stops 0.47 s and 0.06 m after the cancel, arm holds, both resume |
 
 The turn on the spot over-reads by about 9 degrees in every profile: the wheels slip at the turn rate of the Nav2 spin
@@ -184,6 +185,9 @@ Rule: `docs/architecture/sil-topology.md` section 6 of openamr-platform-sw #141.
 - **Grasp in `firmware_sil`.** The fingers open to 0.76 rad and do not close on command. The gripper controller
   reports a stall: the upstream driver reports finger velocity as 0. The grasp passes in `fast` with Bullet
   Featherstone, where the fingers stop on the item at 0.43 rad and the item rises 62 mm with the hand.
+- **Arm reach in `firmware_sil`.** MoveIt reports success for both arms at L1000. The hand base settles 0.03 to
+  0.09 m from the goal. In one run the left arm then stood in contact with the shelf board in MoveIt's scene, and
+  MoveIt refused to plan the return. The scenario fails there and never reaches the second lift height.
 - **Lift motion in DART.** Intermittent in local runs of `fast`: the same command moved the lift in some runs and not
   in others, with no fault. One CI move in `firmware_sil` ended in a stall fault at a real-time factor of 0.53. The
   cause is open. No lift move over CAN3 has passed.
