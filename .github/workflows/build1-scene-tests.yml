@@ -43,7 +43,7 @@ jobs:
           - name: faults
             tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
           - name: profiles fast and fine
-            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast)$"
+            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
     steps:
       - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
         with:

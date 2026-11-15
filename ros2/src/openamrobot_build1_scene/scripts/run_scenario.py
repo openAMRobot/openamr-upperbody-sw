@@ -30,7 +30,8 @@ def main(argv=None):
     if args.log_dir:
         os.environ["BUILD1_LOG_DIR"] = args.log_dir
     function, needs_devices, ready = scenarios.SCENARIOS[args.name]
-    result, _reason, _path = rig_module.run(args.name, function, needs_devices=needs_devices, **ready)
+    result, _reason, _path = rig_module.run(args.name, function, needs_devices=needs_devices,
+                                            uses_base=args.name in scenarios.BASE_SCENARIOS, **ready)
     return {"PASS": 0, "BLOCKED": 3}.get(result, 1)
 
 

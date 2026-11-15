@@ -141,6 +141,10 @@ First runs. Simulation evidence only. The run identity of each number is in the 
 | BMS silent on CAN2 | `faults` | CI runner | poll timeouts rise, the last voltage stays on the topic, the base still drives |
 | arm power cut while holding | `faults` | CI runner | the arm falls, the driver's state does not change, the controllers stay active, nothing re-enables the motors |
 | single-writer check | `firmware_sil`, `fast`, `fine` | CI runner | 0 problems, 27 topics, 5 actions |
+| frame kinds on the buses, 2 s | `firmware_sil` | CI runner | `vcan_arm_l` 7843 and `vcan_arm_r` 7889 CAN FD frames with bit rate switch, 0 classic. `vcan_drive` 20, `vcan_bms` 61, `vcan_aux` 115 classic frames, 0 CAN FD |
+| both arms to the shelf pose at L1000 through MoveIt | `firmware_sil` | CI runner | MoveIt reports success. Hand base 0.029 m (left) and 0.067 m (right) from the goal. Driver state within 0.0003 rad of the physics |
+| lift refuses a command without permit | `firmware_sil` | CI runner | refused, 0.000 m of motion, no replay after the permit |
+| replay of a synthetic BMS trace in place of the emulator | virtual CAN only | CI runner | passed in the first run: the host test client reported 26.4 V and 55 % |
 | grasp of the tote item | `fast`, Bullet Featherstone | development machine | fingers stop on the item at 0.43 rad, item rises 62 mm with the hand and holds |
 | cancel and resume | `fast` | development machine | base stops 0.47 s and 0.06 m after the cancel, arm holds, both resume |
 
@@ -169,10 +173,23 @@ Rule: `docs/architecture/sil-topology.md` section 6 of openamr-platform-sw #141.
 - Timers inside the emulators run on the host clock. On a slow machine the plant is slow against them. Known case:
   the CTL-017 model faults below a real-time factor of about 0.5 while the lift moves. A scenario that meets it reports
   BLOCKED with the measured factor. BLOCKED is not PASS.
-- Seen on the CI runner: the device stack ran at a real-time factor of 0.26 to 0.50, and every lift move was BLOCKED.
+- Seen on the CI runner: the device stack ran at a real-time factor of 0.14 to 0.56, and every lift move was BLOCKED.
   The lift path over CAN3 has therefore no passing run yet. The refusal without permit was checked and passed.
 - Seen on the CI runner: the drive thread of the host test client of `openamrobot_sil` ended on an unexpected SDO
-  reply in four of nine runs. A late reply on a slow machine produces it. The rig reports such a run as BLOCKED.
+  reply in about half of the runs. A late reply on a slow machine produces it. After that the base cannot be
+  commanded. The rig records it in every log and reports a scenario that drives as BLOCKED.
+
+## Not working today
+
+- **Grasp in `firmware_sil`.** The fingers open to 0.76 rad and do not close on command. The gripper controller
+  reports a stall: the upstream driver reports finger velocity as 0. The grasp passes in `fast` with Bullet
+  Featherstone, where the fingers stop on the item at 0.43 rad and the item rises 62 mm with the hand.
+- **Lift motion in DART.** Intermittent in local runs of `fast`: the same command moved the lift in some runs and not
+  in others, with no fault. One CI move in `firmware_sil` ended in a stall fault at a real-time factor of 0.53. The
+  cause is open. No lift move over CAN3 has passed.
+- **MoveIt from the activation pose with the real driver.** Joint 4 reads 0.0002 rad below its lower limit and MoveIt
+  refuses the start state. The scenarios first command the park pose through the arm controllers.
+- **Bullet Featherstone base.** See Engines.
 - The link-loss time of the drive, 250 ms of host time, is shorter in Gazebo time on a slow machine. The stop times
   in the bus loss log are therefore not stopping-time measurements.
 

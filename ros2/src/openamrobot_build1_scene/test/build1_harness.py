@@ -45,7 +45,8 @@ def run(test_case, name, log_name=None):
     from openamrobot_build1_scene import rig, scenarios
     function, needs_devices, ready = scenarios.SCENARIOS[name]
     os.environ.setdefault("BUILD1_LOG_DIR", os.path.join(os.getcwd(), "build1_logs"))
-    result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices, **ready)
+    result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices,
+                                    uses_base=name in scenarios.BASE_SCENARIOS, **ready)
     print(f"BUILD1 {log_name or name}: {result}. Log: {path}")
     if result == "BLOCKED":
         test_case.skipTest(f"BLOCKED: {reason}")

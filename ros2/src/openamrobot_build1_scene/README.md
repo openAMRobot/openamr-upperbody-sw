@@ -200,6 +200,7 @@ is never PASS.
 | `scn10_profiles`, `scn11_profile_sil_fine` | `firmware_sil` | real-time factor, controller rates, missed updates at 1 ms and 1/1500 s |
 | `scn12_profile_fast`, `scn13_profile_fine` | `fast`, `fine` | single writers, real-time factor, controller rate, missed updates |
 | `scn14_drive_fast` | `fast` | scenario 1 without devices |
+| `scn15_grasp_fast` | `fast`, Bullet Featherstone | scenario 4 without devices |
 
 Fault scenarios record observations. Next to each stands the entry of
 [`config/expected_reactions.yaml`](config/expected_reactions.yaml), a simulation-only reference. Those entries are
@@ -275,6 +276,14 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
   joint command to the park pose first.
 - **Host test client on a slow machine.** The drive thread of `openamrobot_sil` (#141) ends on an SDO reply it does
   not expect. The base then cannot be commanded. The rig detects it and reports BLOCKED.
+- **Gripper through the real driver.** In `firmware_sil` the fingers open to 0.76 rad of 0.785 and do not close on
+  command: the gripper controller reports a stall. The upstream driver reports finger velocity as 0, which the
+  controller reads as a stall. `scn04_grasp` fails there today. The grasp passes in `fast` with Bullet Featherstone.
+- **Arm accuracy through the real driver.** MoveIt reports success, and the hand base settles 0.03 to 0.07 m from a
+  goal region of 0.02 m, under gravity with the driver's gains.
+- **Lift in DART.** In local runs of `fast` the lift did not move on some commands and moved on others, with the same
+  command and no fault reported. In CI one lift move in `firmware_sil` ended in a stall fault of the CTL-017 model
+  at a real-time factor of 0.53. The cause is open.
 - **Lift on a slow machine.** On the CI runner the full device stack ran at a real-time factor of 0.26 to 0.50.
   The CTL-017 model needs about 0.5 while the lift moves. Lift checks report BLOCKED there.
 

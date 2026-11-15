@@ -56,7 +56,8 @@ if(BUILD_TESTING)
       scn11_profile_sil_fine:1800
       scn12_profile_fast:1800
       scn13_profile_fine:2400
-      scn14_drive_fast:1500)
+      scn14_drive_fast:1500
+      scn15_grasp_fast:1800)
     foreach(entry ${scenarios})
       string(REPLACE ":" ";" parts ${entry})
       list(GET parts 0 name)

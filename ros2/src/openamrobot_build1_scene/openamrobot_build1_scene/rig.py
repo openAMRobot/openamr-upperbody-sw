@@ -425,6 +425,7 @@ class Rig:
         wall = time.monotonic() - wall0
         factor = (self.sim_time() - sim0) / wall if wall > 0 else 0.0
         state = self.get("/sil/lift/emulator_state") or {}
+        self.log.quantity(f"lift_move_to_stop_{stop}_real_time_factor", factor, "1", note="while the lift was commanded")
         if not arrived and state.get("faults") and factor < LIFT_MIN_RTF:
             raise Blocked(f"the CTL-017 model raised fault bits {state.get('faults')} while Gazebo ran at real-time factor "
                           f"{factor:.2f}. Its Hall rate rule runs on the host clock and needs about {LIFT_MIN_RTF} or more "
@@ -543,7 +544,7 @@ class Rig:
             rclpy.shutdown()
 
 
-def run(scenario_name, function, needs_devices=False, **ready):
+def run(scenario_name, function, needs_devices=False, uses_base=False, **ready):
     """Run one scenario function against a running stack. -> (result, reason, log path).
     result is PASS, FAIL or BLOCKED."""
     rig = Rig(scenario_name)
@@ -580,7 +581,7 @@ def run(scenario_name, function, needs_devices=False, **ready):
         reason = f"{type(error).__name__}: {error}"
     finally:
         try:
-            if result == "FAIL" and not rig.drive_host_alive():
+            if result == "FAIL" and uses_base and not rig.drive_host_alive():
                 result = "BLOCKED"
                 reason = ("the drive thread of the host test client stopped during this run (openamrobot_sil of "
                           "openamr-platform-sw #141: an unexpected SDO reply ends it, seen on slow machines). The base could "
