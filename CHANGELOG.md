@@ -33,7 +33,7 @@ one sensor block of its open #105 (`acc427d`), audits `audit/2026-09-28` at `be1
   RGB-D, two wrist cameras, all with optical frames. Their parameters are unverified. No link, joint, limit or mass is changed.
 - **Nav2 and MoveIt 2.** The platform's Nav2 launch files and parameters, a footprint that follows the floor projection of the arms
   (`footprint_publisher.py`), MoveIt for both arms with the scene objects (`planning_scene_loader.py`), one RViz configuration and a checklist.
-- **Scenarios.** Fourteen headless launch tests with a quantitative log each: drive 2 m and turn 90 degrees against ground truth, lift at
+- **Scenarios.** Fifteen headless launch tests with a quantitative log each: drive 2 m and turn 90 degrees against ground truth, lift at
   three heights with and without permit, both arms to a shelf pose at two lift heights, grasp of a tote item, bus loss on each bus, stale
   sensors, cancel and resume, arm power cut while holding, the single-writer check, and real-time factor, controller rates and missed
   updates per profile. Fault cases record what the stack does today next to a simulation-only reference, labelled expected behaviour and
@@ -44,6 +44,12 @@ one sensor block of its open #105 (`acc427d`), audits `audit/2026-09-28` at `be1
 - **CI.** `.github/workflows/build1-scene-tests.yml`, ubuntu-24.04, Jazzy, vcan by modprobe. BLOCKED is counted apart and fails the job.
 - **Finding.** With the pinned models DART drives the base correctly and its grippers do not move in `fast` and `fine`. Bullet Featherstone
   moves the grippers and the base does not turn. DART is the default of the scene. `docs/build1_scene.md` has the numbers.
+- **Changed in `openamrobot_openarm_emulator`.** Its `sil.launch.py` passes `sim_dynamics:=off`. With the joint dynamics of #66 and
+  Bullet Featherstone its arms were not held before activation and `test_sil_launch` failed in CI. The launch keeps the plant it was
+  verified with on main.
+- **First results, CI runner.** Drive, cancel and resume, arm power cut and the single-writer check pass in the device profiles. The
+  arm reach and the grasp fail there. Every lift move over CAN3 is BLOCKED: the runner is slower than the CTL-017 model needs.
+  `docs/build1_scene.md` has the numbers and the list of what does not work today.
 - **Docs.** `docs/build1_scene.md`: what is modelled, assumed and not modelled.
 
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
