@@ -221,6 +221,18 @@ jobs:
               "commands": [s for s in task.get("steps", [])],
           }
           json.dump(capture, open(os.path.join(out, "capture.json"), "w"), indent=2, default=str)
+          # A contact sheet of six frames, printed into the log as base64: a reader without artifact access can check it.
+          import base64, numpy as np
+          if keep:
+              picks = [keep[int(k * (len(keep) - 1) / 5)] for k in range(6)]
+              tiles = [cv2.resize(cv2.imread(os.path.join(frames_dir, f"{i:06d}.jpg")), (640, 360)) for i, _s in picks]
+              for tile, (_i, s) in zip(tiles, picks):
+                  cv2.putText(tile, f"t={s:.1f} s sim", (10, 350), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+              sheet = np.vstack([np.hstack(tiles[0:2]), np.hstack(tiles[2:4]), np.hstack(tiles[4:6])])
+              cv2.imwrite(os.path.join(out, "contact_sheet.jpg"), sheet, [cv2.IMWRITE_JPEG_QUALITY, 80])
+              data = base64.b64encode(open(os.path.join(out, "contact_sheet.jpg"), "rb").read()).decode()
+              for n in range(0, len(data), 4000):
+                  print("SHEET_B64 " + data[n:n + 4000])
           print(json.dumps({k: capture[k] for k in ("frames_recorded", "frames_in_video", "video_sim_seconds", "gazebo_rtf")}, indent=2))
           EOF
           ls -la video
@@ -234,6 +246,7 @@ jobs:
             ws/video/scene.mp4
             ws/video/scene.gif
             ws/video/still_*.png
+            ws/video/contact_sheet.jpg
             ws/video/capture.json
             ws/video/task.json
             ws/video/*.log
