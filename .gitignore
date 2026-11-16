@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT
+# Generated simulation models (MJCF, meshes, Isaac jobs, USD) are build products: simulation/tools/generate.py writes them here.
+/build/
+/simulation/**/__pycache__/

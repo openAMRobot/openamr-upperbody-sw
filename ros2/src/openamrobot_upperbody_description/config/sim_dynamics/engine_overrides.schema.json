@@ -1,0 +1,476 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/openAMRobot/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_description/config/sim_dynamics/engine_overrides.schema.json",
+  "title": "Engine overrides for the MuJoCo and Isaac Sim representations of the combined model",
+  "description": "SPDX-License-Identifier: MIT. What a backend needs that the URDF cannot carry. Every value names a status; a sourced value names its source and locator; an engine choice names its method; an unknown names what would supply it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "profile",
+    "read_on",
+    "schema",
+    "sources",
+    "common",
+    "actuators",
+    "mimic",
+    "passive_castors",
+    "contact",
+    "isaac"
+  ],
+  "definitions": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "enum": [
+        "upstream_config",
+        "upstream_driver",
+        "upstream_sim_asset",
+        "project_proposal",
+        "urdf_geometry",
+        "engine_choice",
+        "engine_default",
+        "unknown"
+      ]
+    },
+    "sourced": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/status"
+        },
+        "source": {
+          "type": "string"
+        },
+        "locator": {
+          "type": "string",
+          "minLength": 3
+        },
+        "method": {
+          "type": "string",
+          "minLength": 10
+        },
+        "needed": {
+          "type": "string",
+          "minLength": 3
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "upstream_config",
+                  "upstream_driver",
+                  "upstream_sim_asset",
+                  "project_proposal",
+                  "urdf_geometry"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "source",
+              "locator"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "engine_choice"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "method"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unknown"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "needed"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "engine_default"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "gains": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kp",
+        "kd"
+      ],
+      "properties": {
+        "kp": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "kd": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "status": {
+      "enum": [
+        "Proposed",
+        "Accepted"
+      ]
+    },
+    "profile": {
+      "type": "string"
+    },
+    "read_on": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "schema": {
+      "const": "engine_overrides.schema.json"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "repository",
+          "note"
+        ],
+        "properties": {
+          "repository": {
+            "type": "string",
+            "pattern": "^https://github.com/"
+          },
+          "commit": {
+            "$ref": "#/definitions/commit"
+          }
+        }
+      }
+    },
+    "common": {
+      "type": "object",
+      "required": [
+        "physics_step",
+        "controller_rate",
+        "gravity",
+        "floating_base",
+        "self_collision"
+      ],
+      "additionalProperties": {
+        "$ref": "#/definitions/sourced"
+      },
+      "properties": {
+        "physics_step": {
+          "$ref": "#/definitions/sourced"
+        },
+        "controller_rate": {
+          "$ref": "#/definitions/sourced"
+        },
+        "gravity": {
+          "$ref": "#/definitions/sourced"
+        },
+        "floating_base": {
+          "$ref": "#/definitions/sourced"
+        },
+        "self_collision": {
+          "$ref": "#/definitions/sourced"
+        }
+      }
+    },
+    "actuators": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm_position_gains",
+        "gripper_position_gains",
+        "effort_limits",
+        "lift_position_servo",
+        "wheel_velocity_servo"
+      ],
+      "properties": {
+        "arm_position_gains": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/sourced"
+            },
+            {
+              "required": [
+                "per_joint"
+              ],
+              "properties": {
+                "per_joint": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "joint1",
+                    "joint2",
+                    "joint3",
+                    "joint4",
+                    "joint5",
+                    "joint6",
+                    "joint7"
+                  ],
+                  "patternProperties": {
+                    "^joint[1-7]$": {
+                      "$ref": "#/definitions/gains"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "gripper_position_gains": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/sourced"
+            },
+            {
+              "required": [
+                "kp",
+                "kd"
+              ]
+            }
+          ]
+        },
+        "effort_limits": {
+          "$ref": "#/definitions/sourced"
+        },
+        "lift_position_servo": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/sourced"
+            },
+            {
+              "required": [
+                "parameters",
+                "force_limit",
+                "velocity_limit"
+              ]
+            }
+          ]
+        },
+        "wheel_velocity_servo": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/sourced"
+            },
+            {
+              "required": [
+                "parameters",
+                "force_limit"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "mimic": {
+      "type": "object",
+      "required": [
+        "joints",
+        "mujoco",
+        "isaac"
+      ],
+      "properties": {
+        "joints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2
+        },
+        "mujoco": {
+          "type": "object",
+          "required": [
+            "kind",
+            "solref",
+            "solimp"
+          ],
+          "properties": {
+            "kind": {
+              "const": "equality_joint"
+            },
+            "solref": {
+              "$ref": "#/definitions/sourced"
+            },
+            "solimp": {
+              "$ref": "#/definitions/sourced"
+            }
+          }
+        },
+        "isaac": {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "physx_mimic_joint"
+            }
+          }
+        }
+      }
+    },
+    "passive_castors": {
+      "type": "object",
+      "required": [
+        "enabled_in",
+        "prefixes",
+        "swivel",
+        "roll"
+      ],
+      "properties": {
+        "enabled_in": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "mujoco",
+              "isaac"
+            ]
+          }
+        },
+        "prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "swivel": {
+          "type": "object",
+          "required": [
+            "joint",
+            "axis",
+            "damping",
+            "frictionloss"
+          ],
+          "properties": {
+            "damping": {
+              "$ref": "#/definitions/sourced"
+            },
+            "frictionloss": {
+              "$ref": "#/definitions/sourced"
+            }
+          }
+        },
+        "roll": {
+          "type": "object",
+          "required": [
+            "joint",
+            "axis",
+            "damping",
+            "frictionloss"
+          ],
+          "properties": {
+            "damping": {
+              "$ref": "#/definitions/sourced"
+            },
+            "frictionloss": {
+              "$ref": "#/definitions/sourced"
+            }
+          }
+        }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/sourced"
+      }
+    },
+    "isaac": {
+      "type": "object",
+      "required": [
+        "version",
+        "container_image",
+        "importer",
+        "drives",
+        "joint_friction"
+      ],
+      "properties": {
+        "version": {
+          "$ref": "#/definitions/sourced"
+        },
+        "container_image": {
+          "type": "string",
+          "pattern": "^nvcr.io/nvidia/isaac-sim:[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "importer": {
+          "type": "object",
+          "required": [
+            "merge_fixed_joints",
+            "fix_base",
+            "import_inertia_tensor",
+            "self_collision",
+            "parse_mimic"
+          ],
+          "properties": {
+            "merge_fixed_joints": {
+              "const": false
+            },
+            "parse_mimic": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "cameras": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "frame",
+          "fovy"
+        ],
+        "properties": {
+          "frame": {
+            "type": "string"
+          },
+          "fovy": {
+            "$ref": "#/definitions/sourced"
+          }
+        }
+      }
+    }
+  }
+}

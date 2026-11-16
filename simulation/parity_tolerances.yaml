@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: MIT
+# Parity tolerances: how far a backend value may be from the pinned expansion (the reference) and still count as the same.
+#
+# Parity is structure and parameters, never physics. A tolerance here asks one question: did the backend carry the number the source
+# states? So each tolerance is at least ten times finer than the coarsest precision its source states (source_precision), and
+# coarse enough for the storage the backend uses (backend_storage). A pass says no source digit was lost or changed. It says nothing
+# about how well either model matches the robot.
+#
+# test_parity_tolerances.py checks that every tolerance is at most one tenth of its source precision.
+schema_version: 1
+parameters:
+  mass:
+    abs: 1.0e-6
+    unit: kg
+    source_precision: {value: 1.0e-3, note: "roadmap mass export (CAD and ledger masses) and upstream nominal inertials state masses to 1 g or finer; the coarsest stated mass is 0.22 kg (to 10 g)"}
+    backend_storage: {mujoco: float64, isaac: float32 (relative 6e-8)}
+  com:
+    abs: 1.0e-6
+    unit: m
+    source_precision: {value: 1.0e-4, note: "CAD centres of mass are stated to 0.1 mm or finer; datums are in mm"}
+    backend_storage: {mujoco: float64, isaac: float32 (6e-8 m at 1 m)}
+  inertia:
+    rel: 1.0e-6
+    abs: 1.0e-12
+    unit: kg*m^2
+    note: "Compared as the full tensor in the world frame: Frobenius norm of the difference over that of the reference, plus abs"
+    source_precision: {value: 1.0e-4, relative: true, note: "CAD and box-formula inertias are stated to four or more significant digits"}
+    backend_storage: {mujoco: float64 principal moments and axes, isaac: float32 principal moments and axes}
+  frame_position:
+    abs: 1.0e-6
+    unit: m
+    source_precision: {value: 1.0e-4, note: "datums and configuration geometry are in mm (1e-3 m); upstream joint origins to 0.1 mm"}
+    backend_storage: {mujoco: float64, isaac: double translate ops}
+  frame_rotation:
+    abs: 1.0e-6
+    unit: rad
+    note: "Angle of R_backend^T R_reference"
+    source_precision: {value: 1.0e-4, note: "the coarsest stated rpy is 0.0001 rad; most are exact multiples of pi"}
+    backend_storage: {mujoco: float64, isaac: float32 quaternions}
+  joint_axis:
+    abs: 1.0e-9
+    unit: '1'
+    source_precision: {value: 1.0, note: "every axis in the expansion is a unit vector with integer components"}
+  joint_limit_position:
+    abs: 1.0e-9
+    unit: rad or m
+    source_precision: {value: 1.0e-5, note: "upstream joint limits are stated to 1e-5 rad at the finest (0.17453), the lift stroke to 1 mm"}
+  joint_limit_effort:
+    abs: 1.0e-9
+    unit: N*m or N
+    source_precision: {value: 1.0, note: "effort limits are datasheet peak torques in whole N*m and the DOLD figure in whole N"}
+  joint_dynamics:
+    abs: 1.0e-12
+    unit: N*m*s/rad, N*m, kg*m^2
+    source_precision: {value: 1.0e-3, note: "damping, friction and armature are stated to 0.001 at the finest (armature 0.016, base wheel 0.001)"}
+  actuator_gain:
+    rel: 1.0e-12
+    unit: N*m/rad, N*m*s/rad
+    source_precision: {value: 1.0e-2, relative: true, note: "MIT gains and gripper gains are stated to two or three significant digits"}
+  geometry_primitive:
+    abs: 1.0e-9
+    unit: m
+    source_precision: {value: 1.0e-3, note: "box, cylinder and sphere sizes are in mm"}
+  geometry_mesh_bounds:
+    abs: 2.0e-6
+    unit: m
+    note: "World-frame bounding box of the mesh vertices; MuJoCo stores mesh vertices as float32 after moving them to the mesh's inertial frame"
+    source_precision: {value: 1.0e-4, note: "mesh files are CAD exports; their vertices carry 0.1 mm of meaning at best"}
+    backend_storage: {mujoco: float32 vertices (about 1e-7 m at 1 m), isaac: float32 points}
+  gravity_torque:
+    abs: 1.0e-6
+    rel: 1.0e-6
+    unit: N*m or N
+    note: "MuJoCo qfrc_bias at rest against pinocchio's RNEA gravity term on the same expansion; two float64 implementations"
+    source_precision: {value: 4.0e-2, note: "the smallest dynamics value that acts against gravity is the 0.04 N*m friction of joints 5 to 7"}
+  mimic_polycoef:
+    abs: 1.0e-12
+    unit: '1'
+    source_precision: {value: 1.0, note: "multiplier and offset are written as 1 and 0 in upstream joint_mimics.yaml"}

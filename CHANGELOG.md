@@ -5,6 +5,30 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (15 Nov 2026; MuJoCo and Isaac Sim representations of the combined model, issue #58)
+
+Base: main `b15bcb6`, stacked on pull request 66 (head `5adeba3`, not merged). Inputs: the digital-twin lock of audits
+`audit/2026-09-28` at `be17653`. Simulation only: no safety logic, no change to kinematics, masses or joint limits. See `docs/simulators.md`.
+
+- **One source for every backend.** `simulation/tools/generate.py` expands `combined_robot.xacro` with `hardware_profile:=gazebo` for
+  `bp000` or `bp050` and checks the SHA-256 against `simulation/expansion_lock.yaml`, a generated mirror of the lock's hashes
+  (`simulation/tools/mirror_lock.py`). A mismatch for the same inputs stops it; unlocked inputs are BLOCKED. Lift positions are joint
+  state (keyframes L1000, L1175, L1350), never arguments. All 18 combined and 3 base hashes of the lock were recomputed and match. At PR 66 head `5adeba3` the description files differ from the lock by a text note, the expansion hashes are the locked ones, and the status says re-lock pending.
+- **MJCF generator.** One body per URDF link and one joint per URDF joint with the same names, full inertials, damping, frictionloss,
+  armature from `openarm_v2.yaml`, collision and visual geometry, cameras, a floor, position actuators for the arm, gripper and lift
+  interfaces and velocity actuators for the wheels, an equality constraint for each finger mimic (SW-09). 73 unsupported semantics are
+  listed in each report. Generated files go to `build/` (new `.gitignore`) and are never committed.
+- **Engine overrides.** New `config/sim_dynamics/engine_overrides.yaml` with schema: MIT gains of openarm_description `14ff67b`, gripper
+  gains of openarm_ros2 `4e837e1`, wheel friction of platform-sw `0741778` (#135), solver values of openarm_mujoco `1daab06`, passive
+  castors, cameras, Isaac importer settings. Not read by xacro, so the expansion is unchanged.
+- **Isaac Sim.** Import job (no GPU), `isaac_generate_usd.py` for Isaac Sim 5.1.0, `check_usd.py` for the USD. BLOCKED without a GPU.
+- **Tests and CI.** New `simulation/tests` (87 tests) and workflow `.github/workflows/simulators.yml`: lock, overrides against their
+  sources, parity (2922 checks per configuration, ten mutation tests), gravity torques against pinocchio, base contacts, castor
+  swivel, lift travel, both arms holding at 750 Hz, SW-09, the arm comparison with openarm_mujoco, the Isaac job and the USD checker.
+- **Findings, not fixed.** The drive wheel collision radius (0.100 m) exceeds the axle height (0.098 m), so the rear castors do not touch
+  the floor in MuJoCo. The openarm base_link CoM signs differ from openarm_mujoco. Updates for the audits register are in
+  `docs/register_updates.csv`.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,
