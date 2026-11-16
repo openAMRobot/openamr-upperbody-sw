@@ -9,13 +9,20 @@
                                          comes back. The interface stays up and the motors keep their last setpoint.
             estop on|off                 E-stop power cut: every motor is silent and applies no torque. off is the reset:
                                          supply back, motors in the power-up state (disabled), positions kept.
+            power_cut on|off             the same as estop: power cut on the arm supply.
             silent MOTOR on|off          single-motor timeout: the motor runs but does not answer. MOTOR is 1..8 (8: gripper).
             code MOTOR CODE              the motor reports fault CODE (8..14, or 0x8..0xE) and stops. CODE 0 removes the
                                          injection; the motor then needs a clear-error frame or a power cycle.
             over_voltage on|off          supply to 33 V (above the 32 V threshold: code 0x8 on every motor), or back to 25.6 V.
             over_temperature MOTOR on|off   the motor's MOSFET temperature to 130 C (code 0xB), or back to 25 C.
+            coil_over_temperature MOTOR on|off   the rotor (coil) temperature to 130 C (code 0xC), or back to 25 C.
+                                         Ignored while motor.thermal_model computes the rotor temperature.
+            over_current MOTOR on|off    the motor reports over-current (code 0xA) and stops; off removes the injection.
+            comm_timeout MOTOR on|off    the motor reports communication lost (code 0xD) and stops; off removes it.
+            timeout SECONDS              every motor's TIMEOUT register (1 count = 50 us; 0 off). With can_loss on, each
+                                         enabled motor then trips 0xD by itself after SECONDS.
             supply VOLTS                 supply voltage. The robot's range is 25.6 to 29.2 V.
-            clear                        remove every injected fault and set the supply to 25.6 V.
+            clear                        remove every injected fault, set the supply to 25.6 V and TIMEOUT to 0.
 
 Each fault is a parameter of the emulator controllers /sim/left_arm_emulator and /sim/right_arm_emulator; this tool only
 sets them (`ros2 param set` does the same). To take the interface itself down: sudo ip link set vcan_arm_l down.
@@ -97,7 +104,7 @@ def main():
     for arm in arms:
         if fault == "can_loss":
             node.set(arm, {"fault.can_loss": on(rest[0])})
-        elif fault == "estop":
+        elif fault in ("estop", "power_cut"):
             node.set(arm, {"fault.estop_power_cut": on(rest[0])})
         elif fault == "silent":
             flags = node.get(arm, "fault.silent_motors")
@@ -113,12 +120,26 @@ def main():
             temperatures = node.get(arm, "fault.temperature_mos_c")
             temperatures[motor_index(rest[0])] = 130.0 if on(rest[1]) else 25.0
             node.set(arm, {"fault.temperature_mos_c": temperatures})
+        elif fault == "coil_over_temperature":
+            temperatures = node.get(arm, "fault.temperature_rotor_c")
+            temperatures[motor_index(rest[0])] = 130.0 if on(rest[1]) else 25.0
+            node.set(arm, {"fault.temperature_rotor_c": temperatures})
+        elif fault in ("over_current", "comm_timeout"):
+            codes = node.get(arm, "fault.error_codes")
+            codes[motor_index(rest[0])] = (0xA if fault == "over_current" else 0xD) if on(rest[1]) else 0
+            node.set(arm, {"fault.error_codes": codes})
+        elif fault == "timeout":
+            seconds = float(rest[0])
+            if seconds < 0.0:
+                raise SystemExit("timeout is 0 (off) or a positive time in seconds")
+            node.set(arm, {"motor.can_timeout_s": seconds})
         elif fault == "supply":
             node.set(arm, {"supply_voltage": float(rest[0])})
         elif fault == "clear":
             node.set(arm, {"fault.can_loss": False, "fault.estop_power_cut": False, "fault.silent_motors": [0] * MOTORS,
                            "fault.error_codes": [0] * MOTORS, "fault.temperature_mos_c": [25.0] * MOTORS,
-                           "fault.temperature_rotor_c": [25.0] * MOTORS, "supply_voltage": 25.6})
+                           "fault.temperature_rotor_c": [25.0] * MOTORS, "supply_voltage": 25.6,
+                           "motor.can_timeout_s": 0.0})
         else:
             print(__doc__)
             return 2

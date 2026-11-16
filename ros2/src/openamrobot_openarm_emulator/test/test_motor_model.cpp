@@ -2,7 +2,9 @@
 // The emulated motor and bus without a CAN interface: frames go in through ArmEmulator::inject or straight to MotorModel.
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cmath>
+#include <thread>
 
 #include "openamrobot_openarm_emulator/arm_emulator.hpp"
 
@@ -281,6 +283,209 @@ TEST(MotorModel, PowerCutIsSilentAndComesBackDisabled)
   EXPECT_EQ(m.step(-0.7, 0.0, 2.2, 0.001, 25.6), 0.0);
 }
 
+// ---- Current and temperature (README, "Current and temperature") ----
+
+TEST(MotorElectrical, ElectricalDefaultsAreTheDatasheetValues)
+{
+  // config/motor_electrical.yaml: gear ratio and phase resistance from the datasheets, kt = rated torque / (gear ratio *
+  // rated current). DM8009: 9, 20 N m, 20 A, 0.09 ohm. DM4340: 40, 9 N m, 2.5 A, 0.76 ohm. DM4310: 10, 3 N m, 2.5 A,
+  // 0.65 ohm. Thresholds and thermal values are unknown: off.
+  const auto motors = default_arm_motors("left_");
+  const double gear[8] = {9, 9, 40, 40, 10, 10, 10, 10};
+  const double kt[8] = {20.0 / 180.0, 20.0 / 180.0, 0.09, 0.09, 0.12, 0.12, 0.12, 0.12};
+  const double r[8] = {0.09, 0.09, 0.76, 0.76, 0.65, 0.65, 0.65, 0.65};
+  for (size_t i = 0; i < 8; ++i) {
+    EXPECT_DOUBLE_EQ(motors[i].gear_ratio, gear[i]) << i;
+    EXPECT_NEAR(motors[i].kt, kt[i], 1e-12) << i;
+    EXPECT_DOUBLE_EQ(motors[i].phase_resistance, r[i]) << i;
+    EXPECT_EQ(motors[i].over_current_a, 0.0) << i;
+    EXPECT_EQ(motors[i].thermal_resistance, 0.0) << i;
+    EXPECT_EQ(motors[i].thermal_time_constant, 0.0) << i;
+  }
+  // The rated point: rated torque at the output is rated current.
+  EXPECT_NEAR(20.0 / (motors[0].kt * motors[0].gear_ratio), 20.0, 1e-9);
+  EXPECT_NEAR(9.0 / (motors[2].kt * motors[2].gear_ratio), 2.5, 1e-9);
+  EXPECT_NEAR(3.0 / (motors[4].kt * motors[4].gear_ratio), 2.5, 1e-9);
+  // Register 20 (Gr) reads the gear ratio.
+  MotorModel m(motors[2], MotorOptions());
+  EXPECT_FLOAT_EQ(bits_float(m.param_raw(kRidGearRatio)), 40.0f);
+}
+
+TEST(MotorElectrical, CurrentIsTorqueOverKtAndGearRatio)
+{
+  const auto motors = default_arm_motors("left_");
+  for (size_t i : {0u, 2u, 4u}) {
+    MotorModel m(motors[i], explicit_law());
+    m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+    for (double tau : {-2.0, 0.0, 1.5, 3.0}) {
+      m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, tau}, m.limits()), 0.0);
+      const double applied = m.step(0.0, 0.0, 0.0, 0.001, 25.6);
+      const double current = applied / (motors[i].kt * motors[i].gear_ratio);
+      EXPECT_NEAR(m.status().current, current, 1e-9) << i << " " << tau;
+      EXPECT_NEAR(m.status().copper_loss, 1.5 * motors[i].phase_resistance * current * current, 1e-9) << i << " " << tau;
+    }
+  }
+  // DM4310 at its rated 3 N m: 2.5 A, 1.5 * 0.65 * 2.5^2 = 6.09 W.
+  MotorModel wrist(motors[4], explicit_law());
+  wrist.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  wrist.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 3.0}, wrist.limits()), 0.0);
+  const double applied = wrist.step(0.0, 0.0, 0.0, 0.001, 25.6);
+  EXPECT_NEAR(wrist.status().current, 2.5 * applied / 3.0, 1e-9);
+  EXPECT_NEAR(applied, 3.0, 0.01);  // the 12-bit torque field in the MIT frame
+  // Disabled or unpowered: no current.
+  wrist.on_control_frame(0, encode_special(kCmdDisable), 0.1);
+  wrist.step(0.0, 0.0, 0.1, 0.001, 25.6);
+  EXPECT_EQ(wrist.status().current, 0.0);
+  EXPECT_EQ(wrist.status().copper_loss, 0.0);
+}
+
+TEST(MotorElectrical, OverCurrentTripsWhenAThresholdIsSet)
+{
+  MotorConfig c = default_arm_motors("left_")[4];  // DM4310, 1.2 N m/A at the output
+  MotorModel off(c, explicit_law());
+  off.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  off.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 6.0}, off.limits()), 0.0);
+  EXPECT_NEAR(off.step(0.0, 0.0, 0.0, 0.001, 25.6), 6.0, 0.01);  // 5 A: no threshold, no trip
+  EXPECT_TRUE(off.status().enabled);
+
+  c.over_current_a = 4.0;  // a test value. The real threshold (register 3) is unknown
+  MotorModel m(c, explicit_law());
+  m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 4.5}, m.limits()), 0.0);
+  EXPECT_NEAR(m.step(0.0, 0.0, 0.0, 0.001, 25.6), 4.5, 0.01);   // 3.75 A
+  EXPECT_TRUE(m.status().enabled);
+  m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 6.0}, m.limits()), 0.001);
+  EXPECT_EQ(m.step(0.0, 0.0, 0.001, 0.001, 25.6), 0.0);         // 5 A: trip, no torque
+  EXPECT_EQ(m.status().code, kCodeOverCurrent);
+  EXPECT_FALSE(m.status().enabled);
+  EXPECT_EQ(m.status().current, 0.0);
+  const Payload frame = m.state_frame();
+  EXPECT_EQ(frame[0], 0xA5);  // code A in the high nibble, motor id 5 in the low nibble
+}
+
+TEST(MotorElectrical, ThermalModelIsOffByDefault)
+{
+  MotorModel m(default_arm_motors("left_")[4], explicit_law());
+  EXPECT_FALSE(m.thermal_active());
+  m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 7.0}, m.limits()), 0.0);
+  for (int i = 0; i < 6000; ++i) {m.step(0.0, 0.0, i * 0.01, 0.01, 25.6);}  // 60 s at peak torque
+  EXPECT_GT(m.status().copper_loss, 0.0);
+  EXPECT_DOUBLE_EQ(m.status().t_rotor, 25.0);
+  EXPECT_TRUE(m.status().enabled);
+
+  // Switched on without the two thermal values (no source gives them): still off.
+  MotorOptions options = explicit_law();
+  options.thermal_model = true;
+  MotorModel no_values(default_arm_motors("left_")[4], options);
+  EXPECT_FALSE(no_values.thermal_active());
+}
+
+TEST(MotorElectrical, ThermalModelRisesToTheSteadyStateWithTestParameters)
+{
+  // Test values, not motor data: 2 K/W, 10 s. DM4310 at 3 N m: 2.5 A, 6.09 W, steady rise 12.19 K.
+  MotorConfig c = default_arm_motors("left_")[4];
+  c.thermal_resistance = 2.0;
+  c.thermal_time_constant = 10.0;
+  MotorOptions options = explicit_law();
+  options.thermal_model = true;
+  MotorModel m(c, options);
+  ASSERT_TRUE(m.thermal_active());
+  m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 3.0}, m.limits()), 0.0);
+  m.step(0.0, 0.0, 0.0, 0.01, 25.6);
+  const double power = m.status().copper_loss;
+  ASSERT_NEAR(power, 1.5 * 0.65 * 2.5 * 2.5, 0.05);
+  const double rise = power * 2.0;
+  for (int i = 1; i <= 1000; ++i) {m.step(0.0, 0.0, i * 0.01, 0.01, 25.6);}  // one time constant
+  EXPECT_NEAR(m.status().t_rotor - 25.0, rise * (1.0 - std::exp(-1.0)), 0.01);
+  for (int i = 1001; i <= 6000; ++i) {m.step(0.0, 0.0, i * 0.01, 0.01, 25.6);}  // six time constants
+  EXPECT_NEAR(m.status().t_rotor - 25.0, rise, 0.05);
+  EXPECT_EQ(decode_state(m.state_frame(), m.limits()).t_rotor, static_cast<uint8_t>(std::lround(25.0 + rise)));  // D7
+  EXPECT_DOUBLE_EQ(m.status().t_mos, 25.0);  // no MOSFET model
+  // Torque off: it cools with the same time constant.
+  m.on_control_frame(0, encode_special(kCmdDisable), 60.0);
+  for (int i = 6001; i <= 7000; ++i) {m.step(0.0, 0.0, i * 0.01, 0.01, 25.6);}
+  EXPECT_NEAR(m.status().t_rotor - 25.0, rise * std::exp(-1.0), 0.05);
+}
+
+TEST(MotorElectrical, ThermalModelTripsCoilOverTemperature)
+{
+  // Test values: 20 K/W, 1 s. At the 7 N m peak the steady state is far above the 120 C threshold.
+  MotorConfig c = default_arm_motors("left_")[4];
+  c.thermal_resistance = 20.0;
+  c.thermal_time_constant = 1.0;
+  MotorOptions options = explicit_law();
+  options.thermal_model = true;
+  MotorModel m(c, options);
+  m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  m.on_control_frame(0, encode_mit({0.0, 0.0, 0.0, 0.0, 7.0}, m.limits()), 0.0);
+  int steps = 0;
+  while (m.status().enabled && steps < 10000) {
+    m.step(0.0, 0.0, steps * 0.001, 0.001, 25.6);
+    steps++;
+  }
+  EXPECT_EQ(m.status().code, kCodeCoilOverTemperature);
+  EXPECT_GT(m.status().t_rotor, 120.0);
+  EXPECT_LT(m.status().t_rotor, 121.0);
+  const StateFeedback s = decode_state(m.state_frame(), m.limits());
+  EXPECT_EQ(s.code, kCodeCoilOverTemperature);
+  EXPECT_GE(s.t_rotor, 120);
+  EXPECT_EQ(m.status().tau, 0.0);
+}
+
+TEST(MotorFaults, EveryFaultCodeIsInTheHighNibbleOfD0)
+{
+  // Datasheet feedback frame: D0 = ID | ERR << 4. Codes 8 to E.
+  for (uint8_t code = kCodeOverVoltage; code <= kCodeOverload; ++code) {
+    MotorModel m(default_arm_motors("left_")[6], explicit_law());  // J7, id 7
+    m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+    m.force_code(code);
+    m.step(0.0, 0.0, 0.0, 0.001, 25.6);
+    const Payload frame = m.state_frame();
+    EXPECT_EQ(frame[0], static_cast<uint8_t>((code << 4) | 0x07)) << int(code);
+    EXPECT_EQ(decode_state(frame, m.limits()).code, code) << int(code);
+    EXPECT_FALSE(m.status().enabled) << int(code);
+    EXPECT_EQ(m.on_config_frame(config_frame(7, kCfgRefresh), 0.0).kind, ReplyKind::State) << int(code);
+  }
+  // No fault: 0 disabled, 1 enabled.
+  MotorModel ok(default_arm_motors("left_")[6], explicit_law());
+  EXPECT_EQ(ok.state_frame()[0], 0x07);
+  ok.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  EXPECT_EQ(ok.state_frame()[0], 0x17);
+}
+
+TEST(MotorFaults, TimeoutRegisterWriteTakesEffect)
+{
+  MotorModel m(j1(), explicit_law());
+  EXPECT_EQ(m.timeout_s(), 0.0);
+  // The host writes TIMEOUT = 2000 counts: 0.1 s.
+  const Reply echo = m.on_config_frame(config_frame(1, kCfgWrite, kRidTimeout, 2000), 0.0);
+  EXPECT_EQ(echo.kind, ReplyKind::Param);
+  EXPECT_NEAR(m.timeout_s(), 0.1, 1e-12);
+  m.on_control_frame(0, encode_special(kCmdEnable), 0.0);
+  m.on_control_frame(0, mit(m, 1.0, 70.0, 2.0), 0.0);
+  EXPECT_GT(m.step(0.0, 0.0, 0.09, 0.001, 25.6), 0.0);
+  EXPECT_EQ(m.step(0.0, 0.0, 0.11, 0.001, 25.6), 0.0);
+  EXPECT_EQ(m.status().code, kCodeCommunicationLost);
+  EXPECT_EQ(m.state_frame()[0], 0xD1);
+  EXPECT_EQ(m.on_config_frame(config_frame(1, kCfgRefresh), 0.2).kind, ReplyKind::State);  // it still answers
+  // Not saved: a power cycle restores the flash value (off), and the fault is gone with the power.
+  m.set_power(false, 1.0);
+  m.set_power(true, 2.0);
+  EXPECT_EQ(m.timeout_s(), 0.0);
+  EXPECT_EQ(m.status().code, 0);
+  // Written and saved (disabled): kept across a power cycle.
+  m.on_config_frame(config_frame(1, kCfgWrite, kRidTimeout, timeout_counts(0.05)), 3.0);
+  m.on_config_frame(config_frame(1, kCfgSave), 3.0);
+  m.set_power(false, 4.0);
+  m.set_power(true, 5.0);
+  EXPECT_NEAR(m.timeout_s(), 0.05, 1e-12);
+  // The maker's tool path (set_timeout) writes RAM and flash.
+  m.set_timeout(0.0);
+  EXPECT_EQ(m.param_raw(kRidTimeout), 0u);
+}
+
 TEST(MotorModel, SilentMotorRunsButDoesNotAnswer)
 {
   MotorModel m(j1(), explicit_law());
@@ -501,4 +706,82 @@ TEST(ArmEmulator, FaultsAtArmLevel)
 
   arm.set_supply_voltage(29.2);
   EXPECT_DOUBLE_EQ(arm.supply_voltage(), 29.2);
+}
+
+TEST(ArmEmulator, PowerCutSequenceOnTheWire)
+{
+  ArmEmulatorConfig config;
+  config.motors = default_arm_motors("left_");
+  config.timing.enabled = false;
+  ArmEmulator arm(config);
+  const auto send = [&](uint32_t id, const Payload & data) {return arm.inject({id, data, true, 0.0}, 0.0, 0.0);};
+  const MotorModel probe(config.motors[1], MotorOptions());
+  const Payload hold = encode_mit({1.0, 0.0, 70.0, 2.5, 0.0}, probe.limits());
+  std::vector<double> q(8, 0.0), dq(8, 0.0), tau;
+
+  // Running: J2 enabled and holding a setpoint.
+  auto got = send(0x02, encode_special(kCmdEnable));
+  ASSERT_EQ(got.size(), 1u);
+  EXPECT_EQ(got[0].data[0], 0x12);
+  send(0x02, hold);
+  arm.step(q, dq, 0.001, tau);
+  EXPECT_GT(tau[1], 0.0);
+  EXPECT_GT(arm.status(1).current, 0.0);
+
+  // Power cut: no motor answers anything, no torque, no current.
+  arm.set_power(false);
+  for (uint16_t id = 1; id <= 8; ++id) {
+    EXPECT_TRUE(send(kConfigCanId, encode_config(config_frame(id, kCfgRefresh))).empty()) << id;
+    EXPECT_TRUE(send(id, hold).empty()) << id;
+  }
+  arm.step(q, dq, 0.001, tau);
+  for (size_t i = 0; i < 8; ++i) {
+    EXPECT_EQ(tau[i], 0.0) << i;
+    EXPECT_EQ(arm.status(i).current, 0.0) << i;
+  }
+
+  // Supply back: every motor answers, disabled (code 0), and ignores MIT frames until an enable arrives.
+  arm.set_power(true);
+  for (uint16_t id = 1; id <= 8; ++id) {
+    got = send(kConfigCanId, encode_config(config_frame(id, kCfgRefresh)));
+    ASSERT_EQ(got.size(), 1u) << id;
+    EXPECT_EQ(got[0].data[0], id) << id;
+  }
+  got = send(0x02, hold);
+  ASSERT_EQ(got.size(), 1u);
+  EXPECT_EQ(got[0].data[0], 0x02);
+  arm.step(q, dq, 0.001, tau);
+  EXPECT_EQ(tau[1], 0.0);
+  send(0x02, encode_special(kCmdEnable));
+  got = send(0x02, hold);
+  ASSERT_EQ(got.size(), 1u);
+  EXPECT_EQ(got[0].data[0], 0x12);
+  arm.step(q, dq, 0.001, tau);
+  EXPECT_GT(tau[1], 0.0);
+}
+
+TEST(ArmEmulator, TimeoutRegisterAndCanLossGiveCodeD)
+{
+  ArmEmulatorConfig config;
+  config.motors = default_arm_motors("left_");
+  config.timing.enabled = false;
+  ArmEmulator arm(config);
+  arm.set_timeout(0.05);
+  EXPECT_EQ(arm.status(0).control_frames, 0u);
+  const double t0 = ArmEmulator::clock_now();
+  arm.inject({0x01, encode_special(kCmdEnable), true, 0.0}, t0, t0);
+  std::vector<double> q(8, 0.0), dq(8, 0.0), tau;
+  arm.step(q, dq, 0.001, tau);
+  EXPECT_TRUE(arm.status(0).enabled);
+  arm.set_can_loss(true);
+  std::this_thread::sleep_for(std::chrono::milliseconds(80));
+  arm.step(q, dq, 0.001, tau);
+  EXPECT_EQ(arm.status(0).code, kCodeCommunicationLost);
+  EXPECT_FALSE(arm.status(1).enabled);  // never enabled: no timeout, no code
+  EXPECT_EQ(arm.status(1).code, 0);
+  arm.set_can_loss(false);
+  const double t1 = ArmEmulator::clock_now();
+  const auto got = arm.inject({kConfigCanId, encode_config(config_frame(1, kCfgRefresh)), true, 0.0}, t1, t1);
+  ASSERT_EQ(got.size(), 1u);
+  EXPECT_EQ(got[0].data[0], 0xD1);
 }

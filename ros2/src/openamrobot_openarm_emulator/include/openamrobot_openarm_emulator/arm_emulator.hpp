@@ -66,6 +66,7 @@ public:
   void force_code(size_t index, uint8_t code);
   void set_temperature_target(size_t index, double mos_c, double rotor_c, double rate_c_per_s);
   void set_timing(const BusTimingConfig & timing);
+  void set_timeout(double seconds);                  // every motor's TIMEOUT register (RID 9). 0: off
 
   bool can_loss() const {return can_loss_.load();}
   bool powered() const {return powered_.load();}

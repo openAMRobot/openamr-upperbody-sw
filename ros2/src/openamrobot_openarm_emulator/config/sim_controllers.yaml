@@ -56,10 +56,15 @@
       answers_when_disabled: true
       power_up_enabled: false
       enable_clears_fault: false
-      can_timeout_s: 0.0            # 0: off
+      can_timeout_s: 0.0            # TIMEOUT register (RID 9) of every motor, s; 1 count = 50 us. 0: off. Settable while running
       over_voltage_v: 32.0
       under_voltage_v: 15.0
-      over_temperature_c: 120.0
+      over_temperature_c: 120.0     # register 2 (OT_Value): rotor, code 0xC. Datasheet: user set, at most 100 C advised
+      mos_over_temperature_c: 120.0 # driver MOSFET, code 0xB. Datasheet: fixed at 120 C
+      thermal_model: false          # no source gives thermal resistance or time constant (MP-06). On only with
+                                    # thermal_resistance_k_per_w and thermal_time_constant_s, 8 values each
+    # Not set here: unknown, so the function is off. over_current_a (8 values, A phase current, code 0xA),
+    # thermal_resistance_k_per_w, thermal_time_constant_s. config/motor_electrical.yaml has every electrical value.
       voltage_speed_model: true
       ambient_c: 25.0
       implicit_damping: true   # numerical: keeps the damping term stable at the 1 ms physics step (README)
@@ -94,10 +99,15 @@
       answers_when_disabled: true
       power_up_enabled: false
       enable_clears_fault: false
-      can_timeout_s: 0.0            # 0: off
+      can_timeout_s: 0.0            # TIMEOUT register (RID 9) of every motor, s; 1 count = 50 us. 0: off. Settable while running
       over_voltage_v: 32.0
       under_voltage_v: 15.0
-      over_temperature_c: 120.0
+      over_temperature_c: 120.0     # register 2 (OT_Value): rotor, code 0xC. Datasheet: user set, at most 100 C advised
+      mos_over_temperature_c: 120.0 # driver MOSFET, code 0xB. Datasheet: fixed at 120 C
+      thermal_model: false          # no source gives thermal resistance or time constant (MP-06). On only with
+                                    # thermal_resistance_k_per_w and thermal_time_constant_s, 8 values each
+    # Not set here: unknown, so the function is off. over_current_a (8 values, A phase current, code 0xA),
+    # thermal_resistance_k_per_w, thermal_time_constant_s. config/motor_electrical.yaml has every electrical value.
       voltage_speed_model: true
       ambient_c: 25.0
       implicit_damping: true   # numerical: keeps the damping term stable at the 1 ms physics step (README)
