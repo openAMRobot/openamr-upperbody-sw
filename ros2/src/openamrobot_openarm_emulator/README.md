@@ -147,6 +147,16 @@ gives. `damping_inertia` is each joint's child link about the joint axis, from t
 recomputes it). Torque at rest and motion well below 200 Hz are the law's own. `test_motor_model` shows the chatter
 without it, the stable response with it, and unchanged static torque.
 
+**The simulator dynamics profile is switched off in this launch.** Since 15 Nov 2026 the `gazebo` profile of the combined model carries
+joint damping and friction from upstream's MuJoCo model (0.6 to 1.0 N*m*s/rad). The physics steps that damping explicitly. With the
+link inertias about the joints (1.1e-4 to 2.5e-3 kg*m^2) and the 1 ms step, damping times the step over the inertia is 0.35 to 6.6, above
+the limit of 2 on four of the eight joints of an arm, the same problem as the MIT gain above. Upstream's values go with a reflected rotor inertia (0.002 to
+0.030 kg*m^2) that would bring the ratio down to 0.03 to 0.42, and URDF cannot carry it. Seen in CI on the first merge of the two
+changes: with the damping on, the right arm, which should hold at zero, read -1.33 rad. So `sil.launch.py` passes `sim_dynamics:=off`
+and this package behaves as it did before the profile existed. The position-servo simulation (`openamrobot_upperbody_gazebo`) is not
+affected: there the joint is driven by a velocity constraint, and its tests pass with the damping on. Using the profile here needs
+the rotor inertia in the physics first.
+
 ## Supply voltage
 
 `supply_voltage` (default 25.6 V) is the arm supply the motors see. The robot's range is 25.6 to 29.2 V, and the
@@ -219,7 +229,7 @@ No source in scope fixes these. Each is a parameter with a default. Measure on t
 | `timing.turnaround_us` | 0 | motor reply latency and jitter |
 | `reply_brs` | true | BRS flag on motor replies |
 | position-velocity, velocity and position-force laws | simple cascade | the firmware's own loops and gains |
-| joint friction, damping, rotor inertia | none | audit gap 3 |
+| joint friction, damping, rotor inertia | none: the launch expands the model with `sim_dynamics:=off` | audit gap 3. The simulator dynamics profile (`openamrobot_upperbody_description/config/sim_dynamics/openarm_v2.yaml`) has sourced damping and friction, but they cannot be used here yet, see below |
 
 Also not emulated: error frames, bus-off, dropped or late frames, wrong ids, over-current and overload detection,
 a thermal model, the gripper's motor sign per hand.

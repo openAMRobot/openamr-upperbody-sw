@@ -104,7 +104,7 @@ MoveIt in Gazebo, with RViz.
 ros2 launch openamrobot_upperbody_bringup moveit.launch.py sim:=gazebo rviz:=true physics_engine:=gz-physics-bullet-featherstone-plugin
 ```
 
-Work in progress: the grippers may not close on the default DART engine. Known issues: [Gazebo server teardown](docs/issues/gz-sim_server_teardown_segfault_and_hang.md) and [ros_gz bridge teardown](docs/issues/ros_gz-bridge_teardown_segfault.md).
+Work in progress: the grippers may not move on the default DART engine. Known issues: [Gazebo server teardown](docs/issues/gz-sim_server_teardown_segfault_and_hang.md) and [ros_gz bridge teardown](docs/issues/ros_gz-bridge_teardown_segfault.md).
 
 ## Build one or get help
 

@@ -25,9 +25,9 @@ Args
                   simulator's own RViz is not started: this one replaces it.
   headless        sim:=gazebo only. true runs `gz sim -s` (no Gazebo window), as the checks do
   physics_engine  sim:=gazebo only. The gz-physics plugin, passed to sim.launch.py. EMPTY by default, which means sim.launch.py's own
-                  default: DART, the engine platform-sw tuned the base on. DART does not close the grippers (its fingers do not follow
+                  default: DART, the engine platform-sw tuned the base on. DART does not move the grippers (its fingers do not follow
                   position commands at the default gain, and it has no mimic constraint), so the arm named poses work there and the
-                  gripper ones may not. Pass gz-physics-bullet-featherstone-plugin for gripper poses to close: M02 does, for that reason.
+                  gripper ones may not. Pass gz-physics-bullet-featherstone-plugin for gripper poses to be reached: M02 does, for that reason.
 
 Everything here is simulation: it permits no statement about a physical robot or a limit of one (ADR-009).
 """

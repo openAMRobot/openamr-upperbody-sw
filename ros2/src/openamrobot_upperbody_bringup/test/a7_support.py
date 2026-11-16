@@ -22,8 +22,10 @@ SETTLE_SECONDS = 1.0        # of the node's clock after a pose is reported done,
 # Arms: each pose is reached from a DIFFERENT pose (home -> hands_up -> home -> hands_up -> park), so no plan is a trivial
 # start-equals-goal one. `park` is a placeholder copy of `home`; it is still a named pose that must plan and execute.
 ARM_SEQUENCE = ("hands_up", "home", "hands_up", "park")
-# Grippers: closed then open, per hand, each with that hand's own value from the SRDF (ADR-009 point 5).
-GRIPPER_SEQUENCE = ("closed", "open")
+# Grippers: open then closed, per hand, each with that hand's own value from the SRDF (ADR-009 point 5). The stack starts at 0, which is
+# `closed`, so `open` first is a real move to the far end and `closed` brings the hand back to 0: the same motion as before 14 Nov 2026,
+# when the two names were swapped in the SRDF and this sequence read ("closed", "open").
+GRIPPER_SEQUENCE = ("open", "closed")
 
 
 # The lift (issue #17, S8 with the lift planned). lift_joint is a planned joint in the simulated profiles: MoveIt group `lift`, lift_controller.
@@ -322,7 +324,7 @@ def expected_rest_joints(urdf_xml, not_measured):
     return expected, also
 
 
-# Joints whose rest pose is one of their upstream URDF limits by construction (`home` and `open` are 0, the lower or upper limit; evidence/m02_bisect/RESULTS.md).
+# Joints whose rest pose is one of their upstream URDF limits by construction (`home` and `closed` are 0, the lower or upper limit; evidence/m02_bisect/RESULTS.md).
 # M07 reports them WARN with this reason when they rest within the margin of that limit, on either side, and FAIL when one is read further past it than the margin.
 AT_UPSTREAM_LIMIT = {
     "openarm_left_finger_joint1": "rest pose at an upstream limit",
