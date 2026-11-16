@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: MIT
+# The inputs the Build 1 scene is built and tested on. Full hashes. .github/workflows/build1-scene-tests.yml reads
+# this file. Open pull request heads move: each hash is the head read on 15 Nov 2026 (repinned 23:59 Kyiv, WS0).
+# `use` says how the input is used. Nothing here is merged silently.
+schema_version: 1
+pins:
+  upperbody_sw_main:
+    sha: "37b93f5c7737f54c6a56a1fbdb8578b3e94d785e"
+    use: "merged into this branch: combined_robot.xacro, A6 and A7, openamrobot_openarm_emulator (#67), sim dynamics (#66, squash). Branch point was b15bcb6"
+  upperbody_sw_pr66:
+    sha: "6fe5e9cc02a9f5408a875a4b5a43c42655add982"
+    use: "history: merged into this branch before #66 landed on main as 37b93f5; main's version wins where they differ"
+  upperbody_sw_pr65:
+    sha: "d1515b194a22a8801209453bd5f9646058838020"
+    use: "read only: the actuator ledger. Not merged, nothing here reads it"
+  platform_sw_main:
+    sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
+    use: "checked out as openamr-platform-sw: description with wheel friction (#135), sensor profiles (#138), openamrobot_sil (#139), Nav2, perception, docking model. Nav2, description and docking unchanged since 0741778"
+  platform_sw_pr145:
+    sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
+    use: "provisional: only the package ros2/src/openamrobot_sil is checked out and built, and docs/architecture/sil-topology.md is followed. Contains #141 9913d87, #144 53a69e9 (late SDO reply fix) and main 69847ab"
+  platform_sw_pr139:
+    sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
+    use: "merged on platform main (squash): openamrobot_sil without Renode. Never merge #139 again"
+  platform_sw_pr105:
+    sha: "acc427d7ad9b1f90591011f1824d470a9a3fd883"
+    use: "not checked out. The base RGB-D sensor block of urdf/build1_robot.urdf.xacro follows its gazebo_control.xacro"
+  audits:
+    sha: "be17653fc2cb39e230af3777a2bfd1c000c0ded5"
+    use: "audit/2026-09-28: Use Case 1 baseline, M-01, E-01, and digital-twin/phase1 (single-writer map, run profiles, lock, reality-gap register)"
+  openarm_ros2:
+    sha: "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
+    use: "the unmodified upstream driver, as openamrobot_openarm_emulator/config/sil_pins.yaml"
+  openarm_can:
+    sha: "bfd4e52194aefe38389fa6e670be3738136facb9"
+    use: "as sil_pins.yaml"
+  openarm_description:
+    sha: "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831"
+    use: "as sil_pins.yaml and upstream_pins.yaml"
