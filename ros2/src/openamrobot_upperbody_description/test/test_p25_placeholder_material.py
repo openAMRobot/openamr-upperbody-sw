@@ -47,7 +47,8 @@ def test_urdf_material_and_gazebo_block(base_plate, arm_package):
     root = expand(base_plate=base_plate, arm_package=arm_package)
     rgba = _rgba(root)
     links = {l.get("name"): l for l in root.findall("link")}
-    gazebo = {g.get("reference"): g for g in root.findall("gazebo") if g.get("reference")}
+    # a link may have several <gazebo reference> blocks (the material one, and a camera sensor on head_camera_link): take the material one
+    gazebo = {g.get("reference"): g for g in root.findall("gazebo") if g.get("reference") and g.find("visual/material") is not None}
     for name in LINKS:
         visuals = links[name].findall("visual")
         assert visuals, f"{name} has no <visual>"

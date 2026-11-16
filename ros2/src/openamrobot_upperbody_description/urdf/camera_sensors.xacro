@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!--
+  Gazebo camera sensors of the upper body (head ZED Mini, wrist cameras), emitted by combined_robot.xacro.
+
+  Every number comes from config/sensor_profiles.yaml (arg sensor_profiles_file) and from nothing else: this file has no field of
+  view, size, rate, clip or noise of its own. The profile entry is keyed by the link the sensor sits on:
+
+    head_camera_link          rgbd_camera (colour and depth)   every arm_package; option B's frame, ZED Mini
+    left_wrist_camera_link    camera (colour only)             arm_package == openarm, and only once the profile has values
+    right_wrist_camera_link   camera (colour only)             same
+
+  A link gets a sensor only when the profile has a value (not null) for everything the sensor needs: colour fov_horizontal, width,
+  height, frame_rate, range_min and range_max, and for a depth channel range_min and range_max. The wrist cameras' part is not fixed
+  (BOM ARM-004), so their profile values are null and they get no sensor: a missing number is never replaced by a guess here.
+  A noise element is written only when noise_stddev is not null. A depth noise value has no verified SDF element yet, so a non-null
+  depth noise_stddev stops the expansion instead of being dropped silently.
+
+  The sensor frame is the link frame (x forward, which is the way a Gazebo camera looks), at zero offset: no pose is added, so
+  kinematics, datums, masses and joint limits are those of the frames. The header frame id is the REP-103 optical frame of the link.
+  Gazebo derives the vertical field of view from the horizontal one and the image size; the datasheet vertical angle is kept in the
+  profile as documentation. The topic is the profile's gz_topic (absolute, as the base camera's), and Gazebo appends /image, /depth_image, /camera_info and /points for an rgbd camera.
+  The world needs the gz-sim-sensors-system (openamrobot_upperbody_gazebo worlds/empty.sdf has it); without it the sensors do nothing.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="openamr_camera_sensor" params="link profiles">
+    <xacro:property name="cam" value="${profiles['frames'][link]}" lazy_eval="false"/>
+    <xacro:property name="channels" value="${cam['channels']}" lazy_eval="false"/>
+    <xacro:property name="colour" value="${channels['color']}" lazy_eval="false"/>
+    <xacro:property name="has_depth" value="${'depth' in channels}" lazy_eval="false"/>
+    <xacro:property name="needs_colour" lazy_eval="false"
+                    value="${[colour[k]['value'] for k in ['fov_horizontal', 'width', 'height', 'frame_rate', 'range_min', 'range_max']]}"/>
+    <xacro:property name="needs_depth" lazy_eval="false"
+                    value="${[channels['depth'][k]['value'] for k in ['range_min', 'range_max']] if has_depth else []}"/>
+    <xacro:property name="complete" lazy_eval="false" value="${None not in needs_colour and None not in needs_depth}"/>
+
+    <xacro:if value="${complete}">
+      <xacro:if value="${has_depth and channels['depth']['noise_stddev']['value'] is not None}">
+        ${xacro.fatal('sensor profile ' + link + ': depth noise_stddev is set, and no verified SDF element carries it yet')}
+      </xacro:if>
+      <gazebo reference="${link}">
+        <sensor name="${link[:-len('_link')]}_sensor" type="${'rgbd_camera' if has_depth else 'camera'}">
+          <pose relative_to="${link}">0 0 0 0 0 0</pose>
+          <topic>${cam['gz_topic']}</topic>
+          <gz_frame_id>${cam['optical_frame']}</gz_frame_id>
+          <update_rate>${colour['frame_rate']['value']}</update_rate>
+          <camera>
+            <horizontal_fov>${colour['fov_horizontal']['value'] * pi / 180.0}</horizontal_fov>
+            <image>
+              <width>${colour['width']['value']}</width>
+              <height>${colour['height']['value']}</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>${colour['range_min']['value']}</near>
+              <far>${colour['range_max']['value']}</far>
+            </clip>
+            <xacro:if value="${colour['noise_stddev']['value'] is not None}">
+              <noise>
+                <type>gaussian</type>
+                <mean>0.0</mean>
+                <stddev>${colour['noise_stddev']['value']}</stddev>
+              </noise>
+            </xacro:if>
+            <xacro:if value="${has_depth}">
+              <depth_camera>
+                <clip>
+                  <near>${channels['depth']['range_min']['value']}</near>
+                  <far>${channels['depth']['range_max']['value']}</far>
+                </clip>
+              </depth_camera>
+            </xacro:if>
+          </camera>
+          <always_on>true</always_on>
+          <visualize>false</visualize>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+  </xacro:macro>
+
+</robot>

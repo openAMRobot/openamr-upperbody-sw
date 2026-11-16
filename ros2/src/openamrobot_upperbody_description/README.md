@@ -202,6 +202,48 @@ estimate, full commit hashes, the pins equal `upstream_pins.yaml`, the joint lis
 URDF's, upstream's `friction.yaml` is still empty). `test/test_sim_dynamics_urdf.py` checks the expansion (all 16 controlled joints
 and the two followers carry the profile's values in `gazebo`; none in `real`; nothing else moved).
 
+## Sensor models
+
+Simulation only: a Gazebo sensor is an ideal sensor with the numbers below, not hardware or safety evidence. Gap ids are rows of
+the reality-gap register (openAMRobot/audits, branch `audit/2026-09-28`, `digital-twin/phase1/reality_gap_register.csv`).
+
+**Upper body (this repository).** `urdf/camera_sensors.xacro` takes every number from `config/sensor_profiles.yaml`.
+
+| Sensor | Gazebo sensor | Parameters | Source |
+|---|---|---|---|
+| ZED Mini, `head_camera_link` | `rgbd_camera`, `/head_camera/rgbd` | 102 deg horizontal, 1280 x 720, 30 Hz, clip and depth 0.1 to 15 m, no noise element (noise unknown) | ZED Mini datasheet v1.3, product page (RG-SEN-029) |
+| Wrist cameras | none | all values unknown, part not fixed (BOM ARM-004) | RG-SEN-031 |
+
+**Base (platform-sw).** The base sensors come from platform-sw's `robo_urdf.urdf.xacro`, included unchanged, so this repository
+cannot set their numbers. `config/base_sensor_model.yaml` names, for each base sensor, the platform profile key
+(`openamrobot_description/config/sensor_profiles.yaml`, platform-sw #138) each SDF value should come from. It also lists where the
+model differs today. `test/test_s6_base_sensor_model.py` requires the differences to be exactly that list. Tracking:
+openAMRobot/openamr-platform-sw#156.
+
+| Sensor | From the profile | Differs today (model) | Gap |
+|---|---|---|---|
+| RPLIDAR S3, `lidar_sensor` | 10 Hz, 0.05 to 40 m, 0.01 m resolution, 3200 samples (0.1125 deg), noise stddev unknown (accuracy +-30 mm is a limit) | min 0.40, max 10.0, 360 samples, stddev 0.001 with no source | RG-SEN-002, 003, 004 |
+| Gemini 336L, `base_camera_link` | `rgbd_camera`, depth 90 x 65 deg (Gazebo gives 64.0 deg from the aspect), 1280 x 800, 30 Hz, depth 0.17 to 20 m, image noise unknown | no sensor (platform-sw #53); legacy 60 deg colour camera on `camera_link` | RG-SEN-007, 036 |
+| ICM-42688-P, `imu_sensor` | rate unknown (firmware ODR); noise density 2.8 mdps/sqrt(Hz) and 70 ug/sqrt(Hz), with no per-sample stddev until the filter bandwidth is fixed; bias unknown | 50 Hz with no source | RG-SEN-011, 012, 013 |
+| TF-Luna, `tof_*_sensor` | 100 Hz (datasheet default), 0.2 to 8 m, 0.01 m, 2 deg, noise unknown | 50 Hz, stddev 0.01 with no source | RG-SEN-016, 017 |
+| MB7060, `us_*_sensor` | 10 Hz, 0.20 to 7.65 m, 0.01 m, beam half angle and noise unknown | half angle 0.17 rad, stddev 0.01 with no source | RG-SEN-020, 021, 023 |
+
+**Not modelled.** Gazebo cannot represent these effects. Each one is a parameter in `base_sensor_model.yaml` (`not_modelled`) or
+`sensor_profiles.yaml`, with a source or the status unknown, and a `TODO(sensor-fault layer)`. That layer does not exist yet.
+
+- Lidar: range limit by reflectivity (15 m black), output latency, motion distortion over one turn, dropped scans (RG-SEN-002, 005).
+- Gemini 336L: depth noise (vendor spatial precision 0.8 % at 2 m, not a stddev), latency, invalid depth pixels, dropped frames
+  (RG-SEN-008, 009). ZED Mini: latency, dropped frames, invalid depth pixels (RG-SEN-029).
+- IMU: timestamp skew (RG-SEN-014); turn-on bias and temperature drift, with tolerances from DS-000347 rev 1.9: ZRO +-0.5 dps,
+  +-0.005 dps/degC, zero-g +-20 mg, +-0.15 mg/degC. RMS noise at 100 Hz bandwidth is 0.028 dps and 0.70 mg. These values are
+  proposed for the platform profile; a tolerance is a bound, not a standard deviation (RG-SEN-011, 012).
+- TF-Luna: invalid return when Amp < 100 or Amp = 65535 (user manual A05), which the contract reports as UNKNOWN and never as free
+  space. Also the reflectivity limit (2.5 m at 10 %), and latency and dropouts over the base-controller link (RG-SEN-016, 019).
+- MB7060: no-target output 765 cm, targets nearer than 20 cm read as 20 cm, trigger sequence and crosstalk of the four sensors,
+  175 ms power-up (RG-SEN-020, 022).
+
+Captures that close these rows: measurement plan MP-18 (cameras), MP-19 (IMU) and MP-20 (near field).
+
 ## Add a configuration ID
 
 The IDs are option B's: add a value under `configuration_axes` in `config/upperbody_configuration.yaml` (and its data), and
@@ -397,8 +439,8 @@ Nothing in this package is a measured value or a hardware result. In particular:
   reach and clearance question for A4 and Alex, and this repository does not move his mounts.
 - **The wrist-camera poses are placeholders** (`left/right_wrist_camera_pose`, kit datum unknown). They are marker frames with no
   collision or inertial, which is why they are not hard-fail: that would stop every `openarm` expansion.
-- **The ZED wrapper is deferred.** The wrist cameras are plain frames with a marker cube, not sensor models; the head camera is
-  option B's frames. The upstream ZED wrapper belongs with camera calibration.
+- **The ZED wrapper is deferred.** The wrist cameras are plain frames with a marker cube, not sensor models; the head camera has
+  an ideal Gazebo `rgbd_camera` from its profile (Sensor models). The upstream ZED wrapper belongs with camera calibration.
 - **E01 is WARN.** Meshes are not loaded, so height, width and depth come from link origins and box, cylinder and sphere
   extents only, at each lift stop. They are lower bounds: a figure under the limit proves nothing, and a figure over it is real.
   The envelope is 1700 x 600 x 800 mm (provisional).
