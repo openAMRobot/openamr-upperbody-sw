@@ -88,6 +88,7 @@ profile, the baseline lock, the hash of the expanded model and the engine.
 | `nav2`, `moveit`, `rviz`, `headless` | `true`, `false` | `true`, `true`, `false`, `false` | |
 | `create_vcan` | `true`, `false` | `true` | run `setup_vcan_all.sh` first |
 | `driver_rate` | `auto`, Hz | `auto` | real driver's controller manager. Every second physics step |
+| `gravity_feedforward` | `true`, `false` | `true` | device profiles: the arms' gravity torque through the real driver's effort interface (Proposed, see `docs/build1_arm_diagnosis.md`) |
 | `driver_clock` | `sim`, `wall` | `sim` | clock of the real driver's controller manager |
 | `sim_state_rate` | Hz, `step` | `100` | rate of `/sim/joint_states`. `step` is every physics step and costs real-time factor |
 | `replay_drive`, `replay_bms`, `replay_aux`, `replay_arm_l`, `replay_arm_r` | a `candump -L` file | empty | replay hook |
@@ -106,7 +107,7 @@ devices only: they turn MIT frames into joint effort and joint state into reply 
 |---|---|---|
 | `left_wheel_joint`, `right_wheel_joint` | `/cmd_vel` > control bridge > DiffDrive plugin of the base | `/cmd_vel` > host test client > `vcan_drive` (SDO 60FFh, or RPDO 0x201 with `stm32:=renode_readonly`) > ZLAC8015D emulator > `/sil/drive/gz_cmd_vel` > `wheel_command_adapter` > one velocity input per wheel |
 | `lift_joint` | `lift_controller` > position interface of `gz_ros2_control` | `/sil/lift/command` and `/sil/lift/permit` > host test client > `vcan_aux` (RPDO1 0x210, permit 0x410) > CTL-017 emulator > velocity input of the lift |
-| `openarm_{left,right}_joint1..7` | `{side}_arm_controller` > position interface of `gz_ros2_control` | `{side}_arm_controller` in `/controller_manager` > `openarm_hardware/OpenArmHW` > `vcan_arm_{l,r}` (CAN FD) > `{side}_arm_emulator` in `/sim/controller_manager` > effort interface |
+| `openarm_{left,right}_joint1..7` | `{side}_arm_controller` > position interface of `gz_ros2_control` | `{side}_arm_controller` in `/controller_manager` > `openarm_hardware/OpenArmHW` > `vcan_arm_{l,r}` (CAN FD) > `{side}_arm_emulator` in `/sim/controller_manager` > effort interface. The tau field of the same MIT frame: `gravity_feedforward` > `{side}_arm_gravity_controller` > effort interface of the real driver |
 | `openarm_{left,right}_finger_joint1` | `{side}_gripper_controller` > position interface | `{side}_gripper_controller` > real driver > `vcan_arm_{l,r}` (CAN FD) > `{side}_arm_emulator` > effort interface |
 | `openarm_{left,right}_finger_joint2` | mimic joint, no controller. Owner by engine: the mimic constraint of Bullet Featherstone, else `finger_mimic_follower` | the same |
 | castor joints | fixed in the description. Nothing moves them | the same |
@@ -132,6 +133,7 @@ devices only: they turn MIT frames into joint effort and joint state into reply 
 | `/build1/fingers/{left,right}_finger2_cmd_pos` | `finger_mimic_follower`, when the engine has no mimic | the same |
 | `/local_costmap/footprint`, `/global_costmap/footprint` | `footprint_publisher` | `footprint_publisher` |
 | `/planning_scene` | `planning_scene_loader` | `planning_scene_loader` |
+| `/{left,right}_arm_gravity_controller/commands` | none | `gravity_feedforward` |
 | `/sil/lift/command`, `/sil/lift/permit`, `/sil/*/inject`, `/sil/stm32/can1_silent`, `/sil/lift/permit_silent` | none | operator inputs. Nothing in the launch writes them |
 
 Limit of the check: rclpy in Jazzy does not say which node sent a message. Frame ownership on `/tf` is checked
@@ -272,15 +274,18 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
   simulator's controller manager then publishes at 750 Hz, every second step, not at 1500 Hz. At the 1 ms step it
   published at 616 Hz of the 1000 Hz asked for, at a real-time factor of 0.27.
 - **MoveIt from the activation pose.** With the real driver, joint 4 rests on its lower limit and reads about
-  0.0002 rad below it. MoveIt refuses a start state outside the limits. The scenarios leave the activation pose by a
-  joint command to the park pose first.
+  0.0002 rad below it: half a step of the Damiao position field, which truncates. MoveIt refuses a start state outside
+  the limits. With devices `joint_state_clamp` allows one step (3.8e-4 rad) and no more. The scenarios still leave
+  the activation pose by a joint command to the park pose first.
 - **Host test client on a slow machine.** The drive thread of `openamrobot_sil` (#141) ends on an SDO reply it does
   not expect. The base then cannot be commanded. The rig detects it and reports BLOCKED.
-- **Gripper through the real driver.** In `firmware_sil` the fingers open to 0.76 rad of 0.785 and do not close on
-  command: the gripper controller reports a stall. The upstream driver reports finger velocity as 0, which the
-  controller reads as a stall. `scn04_grasp` fails there today. The grasp passes in `fast` with Bullet Featherstone.
-- **Arm accuracy through the real driver.** MoveIt reports success, and the hand base settles 0.03 to 0.07 m from a
-  goal region of 0.02 m, under gravity with the driver's gains.
+- **Gripper through the real driver.** The upstream driver reports finger velocity as 0, so the gripper controller
+  reports a stall one second into every move that has not reached its goal. The flag is all it changes: the command
+  stays and reaches the motor. The fingers that did not close in `firmware_sil` on 16 Nov 2026 were held by the
+  shelf board under a hand that had settled 7 cm low (`docs/build1_arm_diagnosis.md`).
+- **Arm accuracy through the real driver.** Without the gravity feed-forward the driver's gains leave the arm below
+  every pose: 0.145 rad on joint 1 and 74 mm at the hand for the grasp pose (MuJoCo, the same gains). With it the
+  scenarios check commanded against read joint positions to 0.02 rad (`*_tracking_error_max`).
 - **Lift in DART.** In local runs of `fast` the lift did not move on some commands and moved on others, with the same
   command and no fault reported. In CI one lift move in `firmware_sil` ended in a stall fault of the CTL-017 model
   at a real-time factor of 0.53. The cause is open.

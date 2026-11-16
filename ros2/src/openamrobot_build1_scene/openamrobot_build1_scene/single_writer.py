@@ -114,6 +114,16 @@ def joints_of_groups(command_map, groups):
     return joints
 
 
+def expected_claims(command_map, manager, joint):
+    """The command interfaces of `joint` the map says `manager` has claimed: its `claimed` kind, plus each kind of
+    `also_claimed` whose groups hold the joint."""
+    kinds = [manager["claimed"]]
+    for kind, groups in (manager.get("also_claimed") or {}).items():
+        if joint in joints_of_groups(command_map, groups):
+            kinds.append(kind)
+    return sorted(f"{joint}/{kind}" for kind in kinds)
+
+
 def interface_problems(command_map, kind, interfaces_by_manager):
     """interfaces_by_manager: {manager name: {"joint/kind": claimed bool}} from list_hardware_interfaces."""
     problems = []
@@ -128,9 +138,9 @@ def interface_problems(command_map, kind, interfaces_by_manager):
                 problems.append(f"{manager['name']}: {joint} must have no command interface, found {present}")
         for joint in joints_of_groups(command_map, manager["joints"]):
             claimed = sorted(name for name, is_claimed in interfaces.items() if name.startswith(f"{joint}/") and is_claimed)
-            if claimed != [f"{joint}/{manager['claimed']}"]:
-                problems.append(f"{manager['name']}: {joint} has claimed command interfaces {claimed}, "
-                                f"the map says ['{joint}/{manager['claimed']}']")
+            expected = expected_claims(command_map, manager, joint)
+            if claimed != expected:
+                problems.append(f"{manager['name']}: {joint} has claimed command interfaces {claimed}, the map says {expected}")
     return problems
 
 

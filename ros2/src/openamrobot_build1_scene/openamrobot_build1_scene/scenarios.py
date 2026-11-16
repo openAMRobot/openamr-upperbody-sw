@@ -229,7 +229,30 @@ def _move_group(rig, log, goal, label, sim_s=120.0, required=True, attempts=1):
         log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", note="1 is SUCCESS. Recorded, no limit: a return move")
     if result is not None:
         log.quantity(f"{label}_planning_time", result.planning_time, "s")
+    if code == 1 and result is not None:
+        _tracking(rig, log, label, result.planned_trajectory.joint_trajectory, required)
     return code == 1
+
+
+TRACKING_LIMIT_RAD = 0.02   # commanded end point against the driver's reading, 1 s after the controller reports success
+
+
+def _tracking(rig, log, label, trajectory, required):
+    """Commanded against actual, per joint (D9 step 3): the last point of the trajectory MoveIt sent to the controller,
+    against /joint_states (the driver's reading over CAN with devices) after 1 s of settling."""
+    if not trajectory.points:
+        return
+    rig.sleep_sim(1.0)
+    errors = {name: rig.joint(name) - target for name, target in zip(trajectory.joint_names, trajectory.points[-1].positions)}
+    worst = max(errors, key=lambda name: abs(errors[name]))
+    log.event(f"{label} commanded end point {dict(zip(trajectory.joint_names, [round(v, 5) for v in trajectory.points[-1].positions]))}")
+    log.event(f"{label} reading minus command {dict((name, round(error, 5)) for name, error in errors.items())}")
+    note = (f"largest |/joint_states - last trajectory point|, joint {worst}. Without the gravity feed-forward the driver's "
+            "gains leave 0.1 rad and more on joint 1 (docs/build1_arm_diagnosis.md)")
+    if required:
+        log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", low=0.0, high=TRACKING_LIMIT_RAD, note=note)
+    else:
+        log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", note=note + ". Recorded, no limit: a return move")
 
 
 def _belief_vs_physics(rig, joints):
@@ -361,6 +384,8 @@ def grasp(rig, log):
     finger_closed = rig.physics_joint(finger)
     log.quantity("finger_position_on_item", finger_closed, "rad", low=0.02, high=OPEN - 0.05,
                  note="above 0 means the fingers stopped on the item and did not close fully")
+    log.quantity("finger_driver_reading_on_item", rig.joint(finger), "rad",
+                 note="D9 step 4: commanded 0, this is what the driver reads back over CAN; finger_position_on_item is the physics")
     if closed is not None:
         log.quantity("gripper_reported_stalled", bool(closed[1]), "bool")
         log.quantity("gripper_reported_reached_goal", bool(closed[0]), "bool")

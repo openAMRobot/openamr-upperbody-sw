@@ -38,6 +38,15 @@ BASE_EMULATOR_OF_BUS = {"vcan_drive": "zlac8015d_emulator", "vcan_bms": "daly_bm
 ARM_EMULATOR_OF_BUS = {"vcan_arm_l": "left_arm_emulator", "vcan_arm_r": "right_arm_emulator"}
 
 DRIVER_CONTROLLERS = ("left_arm_controller", "right_arm_controller", "left_gripper_controller", "right_gripper_controller")
+# The arms' gravity feed-forward (docs/build1_arm_diagnosis.md): one effort controller per arm on the real driver, fed by
+# scripts/gravity_feedforward.py. OpenArmHW puts the effort command in the tau field of the MIT frame. Proposed.
+GRAVITY_CONTROLLERS = {"left": "left_arm_gravity_controller", "right": "right_arm_gravity_controller"}
+GRAVITY_CONTROLLER_TYPE = "effort_controllers/JointGroupEffortController"
+# One step of the 16-bit position field of a Damiao state frame: p_max is 12.5 rad for DM4310, DM4340 and DM8009
+# (openamrobot_openarm_emulator codec.cpp, as openarm_can MOTOR_LIMIT_PARAMS). The encoder truncates, so a joint at
+# 0 reads -1.907e-4 rad (half a step) and a joint on a lower limit reads up to one step below it. With devices every
+# arm joint state crosses this field, so this is the resolution move_group's start-state clamp must allow.
+DAMIAO_POSITION_RESOLUTION = 2 * 12.5 / ((1 << 16) - 1)
 
 
 def profile(name, step="auto"):
@@ -152,16 +161,26 @@ def sim_controllers(source, scene, profile, replayed_buses=(), supply_voltage=25
     return config
 
 
-def driver_controllers(source, rate, use_sim_time):
+def driver_controllers(source, rate, use_sim_time, gravity_feedforward=False):
     """The real driver's controller file: arm_controllers.yaml without the lift controller. The lift has no
-    ros2_control system in the real profile. Its only command path is CAN3."""
+    ros2_control system in the real profile. Its only command path is CAN3. With gravity_feedforward, one effort
+    controller per arm on the arm joints' effort interfaces (the trajectory controllers keep the position ones)."""
     config = copy.deepcopy(source)
     manager = config["controller_manager"]["ros__parameters"]
     manager["update_rate"] = int(rate)
     manager["use_sim_time"] = bool(use_sim_time)
     manager.pop("lift_controller", None)
     config.pop("lift_controller", None)
+    if gravity_feedforward:
+        for side, name in GRAVITY_CONTROLLERS.items():
+            manager[name] = {"type": GRAVITY_CONTROLLER_TYPE}
+            joints = list(config[f"{side}_arm_controller"]["ros__parameters"]["joints"])
+            config[name] = {"ros__parameters": {"joints": joints}}
     return config
+
+
+def driver_controllers_to_spawn(gravity_feedforward):
+    return [*DRIVER_CONTROLLERS, *(GRAVITY_CONTROLLERS.values() if gravity_feedforward else ())]
 
 
 def emulators_to_spawn(replayed_buses=()):
