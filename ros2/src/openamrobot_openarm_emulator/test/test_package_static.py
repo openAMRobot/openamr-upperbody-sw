@@ -274,3 +274,68 @@ def test_damping_inertia_defaults_are_the_models_link_inertias():
         names = [f"openarm_{side}_joint{n}" for n in range(1, 8)] + [f"openarm_{side}_finger_joint1"]
         for name, value in zip(names, expected):
             assert about_axis(name) == pytest.approx(value, rel=0.02), name
+
+
+FIELDS = {"value", "unit", "source", "confidence", "uncertainty", "hardware_revision", "owner", "test", "last_verified",
+          "measurement_item"}
+CONFIDENCE = {"measured", "manufacturer_document", "cad", "design_decision", "estimate", "unknown"}
+
+
+def electrical_entries(document):
+    for group, entries in [(name, body) for name, body in document["motor_types"].items()] + [("all_types", document["all_types"])]:
+        for key, entry in entries.items():
+            if key != "joints":
+                yield f"{group}.{key}", entry
+
+
+def test_motor_electrical_parameters_carry_source_confidence_and_measurement_item():
+    document = load(os.path.join(PACKAGE, "config", "motor_electrical.yaml"))
+    assert document["schema_version"] == 1 and document["status"] == "Proposed"
+    entries = list(electrical_entries(document))
+    assert len(entries) == 3 * 10 + 7
+    for name, entry in entries:
+        assert set(entry) == FIELDS, name
+        assert entry["confidence"] in CONFIDENCE, name
+        assert entry["source"], name
+        if entry["value"] is None:
+            assert entry["confidence"] == "unknown", name
+            assert re.fullmatch(r"MP-0[678]", entry["measurement_item"] or ""), name
+        if entry["confidence"] in ("unknown", "estimate"):
+            assert entry["measurement_item"], name
+
+
+def test_motor_electrical_parameters_are_the_emulators_defaults():
+    """kt is derived from the rated point; the code's tables state the same numbers as the parameter file."""
+    types = load(os.path.join(PACKAGE, "config", "motor_electrical.yaml"))["motor_types"]
+    for name, t in types.items():
+        kt = t["rated_torque"]["value"] / (t["gear_ratio"]["value"] * t["rated_current"]["value"])
+        assert t["kt"]["value"] == pytest.approx(kt, rel=1e-5), name
+        for key in ("over_current_threshold", "thermal_resistance", "thermal_time_constant"):
+            assert t[key]["value"] is None, f"{name}.{key}: no source in scope gives it"
+    source = open(os.path.join(PACKAGE, "src", "arm_emulator.cpp")).read()
+    gear = re.search(r"const double gear = types\[i\] == MotorType::DM8009 \? ([\d.]+) : \(types\[i\] == MotorType::DM4340 \? ([\d.]+) : ([\d.]+)\);", source)
+    resistance = re.search(r"m\.phase_resistance = types\[i\] == MotorType::DM8009 \? ([\d.]+) : \(types\[i\] == MotorType::DM4340 \? ([\d.]+) : ([\d.]+)\);", source)
+    rated_torque = re.search(r"const double rated_torque = types\[i\] == MotorType::DM8009 \? ([\d.]+) : \(types\[i\] == MotorType::DM4340 \? ([\d.]+) : ([\d.]+)\);", source)
+    assert gear and resistance and rated_torque
+    for match, key in ((gear, "gear_ratio"), (resistance, "phase_resistance"), (rated_torque, "rated_torque")):
+        assert [float(x) for x in match.groups()] == [types[t][key]["value"] for t in ("DM8009", "DM4340", "DM4310")], key
+    config = load(os.path.join(PACKAGE, "config", "sim_controllers.yaml"))["/**/left_arm_emulator"]["ros__parameters"]
+    peak = {t: types[t]["peak_torque"]["value"] for t in types}
+    assert config["peak_torque"] == [peak[t] for t in config["motor_types"]]
+    assert config["motor"]["thermal_model"] is False
+    assert config["motor"]["mos_over_temperature_c"] == load(os.path.join(PACKAGE, "config", "motor_electrical.yaml"))["all_types"]["mos_over_temperature"]["value"]
+    for key in ("over_current_a", "thermal_resistance_k_per_w", "thermal_time_constant_s"):
+        assert key not in config, f"{key} has no sourced value and stays unset (off)"
+
+
+def test_inject_fault_names_every_fault_it_handles():
+    text = open(os.path.join(PACKAGE, "scripts", "inject_fault.py")).read()
+    doc = text.split('"""')[1]
+    handled = set()
+    for name in re.findall(r'fault in \(([^)]*)\)', text):
+        handled |= set(re.findall(r'"(\w+)"', name))
+    handled |= set(re.findall(r'fault == "(\w+)"', text))
+    assert {"over_current", "comm_timeout", "timeout", "power_cut", "coil_over_temperature", "over_temperature",
+            "estop", "can_loss"} <= handled
+    for name in handled:
+        assert re.search(rf"^\s+(FAULT\s+)?{name}\b", doc, re.MULTILINE), f"{name} is handled but not in the usage text"

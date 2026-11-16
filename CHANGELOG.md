@@ -5,6 +5,20 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (16 Nov 2026; OpenArm motor current, temperature and fault conditions in the emulator)
+
+- **`openamrobot_openarm_emulator`: motor current from torque.** I = tau / (kt * N), copper loss 1.5 * R * I^2. Gear ratio and phase
+  resistance from the Damiao manuals that upstream publishes; kt is rated torque over gear ratio and rated current (no manual gives a torque
+  constant). Current is in the emulator status; the Damiao state frame has no current field and keeps reporting torque. Parameters with source,
+  confidence and measurement item: `config/motor_electrical.yaml`.
+- **Winding thermal model, off by default.** Lumped first order, behind `motor.thermal_model`, needing thermal resistance and time constant per
+  motor. No manual gives them (MP-06), so no default is set. The MOSFET threshold is separate (`motor.mos_over_temperature_c`, 120 C, datasheet).
+- **Over-current detection (0xA)** behind `over_current_a`, unset by default. **TIMEOUT register (RID 9) now acts**: 1 count = 50 us,
+  `motor.can_timeout_s` sets it while running; with CAN loss each enabled motor trips 0xD.
+- **Fault injection:** `inject_fault.py` gains `over_current`, `comm_timeout`, `timeout`, `coil_over_temperature` and `power_cut`.
+- **Tests:** current from torque, thermal rise and trip with test parameters, every fault code in D0, TIMEOUT write and save, the power-cut
+  sequence on the wire, and the unmodified driver against a TIMEOUT trip under CAN loss (behaviours 3, 4 and 5). Simulation evidence only.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,

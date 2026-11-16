@@ -39,6 +39,16 @@ std::vector<MotorConfig> default_arm_motors(const std::string & arm_prefix)
     m.peak_torque = types[i] == MotorType::DM8009 ? 40.0 : (types[i] == MotorType::DM4340 ? 27.0 : 7.0);
     m.no_load_speed_24v = types[i] == MotorType::DM8009 ? 16.755 : (types[i] == MotorType::DM4340 ? 5.4454 : 20.944);
     m.damping_inertia = damping_inertia[i];
+    // Gear ratio, rated torque and current, phase resistance: the Damiao datasheets that upstream publishes
+    // (enactic/openarm e15e09e website/static/file/hardware/specification/motor/dm4310.pdf, dm4340.pdf, dm8009.pdf;
+    // the same table in website/docs/hardware/openarm-2.0/motor.mdx). No datasheet gives a torque constant: kt is the
+    // rated torque over gear ratio and rated current (config/motor_electrical.yaml, MP-06).
+    const double gear = types[i] == MotorType::DM8009 ? 9.0 : (types[i] == MotorType::DM4340 ? 40.0 : 10.0);
+    const double rated_torque = types[i] == MotorType::DM8009 ? 20.0 : (types[i] == MotorType::DM4340 ? 9.0 : 3.0);
+    const double rated_current = types[i] == MotorType::DM8009 ? 20.0 : 2.5;
+    m.gear_ratio = gear;
+    m.kt = rated_torque / (gear * rated_current);
+    m.phase_resistance = types[i] == MotorType::DM8009 ? 0.09 : (types[i] == MotorType::DM4340 ? 0.76 : 0.65);
     motors.push_back(m);
   }
   return motors;
@@ -328,6 +338,12 @@ void ArmEmulator::set_temperature_target(size_t index, double mos_c, double roto
 {
   std::lock_guard<std::mutex> lock(mutex_);
   if (index < motors_.size()) {motors_[index].set_temperature_target(mos_c, rotor_c, rate_c_per_s);}
+}
+
+void ArmEmulator::set_timeout(double seconds)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  for (MotorModel & m : motors_) {m.set_timeout(seconds);}
 }
 
 void ArmEmulator::set_timing(const BusTimingConfig & timing)
