@@ -1,0 +1,247 @@
+# SPDX-License-Identifier: MIT
+# Scene video: a Gazebo Harmonic (DART) recording of the whole combined Build 1 robot doing a short task, in run
+# profile fast, headless. A fixed observer camera is added to the world for the video only.
+# Visual capture, not a test result. Never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+# The setup steps are copied from build1-scene-tests.yml (same pins and workspace layout), without the virtual CAN
+# step: profile fast has no device emulator.
+name: Scene video
+
+on:
+  push:
+    branches: [viz/scene-video]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  VIDEO_DIR: ws/src/openamr-upperbody-sw/tools/scene_video
+  PROFILE: fast
+  ENGINE: gz-physics-dartsim-plugin
+
+jobs:
+  video:
+    name: scene video (visual capture, not a test result)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    concurrency:
+      group: scene-video-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_main", "platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      # openamr-platform-sw main: description, Nav2, perception and the docking model.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform_sw_main }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      # openamr-platform-sw #145 (open, provisional): only the package openamrobot_sil. Nothing else of that head is built.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform_sw_pr145 }}
+          path: ws/src/pins/platform-pr145
+          sparse-checkout: ros2/src/openamrobot_sil
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout
+        working-directory: ws
+        run: |
+          # platform main has openamrobot_sil since #139 (69847ab). The #145 pin carries the newer copy; colcon refuses
+          # two packages of one name, so main's copy is ignored and only the pinned one is built.
+          touch src/openamr-platform-sw/ros2/src/openamrobot_sil/COLCON_IGNORE
+          ls src src/pins/platform-pr145/ros2/src
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr145 src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+          { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # rosdep for the closure of the package. openamr-platform-sw names keys that rosdep does not know
+      # (its own interface package lives in another repository), so unresolved keys are reported, not fatal.
+      - name: rosdep
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          echo "$paths"
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+
+      - name: Package versions
+        run: |
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|ros-gz|gz-|ros2-control|controller-manager|hardware-interface|joint-trajectory-controller|xacro|moveit|navigation2|nav2-bringup)|gz-|libgz-sim|linux-modules-extra|python3-can)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: colcon build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: Video tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg python3-opencv fonts-dejavu-core mesa-utils libgl1-mesa-dri libegl1 xvfb
+          glxinfo -B 2>&1 | head -5 || true
+
+      - name: Run the scene and record
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          out="$PWD/video"; mkdir -p "$out/frames"
+          export ROS_DOMAIN_ID=42 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+          nproc
+          set -x
+          ros2 launch "$PACKAGE" build1.launch.py profile:="$PROFILE" physics_engine:="$ENGINE" headless:=true \
+            nav2:=false moveit:=false extra_sensors:=false rviz:=false > "$out/launch.log" 2>&1 &
+          launch_pid=$!
+          timeout 300 ros2 topic echo --once /build1/rtf_stats || { tail -200 "$out/launch.log"; exit 1; }
+          ros2 run ros_gz_sim create -world build1 -name observer_camera -file "$PWD/../$VIDEO_DIR/observer_camera.sdf" 2>&1 | tee "$out/spawn_camera.log"
+          ros2 run ros_gz_bridge parameter_bridge '/observer/image@sensor_msgs/msg/Image[gz.msgs.Image' \
+            --ros-args -p use_sim_time:=true > "$out/bridge.log" 2>&1 &
+          bridge_pid=$!
+          python3 "$PWD/../$VIDEO_DIR/frame_recorder.py" "$out/frames" > "$out/recorder.log" 2>&1 &
+          rec_pid=$!
+          set +e
+          timeout 3000 python3 "$PWD/../$VIDEO_DIR/video_task.py" "$out" 2>&1 | tee "$out/task.log"
+          echo "TASK_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+          sleep 3
+          kill -INT $rec_pid; sleep 2; kill $bridge_pid
+          kill -INT $launch_pid; sleep 10; kill -9 $launch_pid 2>/dev/null
+          pkill -9 -f "gz sim" ; true
+          ls "$out/frames" | wc -l
+          tail -5 "$out/recorder.log"
+
+      - name: Encode video, GIF, stills and capture.json
+        if: always()
+        working-directory: ws
+        run: |
+          python3 - video "$GITHUB_SHA" <<'EOF'
+          import csv, json, os, shutil, subprocess, sys
+          import cv2
+          out, sha = sys.argv[1], sys.argv[2]
+          frames_dir = os.path.join(out, "frames")
+          rows = list(csv.DictReader(open(os.path.join(frames_dir, "frames.csv"))))
+          task = json.load(open(os.path.join(out, "task.json"))) if os.path.exists(os.path.join(out, "task.json")) else {}
+          markers = task.get("markers", {})
+          stamps = [(int(r["index"]), float(r["stamp_s"])) for r in rows]
+          first = markers.get("start", stamps[0][1] if stamps else 0.0) - 2.0
+          last = markers.get("end", stamps[-1][1] if stamps else 0.0) + 1.0
+          keep = [(i, s) for i, s in stamps if first <= s <= last]
+          clip = os.path.join(out, "clip"); os.makedirs(clip, exist_ok=True)
+          for n, (i, _s) in enumerate(keep):
+              os.link(os.path.join(frames_dir, f"{i:06d}.jpg"), os.path.join(clip, f"{n:06d}.jpg"))
+          def nearest(t):
+              return min(stamps, key=lambda e: abs(e[1] - t))
+          stills = {}
+          for name in ("start", "reach", "end"):
+              if name in markers and stamps:
+                  i, s = nearest(markers[name])
+                  path = os.path.join(out, f"still_{name}.png")
+                  cv2.imwrite(path, cv2.imread(os.path.join(frames_dir, f"{i:06d}.jpg")))
+                  stills[name] = {"file": os.path.basename(path), "sim_s": s}
+          label = "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='visual capture, not a test result':x=20:y=20:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5"
+          subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "15", "-i", os.path.join(clip, "%06d.jpg"), "-vf", label,
+                          "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-crf", "23", os.path.join(out, "scene.mp4")], check=True)
+          subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(out, "scene.mp4"), "-vf",
+                          "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
+                          os.path.join(out, "scene.gif")], check=True)
+          sim_span = (keep[-1][1] - keep[0][1]) if len(keep) > 1 else 0.0
+          end_step = next((s for s in task.get("steps", []) if s["name"] == "end"), {})
+          pins = open("../pins.txt").read().split("\n") if os.path.exists("../pins.txt") else []
+          capture = {
+              "label": "visual capture, not a test result",
+              "workflow_sha": sha,
+              "pins": [p for p in pins if p],
+              "profile": os.environ.get("PROFILE"), "physics_engine": os.environ.get("ENGINE"),
+              "run_info": next((s.get("run_info") for s in task.get("steps", []) if s["name"] == "ready"), None),
+              "gazebo_rtf": end_step.get("rtf_stats"),
+              "camera": {"sdf": "tools/scene_video/observer_camera.sdf", "resolution": [1280, 720], "rate_hz_sim": 15},
+              "frames_recorded": len(stamps), "frames_in_video": len(keep), "video_sim_seconds": round(sim_span, 2),
+              "video_fps": 15, "video_plays_at": "1x Gazebo time when no frame was dropped",
+              "markers_sim_s": markers, "stills": stills,
+              "commands": [s for s in task.get("steps", [])],
+          }
+          json.dump(capture, open(os.path.join(out, "capture.json"), "w"), indent=2, default=str)
+          print(json.dumps({k: capture[k] for k in ("frames_recorded", "frames_in_video", "video_sim_seconds", "gazebo_rtf")}, indent=2))
+          EOF
+          ls -la video
+          { echo '### Scene video (visual capture, not a test result)'; echo '```'; cat video/capture.json | head -80; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: scene-video
+          path: |
+            ws/video/scene.mp4
+            ws/video/scene.gif
+            ws/video/still_*.png
+            ws/video/capture.json
+            ws/video/task.json
+            ws/video/*.log
+            pins.txt
+            versions.txt
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          echo "task exit status: ${TASK_RC:-not run}. Visual capture, not a test result."
+          test -s ws/video/scene.mp4
