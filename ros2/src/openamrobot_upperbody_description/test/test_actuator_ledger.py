@@ -16,7 +16,17 @@ from conftest import ARG_DEFAULTS, SHARE, expand, load_yaml
 
 LEDGER_FILE = os.path.join(SHARE, "config", "actuator_ledger.yaml")
 LEDGER_SCHEMA = os.path.join(SHARE, "config", "actuator_ledger.schema.json")
-KNOWN = {"datasheet", "upstream_config", "upstream_urdf", "cad", "measured", "estimated", "proposed", "decision"}
+KNOWN = {
+    "datasheet",
+    "supplier_confirmation",
+    "upstream_config",
+    "upstream_urdf",
+    "cad",
+    "measured",
+    "estimated",
+    "proposed",
+    "decision",
+}
 EMPTY = {"unknown", "not_applicable"}
 
 # ledger quantity -> URDF <limit> attribute

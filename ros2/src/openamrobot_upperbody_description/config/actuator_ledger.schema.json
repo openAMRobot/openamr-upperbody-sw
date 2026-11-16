@@ -88,6 +88,7 @@
         "status": {
           "enum": [
             "datasheet",
+            "supplier_confirmation",
             "upstream_config",
             "upstream_urdf",
             "cad",
@@ -132,6 +133,7 @@
             "status": {
               "enum": [
                 "datasheet",
+                "supplier_confirmation",
                 "upstream_config",
                 "upstream_urdf",
                 "cad",

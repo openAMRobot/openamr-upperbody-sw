@@ -3,7 +3,8 @@
 #
 # One entry per actuator or bus node. Every quantity is {value, unit, source, status, owner, note?}.
 #   unit    SI (m, s, rad, N, N*m, A, V, kg, bit/s, Hz); "1" for ratios and counts; null for text values.
-#   status  datasheet | cad | measured | estimated | proposed | decision | unknown | not_applicable
+#   status  datasheet | supplier_confirmation | upstream_config | upstream_urdf | cad | measured | estimated | proposed | decision | unknown | not_applicable
+#           supplier_confirmation = value confirmed in written supplier communication, not necessarily a published datasheet
 #           proposed  = written in a design or owner proposal, not yet frozen
 #           decision  = recorded owner decision (P-03 item, register entry)
 #   unknown values are null with status unknown and a note naming what would close them.
@@ -126,14 +127,14 @@ actuators:
     value: true
     unit: null
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: Engaged with power off, released with power on.
   brake_holding_torque:
     value: 6.0
     unit: N*m
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: Per motor. An earlier supplier answer (21 Sep 2026) said 5 N*m; decision D-25 still open. Brake test on
       the delivered motor pending.
@@ -141,14 +142,14 @@ actuators:
     value: 0.1
     unit: s
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: At most.
   brake_engage_time:
     value: 0.03
     unit: s
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: At most, without a suppression diode; at most 0.100 s with a plain diode. P-03 item 30 A5 asks for a fast
       quench and a measured delay chain.
@@ -156,7 +157,7 @@ actuators:
     value: 24.0
     unit: V
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: 12.5 W per motor; fed from the SAFE 24 V converter (P-03 item 21).
   rotor_inertia:
@@ -330,14 +331,14 @@ actuators:
     value: true
     unit: null
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: Engaged with power off, released with power on.
   brake_holding_torque:
     value: 6.0
     unit: N*m
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: Per motor. An earlier supplier answer (21 Sep 2026) said 5 N*m; decision D-25 still open. Brake test on
       the delivered motor pending.
@@ -345,14 +346,14 @@ actuators:
     value: 0.1
     unit: s
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: At most.
   brake_engage_time:
     value: 0.03
     unit: s
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: At most, without a suppression diode; at most 0.100 s with a plain diode. P-03 item 30 A5 asks for a fast
       quench and a measured delay chain.
@@ -360,7 +361,7 @@ actuators:
     value: 24.0
     unit: V
     source: ZLTECH written answer 18 Oct 2026, recorded in P-03 item 21 and BOM Issue 7.15 row DRV-001
-    status: datasheet
+    status: supplier_confirmation
     owner: Evans
     note: 12.5 W per motor; fed from the SAFE 24 V converter (P-03 item 21).
   rotor_inertia:
@@ -779,40 +780,40 @@ actuators:
     owner: Evans
     note: Regulated output; converter input 16.8 to 33.6 V.
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: P-03 items 16 and 26 (self-holding column, no brake named)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Evans (electrical) / Cuma (mechanical)
-    note: Holds by itself with power off (DOLD written confirmation 14 Oct 2026); no separate brake.
+    note: DOLD confirmed power-off self-holding on 14 Oct 2026; the available evidence does not explicitly confirm whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Evans (electrical) / Cuma (mechanical)
-    note: No brake; holding force is in peak_force note.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Evans (electrical) / Cuma (mechanical)
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Evans (electrical) / Cuma (mechanical)
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Evans (electrical) / Cuma (mechanical)
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg
@@ -1007,11 +1008,12 @@ actuators:
     owner: Evans
     note: 'TODO(Evans): H-bridge peak current trip.'
   rated_voltage:
-    value: 24.0
+    value: null
     unit: V
-    source: E-01 rev1.8 (node logic and Hall supply on the regulated 24 V rail; motor stage on the SAFE 24 V converter)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Evans
+    note: "Controller input voltage rating is not established by E-01; 24 V describes the configured supply rail, recorded separately under supply_bus_voltage_nominal."
   supply_bus_voltage_nominal:
     value: 24.0
     unit: V
@@ -1137,7 +1139,7 @@ actuators:
     value: Daly M-series smart BMS, 8S LiFePO4, 150 A common port
     unit: null
     source: BOM Issue 7.15 row PWR-002 and CAN_buses sheet
-    status: datasheet
+    status: decision
     owner: Evans
   revision:
     value: null
@@ -1208,12 +1210,12 @@ actuators:
     owner: Evans
     note: Not an actuator.
   rated_current:
-    value: 150.0
+    value: null
     unit: A
-    source: BOM Issue 7.15 row PWR-002 and CAN_buses sheet
-    status: datasheet
+    source: null
+    status: unknown
     owner: Evans
-    note: Common-port rating of the configured BMS.
+    note: "Exact BMS order code and manufacturer current rating are unverified; 150 A is recorded in the BOM as the configured common-port rating."
   peak_current:
     value: null
     unit: A
@@ -1222,11 +1224,12 @@ actuators:
     owner: Evans
     note: Not stated.
   rated_voltage:
-    value: 25.6
+    value: null
     unit: V
-    source: BOM Issue 7.15 row PWR-001 (8S LiFePO4, 8 x EVE LF105)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Evans
+    note: "Exact BMS voltage rating is unverified; 25.6 V is the nominal voltage of the configured 8S LiFePO4 pack, recorded separately under supply_bus_voltage_nominal."
   supply_bus_voltage_nominal:
     value: 25.6
     unit: V
@@ -1338,21 +1341,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x01, receive 0x11
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -1429,39 +1432,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -1584,21 +1588,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x02, receive 0x12
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -1675,39 +1679,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -1830,21 +1835,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x03, receive 0x13
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -1920,39 +1925,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -2073,21 +2079,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x04, receive 0x14
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -2163,39 +2169,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -2316,21 +2323,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x05, receive 0x15
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -2407,39 +2414,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -2560,21 +2568,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x06, receive 0x16
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -2651,39 +2659,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -2804,21 +2813,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x07, receive 0x17
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -2895,39 +2904,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -3048,21 +3058,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x08, receive 0x18
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -3138,39 +3148,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -3306,21 +3317,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x01, receive 0x11
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -3397,39 +3408,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -3550,21 +3562,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x02, receive 0x12
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -3641,39 +3653,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -3794,21 +3807,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x03, receive 0x13
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -3884,39 +3897,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -4037,21 +4051,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x04, receive 0x14
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -4127,39 +4141,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -4280,21 +4295,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x05, receive 0x15
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -4371,39 +4386,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -4524,21 +4540,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x06, receive 0x16
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -4615,39 +4631,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -4768,21 +4785,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x07, receive 0x17
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -4859,39 +4876,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
@@ -5012,21 +5030,21 @@ actuators:
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_description @14ff67b
       assets/robot/openarm_v2.0/urdf/ros2_control/openarm.bimanual.ros2_control.xacro
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Upstream default naming (right arm can0, left arm can1); the robot's SocketCAN names are set at bring-up.
   node_id:
     value: send 0x08, receive 0x18
     unit: null
     source: openarm docs @e15e09e website/docs/setup/openarm-setup/1-motor-id.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: Same IDs on both arms; the arms are separated by bus.
   bitrate:
     value: 1000000
     unit: bit/s
     source: openarm docs @e15e09e 2-can-setup.mdx; openarm_ros2 @4e837e1 openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp
-    status: datasheet
+    status: upstream_config
     owner: Om with Adnan
     note: 'CAN FD: arbitration 1 Mbit/s, data 5 Mbit/s, BRS on every frame.'
   control_mode:
@@ -5102,39 +5120,40 @@ actuators:
     owner: Evans
     note: Above the 24 V motor rating; confirming the supplier limit is gate ARM-VOLT (Om / Alex).
   brake_present:
-    value: false
+    value: null
     unit: null
-    source: openarm docs @e15e09e overview/safety-guide.mdx (highly backdrivable, held load falls on power loss)
-    status: datasheet
+    source: null
+    status: unknown
     owner: Om with Adnan
+    note: OpenArm safety guide reports high backdrivability and rapid load fall on power loss; it does not specify whether a separate brake is fitted.
   brake_holding_torque:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_release_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_engage_time:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   brake_coil_voltage:
     value: null
     unit: null
     source: null
-    status: not_applicable
+    status: unknown
     owner: Om with Adnan
-    note: No brake.
+    note: Unknown until brake presence and the corresponding specification are confirmed.
   rotor_inertia:
     value: null
     unit: kg*m^2
