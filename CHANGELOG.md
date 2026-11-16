@@ -5,6 +5,22 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (16 Nov 2026; platform pin to platform-sw main 69847ab, base sensors against the platform sensor profiles)
+
+- **Platform pin `8e7a454` -> `69847ab`** (`config/upstream_pins.yaml`, README checkout line, `mass_provenance.yaml`,
+  `test_mass_export_source.py`): platform-sw main after #135, #138 (`sensor_profiles.yaml`) and #139. The expanded model changes only in the
+  base wheel and castor `<gazebo>` blocks: #135 writes `mu1`, `mu2`, `fdir1` instead of a `<surface>` block that the URDF to SDF conversion
+  dropped, so in Gazebo the wheels now get their friction values. Links, joints, inertials and the masses are unchanged.
+- **`config/base_sensor_model.yaml` and test `s6_base_sensor_model`.** The base sensors are platform-sw's and are included unchanged. The new
+  file names, for each one (RPLIDAR S3, Gemini 336L, ICM-42688-P, TF-Luna, MB7060), the platform profile key that each SDF value should come
+  from, and it copies no number. The test expands the combined model and requires the differences to be exactly the listed ones: 11 today
+  (lidar range and samples, unsourced noise and rates, no Gemini sensor). Tracking: platform-sw #156. Every Gazebo sensor of the combined
+  robot must be accounted for (base, upper-body camera or legacy `camera_link`).
+- **Effects Gazebo cannot represent are documented parameters.** Latency, dropouts, invalid-value codes, bias and temperature drift each
+  have a value with a source (DS-000347 rev 1.9 tolerances, TF-Luna user manual A05, MB7060 datasheet) or the status unknown, and a
+  `TODO(sensor-fault layer)`. The head camera profile gains `dropout` and depth `invalid_fraction` (unknown). Nothing new is applied in
+  Gazebo. Simulation only.
+
 ### Added (15 Nov 2026; head camera simulation from the ZED Mini datasheet)
 
 - **Gazebo sensor on `head_camera_link`.** `urdf/camera_sensors.xacro` adds an `rgbd_camera` (colour and depth) on the head camera frame, published

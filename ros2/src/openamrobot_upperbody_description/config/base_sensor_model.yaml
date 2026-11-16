@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: MIT
+# Base sensors of the combined model against the platform's sensor profiles: what each Gazebo sensor should carry, where
+# it differs today, and the effects Gazebo does not represent.
+#
+# The base sensors are platform-sw's: robo_urdf.urdf.xacro (gazebo_control.xacro, sensors.xacro) emits them and this
+# repository includes that file unchanged, so it cannot set their numbers. The numbers they should carry are in the platform's
+# config/sensor_profiles.yaml (platform-sw #138, at the platform pin of upstream_pins.yaml). This file does not copy them: each
+# `gazebo` row names the profile key (`from`) and, where the SDF element has another unit or form, a conversion (`scale` or
+# `derive`; `{frame}` in a key stands for the sensor's own frame). test/test_s6_base_sensor_model.py expands the combined model, reads each sensor, computes the expected value from
+# the profile and requires the rows that differ to be exactly the `divergences` listed here. A divergence closed in platform-sw
+# (after a pin move) makes the test fail until its row is removed; a new one fails it until it is listed.
+#
+# Expected value null: the profile has no sourced number. The model then must carry none either; a number in the model is a
+# divergence ("unsourced"), never accepted as a value.
+#
+# `not_modelled`: effects a Gazebo sensor cannot represent (dropouts, timestamp latency, invalid-value codes, reflectivity,
+# motion distortion). Each is a documented parameter for the sensor-fault layer, which does not exist yet: TODO(sensor-fault
+# layer) on every row. A row either points to the platform profile key that holds the value (`from`) or carries the value with
+# its own source, in the profile value format (value, unit, source, status, note, needed, owner). Status values as in the
+# profiles: datasheet, measured, estimated, unknown. A row with its own value that the platform profile lacks is a proposal for
+# the platform profile (`proposed_for_platform_profile: true`); the platform-sw owner adopts it there, then the row becomes a
+# `from` reference.
+#
+# Simulation only. Nothing here is a hardware, safety or acceptance result. Gap ids: openAMRobot/audits branch audit/2026-09-28,
+# digital-twin/phase1/reality_gap_register.csv; captures: measurement_plan.md MP-18 (cameras), MP-19 (IMU), MP-20 (near field).
+
+platform_profile: "openamrobot_description config/sensor_profiles.yaml (platform-sw #138)"
+tracking: "https://github.com/openAMRobot/openamr-platform-sw/issues/156"
+
+# Gazebo sensors of the base that have no profile entry: a part the 2.0 robot does not have. Listed so the test can require every
+# sensor of the combined model to be accounted for (a base sensor here, an upper-body camera in sensor_profiles.yaml, or this list).
+legacy_sensors:
+  - {link: camera_link, sensor: camera_sensor, gap: RG-SEN-036,
+     note: "IMX708 colour camera of the Gate A robot, 60 deg, /rgb_image; the 2.0 base camera is the Gemini 336L on base_camera_link.
+            platform-sw #105 and #53 (drafts) gate it behind a legacy argument"}
+
+documents:
+  icm_42688_p_ds: &doc_icm_ds >-
+    TDK InvenSense ICM-42688-P datasheet DS-000347 rev 1.9, Table 1 (gyroscope) and Table 2 (accelerometer), as filed in
+    openamr-platform-hw datasheets/TDK/ICM-42688-P/DS-000347-ICM-42688-P-v1.9.pdf SHA-256
+    9c6b57b0a2e45cf0251dd2423878573bd4da46e0cc2faa93dc558c28af51300a, read 16 Nov 2026
+    (https://invensense.tdk.com/products/motion-tracking/6-axis/icm-42688-p/)
+  tf_luna_manual: &doc_tf_luna_um >-
+    Benewake TF-Luna User Manual rev A05 (2020-07-23), section 6.4 Basic Data Output, as filed in openamr-platform-hw
+    datasheets/Benewake/TF-Luna/User-Manual/en.pdf SHA-256
+    36dfae2e9d6a298624889c5036cfdef9b191c9f44239b7f58ffcef685d9c28e7, read 16 Nov 2026 (https://en.benewake.com)
+  mb7060: &doc_mb7060 >-
+    MaxBotix XL-MaxSonar-WR/WRC series datasheet, document 11838ab (no revision date printed), sections Sensor Minimum
+    Distance, Pin 5 TX and XL-MaxSonar-WR1, as filed in openamr-platform-hw datasheets/MaxBotix/MB7060/11838.pdf SHA-256
+    76e77577b493ca8f38780b589430e26ceeb2489c2171f4a8f66f71f92d86395d, read 16 Nov 2026 (https://maxbotix.com)
+
+sensors:
+  lidar_link:
+    sensor: lidar_sensor
+    type: gpu_lidar
+    gazebo:
+      - {sdf: update_rate, from: lidar_link.scan.scan_rate}
+      - {sdf: lidar/range/min, from: lidar_link.scan.range_min}
+      - {sdf: lidar/range/max, from: lidar_link.scan.range_max_white,
+         note: "the sensor's maximum (white target); Gazebo has no reflectivity, so the 15 m black-target limit is a not_modelled row"}
+      - {sdf: lidar/range/resolution, from: lidar_link.scan.range_resolution, scale: 0.001}
+      - {sdf: lidar/scan/horizontal/samples, from: lidar_link.scan.angular_resolution, derive: samples_per_turn}
+      - {sdf: lidar/noise/stddev, from: lidar_link.scan.range_noise_stddev,
+         note: "the datasheet gives an accuracy of +-30 mm (accuracy_0_8m), a limit and not a standard deviation (RG-SEN-004)"}
+    divergences:
+      - {sdf: lidar/range/min, model: 0.4, gap: RG-SEN-002}
+      - {sdf: lidar/range/max, model: 10.0, gap: RG-SEN-002}
+      - {sdf: lidar/scan/horizontal/samples, model: 360, gap: RG-SEN-003}
+      - {sdf: lidar/noise/stddev, model: 0.001, gap: RG-SEN-004, note: "unsourced; 30 times below the accuracy limit"}
+    not_modelled:
+      - {effect: "range limit by reflectivity (black target)", from: lidar_link.scan.range_max_black, gap: RG-SEN-002,
+         fault_layer: "TODO(sensor-fault layer): drop returns beyond the limit for low-reflectivity materials"}
+      - {effect: "scan output latency", from: lidar_link.scan.output_latency, gap: RG-SEN-005,
+         fault_layer: "TODO(sensor-fault layer): delay /scan by the measured stamp-to-publish time"}
+      - {effect: "motion distortion (per-beam time over one turn)", gap: RG-SEN-005,
+         value: null, unit: s, source: null, status: unknown,
+         needed: "per-point timing of sllidar_ros2 output, bench capture while the base turns", owner: Vineeth,
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): gpu_lidar renders one instantaneous scan"}
+      - {effect: "dropout rate (missing scans)", gap: RG-SEN-005,
+         value: null, unit: fraction of scans, source: null, status: unknown,
+         needed: "count of missing /scan messages in a bench log on the Jetson", owner: Vineeth,
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): drop whole scans at the measured rate"}
+
+  base_camera_link:
+    sensor: null          # platform-sw main has no Gazebo sensor on this frame; platform-sw #53 (draft) adds one
+    type: rgbd_camera
+    gazebo:
+      - {sdf: update_rate, from: base_camera_link.depth.frame_rate_max,
+         note: "the maximum at 1280 x 800; the robot's rate is set in the driver launch"}
+      - {sdf: camera/horizontal_fov, from: base_camera_link.depth.fov_horizontal, derive: radians,
+         note: "depth field of view 90 x 65 deg; Gazebo derives the vertical angle from the image aspect: 1280 x 800 at 90 deg gives
+                64.0 deg, against 65 in the profile. The colour field of view (94 x 68) differs and one rgbd_camera has one field of view"}
+      - {sdf: camera/image/width, from: base_camera_link.depth.width_max}
+      - {sdf: camera/image/height, from: base_camera_link.depth.height_max}
+      - {sdf: camera/depth_camera/clip/near, from: base_camera_link.depth.range_min}
+      - {sdf: camera/depth_camera/clip/far, from: base_camera_link.depth.range_max}
+      - {sdf: camera/noise/stddev, from: base_camera_link.color.image_noise_stddev}
+    divergences:
+      - {sdf: "*", model: missing, gap: RG-SEN-007, note: "no Gemini 336L sensor on platform-sw main (platform-sw #53, issue #41)"}
+    not_modelled:
+      - {effect: "depth noise", from: base_camera_link.depth.spatial_precision_2m, gap: RG-SEN-008,
+         fault_layer: "TODO(sensor-fault layer): the vendor spatial precision is not a standard deviation; plane-fit residual (MP-18)"}
+      - {effect: "frame latency and timestamp", from: base_camera_link.depth.latency, gap: RG-SEN-009,
+         fault_layer: "TODO(sensor-fault layer): delay and restamp frames by the measured latency"}
+      - {effect: "invalid depth pixels (no return, specular or dark surfaces)", gap: RG-SEN-008,
+         value: null, unit: fraction of pixels, source: null, status: unknown,
+         needed: "invalid-pixel value and fraction from the Orbbec ROS 2 driver on the matte, metallic and glossy targets of MP-18",
+         owner: Vineeth, proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): Gazebo depth has a value for every pixel inside the clip range"}
+      - {effect: "frame dropout", gap: RG-SEN-009,
+         value: null, unit: fraction of frames, source: null, status: unknown,
+         needed: "missing frames in a bench log with the vendor driver on the Jetson", owner: Vineeth,
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): drop frames at the measured rate"}
+
+  imu_link:
+    sensor: imu_sensor
+    type: imu
+    gazebo:
+      - {sdf: update_rate, from: imu_link.gyro.odr}
+      - {sdf: imu/angular_velocity/x/noise/stddev, from: null,
+         note: "per-sample stddev = noise density 2.8 mdps/sqrt(Hz) (imu_link.gyro.noise_density) x sqrt(noise bandwidth); the
+                bandwidth follows the firmware's filter, which is not fixed (imu_link.gyro.odr, TODO(Evans))"}
+      - {sdf: imu/linear_acceleration/x/noise/stddev, from: null,
+         note: "same, from 70 ug/sqrt(Hz) (imu_link.accel.noise_density)"}
+      - {sdf: imu/angular_velocity/x/noise/bias_stddev, from: imu_link.gyro.bias_stability}
+      - {sdf: imu/linear_acceleration/x/noise/bias_stddev, from: imu_link.accel.bias_stability}
+    divergences:
+      - {sdf: update_rate, model: 50.0, gap: RG-SEN-013, note: "unsourced; set from the navigation status profile, not the firmware ODR"}
+    not_modelled:
+      - {effect: "timestamp latency and skew", from: imu_link.timestamp_skew, gap: RG-SEN-014,
+         fault_layer: "TODO(sensor-fault layer): offset and jitter the stamp by the measured skew bound"}
+      - {effect: "gyro zero-rate output, initial tolerance", gap: RG-SEN-012,
+         value: 0.5, unit: dps, source: *doc_icm_ds, status: datasheet,
+         note: "plus or minus, board level, 25 C, typical, derived from characterisation (note 3). A tolerance, not a standard
+                deviation: not written as Gazebo bias_stddev",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): a constant turn-on bias drawn inside the tolerance, until MP-19 measures the board"}
+      - {effect: "gyro zero-rate output change with temperature", gap: RG-SEN-012,
+         value: 0.005, unit: dps/degC, source: *doc_icm_ds, status: datasheet, note: "plus or minus, 0 to 70 C, typical (note 3)",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): Gazebo has no sensor temperature"}
+      - {effect: "accelerometer zero-g output, initial tolerance", gap: RG-SEN-012,
+         value: 20.0, unit: mg, source: *doc_icm_ds, status: datasheet,
+         note: "plus or minus, board level, all axes, typical (note 3); a tolerance, not a standard deviation",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): a constant turn-on offset inside the tolerance, until MP-19 measures the board"}
+      - {effect: "accelerometer zero-g change with temperature", gap: RG-SEN-012,
+         value: 0.15, unit: mg/degC, source: *doc_icm_ds, status: datasheet, note: "plus or minus, -40 to 85 C, typical (note 3)",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): Gazebo has no sensor temperature"}
+      - {effect: "gyro total RMS noise at 100 Hz bandwidth", gap: RG-SEN-011,
+         value: 0.028, unit: dps rms, source: *doc_icm_ds, status: datasheet,
+         note: "calculated by the vendor from the noise density (note 4). Usable as the Gazebo per-sample stddev only if the
+                firmware's noise bandwidth is 100 Hz; scales with sqrt(bandwidth / 100 Hz)",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(Evans): firmware filter bandwidth, then platform-sw writes the stddev into the imu sensor"}
+      - {effect: "accelerometer RMS noise at 100 Hz bandwidth", gap: RG-SEN-011,
+         value: 0.70, unit: mg rms, source: *doc_icm_ds, status: datasheet,
+         note: "Z axis, calculated from the noise density (note 4); X and Y 0.65. Same bandwidth condition as the gyro row",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(Evans): firmware filter bandwidth, then platform-sw writes the stddev into the imu sensor"}
+
+  tof_front: &tof
+    sensor: "{frame}_sensor"
+    type: gpu_lidar
+    gazebo:
+      - {sdf: update_rate, from: "{frame}.range.frame_rate_default",
+         note: "datasheet default; the rate the firmware sets is frame_rate_configured (unknown, TODO(Evans))"}
+      - {sdf: lidar/range/min, from: "{frame}.range.range_min"}
+      - {sdf: lidar/range/max, from: "{frame}.range.range_max_90pct"}
+      - {sdf: lidar/range/resolution, from: "{frame}.range.range_resolution", scale: 0.01}
+      - {sdf: lidar/scan/horizontal/max_angle, from: "{frame}.range.fov", derive: half_angle_radians,
+         note: "the model writes 0.0175 rad for the 1 deg half angle (0.017453); compared at a relative tolerance of 0.5 percent"}
+      - {sdf: lidar/noise/stddev, from: "{frame}.range.range_noise_stddev",
+         note: "the datasheet gives accuracy only (+-6 cm to 3 m, +-2 percent beyond)"}
+    divergences:
+      - {sdf: update_rate, model: 50.0, gap: RG-SEN-017, note: "unsourced"}
+      - {sdf: lidar/noise/stddev, model: 0.01, gap: RG-SEN-016, note: "unsourced"}
+    not_modelled:
+      - {effect: "invalid return (signal too low or overexposed)", gap: RG-SEN-019,
+         value: 100, unit: Amp counts, source: *doc_tf_luna_um, status: datasheet,
+         note: "Dist is unreliable when Amp < 100 or Amp = 65535 (0xFFFF, overexposure); Amp above 32768 flags ambient-light
+                overexposure. A gpu_lidar ray with no hit returns the maximum range or inf instead; the base-controller contract
+                reports a missing return as UNKNOWN, never as free space",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): map no-hit and low-signal rays to the UNKNOWN validity of the contract"}
+      - {effect: "range limit by reflectivity", from: "{frame}.range.range_max_10pct", gap: RG-SEN-016,
+         fault_layer: "TODO(sensor-fault layer): Gazebo has no reflectivity"}
+      - {effect: "output latency and dropout over the base-controller link", gap: RG-SEN-019,
+         value: null, unit: s, source: null, status: unknown,
+         needed: "stamp-to-publish delay and missing samples of /tof/* through the STM32 base controller, bench log", owner: Evans,
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): delay and drop samples at the measured values"}
+  tof_rear: *tof
+
+  us_front_left: &us
+    sensor: "{frame}_sensor"
+    type: gpu_lidar
+    gazebo:
+      - {sdf: update_rate, from: "{frame}.range.refresh_rate",
+         note: "free-run rate of one sensor; the shared trigger sequence of the four sets the rate seen on each topic (RG-SEN-022)"}
+      - {sdf: lidar/range/min, from: "{frame}.range.range_min"}
+      - {sdf: lidar/range/max, from: "{frame}.range.range_max"}
+      - {sdf: lidar/range/resolution, from: "{frame}.range.range_resolution", scale: 0.01}
+      - {sdf: lidar/scan/horizontal/max_angle, from: "{frame}.range.beam_half_angle"}
+      - {sdf: lidar/noise/stddev, from: "{frame}.range.range_noise_stddev"}
+    divergences:
+      - {sdf: lidar/scan/horizontal/max_angle, model: 0.17, gap: RG-SEN-021, note: "unsourced flat fan of 9 rays"}
+      - {sdf: lidar/noise/stddev, model: 0.01, gap: RG-SEN-023, note: "unsourced"}
+    not_modelled:
+      - {effect: "no-target output", gap: RG-SEN-020,
+         value: 7.65, unit: m, source: *doc_mb7060, status: datasheet,
+         note: "serial output is the range in cm up to a maximum of 765; the WR1 section states that the WR1 variants, unlike the
+                standard sensor, do not report 765 when no target is detected. Gazebo returns the maximum or inf",
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): report 7.65 m for a no-hit ray and mark it as no target, not as an obstacle"}
+      - {effect: "near targets clamp to the minimum", from: "{frame}.range.range_min", gap: RG-SEN-020,
+         fault_layer: "TODO(sensor-fault layer): targets closer than 20 cm read as 20 cm; gpu_lidar returns no hit below min"}
+      - {effect: "trigger sequence and crosstalk of the four sensors", gap: RG-SEN-022,
+         value: null, unit: s, source: null, status: unknown,
+         needed: "trigger sequence and timing the base controller uses (not confirmed), then a bench log", owner: Evans,
+         proposed_for_platform_profile: true,
+         fault_layer: "TODO(sensor-fault layer): each sensor fires at 10 Hz, all at once, with no interaction"}
+      - {effect: "power-up ready time", from: "{frame}.range.power_up_ready_time", gap: RG-SEN-022,
+         fault_layer: "TODO(sensor-fault layer): no output for 175 ms after power-up"}
+  us_front_right: *us
+  us_rear_left: *us
+  us_rear_right: *us

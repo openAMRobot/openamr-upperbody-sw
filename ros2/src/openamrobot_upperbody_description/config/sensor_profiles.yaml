@@ -25,7 +25,8 @@
 # null. A noise element is written only when the noise value is not null. test/test_s5_camera_sensors.py checks both.
 #
 # Simulation only. Nothing here is a hardware result, and the Gazebo sensor is an ideal pinhole camera: no distortion, no
-# rolling shutter, no latency, no stereo matching error.
+# rolling shutter, no latency, no stereo matching error. Latency, dropout and invalid depth pixels are listed as unknown values for
+# the sensor-fault layer (not built); the base sensors are in base_sensor_model.yaml.
 
 documents:
   zed_mini_datasheet: &doc_zed_mini_ds >-
@@ -88,7 +89,13 @@ frames:
         latency:
           {value: null, unit: s, source: null, status: unknown,
            needed: "image stamp to topic publication delay on the Jetson with the ZED wrapper, measured",
-           owner: Vineeth}
+           owner: Vineeth,
+           note: "not representable in a Gazebo sensor: TODO(sensor-fault layer), delay and restamp frames (RG-SEN-029)"}
+        dropout:
+          {value: null, unit: fraction of frames, source: null, status: unknown,
+           needed: "missing frames in a bench log with the ZED wrapper on the Jetson over the head USB 3 link (MP-18)",
+           owner: Vineeth,
+           note: "not representable in a Gazebo sensor: TODO(sensor-fault layer), drop frames at the measured rate"}
       depth:
         range_min:
           {value: 0.1, unit: m, source: *doc_zed_mini_ds, status: datasheet}
@@ -112,7 +119,14 @@ frames:
         latency:
           {value: null, unit: s, source: null, status: unknown,
            needed: "image stamp to depth topic publication delay with the ZED wrapper, measured; depends on the depth mode",
-           owner: Vineeth}
+           owner: Vineeth,
+           note: "not representable in a Gazebo sensor: TODO(sensor-fault layer)"}
+        invalid_fraction:
+          {value: null, unit: fraction of pixels, source: null, status: unknown,
+           needed: "fraction and code (NaN, inf or 0) of invalid depth pixels from the ZED wrapper on the MP-18 targets",
+           owner: Vineeth,
+           note: "not representable in a Gazebo sensor: Gazebo depth has a value for every pixel inside the clip range.
+                  TODO(sensor-fault layer)"}
 
   left_wrist_camera_link:
     sensor: OpenArm 2.0 in-hand camera, part not fixed
