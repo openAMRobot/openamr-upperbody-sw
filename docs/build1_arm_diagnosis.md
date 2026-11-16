@@ -41,11 +41,16 @@ codec and the driver report the physics joint by joint, by name.
 
 ## D9 step 2: frames, sides, joint order
 
-- Target frame: both scenarios plan for `openarm_{side}_ee_base_link`, the hand base, not for the TCP. scn04 places
-  the hand base `GRASP_DEPTH = 0.105` m behind the item (`scenarios.py` line 331). The model's TCP,
-  `openarm_{side}_grasp_frame`, is 0.138 m from the hand base along -z and 1.43 mm along -x. The scenario is
-  consistent with itself; the 0.105 m is an estimate of where the item should sit between the fingers, not the TCP.
-  Left as it is (remaining risk 4).
+- Target frame: both scenarios planned for `openarm_{side}_ee_base_link`, the hand base, not for the TCP. scn04 placed
+  the hand base at an estimated `GRASP_DEPTH = 0.105` m behind the item (`scenarios.py` line 331 at `77bbf18`). The
+  model's TCP, `openarm_{side}_grasp_frame`, is 0.138 m from the hand base along -z and 1.43 mm along -x. With the
+  estimate the item sits against the finger roots: once the arm held its pose (CI cycle 1 below) it was pushed 90 mm
+  before the fingers closed, as it was pushed 52 mm in `fast` on 16 Nov. Fixed: the item goes to the TCP, read from /tf.
+- Orientation: scn03 sent a position-only goal, so any hand orientation was allowed. The plan that CI recorded for
+  the right arm ends with joint 1 on its limit (-1.3963) and joint 2 at 3.012 rad, the arm over the top; the left
+  arm's ends with joint 7 on its limit (-1.5708) and joint 3 at 1.549 of 1.5708 (cycle 1 log, `L0_* commanded end
+  point`). Fixed: the reach uses the side-grasp hand orientation of scn04 (tolerance 0.3 rad). With it pinocchio IK
+  gives mirrored solutions well inside the limits (joint 1 -1.306 and 1.306, joint 4 0.439, the rest under 0.2 rad).
 - Left and right: driver joint names come from `arm_prefix` (`openarm_{left_,right_}joint1..7`, `finger_joint1`),
   motor ids 0x01 to 0x08 on `vcan_arm_l` and `vcan_arm_r`. The emulator maps the same ids to the same names
   (`arm_emulator.cpp` line 35). The right arm's joint 1 limits [-1.3963, 3.4907] are the mirror of the left's
@@ -99,6 +104,19 @@ it aborts the goal but does not change the command, which keeps reaching the mot
 MoveIt error -10 is `START_STATE_IN_COLLISION`, not a planning failure: `CheckStartStateCollision` refused the
 measured state with the finger in the board (line 15829).
 
+## CI cycle 1 (head `9e13615`, run 43976060527)
+
+| Check | 16 Nov (`77bbf18`) | Cycle 1 |
+|---|---|---|
+| scn04 tracking, `grasp_approach`, `grasp_reach`, `grasp_lift` | not measured (hand 74 mm low off-line) | 0.014, 0.015, 0.012 rad |
+| scn04 fingers on the item | 0.7854 rad, did not move | 0.0 rad: closed fully, on nothing (item pushed 90 mm first) |
+| scn04 `grasp_lift` | -10 START_STATE_IN_COLLISION | 1 SUCCESS |
+| scn03 left reach tracking | not measured | 0.016 rad |
+| scn03 right reach tracking | not measured | 0.332 rad (joint 6), over-the-top plan |
+| scn03 return moves | right: -26, never sent | both 1 SUCCESS (no reading outside the codec step) |
+| scn03 result | FAIL | BLOCKED: CTL-017 lift fault at real-time factor 0.46 (runner too slow) |
+| scn09 single writer | PASS | PASS, with the effort claims of the map |
+
 ## Fixes in this change
 
 1. **Gravity feed-forward, the missing command** (Proposed). `openamrobot_build1_scene/gravity.py` computes the static
@@ -117,6 +135,9 @@ measured state with the finger in the board (line 15829).
    required moves. On the old behaviour this reads about 0.15 rad and fails. scn04 also logs the driver's finger
    reading next to the physics one.
 
+4. **Hand orientation and TCP (D9 step 2).** scn03 reaches with the side-grasp orientation instead of a position-only
+   goal; scn04 puts the item at the model's TCP read from /tf (`openamrobot_build1_scene/arm_frames.py`).
+
 Tests: `test/test_gravity.py` (reference torques, controller file, launch defaults, codec step, clamp) and
 `test/test_command_map.py` (effort claim found missing or misplaced). Both fail with the fix reverted.
 
@@ -128,7 +149,7 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
    the effort controller keeps its last command).
 3. A MoveIt goal can still end within a step of a joint limit and a joint can rest on its stop; readings more than
    one step past a limit are refused, as before.
-4. `GRASP_DEPTH` 0.105 m against the model's TCP at 0.138 m; and in `fast` the item was pushed 52 mm before closing
-   (`scn15_grasp_fast`). Once the arm holds its pose, scn04 in `firmware_sil` can meet the same push.
+4. The finger geometry near the finger roots is inferred from the push and the closing angle seen in `fast`, not
+   measured from the meshes.
 5. Emulator effects (torque quantisation of the 12-bit tau field, the damping filter above 200 Hz) are inside the
    loop and were not separated here.

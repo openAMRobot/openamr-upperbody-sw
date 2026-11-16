@@ -89,3 +89,25 @@ def test_the_clamp_with_the_codec_step_takes_the_reading_ci_failed_on_and_still_
     assert jsc.clamp_position(-1.39639, lower, upper, support.DAMIAO_POSITION_RESOLUTION) == (lower, pytest.approx(9e-5), "clamped")
     assert jsc.clamp_position(lower - 2 * support.DAMIAO_POSITION_RESOLUTION, lower, upper,
                               support.DAMIAO_POSITION_RESOLUTION)[2] == "over_epsilon"
+
+
+def _quaternion_matrix(x, y, z, w):
+    return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+
+
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_the_grasp_puts_the_models_tcp_on_the_item_not_an_estimated_depth(model, side):
+    """D9 step 2. The scenario estimated 0.105 m from the hand base to the grasp centre; the model's TCP is 0.138 m."""
+    import numpy as np
+    from openamrobot_build1_scene.arm_frames import HAND_FRAME, SIDE_GRASP, TCP_FRAME, hand_for_tcp_at, side_grasp_offset
+    links, _ = model._frames({})
+    (R_hand, p_hand), (_, p_tcp) = links[HAND_FRAME[side]], links[TCP_FRAME[side]]
+    offset = R_hand.T @ (p_tcp - p_hand)                       # what /tf gives the scenario
+    assert side_grasp_offset(offset)[0] == pytest.approx(0.138, abs=1e-6)
+    item = (0.75, 0.16 if side == "left" else -0.16, 0.925)
+    hand = hand_for_tcp_at(item, offset)
+    tcp_world = np.array(hand) + np.array(_quaternion_matrix(*SIDE_GRASP)) @ offset
+    assert tcp_world == pytest.approx(item, abs=1e-9)
+    assert item[0] - hand[0] == pytest.approx(0.138, abs=1e-6) and item[0] - hand[0] > 0.105 + 0.03

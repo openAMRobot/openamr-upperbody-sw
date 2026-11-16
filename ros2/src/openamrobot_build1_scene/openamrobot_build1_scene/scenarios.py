@@ -16,6 +16,7 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
+from openamrobot_build1_scene.arm_frames import SIDE_GRASP, TCP_FRAME, hand_for_tcp_at, side_grasp_offset
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, ScenarioFailed, angle_diff)
 
 LIMIT_ZLAC = ("The ZLAC8015D emulator follows Manual 1.03 and CANopen Routine 1.08 as filed in platform-hw. "
@@ -303,7 +304,9 @@ def arms_reach(rig, log):
             link = f"openarm_{side}_ee_base_link"
             target = _in_base(rig, targets[level][side])
             log.quantity(f"{label}_target_height", target[2], "m", note=f"work shelf level {level}, 0.16 m above the board")
-            ok = _move_group(rig, log, _position_goal(f"{side}_arm", link, target, 0.02, scale), label)
+            # A pose goal, not a position-only one: with any orientation allowed the planner returned the right arm with
+            # joint 1 on its limit and joint 2 at 3.0 rad, over the top (CI, 16 Nov, docs/build1_arm_diagnosis.md).
+            ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, target, SIDE_GRASP, scale, position_tolerance=0.02), label)
             rig.sleep_sim(1.5)
             found = rig.transform("base_footprint", link)
             if ok and found is not None:
@@ -328,7 +331,6 @@ def arms_reach(rig, log):
 
 
 # ---------------------------------------------------------------- 4. grasp a tote item
-GRASP_DEPTH = 0.105          # m from the hand base link to the grasp centre along the fingers. Estimated from the model
 OPEN, CLOSED = 0.7854, 0.0   # left finger joint: open is the far limit, closed is 0 (openamr-upperbody-sw #66)
 
 
@@ -352,12 +354,18 @@ def grasp(rig, log):
     finger = "openarm_left_finger_joint1"
     item0 = rig.object_position("item")
     log.quantity("item_start_height", item0[2], "m")
-    # The fingers point along -z of the hand base link. For a side grasp they point along +x of the base and the
-    # finger axis is level: a rotation of -90 degrees about y.
-    quaternion = (0.0, -math.sqrt(0.5), 0.0, math.sqrt(0.5))
+    quaternion = SIDE_GRASP
     item = _in_base(rig, item0)
     grasp_z = item[2] + 0.03                      # above the tote wall
-    hand = (item[0] - GRASP_DEPTH, item[1], grasp_z)
+    # D9 step 2: the item goes to the model's TCP, openarm_left_grasp_frame (0.138 m along the fingers, from the URDF
+    # through /tf), not to an estimated depth. The estimate of 0.105 m put the item against the finger roots: it was
+    # pushed 52 mm (fast) and 90 mm (firmware_sil) before the fingers closed.
+    rig.wait(lambda: rig.transform(link, TCP_FRAME[side]) is not None, 30.0, "the hand base to TCP transform")
+    found = rig.transform(link, TCP_FRAME[side])
+    if not log.require(found is not None, f"no /tf from {link} to {TCP_FRAME[side]}"):
+        return
+    log.quantity("tcp_depth_along_fingers", side_grasp_offset(found[0])[0], "m", note=f"{TCP_FRAME[side]} in {link}, from /tf")
+    hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0])
     approach = (hand[0] - 0.10, hand[1], hand[2])
 
     park_arms(rig, log)
