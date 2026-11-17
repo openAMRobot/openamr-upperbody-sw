@@ -99,8 +99,7 @@ def test_the_grasp_line_runs_along_the_fingers_and_ends_with_the_tcp_on_the_poin
 def test_scenario_4_reaches_and_lifts_on_straight_lines_with_the_orientation_held():
     body = _grasp_body()
     assert '_pose_goal(f"{side}_arm", link, hand' not in body and '_pose_goal(f"{side}_arm", link, lifted' not in body
-    assert "pre_grasp, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)" in body
-    assert '_cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1)' in body
+    assert "_, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)" in body
     assert "straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)" in body
     assert '_cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1)' in body
     assert af.LIFT_RISE_M == 0.08 and af.CARTESIAN_MIN_FRACTION >= 0.99 and af.CARTESIAN_STEP_M <= 0.01
@@ -142,28 +141,38 @@ def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the
     assert "tote" not in lines[block], "the tote stays in the planning scene"
 
 
-def test_the_grasp_height_and_the_approach_tolerance_keep_the_hand_above_the_tote_wall(scene):
-    """The reach keeps the orientation the approach ended with. A tilt of the hand inside the approach tolerance (up to
-    sqrt(3) times the per-axis value) lowers the front of the hand body, 0.11 m along the fingers, by 0.11 sin(tilt); the
-    executed hand leaves its plan by up to 0.009 m. Mesh extents from openarm_description at the pins (arm_frames.py)."""
+def test_the_reach_clears_the_tote_wall_and_the_lift_clears_the_board_above(scene):
+    """The straight part of the reach runs REACH_CLEARANCE_M above the grasp height. A tilt of the hand inside the approach
+    tolerance (up to sqrt(3) times the per-axis value) lowers the front of the hand body, 0.11 m along the fingers, by
+    0.11 sin(tilt); the executed hand leaves its plan by up to 0.009 m. The lifted hand body stays below the work shelf
+    board above, padded in the planning scene. Mesh extents from openarm_description at the pins (arm_frames.py)."""
     from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import FIXTURE_PADDING_M
     boxes = {name: (size, centre) for name, size, centre, _ in scene_model.collision_boxes(scene)}
-    tote, item = boxes["tote"], boxes["item"]
+    tote, item, board1 = boxes["tote"], boxes["item"], boxes["work_shelf_board_1"]
     wall_top = tote[1][2] + tote[0][2] / 2.0
     item_top = item[1][2] + item[0][2] / 2.0
+    board1_bottom = board1[1][2] - board1[0][2] / 2.0
 
-    def lowest_point(above_centre, tolerance):
+    def lowest_on_the_way_in(above_centre, clearance, tolerance):
         tilt = math.sqrt(3.0) * tolerance
-        return item[1][2] + above_centre - af.HAND_BODY_BELOW_TCP_M - af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) - 0.009
+        return (item[1][2] + above_centre + clearance - af.HAND_BODY_BELOW_TCP_M
+                - af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) - 0.009)
 
-    assert lowest_point(af.GRASP_ABOVE_ITEM_CENTRE_M, af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
-    assert lowest_point(0.03, 0.3) < wall_top, "the old 0.03 m and 0.3 rad let the hand reach the wall"
-    assert lowest_point(0.03, af.APPROACH_ANGLE_TOLERANCE_RAD) < wall_top, "0.03 m alone was not enough"
-    # The fingers still close on the item: their lower edge is below the item's top.
-    assert item[1][2] + af.GRASP_ABOVE_ITEM_CENTRE_M - af.FINGER_HALF_HEIGHT_M < item_top - 0.04
+    def lifted_top(above_centre):
+        return item[1][2] + above_centre + af.LIFT_RISE_M + af.HAND_BODY_ABOVE_TCP_M
+
+    grasp = af.GRASP_ABOVE_ITEM_CENTRE_M
+    assert lowest_on_the_way_in(grasp, af.REACH_CLEARANCE_M, af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
+    assert lowest_on_the_way_in(0.03, 0.0, 0.3) < wall_top, "the old straight reach at the grasp height reached the wall"
+    assert lifted_top(grasp) < board1_bottom - FIXTURE_PADDING_M
+    assert lifted_top(0.05) > board1_bottom - FIXTURE_PADDING_M, "closing at 0.05 m left no room for the lift (696458d)"
+    # The fingers close on the item: their lower edge is well below the item's top.
+    assert item[1][2] + grasp - af.FINGER_HALF_HEIGHT_M < item_top - 0.06
     body = _grasp_body()
-    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in body
-    assert "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
+    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
+    assert "grasp_line((item[0], item[1], grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)" in body
+    assert '_cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)' in body
 
 
 def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene):

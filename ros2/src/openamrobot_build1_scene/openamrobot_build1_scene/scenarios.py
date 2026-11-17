@@ -17,7 +17,7 @@ from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (APPROACH_ANGLE_TOLERANCE_RAD, CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M,
-                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M,
+                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, REACH_CLEARANCE_M,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
                                                   side_grasp_offset, straight_lift)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
@@ -497,15 +497,17 @@ def grasp(rig, log):
     held, closing, released = False, False, False
     with excluded_from_planning(rig.publish, rig.sleep_sim, "item", String):
         try:
-            # The reach is a straight line along the fingers with the orientation the approach ended with: the hand
-            # goes 0.10 m back from the item on that line, then in, so that the open fingers pass on both sides of it.
+            # The reach is a straight line along the fingers with the orientation the approach ended with, 0.02 m above
+            # the grasp height: the hand goes 0.10 m back from the item on that line, then in, so that the open fingers
+            # pass on both sides of it, and then down onto the grasp height (arm_frames.py, REACH_CLEARANCE_M).
             approached = rig.transform("base_footprint", link)
             if not log.require(approached is not None, "no /tf of the hand after the approach"):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
-            pre_grasp, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)
+            pre_grasp, above = grasp_line((item[0], item[1], grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)
+            _, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)
             _mark(rig, "grasp_reach_start")
-            reached = _cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1)
+            reached = _cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)
             rig.sleep_sim(1.0)
             _mark(rig, "grasp_reach_end")
             if not reached:

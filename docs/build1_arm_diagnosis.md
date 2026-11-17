@@ -242,7 +242,7 @@ simulated.
 | scn04 reach and lift are straight lines of the hand with the orientation the approach ended with (`/compute_cartesian_path`, `/execute_trajectory`; `arm_frames.grasp_line`, `straight_lift`) | `test_arm_frames.py`: grasp line, lift on straight lines, old goal region |
 | Only the item leaves the planning scene; on every path out of the grasp the gripper opens, the hand withdraws 0.10 m along the fingers, the payload is cleared, then the item returns (`planning_scene.excluded_from_planning`, `_withdraw`) | `test_arm_frames.py`: exclusion on every path, order of release, withdraw and return; `test_gravity.py`: payload cleared in the finally block |
 | 0.015 m planning clearance on every fixed box, planning scene only (`FIXTURE_PADDING_M`, loader parameter `fixture_padding_m`) | `test_arm_frames.py`: padded boxes, measured deviation, lift and grasp still feasible (0.04 m is refused) |
-| TCP 0.05 m above the item centre (was 0.03) and approach tolerance 0.12 rad per axis (was 0.3), from the gripper's collision meshes over the tote's front wall | `test_arm_frames.py`: lowest point of the hand above the wall |
+| The straight reach runs 0.02 m above the grasp height (0.03 m above the item centre, unchanged) and comes down last; approach tolerance 0.12 rad per axis (was 0.3); from the gripper's collision meshes over the tote's front wall and under the board above | `test_arm_frames.py`: hand above the wall on the way in, lifted hand below the padded board above |
 
 The 40 mm requirement, friction, masses, gains, limits and the gripper values are unchanged. 0.04 m of clearance was
 tried (`bbd1346`): it closed the 0.25 m between the work shelf boards and the lift and the level-0 reaches were refused
@@ -254,7 +254,8 @@ tried (`bbd1346`): it closed the 0.25 m between the work shelf boards and the li
 |---|---|---|---|---|---|---|
 | `d3368c3` (before) | 3 of 5 | 0.0166 to 0.0822 m | -42.8 to -8.5 mm | 7.7 to 22.4 deg | 19 of 20 | 18 of 30 moves |
 | `d139f76` | 4 of 5 | 0.0797 to 0.0803 m (one 0: wall caught in the reach) | -3.4 to -2.5 mm | 0.7 to 0.8 deg | 20 of 20 | 0 of 30 moves (tote wall 8 to 48 N in 3) |
-| `696458d` | RESULT_696 | | | | | |
+| `696458d` (grasp 0.05 m above the centre, reverted) | 0 of 5: lift refused, Cartesian fraction 0.71 to 0.82 | - | - | - | 20 of 20 | 0 of 30 moves |
+| HEAD_ROW | | | | | | |
 
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 

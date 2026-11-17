@@ -53,17 +53,21 @@ LIFT_RISE_M = 0.08
 REACH_STANDOFF_M = 0.10
 # The approach goal's orientation tolerance per axis. The reach keeps the orientation the approach ended with, and with
 # 0.3 rad the hand could be tilted by up to 0.52 rad, enough to bring the front of the hand body below the tote wall top.
-# With 0.12 rad (up to 0.21 rad combined) and GRASP_ABOVE_ITEM_CENTRE_M the lowest point clears the wall (test_arm_frames.py).
+# With 0.12 rad (up to 0.21 rad combined) and REACH_CLEARANCE_M the lowest point clears the wall (test_arm_frames.py).
 APPROACH_ANGLE_TOLERANCE_RAD = 0.12
-# How far above the item's centre the TCP closes. The collision meshes of the pinch gripper (openarm_description at the
-# pins) reach 0.0305 m below the TCP with the hand body (ee_base_link, 0.0319 m below the hand axis, which is 0.0014 m
-# above the TCP) and 0.0275 m with the fingers, and the hand body reaches 0.11 m along the fingers, over the tote's
-# front wall when the TCP is on the item (the item stands 0.035 m behind that wall). At 0.03 m the hand body cleared
-# the wall top by 0.0145 m level; a tilt inside the approach tolerance and the 0.009 m path deviation closed that, and
-# a finger caught the wall (diagnostics run of d139f76: 8.8 N, item pushed 45 mm). The fingers still cover the item
-# from 0.0225 m above its centre to its top (0.07 m above it).
-GRASP_ABOVE_ITEM_CENTRE_M = 0.05
+# How the TCP gets onto the item. The collision meshes of the pinch gripper (openarm_description at the pins) reach
+# 0.0305 m below the TCP with the hand body (ee_base_link, 0.0319 m below the hand axis, which is 0.0014 m above the
+# TCP), 0.0464 m above it, and 0.11 m along the fingers, so the hand body passes over the tote's front wall (the item
+# stands 0.035 m behind it). Closing 0.03 m above the item centre, the level hand body clears the wall top by 0.0145 m;
+# a tilt inside the approach tolerance and the 0.009 m path deviation closed that once in five (diagnostics run of
+# d139f76: a finger on the wall at 8.8 N, item pushed 45 mm). Closing higher does not fit: at 0.05 m the hand body,
+# lifted 0.08 m, reaches the work shelf board above (the lift's Cartesian fraction fell to 0.71 to 0.82 on 696458d).
+# So the reach runs REACH_CLEARANCE_M higher along the fingers and the hand comes down onto the grasp height last,
+# with the open fingers already on both sides of the item.
+GRASP_ABOVE_ITEM_CENTRE_M = 0.03
+REACH_CLEARANCE_M = 0.02
 HAND_BODY_BELOW_TCP_M = 0.0305
+HAND_BODY_ABOVE_TCP_M = 0.0464
 FINGER_HALF_HEIGHT_M = 0.0275
 HAND_BODY_REACH_ALONG_FINGERS_M = 0.11
 CARTESIAN_STEP_M = 0.005
