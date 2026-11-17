@@ -255,7 +255,14 @@ tried (`bbd1346`): it closed the 0.25 m between the work shelf boards and the li
 | `d3368c3` (before) | 3 of 5 | 0.0166 to 0.0822 m | -42.8 to -8.5 mm | 7.7 to 22.4 deg | 19 of 20 | 18 of 30 moves |
 | `d139f76` | 4 of 5 | 0.0797 to 0.0803 m (one 0: wall caught in the reach) | -3.4 to -2.5 mm | 0.7 to 0.8 deg | 20 of 20 | 0 of 30 moves (tote wall 8 to 48 N in 3) |
 | `696458d` (grasp 0.05 m above the centre, reverted) | 0 of 5: lift refused, Cartesian fraction 0.71 to 0.82 | - | - | - | 20 of 20 | 0 of 30 moves |
-| HEAD_ROW | | | | | | |
+| `b2fd0b3` (run 44150680222) | 5 of 5 | 0.0788 to 0.0795 m | -4.1 to -3.7 mm | 0.7 to 0.8 deg | 20 of 20 | 0 of 30 moves (tote wall 24 to 888 N in 3 returns, see below) |
+
+On `b2fd0b3` the normal force per finger was 1.95 to 2.35 N (2.7 to 3.2 times the static need), the slip 4.2 to 6.3 mm,
+no reach touched the tote, and the scene tests passed scn04 (0.0799 m), scn09 and all eight `fast`/`fine` scenarios
+(scn15 0.0646 m); scn02, scn03 and scn05 were BLOCKED by the CTL-017 lift model at real-time factors 0.32 to 0.53, as
+before. Still open on that head: the withdraw after the release was refused in 3 of 5 runs (Cartesian fraction 0.0 in
+one), and in one of those the retreat then hit the tote (888 N peak, joint 6 on its limit for a moment) before it
+reached park; the scn03 left target sits 0.015 m above the item's top and the hand base touches it (0.3 to 6.7 N).
 
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
