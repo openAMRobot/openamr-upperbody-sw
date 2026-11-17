@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Second fixed camera for the scene video only: a closer view of the upper body at the end of the drive and turn,
+     where the arms reach (robot at about (1.6, 0), facing -y). Visual capture, not a test result. -->
+<sdf version="1.9">
+  <model name="arms_camera">
+    <static>true</static>
+    <pose>0.6 -1.73 1.5 0 0.197 1.047</pose>
+    <link name="link">
+      <sensor name="arms" type="camera">
+        <always_on>true</always_on>
+        <update_rate>15</update_rate>
+        <topic>/observer/arms_image</topic>
+        <camera>
+          <horizontal_fov>1.1</horizontal_fov>
+          <image><width>960</width><height>540</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>30</far></clip>
+        </camera>
+      </sensor>
+    </link>
+  </model>
+</sdf>

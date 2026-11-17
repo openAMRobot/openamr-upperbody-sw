@@ -145,7 +145,7 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
-          out="$PWD/video"; mkdir -p "$out/frames"
+          out="$PWD/video"; tools="$PWD/../$VIDEO_DIR"; mkdir -p "$out/frames" "$out/arms_frames"
           export ROS_DOMAIN_ID=42 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
           nproc
           set -x
@@ -154,89 +154,33 @@ jobs:
           launch_pid=$!
           for i in $(seq 1 120); do ros2 topic list 2>/dev/null | grep -qx /build1/rtf_stats && break; sleep 5; done
           timeout 300 ros2 topic echo --once /build1/rtf_stats std_msgs/msg/String || { tail -200 "$out/launch.log"; exit 1; }
-          ros2 run ros_gz_sim create -world build1 -name observer_camera -file "$PWD/../$VIDEO_DIR/observer_camera.sdf" 2>&1 | tee "$out/spawn_camera.log"
+          for cam in observer_camera arms_camera; do
+            ros2 run ros_gz_sim create -world build1 -name "$cam" -file "$tools/$cam.sdf" 2>&1 | tee -a "$out/spawn_camera.log"
+          done
           ros2 run ros_gz_bridge parameter_bridge '/observer/image@sensor_msgs/msg/Image[gz.msgs.Image' \
-            --ros-args -p use_sim_time:=true > "$out/bridge.log" 2>&1 &
+            '/observer/arms_image@sensor_msgs/msg/Image[gz.msgs.Image' --ros-args -p use_sim_time:=true > "$out/bridge.log" 2>&1 &
           bridge_pid=$!
-          python3 "$PWD/../$VIDEO_DIR/frame_recorder.py" "$out/frames" > "$out/recorder.log" 2>&1 &
+          python3 "$tools/frame_recorder.py" "$out/frames" > "$out/recorder.log" 2>&1 &
           rec_pid=$!
+          python3 "$tools/frame_recorder.py" "$out/arms_frames" --topic /observer/arms_image > "$out/recorder_arms.log" 2>&1 &
+          rec_arms_pid=$!
           set +e
-          timeout 3000 python3 "$PWD/../$VIDEO_DIR/video_task.py" "$out" 2>&1 | tee "$out/task.log"
+          timeout 3000 python3 "$tools/video_task.py" "$out" 2>&1 | tee "$out/task.log"
           echo "TASK_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
           sleep 3
-          kill -INT $rec_pid; sleep 2; kill $bridge_pid
+          kill -INT $rec_pid $rec_arms_pid; sleep 2; kill $bridge_pid
           kill -INT $launch_pid; sleep 10; kill -9 $launch_pid 2>/dev/null
           pkill -9 -f "gz sim" ; true
-          ls "$out/frames" | wc -l
-          tail -5 "$out/recorder.log"
+          ls "$out/frames" | wc -l; ls "$out/arms_frames" | wc -l
+          tail -3 "$out/recorder.log" "$out/recorder_arms.log"
 
       - name: Encode video, GIF, stills and capture.json
         if: always()
         working-directory: ws
         run: |
-          python3 - video "$GITHUB_SHA" <<'EOF'
-          import csv, json, os, shutil, subprocess, sys
-          import cv2
-          out, sha = sys.argv[1], sys.argv[2]
-          frames_dir = os.path.join(out, "frames")
-          rows = list(csv.DictReader(open(os.path.join(frames_dir, "frames.csv"))))
-          task = json.load(open(os.path.join(out, "task.json"))) if os.path.exists(os.path.join(out, "task.json")) else {}
-          markers = task.get("markers", {})
-          stamps = [(int(r["index"]), float(r["stamp_s"])) for r in rows]
-          first = markers.get("start", stamps[0][1] if stamps else 0.0) - 2.0
-          last = markers.get("end", stamps[-1][1] if stamps else 0.0) + 1.0
-          keep = [(i, s) for i, s in stamps if first <= s <= last]
-          clip = os.path.join(out, "clip"); os.makedirs(clip, exist_ok=True)
-          for n, (i, _s) in enumerate(keep):
-              os.link(os.path.join(frames_dir, f"{i:06d}.jpg"), os.path.join(clip, f"{n:06d}.jpg"))
-          def nearest(t):
-              return min(stamps, key=lambda e: abs(e[1] - t))
-          stills = {}
-          for name in ("start", "reach", "end"):
-              if name in markers and stamps:
-                  i, s = nearest(markers[name])
-                  path = os.path.join(out, f"still_{name}.png")
-                  cv2.imwrite(path, cv2.imread(os.path.join(frames_dir, f"{i:06d}.jpg")))
-                  stills[name] = {"file": os.path.basename(path), "sim_s": s}
-          label = "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf:text='visual capture, not a test result':x=20:y=20:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.5"
-          subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "15", "-i", os.path.join(clip, "%06d.jpg"), "-vf", label,
-                          "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-crf", "23", os.path.join(out, "scene.mp4")], check=True)
-          subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(out, "scene.mp4"), "-vf",
-                          "fps=10,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse",
-                          os.path.join(out, "scene.gif")], check=True)
-          sim_span = (keep[-1][1] - keep[0][1]) if len(keep) > 1 else 0.0
-          end_step = next((s for s in task.get("steps", []) if s["name"] == "end"), {})
-          pins = open("../pins.txt").read().split("\n") if os.path.exists("../pins.txt") else []
-          capture = {
-              "label": "visual capture, not a test result",
-              "workflow_sha": sha,
-              "pins": [p for p in pins if p],
-              "profile": os.environ.get("PROFILE"), "physics_engine": os.environ.get("ENGINE"),
-              "run_info": next((s.get("run_info") for s in task.get("steps", []) if s["name"] == "ready"), None),
-              "gazebo_rtf": end_step.get("rtf_stats"),
-              "camera": {"sdf": "tools/scene_video/observer_camera.sdf", "resolution": [1280, 720], "rate_hz_sim": 15},
-              "frames_recorded": len(stamps), "frames_in_video": len(keep), "video_sim_seconds": round(sim_span, 2),
-              "video_fps": 15, "video_plays_at": "1x Gazebo time when no frame was dropped",
-              "markers_sim_s": markers, "stills": stills,
-              "commands": [s for s in task.get("steps", [])],
-          }
-          json.dump(capture, open(os.path.join(out, "capture.json"), "w"), indent=2, default=str)
-          # A contact sheet of six frames, printed into the log as base64: a reader without artifact access can check it.
-          import base64, numpy as np
-          if keep:
-              picks = [keep[int(k * (len(keep) - 1) / 5)] for k in range(6)]
-              tiles = [cv2.resize(cv2.imread(os.path.join(frames_dir, f"{i:06d}.jpg")), (640, 360)) for i, _s in picks]
-              for tile, (_i, s) in zip(tiles, picks):
-                  cv2.putText(tile, f"t={s:.1f} s sim", (10, 350), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-              sheet = np.vstack([np.hstack(tiles[0:2]), np.hstack(tiles[2:4]), np.hstack(tiles[4:6])])
-              cv2.imwrite(os.path.join(out, "contact_sheet.jpg"), sheet, [cv2.IMWRITE_JPEG_QUALITY, 80])
-              data = base64.b64encode(open(os.path.join(out, "contact_sheet.jpg"), "rb").read()).decode()
-              for n in range(0, len(data), 4000):
-                  print("SHEET_B64 " + data[n:n + 4000])
-          print(json.dumps({k: capture[k] for k in ("frames_recorded", "frames_in_video", "video_sim_seconds", "gazebo_rtf")}, indent=2))
-          EOF
+          python3 "$PWD/../$VIDEO_DIR/encode.py" video "$GITHUB_SHA" ../pins.txt
           ls -la video
-          { echo '### Scene video (visual capture, not a test result)'; echo '```'; cat video/capture.json | head -80; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo '### Scene video (visual capture, not a test result)'; echo '```'; head -60 video/capture.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -245,6 +189,7 @@ jobs:
           path: |
             ws/video/scene.mp4
             ws/video/scene.gif
+            ws/video/arms_closeup.mp4
             ws/video/still_*.png
             ws/video/contact_sheet.jpg
             ws/video/capture.json
@@ -259,3 +204,59 @@ jobs:
         run: |
           echo "task exit status: ${TASK_RC:-not run}. Visual capture, not a test result."
           test -s ws/video/scene.mp4
+
+  # Pushes the outputs of a successful capture to the orphan branch viz/scene-video-output, one commit per run, for
+  # readers that can use git but not Actions artifacts. Only on pushes to viz/scene-video. Only that branch is written.
+  publish:
+    name: publish to viz/scene-video-output
+    needs: video
+    if: github.event_name == 'push' && github.ref == 'refs/heads/viz/scene-video'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: scene-video-output
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: scene-video
+          path: artifact
+
+      - name: Commit to viz/scene-video-output
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          src=$(dirname "$(find artifact -name capture.json | head -1)")
+          size=$(stat -c %s "$src/scene.mp4"); echo "scene.mp4: $size bytes"
+          [ "$size" -lt 26214400 ] || { echo "scene.mp4 is 25 MB or more: not pushed"; exit 1; }
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          git init -q out && cd out
+          git remote add origin "https://github.com/$REPO.git"
+          if git -c http.extraheader="$auth" fetch -q --depth 1 origin viz/scene-video-output; then
+            git checkout -q -b output FETCH_HEAD
+          else
+            git checkout -q --orphan output
+          fi
+          git rm -rq --ignore-unmatch . ; rm -rf ./*
+          for f in scene.mp4 scene.gif arms_closeup.mp4 still_start.png still_reach.png still_end.png still_reach_closeup.png contact_sheet.jpg capture.json; do
+            if [ -f "../$src/$f" ]; then cp "../$src/$f" .; fi
+          done
+          {
+            echo "# Scene video output"
+            echo
+            echo "Visual capture, not a test result. Not hardware, physical acceptance or safety evidence."
+            echo "What did not move in this run (lift, grippers in DART): known_defects_seen_in_this_run in capture.json."
+            echo
+            echo "Run: $RUN_URL"
+            echo "Source commit: $GITHUB_SHA (branch viz/scene-video)"
+          } > README.md
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "scene video output of run $GITHUB_RUN_ID (source $GITHUB_SHA). Visual capture, not a test result"
+          git -c http.extraheader="$auth" push -q origin HEAD:refs/heads/viz/scene-video-output
+          git log --oneline -1

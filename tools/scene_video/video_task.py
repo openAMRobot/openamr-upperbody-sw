@@ -19,6 +19,16 @@ HANDS_UP = [0.0, 0.0, 0.0, 1.5, 0.0, 0.0, 0.0]     # SRDF group_state hands_up o
 OPEN, CLOSED = 0.7854, 0.0
 
 
+def finger(rig, side):
+    """finger_joint1 in the physics, from the ground-truth finger topic, else from /arm/joint_states. None if neither."""
+    for topic in (rig_module.FINGERS, "/arm/joint_states"):
+        try:
+            return rig.joint(f"openarm_{side}_finger_joint1", topic)
+        except (AttributeError, ValueError, TypeError):
+            continue
+    return None
+
+
 def main(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     rig = rig_module.Rig("scene_video", node_name="scene_video_task")
@@ -64,20 +74,23 @@ def main(out_dir):
             if rig.lift_truth() > 0.3:
                 break
 
+        mark("reach_begin")
         arms(HANDS_UP, 3.0, "arms_park_to_hands_up")
         rig.sleep_sim(1.0)
         mark("reach")
         for side in ("left", "right"):
             closed = rig.gripper(side, CLOSED, sim_s=6.0)
-            step(f"{side}_gripper_close", result=closed)
+            step(f"{side}_gripper_close", result=closed, finger_joint1_rad=finger(rig, side))
         rig.sleep_sim(0.5)
         for side in ("left", "right"):
             opened = rig.gripper(side, OPEN, sim_s=6.0)
-            step(f"{side}_gripper_open", result=opened)
+            step(f"{side}_gripper_open", result=opened, finger_joint1_rad=finger(rig, side))
         arms(PARK, 3.0, "arms_hands_up_to_park")
+        mark("reach_end")
         rig.sleep_sim(1.5)
         mark("end")
-        step("end", truth=rig.truth(), lift_m=rig.lift_truth(), rtf_stats=rig.get("/build1/rtf_stats"))
+        fingers = {side: finger(rig, side) for side in ("left", "right")}
+        step("end", truth=rig.truth(), lift_m=rig.lift_truth(), finger_joint1_rad=fingers, rtf_stats=rig.get("/build1/rtf_stats"))
         rc = 0
     except Exception as error:     # a visual capture records what happened and ends
         step("error", text=repr(error))
