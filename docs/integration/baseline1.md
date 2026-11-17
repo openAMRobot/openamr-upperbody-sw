@@ -50,7 +50,39 @@ are reported apart. Deterministic start: `BASELINE1_SEED` seeds Python random an
 `PYTHONHASHSEED` is fixed, every node runs on simulation time. Gazebo gets no seed: the launch has no seed argument,
 and adding one is a launch contract change.
 
-## Gate status
+## Gate status (17 Nov 2026, branch head `80c92e1`, draft PR #77)
 
-Filled in from the first acceptance run on the draft PR of this branch; see the PR body for the run link and the
-phase classification.
+Baseline 1: NOT COMPLETE. Acceptance run 44076639872 (platform `d36b33a`, `firmware_sil`, DART, 1 ms step,
+real-time factor 0.13 to 0.18 on the hosted runner): 3 of 8 phases passed.
+
+| # | Phase | Verdict | Class | Measured |
+|---|---|---|---|---|
+| 1 | spawn | PASS | - | pose error 0.0001 m, odometry against ground truth 0.0001 m |
+| 2 | nav_to_station | FAIL | CONTROL | Nav2 SUCCEEDED, but the base stopped 0.340 m short of the station (Nav2 xy goal tolerance 0.35 m) after 1.751 m of 2.085 m; odometry minus ground truth 0.110 m (limit 0.10) |
+| 3 | stop_authorize | PASS (partial) | - | base speed 0; command without permit refused, no lift motion; permit fresh |
+| 4 | lift_to_target | BLOCKED | ENV/INFRA | CTL-017 model fault bits 2 at real-time factor 0.17 (its Hall rate rule needs about 0.55); lift travel 0 |
+| 5 | arm_approach | FAIL | PLANNING | park and gripper open passed; `grasp_approach` MoveIt FAILURE (99999): OMPL "Unable to sample any valid states for goal tree", the approach pose is out of reach from where the base stopped |
+| 6 | grasp | NOT RUN | - | grasp() returned after the failed approach |
+| 7 | lift_object | NOT RUN | - | as above |
+| 8 | retreat | PASS (partial) | - | both arms to park by MoveIt (servo torque 0.19 N m); Nav2 backup 0.302 m |
+
+Subsystem scenarios on the same head (build1-scene-tests run 44076639791, reported apart, not Baseline 1):
+static and vcan 12 of 12 (with test_baseline1_phases, 25 tests); profiles fast and fine 6 of 6 (scn10 to scn15 PASS);
+fast lift stops and base yaw 2 of 2; faults: scn06 and scn08 PASS, scn05 BLOCKED (CTL-017 at real-time factor 0.52,
+ENV/INFRA); firmware_sil arms: scn09 PASS, scn03 BLOCKED (CTL-017 at 0.45, ENV/INFRA), scn04 FAIL from the work shelf
+spawn (grasp_lift servo torque 0.90 N m of 0.5, CONTROL; item height gain 0.014 m of 0.04, CONTACT/PHYSICS);
+firmware_sil drive, lift, cancel: not run, setup-ros could not fetch the ROS apt source (HTTP 404 after an
+unauthenticated GitHub API call, ENV/INFRA). OpenArm emulator tests run 44076639712: same setup-ros failure,
+ENV/INFRA. Model tests run 44076639604 passed.
+
+What blocks a full pass, in mission order:
+1. Station accuracy: Nav2's 0.35 m goal tolerance lets the base stop far enough from the shelf that the arm cannot
+   reach the item; the odometry error (0.110 m over 1.75 m) adds to it. #145's `sil.yaml` wheel radius 0.100 against
+   the integrated description's 0.098 (#146) is one known contributor.
+2. Lift on hosted runners: the CTL-017 model's Hall rate rule runs on the host clock and faults below a real-time
+   factor of about 0.55; the whole-robot run reaches 0.13 to 0.18.
+3. The grasp itself in `firmware_sil` (scn04): servo torque left at the lift end point and the item not lifted.
+4. Platform `openamrobot_sil` is #145, not the integration branch: #141 to #145 are not reconciled with the clock
+   contract (#151, #158), so the clock contract is not in the whole-robot run.
+
+Heads that moved after these merges (pinned here at the verified SHA, not re-merged): #73 is now `4b638ee`.
