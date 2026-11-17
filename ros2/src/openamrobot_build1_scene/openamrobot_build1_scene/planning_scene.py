@@ -33,11 +33,15 @@ FIXTURE_PADDING_M = 0.015
 
 
 def padded(boxes, fixed_names, margin):
-    """`boxes` [(name, size, centre, yaw)] with `margin` added on every side of each box named in `fixed_names`."""
+    """`boxes` [(name, size, centre, yaw)] with `margin` added on every side but the underside of each box named in
+    `fixed_names`. The undersides stay: under the work shelf board above, the lifted hand has 0.004 m to the padded
+    face with the hand level, and a held orientation tilted 1 to 7 degrees cut the 0.08 m lift short (Cartesian fractions
+    0.9375 in Baseline 1 run 44155397328, 0.941 in diagnostics run 44168251650); no finger touched an underside."""
     out = []
     for name, size, centre, yaw in boxes:
         if name in fixed_names:
-            size = tuple(float(v) + 2.0 * margin for v in size)
+            size = (float(size[0]) + 2.0 * margin, float(size[1]) + 2.0 * margin, float(size[2]) + margin)
+            centre = (centre[0], centre[1], centre[2] + margin / 2.0)
         out.append((name, tuple(size), centre, yaw))
     return out
 

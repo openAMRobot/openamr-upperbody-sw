@@ -124,3 +124,21 @@ def worst_tcp_rise(rise, position_tolerance, angle_tolerance, tcp_distance):
     three axes), which moves a point `tcp_distance` from the hand base by up to 2 * tcp_distance * sin(angle / 2)."""
     angle = math.sqrt(3.0) * angle_tolerance
     return rise - position_tolerance - 2.0 * tcp_distance * math.sin(angle / 2.0)
+
+
+# How deep the item sits in the fingers. The fingers are a position servo to closed (kp_hand 5, MIT kp 4.884 on the
+# emulator), so the grip torque is kp times the angle at which they meet the item, and that angle depends on where along
+# the fingers the item is. With the item centre on the TCP (0.138 m, near the fingertips) they met it at 0.065 to 0.12 rad
+# in the Baseline 1 missions: 0.18 to 0.41 N m, 0.58 to 2.6 N per finger, and 3 of 6 grasps lifted nothing or less than
+# 40 mm. With it 0.008 to 0.013 m deeper (fixed-pose runs, by tracking) they met it at 0.137 to 0.158 rad and 10 of 10
+# lifted 0.076 to 0.080 m. The palm (ee_base_link, 0.1106 m along the fingers) leaves the item's front face room for
+# 0.138 - 0.1106 - 0.0175 = 0.0099 m.
+ITEM_DEPTH_BEHIND_TCP_M = 0.009
+PALM_ALONG_FINGERS_M = 0.1106
+TCP_ALONG_FINGERS_M = 0.138
+
+
+def tcp_for_item(item_point, hand_quaternion, depth=ITEM_DEPTH_BEHIND_TCP_M):
+    """Where the TCP goes so that the item centre `item_point` sits `depth` behind it along the fingers (toward the palm)."""
+    fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
+    return tuple(item_point[i] + depth * fingers[i] for i in range(3))
