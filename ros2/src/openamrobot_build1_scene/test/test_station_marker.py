@@ -33,9 +33,18 @@ def test_the_plate_faces_the_station_at_the_detectors_standoff():
     assert z - 0.0625 > 0.222, "the plate stays above the LiDAR plane"
 
 
-def test_the_world_includes_the_plate():
-    sdf = scene_model.world_sdf(scene(), "fast")
-    assert sdf.count("<uri>model://station_marker</uri>") == 1
+def test_the_plate_is_only_in_the_opt_in_world():
+    """#167 is an extension, not a Baseline 1 dependency (Alex, 18 Nov 2026): the default world has no marker plate."""
+    assert "model://station_marker" not in scene_model.world_sdf(scene(), "fast")
+    assert scene_model.world_sdf(scene(), "fast", station_marker=True).count("<uri>model://station_marker</uri>") == 1
+
+
+def test_baseline1_runs_without_the_alignment_by_default():
+    with open(os.path.join(PACKAGE, "..", "..", "..", ".github", "workflows", "baseline1-acceptance.yml"), encoding="utf-8") as f:
+        wf = f.read()
+    assert "BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '0' }}" in wf
+    with open(os.path.join(PACKAGE, "package.xml"), encoding="utf-8") as f:
+        assert "openamrobot_station_alignment" not in f.read(), "no hard dependency on the extension package"
 
 
 def test_the_station_camera_is_bridged_only_with_the_alignment():

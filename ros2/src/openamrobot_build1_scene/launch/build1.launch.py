@@ -202,14 +202,14 @@ def launch_setup(context):
     world_file = os.path.join(work_dir, f"build1_{step}.sdf")
     # Diagnostics only (BUILD1_CONTACT_SENSORS=1): contact sensors on the arm links and gz-sim's Contact system.
     contact_links = diagnostics.contact_links() if diagnostics.enabled(os.environ) else []
-    world_text = scene_model.world_sdf(scene, step, sensors=sensors)
+    alignment = nav2 and flag("station_alignment")
+    world_text = scene_model.world_sdf(scene, step, sensors=sensors, station_marker=alignment)
     with open(world_file, "w", encoding="utf-8") as f:
         f.write(diagnostics.world_with_contact_system(world_text) if contact_links else world_text)
     map_file = scene_model.write_map(scene, work_dir)
     objects = sorted(scene_model.movable_objects(scene))
     control_share, emulator_share = get_package_share_directory(CONTROL), get_package_share_directory(EMULATOR)
     extra_sensors = "true" if sensors and flag("extra_sensors") else "false"
-    alignment = nav2 and flag("station_alignment")
     station_camera = "true" if alignment else "false"
     info_alignment = {"station_alignment": alignment,
                       "station_camera": ("SIMULATION-ONLY test sensor of openamr-platform-sw #167 at base_camera_link, pending the "
@@ -279,9 +279,10 @@ def launch_setup(context):
         actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.dirname(get_package_share_directory(package))))
     actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH",
                                              os.path.join(get_package_share_directory("openamrobot_docking"), "models")))
-    # The station marker plate of the world (model://station_marker, openamr-platform-sw #167).
-    actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH",
-                                             os.path.join(get_package_share_directory("openamrobot_station_alignment"), "models")))
+    # The station marker plate (model://station_marker, openamr-platform-sw #167), only with the opt-in alignment.
+    if alignment:
+        actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH",
+                                                 os.path.join(get_package_share_directory("openamrobot_station_alignment"), "models")))
     headless = flag("headless")
     gz_args = f"-r {'-s --headless-rendering ' if headless else ''}-v 2 --physics-engine {engine} {world_file}"
     actions.append(IncludeLaunchDescription(

@@ -227,7 +227,7 @@ def _movable_sdf(name, body):
             f"<izz>{inertia[2]:.6g}</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>{shapes}</link>{POSE_PUBLISHER}</model>")
 
 
-def world_sdf(scene, profile, sensors=True):
+def world_sdf(scene, profile, sensors=True, station_marker=False):
     """The world as SDF 1.9 text, for physics profile `profile` (fine or fast)."""
     physics = scene["physics_profiles"][profile]
     floor = scene["floor"]
@@ -269,7 +269,8 @@ def world_sdf(scene, profile, sensors=True):
     dock = scene["dock"]
     out.append(f'<include><name>apriltag_dock</name><uri>{dock["model_uri"]}</uri>'
                f'<pose>{" ".join(str(v) for v in value(dock["pose"]))}</pose></include>')
-    if "station_marker" in scene:
+    # The marker plate of openamr-platform-sw #167 is an opt-in extension (Alex, 18 Nov 2026): only with station_alignment.
+    if station_marker and "station_marker" in scene:
         x, y, z, yaw = station_marker_pose(scene)
         out.append(f'<include><name>station_marker</name><uri>{scene["station_marker"]["model_uri"]}</uri>'
                    f"<pose>{x:.5f} {y:.5f} {z:.5f} 0 0 {yaw:.5f}</pose></include>")
