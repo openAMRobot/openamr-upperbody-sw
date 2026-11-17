@@ -779,11 +779,11 @@ def lift_stops(rig, log):
 
 
 # ---------------------------------------------------------------- 17. base yaw against wheel kinematics, no device
-# (name, (linear m/s, angular rad/s), Gazebo seconds). Equal wheel speeds, then equal and opposite ones in both directions.
-BASE_SEGMENTS = (("straight", (0.2, 0.0), 8.0),
-                 ("spin_left", (0.0, 0.5), math.pi),
+# (name, (linear m/s, angular rad/s), Gazebo seconds). Equal and opposite wheel speeds in both directions, then equal ones.
+BASE_SEGMENTS = (("spin_left", (0.0, 0.5), math.pi),
                  ("spin_right", (0.0, -0.5), math.pi),
-                 ("spin_left_slow", (0.0, 0.25), 2.0 * math.pi))
+                 ("spin_left_slow", (0.0, 0.25), 2.0 * math.pi),
+                 ("straight", (0.2, 0.0), 8.0))
 
 
 def _wheel_geometry(rig):
@@ -843,6 +843,39 @@ def base_yaw(rig, log):
 
     drive = CmdVel(rig)
     try:
+        # First, from the spawn pose and heading as in the video: the command sequence of the scene video of 16 Nov 2026
+        # (tools/scene_video/video_task.py on viz/scene-video): arms to park, 0.2 m/s for 8 s, 1 s, -0.5 rad/s for 3.14 s,
+        # 1 s. That run gave -1.508 rad of ground truth yaw. Along +x from the origin the floor is free for 3 m
+        # (config/scene.yaml). After it the robot stands at about (1.6, 0) facing -y; the segments below turn on the spot
+        # and end with the straight drive along +x, clear of obstacle_post at (1.5, 1.2) and obstacle_box_a at (2.5, -1.5).
+        name = "video_sequence_turn"
+        handles = {side: rig.follow_joint_trajectory(side, PARK, 3.0) for side in ("left", "right")}
+        for side, handle in handles.items():
+            log.require(handle is not None and rig.succeeded(rig.wait_result(handle, 23.0, f"{side} park")[0]), f"{side} arm to park")
+        rig.sleep_sim(1.0)
+        start_pose = rig.truth()
+        drive.command = (0.2, 0.0)
+        rig.sleep_sim(8.0)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
+        log.quantity(f"{name}_drive_ground_truth_distance", _distance(start_pose, truth0), "m", note="the video run gave 1.601 m")
+        log.quantity(f"{name}_drive_end_pose", list(truth0), "x m, y m, yaw rad")
+        drive.command = (0.0, -0.5)
+        rig.sleep_sim(3.14)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth1, odom1, (left1, right1) = rig.truth(), rig.odom(), wheels()
+        kinematic_yaw = radius * ((right1 - right0) - (left1 - left0)) / track
+        truth_yaw, odom_yaw = angle_diff(truth1[2], truth0[2]), angle_diff(odom1[2], odom0[2])
+        log.quantity(f"{name}_commanded_yaw", -0.5 * 3.14, "rad", kind="command")
+        log.quantity(f"{name}_kinematic_yaw", kinematic_yaw, "rad", note="r * (dR - dL) / track from the wheel joint positions")
+        log.quantity(f"{name}_ground_truth_yaw", truth_yaw, "rad", note="the video run gave -1.508 rad")
+        log.quantity(f"{name}_odometry_yaw", odom_yaw, "rad")
+        log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%")
+        log.quantity(f"{name}_ground_truth_minus_commanded_percent", 100.0 * (truth_yaw + 1.57) / -1.57, "%")
+        log.quantity(f"{name}_still_turning_at_reading", rig.truth_speed()[1], "rad/s", note="ground truth yaw rate 1 s after the stop")
+        log.quantity(f"{name}_end_pose", list(truth1), "x m, y m, yaw rad", note="the video run gave [1.610, 0.008, -1.508]")
         for name, command, seconds in BASE_SEGMENTS:
             rig.wait_stopped(10.0)
             truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
@@ -875,8 +908,9 @@ def base_yaw(rig, log):
             if command[1]:
                 ratio = d_right / d_left if d_left else None
                 log.quantity(f"{name}_wheel_angle_ratio", ratio, "1", low=-1.02, high=-0.98, note="equal and opposite wheel speeds")
-                log.quantity(f"{name}_kinematic_over_commanded", kinematic_yaw / (command[1] * seconds), "1", low=0.97, high=1.03,
-                             note="the wheels turned as commanded. Timing of a wall-clock publisher limits this")
+                log.quantity(f"{name}_kinematic_over_commanded", kinematic_yaw / (command[1] * seconds), "1", low=0.95, high=1.05,
+                             note="the wheels turned as commanded, within the timing of a wall-clock /cmd_vel publisher "
+                                  "(measured 1.01 to 1.03 at real-time factors 0.6 to 0.8)")
                 log.quantity(f"{name}_ground_truth_sign_matches_command", math.copysign(1.0, truth_yaw) == math.copysign(1.0, command[1]),
                              "bool", low=True, high=True)
                 log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%",
@@ -892,32 +926,6 @@ def base_yaw(rig, log):
                              100.0 * (_distance(truth0, truth1) - kinematic_distance) / kinematic_distance, "%")
                 log.quantity(f"{name}_ground_truth_heading_change", truth_yaw, "rad")
 
-        # The command sequence of the scene video of 16 Nov 2026 (tools/scene_video/video_task.py on viz/scene-video):
-        # arms to park, 0.2 m/s for 8 s, 1 s, -0.5 rad/s for 3.14 s, 1 s. That run gave -1.508 rad of ground truth yaw.
-        name = "video_sequence_turn"
-        handles = {side: rig.follow_joint_trajectory(side, PARK, 3.0) for side in ("left", "right")}
-        for side, handle in handles.items():
-            log.require(handle is not None and rig.succeeded(rig.wait_result(handle, 23.0, f"{side} park")[0]), f"{side} arm to park")
-        rig.sleep_sim(1.0)
-        drive.command = (0.2, 0.0)
-        rig.sleep_sim(8.0)
-        drive.command = (0.0, 0.0)
-        rig.sleep_sim(1.0)
-        truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
-        drive.command = (0.0, -0.5)
-        rig.sleep_sim(3.14)
-        drive.command = (0.0, 0.0)
-        rig.sleep_sim(1.0)
-        truth1, odom1, (left1, right1) = rig.truth(), rig.odom(), wheels()
-        kinematic_yaw = radius * ((right1 - right0) - (left1 - left0)) / track
-        truth_yaw, odom_yaw = angle_diff(truth1[2], truth0[2]), angle_diff(odom1[2], odom0[2])
-        log.quantity(f"{name}_commanded_yaw", -0.5 * 3.14, "rad", kind="command")
-        log.quantity(f"{name}_kinematic_yaw", kinematic_yaw, "rad", note="r * (dR - dL) / track from the wheel joint positions")
-        log.quantity(f"{name}_ground_truth_yaw", truth_yaw, "rad", note="the video run gave -1.508 rad")
-        log.quantity(f"{name}_odometry_yaw", odom_yaw, "rad")
-        log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%")
-        log.quantity(f"{name}_ground_truth_minus_commanded_percent", 100.0 * (truth_yaw + 1.57) / -1.57, "%")
-        log.quantity(f"{name}_still_turning_at_reading", rig.truth_speed()[1], "rad/s", note="ground truth yaw rate 1 s after the stop")
     finally:
         drive.stop()
 

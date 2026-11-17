@@ -94,7 +94,18 @@ Before the fix, PR #75 head `94bca56`, Actions run 43990377881, job 133737659293
 | 4, to stop 2 | succeeded | -1.39e-14 m | FAIL, success without arrival |
 | 5, to stop 0 | succeeded | -1.39e-14 m | pass (no travel) |
 
-After the fix: see the PR's Tests section (filled from the CI run of the fix commit).
+After the fix, PR #75 head `92540ba`, Actions run 43994537341, job 133743203833, real-time factor 0.75, PASS:
+
+| Move | Action | `/joint_states` | Gazebo time | Check |
+|---|---|---|---|---|
+| 1, to stop 2 (0.350 m) | succeeded | 0.35000 m | 25.6 s | pass |
+| 2, to stop 0 (onto the lower limit) | succeeded | 0.00001 m | 25.4 s | pass |
+| 3, to stop 1 (0.175 m, off the lower limit) | succeeded | 0.17490 m | 13.7 s | pass |
+| 4, to stop 2 | succeeded | 0.34973 m | 13.7 s | pass |
+| 5, to stop 0 | succeeded | 0.00000 m | 25.4 s | pass |
+
+The log of `lift_controller` reads "Command interfaces are [effort]". Travel at the planned 0.015 m/s: 0.350 m in
+23.3 s plus the 2 s margin of the goal.
 
 Static tests: `test_launch_support.py` (the plant edit adds exactly one interface, the overlay has a non-zero goal
 tolerance and goal time, the fine-step values survive the merge), `test_command_map.py` (the lift claims effort without
@@ -143,7 +154,8 @@ carry yet (openamr-platform-sw #150 sets it).
 
 ### Numbers
 
-PR #75 head `94bca56`, Actions run 43990377881, job 133737659293, real-time factor 0.61:
+Run A: PR #75 head `94bca56` (before the lift fix), Actions run 43990377881, job 133737659293, real-time factor 0.61,
+arms in the activation pose, segments in the order straight, spin left, spin right, slow spin:
 
 | Segment | Wheels dL, dR (rad) | Kinematic | Ground truth | Odometry | Truth vs kinematic | Odometry vs truth |
 |---|---|---|---|---|---|---|
@@ -152,17 +164,34 @@ PR #75 head `94bca56`, Actions run 43990377881, job 133737659293, real-time fact
 | spin right 0.5 rad/s | 3.172, -3.172 | -1.5860 rad | -1.6025 rad | -1.5860 rad | +1.04 % | -1.03 % |
 | spin left 0.25 rad/s | -3.181, 3.181 | 1.5905 rad | 1.6075 rad | 1.5905 rad | +1.07 % | -1.06 % |
 
-Each spin moves the base 12.6 mm. The base rests nose down by 0.0093 rad (front castors loaded) in every segment.
+Run B: PR #75 head `92540ba` (lift fix), Actions run 43994537341, job 133743203833, real-time factor 0.69, same order:
+
+| Segment | Wheels dL, dR (rad) | Kinematic | Ground truth | Odometry | Truth vs kinematic | Odometry vs truth |
+|---|---|---|---|---|---|---|
+| straight 0.2 m/s, 8 s | 16.140, 16.140 | 1.6140 m | 1.6142 m, yaw -1e-5 rad | 1.6140 m | +0.01 % | -0.01 % |
+| spin left 0.5 rad/s | -3.209, 3.209 | 1.6045 rad | 1.6106 rad | 1.6045 rad | +0.38 % | -0.38 % |
+| spin right 0.5 rad/s | 3.242, -3.242 | -1.6210 rad | -1.6272 rad | -1.6210 rad | +0.38 % | -0.38 % |
+| spin left 0.25 rad/s | -3.149, 3.149 | 1.5745 rad | 1.5823 rad | 1.5745 rad | +0.50 % | -0.49 % |
+
+Run B also ran the video sequence last, after the spins. Facing +y it drove 1.6 m from (1.6, 0) into the 0.1 m post
+`obstacle_post` at (1.5, 1.2) of `config/scene.yaml` and then turned -1.045 rad of ground truth for -1.573 rad of
+wheels. That segment measured a collision, not the wheel contact; the drive distance was not logged. The scenario now
+runs the video sequence first, from the spawn pose and heading of the video, and logs the drive distance and both poses.
+
+Each spin moves the base 12.4 to 13.1 mm. The base rests nose down by 0.0093 rad (front castors loaded) in every segment.
 Odometry equals the kinematic expectation exactly: DiffDrive integrates the same wheel positions with the same radius
 and separation. The wheels turned 1 to 1.4 % more than the command because the scenario's `/cmd_vel` publisher runs on
 the wall clock; the comparison is made against the wheels, not against the command.
 
+### Video sequence
+
+Run C: the video sequence first, from the spawn pose. Numbers pending the CI run of the scenario change.
+
 ### Reading
 
 - The sign is right in both directions and the error is the same at 0.25 and 0.5 rad/s and in both directions.
-- In this scenario the body turns 1.0 to 1.1 % more than the wheels say, not 4 % less. The video deficit is not
-  reproduced from standstill. The video sequence (arms to park, drive, 1 s, turn, 1 s) is a segment of the scenario
-  since the fix commit; its numbers are in the PR.
+- From standstill the body turns 0.4 to 1.1 % more than the wheels say (two runs, no seed set), not 4 % less. The
+  video deficit is not reproduced from standstill. The video sequence segment answers it; see "Video sequence" below.
 - The castors of the pinned model are frictionless on fixed joints. They carry normal load and no tangential force, so
   they cannot brake or drive the yaw directly. What they change is the share of the weight left on the drive wheels.
 - The drive wheels are cylinders 46 mm wide on a rigid floor. DART puts contact points across the width, at radii
