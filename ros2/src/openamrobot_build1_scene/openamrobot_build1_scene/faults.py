@@ -33,3 +33,15 @@ def stale_sensors(on):
     for pid in pids:
         os.kill(pid, signal.SIGSTOP if on else signal.SIGCONT)
     return pids
+
+
+# CTL-017 v1 fault ids, bit n-1 of the fault mask (openamr-platform-fw can_sil/ctl017_emulator.py, F01..F09).
+CTL017_FAULTS = {1: "F01", 2: "F02 wrong direction or limit reached while driving", 3: "F03 stall (no Hall pulses) or overcurrent",
+                 4: "F04 move deadline", 5: "F05", 6: "F06", 7: "F07 supervision lost", 8: "F08", 9: "F09 sensor conflict"}
+
+
+def ctl017_faults(mask):
+    """The CTL-017 fault ids set in `mask`, as text."""
+    mask = int(mask or 0)
+    names = [CTL017_FAULTS[n] for n in sorted(CTL017_FAULTS) if mask & (1 << (n - 1))]
+    return ", ".join(names) if names else "none"
