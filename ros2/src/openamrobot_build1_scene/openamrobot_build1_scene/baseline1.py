@@ -22,6 +22,12 @@ RETREAT_M, RETREAT_SPEED = 0.30, 0.10
 NAV_SIM_S = 300.0
 # Nav2 goal checker of openamr-platform-sw nav2_params.yaml: xy_goal_tolerance 0.35 m, yaw_goal_tolerance 0.35 rad.
 NAV_XY_TOLERANCE_M, NAV_YAW_TOLERANCE_RAD = 0.35, 0.35
+# The arm-reach budget of the work-shelf grasp (docs/integration/station_approach.md): every base pose error up to
+# 0.04 m and 0.08 rad keeps the scn04 approach, grasp and lift poses reachable. Derived, simulation only.
+REACH_XY_M, REACH_YAW_RAD = 0.04, 0.08
+# openamr-platform-sw #164: the station tree (default navigation, then StationPlanner, StationApproach and
+# station_goal_checker). BASELINE1_STATION_APPROACH=0 sends the goal with the default tree (the revert run).
+STATION_TREE = "navigate_to_station.xml"
 SUCCEEDED = 4                   # action_msgs/GoalStatus
 
 
@@ -48,11 +54,14 @@ class Trace:
     def sample(self):
         rig = self.rig
         truth, odom, speed = self._read(rig.truth), self._read(rig.odom), self._read(rig.truth_speed)
+        amcl = self._read(lambda: map_pose(rig))
         item = self._read(lambda: rig.object_position("item"))
         return {"sim": rig.sim_time(), "wall": time.time(), "phase": self.tracker.current,
                 "x": truth[0] if truth else None, "y": truth[1] if truth else None, "yaw": truth[2] if truth else None,
                 "v": speed[0] if speed else None, "w": speed[1] if speed else None,
                 "odom_err": math.hypot(odom[0] - truth[0], odom[1] - truth[1]) if truth and odom else None,
+                "odom_yaw_err": abs(angle_diff(odom[2], truth[2])) if truth and odom else None,
+                "map_err": math.hypot(amcl[0] - truth[0], amcl[1] - truth[1]) if truth and amcl else None,
                 "lift": self._read(rig.lift_truth), "lift_js": self._read(lambda: rig.joint("lift_joint")),
                 "finger": self._read(lambda: rig.physics_joint("openarm_left_finger_joint1")),
                 "item_z": item[2] if item else None, "rtf": self._read(rig.rtf)}
@@ -78,6 +87,22 @@ def _station(name):
     return scene_model.station(scene, name)
 
 
+def map_pose(rig):
+    """(x, y, yaw) of base_footprint in map from /tf: AMCL's map > odom correction plus odometry. None without /tf."""
+    found = rig.transform("map", "base_footprint")
+    if found is None:
+        return None
+    (x, y, _z), q = found
+    return x, y, math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+
+def station_tree():
+    if os.environ.get("BASELINE1_STATION_APPROACH", "1") == "0":
+        return ""
+    from ament_index_python.packages import get_package_share_directory
+    return os.path.join(get_package_share_directory("openamrobot_nav2"), "behavior_trees", STATION_TREE)
+
+
 def spawn(rig, log):
     sx, sy, syaw = _station(SPAWN_STATION)
     x, y, yaw = rig.truth()
@@ -100,7 +125,10 @@ def nav_to_station(rig, log):
     goal.pose.header.frame_id = "map"     # AMCL starts at the spawn pose in the world frame (launch_support.nav2_params)
     goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
     goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
-    log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map)")
+    goal.behavior_tree = station_tree()
+    log.data.setdefault("baseline1", {})["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
+    log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map), "
+              f"behavior tree {goal.behavior_tree or 'default'}")
     start = rig.sim_time()
     handle = rig.send_goal("/navigate_to_pose", "nav2_msgs.action", "NavigateToPose", goal)
     if not log.require(handle is not None, "Nav2 navigate_to_pose did not accept the goal"):
@@ -117,6 +145,28 @@ def nav_to_station(rig, log):
                  note="Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml")
     log.quantity("nav_odometry_minus_ground_truth", math.hypot(ox - x, oy - y), "m", low=0.0, high=0.10,
                  note="the guard value of scn01 for 2 m, estimated")
+    _, _, oyaw = rig.odom()
+    log.quantity("nav_odometry_yaw_minus_ground_truth", abs(angle_diff(oyaw, yaw)), "rad",
+                 note="recorded, no limit: the firmware odometry heading against Gazebo")
+    amcl = map_pose(rig)
+    if amcl is not None:
+        log.quantity("nav_localization_minus_ground_truth", math.hypot(amcl[0] - x, amcl[1] - y), "m",
+                     note="map > base_footprint (AMCL) against Gazebo. Recorded; the station approach leaves 0.015 m to it")
+        log.quantity("nav_localization_yaw_minus_ground_truth", abs(angle_diff(amcl[2], yaw)), "rad",
+                     note="recorded; the station approach leaves 0.03 rad to it")
+        log.quantity("nav_localization_position_error", math.hypot(amcl[0] - gx, amcl[1] - gy), "m",
+                     note="where Nav2 believes the base is, against the goal")
+    else:
+        log.event("no map > base_footprint transform: localization not recorded")
+    # Along the station heading (+ towards the shelf) and to its left: the reach is asymmetric (docs/integration).
+    along = (x - gx) * math.cos(gyaw) + (y - gy) * math.sin(gyaw)
+    left = -(x - gx) * math.sin(gyaw) + (y - gy) * math.cos(gyaw)
+    log.quantity("nav_station_error_along_heading", along, "m", note="+ is closer to the shelf; reachable -0.06 to +0.12 alone")
+    log.quantity("nav_station_error_left", left, "m", note="reachable +-0.15 alone")
+    log.quantity("station_reach_position_error", math.hypot(x - gx, y - gy), "m", low=0.0, high=REACH_XY_M,
+                 note="ground truth against the station: the arm-reach budget (docs/integration/station_approach.md), derived")
+    log.quantity("station_reach_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", low=0.0, high=REACH_YAW_RAD,
+                 note="the arm-reach budget, derived")
     if rig.devices:
         log.quantity("nav_host_client_drive_thread_alive", rig.drive_host_alive(), "bool", low=True, high=True,
                      note="false: the drive thread of openamrobot_sil's host test client ended (an unexpected SDO reply, "
@@ -189,7 +239,14 @@ def mission(rig, log):
     log.event(f"Baseline 1 mission, seed {SEED} (BASELINE1_SEED): Python random and the ROS domain of the test. "
               "Gazebo is started without a seed argument; the launch has none")
     log.data["baseline1"] = {"seed": SEED, "spawn": SPAWN_STATION, "station": WORK_STATION, "lift_sequence": list(LIFT_SEQUENCE)}
+    from openamrobot_build1_scene.baseline1_record import Recorders
     tracker = phases.Tracker(log, clock=rig.sim_time)
+    recorders = Recorders(log)
+    try:
+        recorders.start(rig)
+        recorders.subscribe_frames(rig)
+    except Exception as error:  # noqa: BLE001 - a recording is never a check
+        log.event(f"recording: {error}")
     trace = Trace(rig, tracker).start()
     try:
         tracker.run("spawn", lambda: spawn(rig, log))
@@ -201,6 +258,7 @@ def mission(rig, log):
         tracker.run("retreat", lambda: retreat(rig, log))
     finally:
         trace.stop()
+        recorders.stop()
         log.data["phases"] = tracker.result()
         log.data["trace"] = trace.samples
         for line in phases.trace_summary(trace.samples, tracker.result()):

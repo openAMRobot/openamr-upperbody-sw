@@ -20,6 +20,12 @@ on:
       - '.github/workflows/baseline1-acceptance.yml'
       - 'ros2/src/openamrobot_build1_scene/**'
   workflow_dispatch:
+    inputs:
+      station_approach:
+        description: "1: Nav2 goal with openamr-platform-sw's navigate_to_station.xml (#164). 0: default tree (revert run)"
+        default: '1'
+        type: choice
+        options: ['1', '0']
 
 permissions:
   contents: read
@@ -27,9 +33,13 @@ permissions:
 env:
   PACKAGE: openamrobot_build1_scene
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
-  # openamr-platform-sw integration/baseline1: main 69847ab with #152, #146, #149, #151, #158 merged
-  # (docs/integration/baseline1.md). Description, Nav2, perception and docking come from it.
-  PLATFORM_SW_SHA: d36b33a01f02ecbadaa26827495522175c5c6355
+  # openamr-platform-sw integration/baseline1: main 69847ab with #152, #146, #149, #151, #158 and #164 (station
+  # approach) merged (docs/integration/baseline1.md). Description, Nav2, perception and docking come from it.
+  PLATFORM_SW_SHA: 7b70cd2589658a762860626f858164fefa1304b1
+  # ros-infrastructure/ros-apt-source release, pinned: ros-tooling/setup-ros looks the latest tag up through the
+  # unauthenticated GitHub API, which returned no tag on 17 Nov 2026 (rate limit) and made the download 404.
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+  BASELINE1_STATION_APPROACH: ${{ github.event.inputs.station_approach || '1' }}
   # openamrobot_sil still comes from #145 8c5bd52 (config/pins.yaml platform_sw_pr145): the scene's launch calls
   # sil.launch.py's can_nodes(config, stm32, gazebo, renode) and default_renode_args(), which only #141 onward has.
   # #141/#144/#145 are not merged into the platform integration branch (docs/integration/baseline1.md).
@@ -52,9 +62,17 @@ jobs:
       group: baseline1-${{ github.ref }}
       cancel-in-progress: false
     steps:
-      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
-        with:
-          required-ros-distributions: jazzy
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ffmpeg
+          sudo rosdep init || echo "rosdep init: already initialized"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -189,6 +207,7 @@ jobs:
           export BUILD1_LOG_DIR="$PWD/build1_logs"
           mkdir -p "$BUILD1_LOG_DIR"
           echo "nproc $(nproc)"
+          echo "station approach: BASELINE1_STATION_APPROACH=${BASELINE1_STATION_APPROACH}"
           set +e
           colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
             --ctest-args -R '^test_baseline1_mission$'
@@ -216,10 +235,33 @@ jobs:
           echo "colcon build outcome:     ${{ steps.build.outcome }}"
           echo "mission colcon test rc:   ${MISSION_RC:-not run}"
 
+      - name: Recordings (bag, CAN, video) summarized to this log
+        if: always()
+        run: |
+          set +e
+          logs=ws/build1_logs
+          frames=$(ls "$logs"/frames/*.ppm 2>/dev/null | wc -l)
+          echo "observer frames: $frames (1 Hz of Gazebo time; a visual record, not evidence)"
+          if [ "$frames" -gt 1 ]; then
+            ffmpeg -y -loglevel error -framerate 8 -pattern_type glob -i "$logs/frames/*.ppm" -c:v libx264 -pix_fmt yuv420p \
+              "$logs/baseline1_observer.mp4" && rm -f "$logs"/frames/*.ppm
+            ls -la "$logs/baseline1_observer.mp4"
+          fi
+          source /opt/ros/jazzy/setup.bash
+          echo "### ROS bag"; ros2 bag info "$logs/bag" 2>&1 | tee "$logs/bag_info.txt" | head -80
+          echo "### CAN (candump -L per virtual bus): frames, then the 8 most frequent IDs"
+          for f in "$logs"/record_candump_*.log; do
+            [ -f "$f" ] || continue
+            echo "$(basename "$f"): $(grep -c '#' "$f") frames"
+            awk '{print $3}' "$f" | cut -d'#' -f1 | sort | uniq -c | sort -rn | head -8
+          done | tee "$logs/can_summary.txt"
+          for f in "$logs"/record_*.log; do echo "== $f"; grep -v '#' "$f" | tail -5; done
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: baseline1-acceptance
+          name: baseline1-acceptance-attempt${{ github.run_attempt }}
+          retention-days: 30
           path: |
             ws/build1_logs/
             ws/build/openamrobot_build1_scene/test_results/

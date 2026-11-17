@@ -241,11 +241,11 @@ def trace_summary(trace, phase_records):
     """Per phase, from the synchronized trace: Gazebo and wall span, base travel and top speed, lift travel, item height
     change, largest odometry minus ground truth, lowest real-time factor."""
     lines = ["phase | samples | gazebo s | wall s | base travel m | base v max m/s | lift travel m | item dz m | "
-             "odom-truth max m | rtf min"]
+             "odom-truth max m | map-truth max m | rtf min"]
     for record in phase_records:
         samples = [s for s in trace if s.get("phase") == record["phase"]]
         if not samples:
-            lines.append(f"{record['phase']} | 0 | - | - | - | - | - | - | - | -")
+            lines.append(f"{record['phase']} | 0 | - | - | - | - | - | - | - | - | -")
             continue
 
         def span(key):
@@ -266,13 +266,14 @@ def trace_summary(trace, phase_records):
             record["phase"], len(samples), round(sim1 - sim0, 2) if sim0 is not None else "-",
             round(wall1 - wall0, 2) if wall0 is not None else "-", base, top("v"),
             round(l1 - l0, 4) if None not in (l0, l1) else "-", round(z1 - z0, 4) if None not in (z0, z1) else "-",
-            top("odom_err"), top("rtf", min))))
+            top("odom_err"), top("map_err"), top("rtf", min))))
     return lines
 
 
 def trace_table(trace, every_sim_s=5.0):
     """The trace thinned to one line per `every_sim_s` Gazebo seconds, all channels on one time base."""
-    keys = ("sim", "wall", "phase", "x", "y", "yaw", "v", "w", "odom_err", "lift", "lift_js", "finger", "item_z", "rtf")
+    keys = ("sim", "wall", "phase", "x", "y", "yaw", "v", "w", "odom_err", "odom_yaw_err", "map_err", "lift", "lift_js",
+            "finger", "item_z", "rtf")
     lines = [" ".join(f"{k:>9}" for k in keys)]
     last = None
     for sample in trace:
