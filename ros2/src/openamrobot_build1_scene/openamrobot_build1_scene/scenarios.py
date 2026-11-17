@@ -309,6 +309,14 @@ def arms_reach(rig, log):
             ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, target, SIDE_GRASP, scale, position_tolerance=0.02), label)
             rig.sleep_sim(1.5)
             found = rig.transform("base_footprint", link)
+            if found is not None:
+                log.event(f"{label} hand base {[round(v, 4) for v in found[0]]} for the target {[round(v, 4) for v in target]} "
+                          f"(base_footprint, from the driver's joint states)")
+            for name in ("tote", "item", "payload"):
+                try:
+                    log.event(f"{label} {name} at {[round(v, 4) for v in rig.object_position(name)]} (world, ground truth)")
+                except Exception as error:  # noqa: BLE001  a trace line only: a missing pose is reported, not raised
+                    log.event(f"{label} {name}: no ground truth pose ({error})")
             if ok and found is not None:
                 error = math.dist(found[0], target)
                 log.quantity(f"{label}_position_error_from_tf", error, "m", low=0.0, high=0.08,

@@ -13,8 +13,8 @@ Their download host was refused by this session's network policy. The evidence b
 
 | Failure | Cause, one sentence |
 |---|---|
-| scn03: right arm "3.0 rad from park" | The return move was never planned: MoveIt refused the start state three times (error -26, START_STATE_INVALID, log lines 14990, 15003, 15016) because `openarm_right_joint1` read -1.39639 rad, 9.1e-5 rad past its lower limit -1.3963, which is less than one step (3.8e-4 rad) of the Damiao position field the driver reads it through, and the start-state clamp only allowed 1e-5 rad. |
-| scn04: gripper stays at 0.785 rad, MoveIt -10 on grasp_lift | No gravity torque reaches the arm motors (the MIT frame's tau is 0), so with the driver's gains the hand settles about 7 cm below the grasp pose, its finger lands on the shelf board, friction holds the finger where it is when the close command arrives, and MoveIt then refuses the lift because the measured start state is in collision with the board (error -10, START_STATE_IN_COLLISION). |
+| scn03: right arm "3.0 rad from park" (fixed: both arms return; right reach still displaced, see cycle 2) | The return move was never planned: MoveIt refused the start state three times (error -26, START_STATE_INVALID, log lines 14990, 15003, 15016) because `openarm_right_joint1` read -1.39639 rad, 9.1e-5 rad past its lower limit -1.3963, which is less than one step (3.8e-4 rad) of the Damiao position field the driver reads it through, and the start-state clamp only allowed 1e-5 rad. |
+| scn04: gripper stays at 0.785 rad, MoveIt -10 on grasp_lift (fixed, PASS in cycle 2) | No gravity torque reaches the arm motors (the MIT frame's tau is 0), so with the driver's gains the hand settles about 7 cm below the grasp pose, its finger lands on the shelf board, friction holds the finger where it is when the close command arrives, and MoveIt then refuses the lift because the measured start state is in collision with the board (error -10, START_STATE_IN_COLLISION). |
 
 Neither failure is a joint-order, left/right, sign, offset or wrap-around error, and in both the command reached the
 motor emulator. The 3.0 rad is the reach pose itself, held because no return trajectory was ever sent.
@@ -116,6 +116,36 @@ measured state with the finger in the board (line 15829).
 | scn03 return moves | right: -26, never sent | both 1 SUCCESS (no reading outside the codec step) |
 | scn03 result | FAIL | BLOCKED: CTL-017 lift fault at real-time factor 0.46 (runner too slow) |
 | scn09 single writer | PASS | PASS, with the effort claims of the map |
+
+## CI cycle 2 (head `cff74e7`, run 43979440489)
+
+| Check | Cycle 2 |
+|---|---|
+| scn04 tracking, `grasp_approach`, `grasp_reach`, `grasp_lift` | 0.016, 0.007, 0.015 rad |
+| scn04 fingers on the item | 0.130 rad (physics), 0.130 rad (driver): closed on the item |
+| scn04 item lifted | 54.5 mm, inside 40 to 120 mm |
+| scn04 result | **PASS** |
+| scn03 left reach | tracking 0.018 rad, hand base 19.8 mm from the target (16 Nov: 36.8 mm) |
+| scn03 right reach | plan inside the limits now (joint 1 1.253, joint 2 0.134); reading off by up to 0.48 rad, joint 6 on its limit 0.785, hand base 178 mm from the target. Physics and driver agree to 3.8e-4 rad: the physical arm is displaced |
+| scn03 return moves | both SUCCESS, both arms back within 0.026 rad of park |
+| scn03 result | BLOCKED: CTL-017 lift fault at real-time factor 0.43 |
+| drive, lift, cancel; faults | 2 PASS and 1 BLOCKED each (scn02, scn05: CTL-017 at low real-time factor), as on #70 |
+
+The right reach at level 0: the same commanded vector held in MuJoCo with the driver's gains and the gravity torque
+ends 0.000 rad from the command on every joint, with no contact other than the wheels. The MuJoCo model has no shelf,
+tote or payload. The displacement in Gazebo therefore comes from something the off-line model does not contain:
+a contact with the scene, or a self-contact MoveIt's allowed-collision matrix permits. Cycle 3 logs the hand base
+against the target per axis and the ground-truth poses of tote, item and payload around each reach to tell which.
+
+## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
+
+Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the
+commanded state, not a fault, and it says nothing about whether the fingers moved. The open half decides it. In the
+direct profiles with DART the package README records that the grippers do not move at all (Known limits, "Engine"),
+and in this work the only gripper failure with the driver in the loop was the board contact above; with the arm
+held (cycle 2) the driver path closed on the item. The video run's lift (0.000 m with a successful action) is out
+of scope here; the trace of this work found no shared cause with the arm path (the lift has no ros2_control
+interface with devices and no gravity feed-forward).
 
 ## Fixes in this change
 
