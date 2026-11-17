@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (17 Nov 2026; Build 1 arm diagnostics; simulation only)
+
+- **Arm diagnostics workflow** `build1-arm-diagnostics.yml`: scn04 grasp-and-lift with the Baseline 1 retreat (`diag_grasp`) and the
+  scn03 level-0 reach and return (`diag_reach_return`), five runs in DART. With `BUILD1_CONTACT_SENSORS=1` the launch adds gz contact
+  sensors to the 18 arm links (`diagnostics.py`; links, joints and physics unchanged) and gz-sim's Contact system to the world.
+  `diagnostics_live.py` records per-finger contact force (normal, tangential, points), finger positions, limit flags and efforts, the
+  item against the TCP (slip and onset), hand and item heights, joint torques and limit flags on the return moves, MoveIt's planned
+  against executed path, and arm contacts with the world; `scripts/diag_table.py` prints a per-run table. Trace JSON and a bag excerpt
+  are uploaded. Default off; no scenario check or limit changed. Test dependencies: `ros_gz_interfaces`, `rosbag2_py`.
+
 ### Fixed (17 Nov 2026; Build 1 arm path, stacked on #70 `77bbf18`; simulation only)
 
 Diagnosis of the two arm failures of 16 Nov in `docs/build1_arm_diagnosis.md` (D9 order: FK, frames, commanded against actual,
