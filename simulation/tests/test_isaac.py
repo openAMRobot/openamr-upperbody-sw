@@ -36,6 +36,9 @@ def test_job_urdf_is_the_expansion_with_absolute_mesh_paths(job, expansions):
     text = (out / j["urdf"]).read_text()
     assert "package://" not in text
     import re
+    root = '<link name="base_footprint"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="0.1"/><inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0001"/></inertial>'
+    assert root in text  # the one declared import-step deviation, see test_job_root_placeholder
+    text = text.replace(root, '<link name="base_footprint">' if '<link name="base_footprint">' in expansions["bp000"].text else '<link name="base_footprint"/>').replace('<link name="base_footprint"/></link>', '<link name="base_footprint"/>')
     normalised = re.sub(r'filename="[^"]*?/(meshes|assets)/', r'filename="X/\1/', text)
     reference = re.sub(r'filename="package://[^"]*?/(meshes|assets)/', r'filename="X/\1/', expansions["bp000"].text)
     assert normalised == reference
@@ -79,10 +82,10 @@ MINI_JOB = {"drives": {"j1": {"type": "angular", "stiffness": 70 * math.pi / 180
                        "f1": {"type": "angular", "stiffness": 5 * math.pi / 180, "damping": 0.1 * math.pi / 180, "max_force": 2.0}},
             "armature": {"j1": 0.016, "f1": 0.002, "f2": 0.002},
             "mimic": {"f2": {"joint": "f1", "multiplier": 1.0, "offset": 0.0}},
-            "physics": {"time_steps_per_second": 1500}}
+            "physics": {"time_steps_per_second": 1500}, "articulation_root": "base"}
 
 
-def write_mini_usd(path, with_mimic=True, stiffness_scale=1.0, mass_scale=1.0):
+def write_mini_usd(path, with_mimic=True, stiffness_scale=1.0, mass_scale=1.0, roots=("base",), world_joint_for=None):
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
     stage = Usd.Stage.CreateNew(str(path))
     root = UsdGeom.Xform.Define(stage, "/mini")
@@ -102,9 +105,12 @@ def write_mini_usd(path, with_mimic=True, stiffness_scale=1.0, mass_scale=1.0):
         m.CreateCenterOfMassAttr(Gf.Vec3f(*com))
         m.CreateDiagonalInertiaAttr(Gf.Vec3f(*diag))
         m.CreatePrincipalAxesAttr(Gf.Quatf(1, 0, 0, 0))
+    for name in roots:
+        UsdPhysics.ArticulationRootAPI.Apply(stage.GetPrimAtPath(f"/mini/{name}"))
     for name, parent, child, lo, hi in (("j1", "base", "arm", -1, 1), ("f1", "arm", "fa", 0, 0.7), ("f2", "arm", "fb", 0, 0.7)):
         j = UsdPhysics.RevoluteJoint.Define(stage, f"/mini/joints/{name}")
-        j.CreateBody0Rel().SetTargets([f"/mini/{parent}"])
+        if name != world_joint_for:  # a joint whose parent is the world (empty body0), as the converter writes for a split
+            j.CreateBody0Rel().SetTargets([f"/mini/{parent}"])
         j.CreateBody1Rel().SetTargets([f"/mini/{child}"])
         j.CreateLowerLimitAttr(math.degrees(lo))
         j.CreateUpperLimitAttr(math.degrees(hi))
@@ -137,3 +143,28 @@ def test_usd_checker_passes_a_correct_usd(tmp_path):
 def test_usd_checker_finds_errors(tmp_path, kwargs, parameter):
     rep = isaac.check_usd(write_mini_usd(tmp_path / "bad.usda", **kwargs), MINI, MINI_JOB)
     assert any(f["parameter"] == parameter for f in rep.failures), rep.failures
+
+
+def test_job_root_placeholder(job, expansions):
+    """Isaac drops a massless empty root: only the importer's URDF gets a declared 0.1 kg root, the source model keeps none."""
+    out, j = job
+    from openamr_sim.urdf_model import URDF
+    src = URDF(expansions["bp000"].text)
+    assert src.root_link == "base_footprint" and src.links["base_footprint"].inertial is None
+    imported = URDF((out / j["urdf"]).read_text())
+    assert imported.links["base_footprint"].inertial.mass == pytest.approx(0.1)
+    assert imported.total_mass() == pytest.approx(src.total_mass() + 0.1, abs=1e-9)
+    assert j["articulation_root"] == "base_footprint"
+    # the reason for the placeholder: without it, the chassis and the upper body are two subtrees joined only by the empty root
+    roots = [jt.child for jt in src.joints.values() if jt.parent == "base_footprint"]
+    assert {"base_link", "lift_column_base_link"} <= set(roots)
+    assert j["importer_deviations"] == [{"link": "base_footprint", "added_inertial_kg": 0.1, "reason": isaac.ROOT_PLACEHOLDER["source"]}]
+
+
+def test_usd_checker_finds_split_articulation(tmp_path):
+    """The failure the OpenRAL import showed: two articulation roots, moving joints outside the driven articulation."""
+    rep = isaac.check_usd(write_mini_usd(tmp_path / "two.usda", roots=("base", "arm")), MINI, MINI_JOB)
+    assert any(f["parameter"] == "usd.articulation_count" for f in rep.failures), rep.failures
+    rep = isaac.check_usd(write_mini_usd(tmp_path / "world.usda", world_joint_for="j1"), MINI, MINI_JOB)
+    params = {f["parameter"] for f in rep.failures}
+    assert "usd.articulation_contains_moving_joints" in params, rep.failures
