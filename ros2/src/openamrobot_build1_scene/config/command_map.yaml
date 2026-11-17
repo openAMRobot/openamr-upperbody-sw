@@ -28,6 +28,9 @@ joints:
     joints: [openarm_left_joint1, openarm_left_joint2, openarm_left_joint3, openarm_left_joint4, openarm_left_joint5, openarm_left_joint6, openarm_left_joint7]
     direct: "MoveIt or an action client > {side}_arm_controller in /controller_manager > position interface of gz_ros2_control > Gazebo"
     devices: "MoveIt or an action client > {side}_arm_controller in /controller_manager > openarm_hardware/OpenArmHW > vcan_arm (CAN FD, MIT frames) > {side}_arm_emulator in /sim/controller_manager > effort interface of gz_ros2_control > Gazebo"
+    # The position of the MIT frame comes from the trajectory controller. Its tau field comes from the effort interface of
+    # the same joint: gravity_feedforward > {side}_arm_gravity_controller. One driver writes the one frame per motor.
+    devices_feed_forward: "gravity_feedforward > /{side}_arm_gravity_controller/commands > {side}_arm_gravity_controller in /controller_manager > effort interface of OpenArmHW > tau of the same MIT frame"
   right_arm:
     <<: *arm
     joints: [openarm_right_joint1, openarm_right_joint2, openarm_right_joint3, openarm_right_joint4, openarm_right_joint5, openarm_right_joint6, openarm_right_joint7]
@@ -81,6 +84,8 @@ topics:
   /local_costmap/footprint: {writers_when: {nav2: [/footprint_publisher]}}
   /global_costmap/footprint: {writers_when: {nav2: [/footprint_publisher]}}
   /planning_scene: {writers_when: {moveit: [/planning_scene_loader]}}
+  /left_arm_gravity_controller/commands: {writers_devices: [/gravity_feedforward], command: true}
+  /right_arm_gravity_controller/commands: {writers_devices: [/gravity_feedforward], command: true}
   # Operator inputs. Nothing in the launch writes them: a person or a test does, one at a time.
   /sil/lift/command: {command: true, operator_input: true}
   /sil/lift/permit: {command: true, operator_input: true}
@@ -106,18 +111,20 @@ tf_frames:
   devices: {/base_state_adapter: {base_footprint: odom}}
   nav2: {/amcl: {odom: map}}
 
-# ros2_control: each controlled joint has exactly one claimed command interface.
+# ros2_control: each controlled joint has exactly one claimed command interface of each kind it lists.
 #   direct   one controller manager, in Gazebo. Position, claimed by the trajectory and gripper controllers, except
 #            lift_joint: effort, claimed by lift_controller (config/lift_controller_gazebo.yaml; DART cannot lift the joint
 #            off its lower limit through the position interface, docs/build1_lift_and_base_diagnosis.md).
 #   devices  /sim/controller_manager in Gazebo: effort, claimed by the arm emulator of that side. The lift has no
-#            ros2_control interface there at all. /controller_manager with the real driver: position.
+#            ros2_control interface there at all. /controller_manager with the real driver: position, and on the arm
+#            joints also effort, claimed by {side}_arm_gravity_controller: the two are the q and the tau fields of one
+#            MIT frame, written by the one driver (docs/build1_arm_diagnosis.md).
 controller_managers:
   direct:
     - {name: /controller_manager, claimed: position, joints: [arm, gripper, lift], claimed_by_group: {lift: effort}}
   devices:
     - {name: /sim/controller_manager, claimed: effort, joints: [arm, gripper], absent_joints: [lift_joint]}
-    - {name: /controller_manager, claimed: position, joints: [arm, gripper]}
+    - {name: /controller_manager, claimed: position, joints: [arm, gripper], also_claimed: {effort: [arm]}}
 
 # Gazebo transport topics that carry a command. One publisher each: the control bridge.
 gz_command_topics:

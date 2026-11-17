@@ -16,6 +16,7 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
+from openamrobot_build1_scene.arm_frames import SIDE_GRASP, TCP_FRAME, hand_for_tcp_at, side_grasp_offset
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M, ScenarioFailed,
                                           angle_diff)
 
@@ -230,7 +231,38 @@ def _move_group(rig, log, goal, label, sim_s=120.0, required=True, attempts=1):
         log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", note="1 is SUCCESS. Recorded, no limit: a return move")
     if result is not None:
         log.quantity(f"{label}_planning_time", result.planning_time, "s")
+    if code == 1 and result is not None:
+        _tracking(rig, log, label, result.planned_trajectory.joint_trajectory, required)
     return code == 1
+
+
+# Commanded end point against the driver's reading, 1 s after the controller reports success, weighed by the driver's
+# position gain: kp * |error| is the torque the joint's own servo is still pushing with (openarm_ros2 4e837e1 kp,
+# the same as upstream control_gains.yaml). 0.5 N m is 7 % of the smallest motor peak (DM4310, 7 N m) and 5 % of the
+# joint 1 gravity load at the grasp pose. Without the feed-forward joint 1 alone gives 70 * 0.145 = 10 N m.
+DRIVER_KP = (70.0, 70.0, 70.0, 60.0, 10.0, 10.0, 10.0)
+TRACKING_LIMIT_NM = 0.5
+
+
+def _tracking(rig, log, label, trajectory, required):
+    """Commanded against actual, per joint (D9 step 3): the last point of the trajectory MoveIt sent to the controller,
+    against /joint_states (the driver's reading over CAN with devices) after 1 s of settling."""
+    if not trajectory.points:
+        return
+    rig.sleep_sim(1.0)
+    errors = {name: rig.joint(name) - target for name, target in zip(trajectory.joint_names, trajectory.points[-1].positions)}
+    worst = max(errors, key=lambda name: abs(errors[name]))
+    servo = {name: DRIVER_KP[int(name[-1]) - 1] * abs(error) for name, error in errors.items() if name[-1].isdigit()}
+    worst_servo = max(servo, key=servo.get)
+    log.event(f"{label} commanded end point {dict(zip(trajectory.joint_names, [round(v, 5) for v in trajectory.points[-1].positions]))}")
+    log.event(f"{label} reading minus command {dict((name, round(error, 5)) for name, error in errors.items())}")
+    log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", note=f"largest |/joint_states - last trajectory point|, joint {worst}")
+    note = (f"largest driver kp * |reading - command|, joint {worst_servo}. Without the gravity feed-forward 10 N m on "
+            "joint 1 (docs/build1_arm_diagnosis.md)")
+    if required:
+        log.quantity(f"{label}_servo_torque_max", servo[worst_servo], "N m", low=0.0, high=TRACKING_LIMIT_NM, note=note)
+    else:
+        log.quantity(f"{label}_servo_torque_max", servo[worst_servo], "N m", note=note + ". Recorded, no limit: a return move")
 
 
 def _belief_vs_physics(rig, joints):
@@ -281,9 +313,19 @@ def arms_reach(rig, log):
             link = f"openarm_{side}_ee_base_link"
             target = _in_base(rig, targets[level][side])
             log.quantity(f"{label}_target_height", target[2], "m", note=f"work shelf level {level}, 0.16 m above the board")
-            ok = _move_group(rig, log, _position_goal(f"{side}_arm", link, target, 0.02, scale), label)
+            # A pose goal, not a position-only one: with any orientation allowed the planner returned the right arm with
+            # joint 1 on its limit and joint 2 at 3.0 rad, over the top (CI, 16 Nov, docs/build1_arm_diagnosis.md).
+            ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, target, SIDE_GRASP, scale, position_tolerance=0.02), label)
             rig.sleep_sim(1.5)
             found = rig.transform("base_footprint", link)
+            if found is not None:
+                log.event(f"{label} hand base {[round(v, 4) for v in found[0]]} for the target {[round(v, 4) for v in target]} "
+                          f"(base_footprint, from the driver's joint states)")
+            for name in ("tote", "item", "payload"):
+                try:
+                    log.event(f"{label} {name} at {[round(v, 4) for v in rig.object_position(name)]} (world, ground truth)")
+                except Exception as error:  # noqa: BLE001  a trace line only: a missing pose is reported, not raised
+                    log.event(f"{label} {name}: no ground truth pose ({error})")
             if ok and found is not None:
                 error = math.dist(found[0], target)
                 log.quantity(f"{label}_position_error_from_tf", error, "m", low=0.0, high=0.08,
@@ -306,7 +348,6 @@ def arms_reach(rig, log):
 
 
 # ---------------------------------------------------------------- 4. grasp a tote item
-GRASP_DEPTH = 0.105          # m from the hand base link to the grasp centre along the fingers. Estimated from the model
 OPEN, CLOSED = 0.7854, 0.0   # left finger joint: open is the far limit, closed is 0 (openamr-upperbody-sw #66)
 
 
@@ -330,12 +371,18 @@ def grasp(rig, log):
     finger = "openarm_left_finger_joint1"
     item0 = rig.object_position("item")
     log.quantity("item_start_height", item0[2], "m")
-    # The fingers point along -z of the hand base link. For a side grasp they point along +x of the base and the
-    # finger axis is level: a rotation of -90 degrees about y.
-    quaternion = (0.0, -math.sqrt(0.5), 0.0, math.sqrt(0.5))
+    quaternion = SIDE_GRASP
     item = _in_base(rig, item0)
     grasp_z = item[2] + 0.03                      # above the tote wall
-    hand = (item[0] - GRASP_DEPTH, item[1], grasp_z)
+    # D9 step 2: the item goes to the model's TCP, openarm_left_grasp_frame (0.138 m along the fingers, from the URDF
+    # through /tf), not to an estimated depth. The estimate of 0.105 m put the item against the finger roots: it was
+    # pushed 52 mm (fast) and 90 mm (firmware_sil) before the fingers closed.
+    rig.wait(lambda: rig.transform(link, TCP_FRAME[side]) is not None, 30.0, "the hand base to TCP transform")
+    found = rig.transform(link, TCP_FRAME[side])
+    if not log.require(found is not None, f"no /tf from {link} to {TCP_FRAME[side]}"):
+        return
+    log.quantity("tcp_depth_along_fingers", side_grasp_offset(found[0])[0], "m", note=f"{TCP_FRAME[side]} in {link}, from /tf")
+    hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0])
     approach = (hand[0] - 0.10, hand[1], hand[2])
 
     park_arms(rig, log)
@@ -362,6 +409,8 @@ def grasp(rig, log):
     finger_closed = rig.physics_joint(finger)
     log.quantity("finger_position_on_item", finger_closed, "rad", low=0.02, high=OPEN - 0.05,
                  note="above 0 means the fingers stopped on the item and did not close fully")
+    log.quantity("finger_driver_reading_on_item", rig.joint(finger), "rad",
+                 note="D9 step 4: commanded 0, this is what the driver reads back over CAN; finger_position_on_item is the physics")
     if closed is not None:
         log.quantity("gripper_reported_stalled", bool(closed[1]), "bool")
         log.quantity("gripper_reported_reached_goal", bool(closed[0]), "bool")

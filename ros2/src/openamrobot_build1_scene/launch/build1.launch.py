@@ -171,6 +171,7 @@ def launch_setup(context):
     except ValueError as error:
         return [LogInfo(msg=f"refused: {error}"), Shutdown(reason="profile refused")]
     devices, step, stm32 = run["devices"], run["step"], value("stm32")
+    gravity = devices and flag("gravity_feedforward")
     engine = value("physics_engine")
     follower = support.finger_owner(engine) == "follower"
     sensors, nav2 = flag("sensors"), flag("nav2")
@@ -218,7 +219,8 @@ def launch_setup(context):
         sim_controllers_file = temp_yaml("build1_sim_controllers_", sim_controllers)
         driver_rate = support.driver_update_rate(scene, step, value("driver_rate"))
         driver_sim_time = value("driver_clock") == "sim"
-        driver_controllers_file = temp_yaml("build1_driver_controllers_", support.driver_controllers(arm_controllers, driver_rate, driver_sim_time))
+        driver_controllers_file = temp_yaml("build1_driver_controllers_", support.driver_controllers(arm_controllers, driver_rate, driver_sim_time,
+                                                                                                    gravity_feedforward=gravity))
         temp_files += [sim_controllers_file, driver_controllers_file]
         sim_urdf = support.sim_description(xacro(wrapper, hardware_profile="gazebo", controllers_file=sim_controllers_file,
                                                  devices="true", extra_sensors=extra_sensors,
@@ -226,7 +228,7 @@ def launch_setup(context):
         # What robot_state_publisher and the real driver read: the real profile with the two bus names.
         root_urdf = xacro(os.path.join(emulator_share, "urdf", "openarm_sil_real.urdf.xacro"), hardware_profile="real",
                           left_can_interface=support.ARM_BUSES["left"], right_can_interface=support.ARM_BUSES["right"], can_fd="true")
-        info.update(stm32=stm32, emulator_rate_hz=support.sim_update_rate(scene, step), driver_rate_hz=driver_rate,
+        info.update(stm32=stm32, emulator_rate_hz=support.sim_update_rate(scene, step), driver_rate_hz=driver_rate, gravity_feedforward=gravity,
                     driver_clock="gazebo" if driver_sim_time else "wall", replayed_buses=sorted(replays),
                     sim_state_rate=value("sim_state_rate"))
     else:
@@ -298,7 +300,10 @@ def launch_setup(context):
         real_control = Node(package="controller_manager", executable="ros2_control_node", output="screen",
                             parameters=[driver_controllers_file, {"use_sim_time": driver_sim_time}])
         real_broadcaster = spawner(["joint_state_broadcaster"], REAL_CONTROLLER_MANAGER, extra=arm_states)
-        real_rest = spawner(list(support.DRIVER_CONTROLLERS), REAL_CONTROLLER_MANAGER)
+        real_rest = spawner(support.driver_controllers_to_spawn(gravity), REAL_CONTROLLER_MANAGER)
+        if gravity:
+            actions.append(Node(package=PACKAGE, executable="gravity_feedforward.py", name="gravity_feedforward", output="screen",
+                                parameters=[{"use_sim_time": True, "robot_description": ParameterValue(root_urdf, value_type=str)}]))
         if emulators:
             sim_rest = spawner(emulators, SIM_CONTROLLER_MANAGER)
             actions.append(then(sim_broadcaster, [sim_rest], "the simulator's joint_state_broadcaster spawner"))
@@ -369,7 +374,9 @@ def launch_setup(context):
                             remappings=[("joint_states", "/joint_states_clamped")]))
         actions.append(Node(package="openamrobot_upperbody_moveit", executable="joint_state_clamp.py", name="joint_state_clamp",
                             output="screen", parameters=[{"robot_description": config.robot_description["robot_description"],
-                                                          "use_sim_time": True}]))
+                                                          "use_sim_time": True,
+                                                          # with devices the joint states cross the Damiao position field
+                                                          **({"epsilon": support.DAMIAO_POSITION_RESOLUTION} if devices else {})}]))
         actions.append(Node(package=PACKAGE, executable="planning_scene_loader.py", name="planning_scene_loader", output="screen",
                             parameters=[{"use_sim_time": True, "scene_file": os.path.join(share, "config", "scene.yaml"),
                                          "spawn_pose": [float(v) for v in spawn]}]))
@@ -434,6 +441,8 @@ def generate_launch_description():
         DeclareLaunchArgument("rviz", default_value="false", choices=boolean, description="Start RViz with rviz/build1.rviz"),
         DeclareLaunchArgument("headless", default_value="false", choices=boolean, description="gz sim -s: server only, no window"),
         DeclareLaunchArgument("driver_rate", default_value="auto", description="auto | Hz of the real driver's controller manager"),
+        DeclareLaunchArgument("gravity_feedforward", default_value="true", choices=boolean,
+                              description="With devices: send the arms' gravity torque through the driver's effort interface"),
         DeclareLaunchArgument("sim_state_rate", default_value="100",
                               description="Hz of /sim/joint_states, or step for every physics step. Device profiles only"),
         DeclareLaunchArgument("driver_clock", default_value="sim", choices=["sim", "wall"],

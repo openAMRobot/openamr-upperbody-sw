@@ -85,8 +85,8 @@ def test_sw03_the_drive_emulator_is_the_only_shaper_and_the_adapter_the_only_whe
 def claimed(command_map, kind):
     interfaces = {}
     for manager in command_map["controller_managers"][kind]:
-        interfaces[manager["name"]] = {f"{joint}/{sw.claimed_interface(manager, group)}": True
-                                       for group in manager["joints"] for joint in sw.joints_of_groups(command_map, [group])}
+        interfaces[manager["name"]] = {name: True for joint in sw.joints_of_groups(command_map, manager["joints"])
+                                       for name in sw.expected_claims(command_map, manager, joint)}
     return interfaces
 
 
@@ -193,3 +193,18 @@ def test_sw06_without_devices_lift_controller_claims_effort_on_the_lift_and_posi
     del wrong["/controller_manager"]["lift_joint/effort"]
     assert sw.interface_problems(command_map, "direct", wrong) == [
         "/controller_manager: lift_joint has claimed command interfaces ['lift_joint/position'], the map says ['lift_joint/effort']"]
+
+
+def test_the_arm_effort_interface_of_the_real_driver_is_claimed_by_the_gravity_controller_only(command_map):
+    """With devices each arm joint of /controller_manager has position (trajectory controller) and effort (gravity
+    feed-forward) claimed; the grippers have position only. A missing effort claim, or one on a gripper, is found."""
+    manager = next(m for m in command_map["controller_managers"]["devices"] if m["name"] == "/controller_manager")
+    assert sw.expected_claims(command_map, manager, "openarm_left_joint1") == ["openarm_left_joint1/effort", "openarm_left_joint1/position"]
+    assert sw.expected_claims(command_map, manager, "openarm_left_finger_joint1") == ["openarm_left_finger_joint1/position"]
+    interfaces = claimed(command_map, "devices")
+    assert sw.interface_problems(command_map, "devices", interfaces) == []
+    del interfaces["/controller_manager"]["openarm_right_joint4/effort"]
+    interfaces["/controller_manager"]["openarm_right_finger_joint1/effort"] = True
+    assert len(sw.interface_problems(command_map, "devices", interfaces)) == 2
+    for side in ("left", "right"):
+        assert command_map["topics"][f"/{side}_arm_gravity_controller/commands"] == {"writers_devices": ["/gravity_feedforward"], "command": True}

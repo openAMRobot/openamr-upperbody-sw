@@ -17,6 +17,19 @@ All notable changes to this repository. Evidence for the description is static a
   yaw against r * (wR - wL) / track and `/odom`, castors present, track read and not changed). New CI job "fast lift stops and
   base yaw".
 
+### Fixed (17 Nov 2026; Build 1 arm path, stacked on #70 `77bbf18`; simulation only)
+
+Diagnosis of the two arm failures of 16 Nov in `docs/build1_arm_diagnosis.md` (D9 order: FK, frames, commanded against actual,
+gripper path). Xacro (pinocchio) and MJCF (MuJoCo) FK agree to 5e-13 mm. Neither failure was a joint-order, side, sign or wrap error.
+- **Gravity feed-forward (Proposed).** The real driver's MIT tau was always 0, so the arms settled below every pose (0.145 rad on joint 1,
+  74 mm at the hand for the grasp pose). New `gravity.py` and `scripts/gravity_feedforward.py`, one `JointGroupEffortController` per arm on
+  the driver's effort interfaces, launch argument `gravity_feedforward` (default `true` with devices). Single-writer map: the effort claim
+  and the two command topics. Dependencies: `effort_controllers`, `python3-numpy`.
+- **Start-state resolution with devices.** `joint_state_clamp` allows one step of the Damiao position field (3.8148e-4 rad) when the joint
+  states cross the codec; the -1.39639 rad reading that stopped the right arm's return move is inside it.
+- **Commanded against actual.** scn03 and scn04 log the trajectory end point against the driver's reading per joint, with
+  `*_servo_torque_max` (driver kp times the error) limited to 0.5 N m for required moves. Tests: `test_gravity.py`, `test_command_map.py`.
+
 ### Changed (15 Nov 2026, 23:59 Kyiv; WS0 repin of the Build 1 scene)
 
 Main `37b93f5` (with #66 in its merged form) merged into this branch. Pins moved: openamr-platform-sw main `0741778` to `69847ab`
