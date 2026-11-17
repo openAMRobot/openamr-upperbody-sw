@@ -104,6 +104,7 @@ After the fix, PR #75 head `92540ba`, Actions run 43994537341, job 133743203833,
 | 4, to stop 2 | succeeded | 0.34973 m | 13.7 s | pass |
 | 5, to stop 0 | succeeded | 0.00000 m | 25.4 s | pass |
 
+PR #75 head `f098a97`, job 133751718699, PASS again: 0.35000, 0.00000, 0.17489, 0.34987 and 0.00003 m.
 The log of `lift_controller` reads "Command interfaces are [effort]". Travel at the planned 0.015 m/s: 0.350 m in
 23.3 s plus the 2 s margin of the goal.
 
@@ -145,8 +146,9 @@ is correct. The magnitude is 1.508 rad for 1.570 rad of command (-4.0 %). Nothin
 
 `test_scn17_base_yaw_fast`, order D8 as far as this repository can take it: the model of openamr-platform-sw main as it
 is, drive wheels and the four castors present (fixed joints, frictionless spheres, `mu` 0). `/cmd_vel` to the DiffDrive
-plugin. Equal wheel speeds (0.2 m/s for 8 s), then equal and opposite ones (0.5 rad/s for pi s left and right, 0.25
-rad/s for 2 pi s left), each from standstill and to standstill. For each: ground truth yaw, the kinematic expectation
+plugin. Equal wheel speeds (0.2 m/s for 8 s) and equal and opposite ones (0.5 rad/s for pi s left and right, 0.25
+rad/s for 2 pi s left), each from standstill and to standstill. Since `f098a97` the scenario first moves the arms to
+park and replays the command sequence of the video from the spawn pose. For each: ground truth yaw, the kinematic expectation
 r * (dR - dL) / track from the wheel joint positions, and `/odom`. Radius 0.100 m (wheel collision cylinder) and track
 0.400 m (wheel joint offsets) are read from `/robot_description`, equal to the DiffDrive values. The track is the
 platform's placeholder and is not changed. The loaded radius 0.098 m is a design input that the pinned model does not
@@ -178,41 +180,61 @@ Run B also ran the video sequence last, after the spins. Facing +y it drove 1.6 
 wheels. That segment measured a collision, not the wheel contact; the drive distance was not logged. The scenario now
 runs the video sequence first, from the spawn pose and heading of the video, and logs the drive distance and both poses.
 
-Each spin moves the base 12.4 to 13.1 mm. The base rests nose down by 0.0093 rad (front castors loaded) in every segment.
-Odometry equals the kinematic expectation exactly: DiffDrive integrates the same wheel positions with the same radius
-and separation. The wheels turned 1 to 1.4 % more than the command because the scenario's `/cmd_vel` publisher runs on
-the wall clock; the comparison is made against the wheels, not against the command.
+Run C: PR #75 head `f098a97`, Actions run 43997096405, job 133751718699, real-time factor 0.71. The video sequence first
+(arms to park, then from the spawn pose), then the spins with the arms in park, then the straight drive:
 
-### Video sequence
+| Segment | Wheels dL, dR (rad) | Kinematic | Ground truth | Odometry | Truth vs kinematic | Odometry vs truth |
+|---|---|---|---|---|---|---|
+| video sequence: 0.2 m/s 8 s, 1 s, -0.5 rad/s 3.14 s, 1 s | | -1.5680 rad | -1.5037 rad | -1.5680 rad | -4.10 % | +4.28 % |
+| spin left 0.5 rad/s | -3.192, 3.192 | 1.5960 rad | 1.5317 rad | 1.5960 rad | -4.03 % | +4.20 % |
+| spin right 0.5 rad/s | 3.199, -3.199 | -1.5995 rad | -1.5352 rad | -1.5995 rad | -4.02 % | +4.19 % |
+| spin left 0.25 rad/s | -3.150, 3.150 | 1.5748 rad | 1.5104 rad | 1.5748 rad | -4.09 % | +4.26 % |
+| straight 0.2 m/s, 8 s | 15.980, 15.980 | 1.5980 m | 1.5980 m, yaw 0.0 rad | 1.5980 m | +0.00 % | 0.00 % |
 
-Run C: the video sequence first, from the spawn pose. Numbers pending the CI run of the scenario change.
+The video sequence reproduces the video run: drive 1.601 m (video 1.601 m), end pose (1.6104, 0.0078, -1.5037) against
+the video's (1.6100, 0.0079, -1.5081).
+
+Each spin moves the base 12.0 to 13.1 mm. The base rests nose down by 0.0093 rad (front castors loaded) in every
+segment of every run. Odometry equals the kinematic expectation exactly: DiffDrive integrates the same wheel positions
+with the same radius and separation. The wheels turned up to 3 % more than the command because the scenario's
+`/cmd_vel` publisher runs on the wall clock; the comparison is made against the wheels, not against the command.
+
+### Answer to the symptom
+
+- **Sign.** Correct. The video's "turn right" was angular -0.5 rad/s, and right is negative yaw. All six spins of the
+  runs above have the sign of their command.
+- **Magnitude.** With the arms in park the body turns 4.0 to 4.1 % less than r * (wR - wL) / track, at 0.25 and at 0.5
+  rad/s, left and right, from standstill or right after a drive. Odometry then reports 4.2 to 4.3 % more turn than the
+  body makes, the sign of the older evidence (171.9 degrees of odometry for 168.3, 15 Nov; 9.4 degrees in the Nav2 spin
+  of `scn14_drive_fast`). The video's -4.0 % is this effect, measured against the command.
+- **The arms change it.** With the arms in the activation pose (runs A and B, arms never commanded) the same spins gave
+  +0.4 to +1.1 %. The pitch is the same in all runs, so the share of weight on the castors did not change. Park differs
+  from the activation pose by 0.1 rad on joint 4 of each arm, and in the activation pose joint 4 rests on its lower
+  limit. The mechanism by which the upper body changes the yaw of the base is not identified.
 
 ### Reading
 
-- The sign is right in both directions and the error is the same at 0.25 and 0.5 rad/s and in both directions.
-- From standstill the body turns 0.4 to 1.1 % more than the wheels say (two runs, no seed set), not 4 % less. The
-  video deficit is not reproduced from standstill. The video sequence segment answers it; see "Video sequence" below.
-- The castors of the pinned model are frictionless on fixed joints. They carry normal load and no tangential force, so
-  they cannot brake or drive the yaw directly. What they change is the share of the weight left on the drive wheels.
-- The drive wheels are cylinders 46 mm wide on a rigid floor. DART puts contact points across the width, at radii
-  between 0.177 and 0.223 m from the centre of the turn. A wheel that rolls without slip at its mid-plane must scrub at
-  both edges in a spin, and where it grips decides the yaw rate: anywhere from 0.400/0.446 to 0.400/0.354 of the
-  kinematic value. +1 % sits inside that band: the inner edges grip a little more. This is the drive wheel contact
-  model, not the track.
-- Verdict for this step of D8: the measured yaw error comes from the drive wheel contact, not from the castor model.
-  openamr-platform-sw #150 (castor swivel, sphere contact, loaded radius 0.098 m) is the next D8 step: once castors
-  grip and swivel, they add their own drag and the yaw has to be measured again with this scenario. Nothing in the
-  platform model is edited here.
-- The older evidence has the other sign: odometry 171.9 degrees for 168.3 of ground truth (6 s at 0.5 rad/s after a
-  drive, 15 Nov), and 9.4 degrees of over-report in the Nav2 spin of `scn14_drive_fast`. From standstill at 0.25 and
-  0.5 rad/s odometry reports about 1 % less than the body turns. The slip of the wheel contact depends on how the turn
-  is entered (speed, acceleration, a drive just before); the video sequence segment tests that case.
+- **Castors.** The castors of the pinned model are frictionless spheres on fixed joints (`mu` 0). They carry normal
+  load and no tangential force, so they cannot brake or drive the yaw. Their load share is the same in all runs (same
+  pitch), while the error changes sign with the arm pose. The castor model is not the cause of the measured error.
+- **Drive wheel contact.** The drive wheels are rigid cylinders 46 mm wide. Contact points across the width lie at
+  0.177 to 0.223 m from the centre of the turn. In a spin the wheel must scrub at its edges, and where it grips sets
+  the yaw rate: anywhere from 0.400/0.446 (-10.3 %) to 0.400/0.354 (+13 %) of the kinematic value. Both -4 % and +1 %
+  sit inside that band. Which edge grips depends on how the load sits on each wheel, which the upper body can change.
+  This is the leading explanation, not a measured one: no contact forces were recorded.
+- **Track.** Not changed and not the explanation: a track error would scale every spin by the same factor, while the
+  measured factor changes with the arm pose at a fixed track.
+- **Next step of D8.** The bare chassis with only the drive wheels and no upper body (openamr-platform-sw's own model and
+  launch, outside this repository), then each swivel castor: openamr-platform-sw #150 (castor swivel, sphere contact,
+  loaded radius 0.098 m) is the candidate for that step. Once castors grip and swivel they add drag, and the yaw has to
+  be measured again with this scenario. Nothing in the platform model is edited here.
 
 ## What remains
 
-1. Lift over CAN3: a passing run needs openamr-platform-sw #158 (clock contract) on the runner, then the force mode of
-   the lift `JointController` if the lift sticks on L1000 there.
+1. Lift over CAN3: a passing run needs openamr-platform-sw #158 (clock contract) on the runner. In the runs of this PR
+   the lift left L1000 and stopped on CTL-017 faults at real-time factors 0.37 to 0.56 (`scn02`, `scn03`, `scn05`).
+   If the lift then sticks on L1000, the force mode of the lift `JointController` is the candidate.
 2. `openamrobot_upperbody_gazebo`: the same lift fix, if the owner adopts this one.
-3. Base: rerun `scn17_base_yaw_fast` on openamr-platform-sw #150 when it is adopted; then the lift, arms and payload
-   steps of D8.
+3. Base: the bare chassis step of D8 in openamr-platform-sw, then #150 measured with `scn17_base_yaw_fast`; find how
+   the arm pose changes the wheel contact (contact forces per wheel edge); then the lift, arms and payload steps.
 4. Grippers on DART: check whether the same limit behaviour stops the fingers.
