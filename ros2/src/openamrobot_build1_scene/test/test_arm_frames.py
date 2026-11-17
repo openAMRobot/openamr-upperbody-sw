@@ -99,7 +99,7 @@ def test_the_grasp_line_runs_along_the_fingers_and_ends_with_the_tcp_on_the_poin
 def test_scenario_4_reaches_and_lifts_on_straight_lines_with_the_orientation_held():
     body = _grasp_body()
     assert '_pose_goal(f"{side}_arm", link, hand' not in body and '_pose_goal(f"{side}_arm", link, lifted' not in body
-    assert "_, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)" in body
+    assert "_, hand = grasp_line((tcp_x, tcp_y, grasp_z), found[0], held_orientation)" in body
     assert "straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)" in body
     assert '_cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1)' in body
     assert af.LIFT_RISE_M == 0.08 and af.CARTESIAN_MIN_FRACTION >= 0.99 and af.CARTESIAN_STEP_M <= 0.01
@@ -165,13 +165,18 @@ def test_the_reach_clears_the_tote_wall_and_the_lift_clears_the_board_above(scen
     grasp = af.GRASP_ABOVE_ITEM_CENTRE_M
     assert lowest_on_the_way_in(grasp, af.REACH_CLEARANCE_M, af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
     assert lowest_on_the_way_in(0.03, 0.0, 0.3) < wall_top, "the old straight reach at the grasp height reached the wall"
-    assert lifted_top(grasp) < board1_bottom - FIXTURE_PADDING_M
-    assert lifted_top(0.05) > board1_bottom - FIXTURE_PADDING_M, "closing at 0.05 m left no room for the lift (696458d)"
+    # The planning scene does not pad undersides (planning_scene.padded). Held orientations tilted up to 7 degrees
+    # (FK of the grasps of 17 Nov) raise the hand body's far corner, 0.11 m along the fingers, by 0.11 sin(7 deg).
+    tilt = math.radians(7.0)
+    assert lifted_top(grasp) + af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) < board1_bottom
+    assert lifted_top(grasp) + af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) > board1_bottom - FIXTURE_PADDING_M, \
+        "with the underside padded the tilted lift reaches the padding (fractions 0.9375 and 0.941)"
+    assert lifted_top(0.05) > board1_bottom, "closing at 0.05 m left no room for the lift (696458d)"
     # The fingers close on the item: their lower edge is well below the item's top.
     assert item[1][2] + grasp - af.FINGER_HALF_HEIGHT_M < item_top - 0.06
     body = _grasp_body()
     assert "angle_tolerance=approach_tolerances(quaternion)" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
-    assert "grasp_line((item[0], item[1], grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)" in body
+    assert "grasp_line((tcp_x, tcp_y, grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)" in body
     assert '_cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)' in body
 
 
@@ -184,7 +189,10 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
     original = {name: (size, centre) for name, size, centre, _yaw in boxes}
     assert "work_shelf_board_0" in fixed and {"tote", "item", "payload"} <= set(out) and not {"tote", "item", "payload"} & fixed
     for name in fixed:
-        assert np.allclose(out[name][0], np.array(original[name][0]) + 2 * FIXTURE_PADDING_M) and out[name][1] == original[name][1]
+        size, centre = np.array(original[name][0]), np.array(original[name][1])
+        assert np.allclose(out[name][0], size + np.array([2, 2, 1]) * FIXTURE_PADDING_M)
+        assert np.isclose(out[name][1][2] - out[name][0][2] / 2.0, centre[2] - size[2] / 2.0), "underside unpadded"
+        assert np.isclose(out[name][1][2] + out[name][0][2] / 2.0, centre[2] + size[2] / 2.0 + FIXTURE_PADDING_M)
     for name in ("tote", "item", "payload"):
         assert out[name] == (tuple(original[name][0]), original[name][1])
     # Larger than the measured contact-free deviation: 0.009 m at the hand base, 0.004 m more at the fingertips.
@@ -194,8 +202,7 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
     # body about 0.04 m above the TCP, estimated). 0.04 m failed this: the lift was refused in CI.
     board0, board1, item = original["work_shelf_board_0"], original["work_shelf_board_1"], original["item"]
     assert board0[1][2] + board0[0][2] / 2.0 + FIXTURE_PADDING_M < item[1][2] + 0.03 - 0.015
-    assert board1[1][2] - board1[0][2] / 2.0 - FIXTURE_PADDING_M > item[1][2] + 0.03 + 0.08 + 0.04
-    assert not board1[1][2] - board1[0][2] / 2.0 - 0.04 > item[1][2] + 0.03 + 0.08 + 0.04
+    assert board1[1][2] - board1[0][2] / 2.0 > item[1][2] + 0.03 + 0.08 + 0.04
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert 'declare_parameter("fixture_padding_m", FIXTURE_PADDING_M)' in loader
@@ -231,3 +238,16 @@ def test_the_approach_holds_the_fingers_square_to_the_items_face(yaw):
     assert vertical == 0, "the side grasp's hand x axis is the vertical"
     assert tolerances[vertical] == af.APPROACH_YAW_TOLERANCE_RAD <= 0.025
     assert all(t == af.APPROACH_ANGLE_TOLERANCE_RAD for i, t in enumerate(tolerances) if i != vertical)
+
+
+def test_the_item_sits_in_the_fingers_short_of_the_palm():
+    """The grip torque is kp times the angle where the fingers meet the item: 0.065 to 0.12 rad with the item on the TCP
+    (missions, 3 of 6 no lift), 0.137 to 0.158 rad with it 0.008 to 0.013 m deeper (10 of 10 lifted)."""
+    q = af.side_grasp(0.04)
+    item = (0.75, 0.16, 0.925)
+    tcp = np.array(af.tcp_for_item(item, q))
+    fingers = matrix(*q) @ np.array((0.0, 0.0, -1.0))
+    assert np.allclose(tcp - np.array(item), af.ITEM_DEPTH_BEHIND_TCP_M * fingers, atol=1e-12)
+    assert 0.008 <= af.ITEM_DEPTH_BEHIND_TCP_M <= af.TCP_ALONG_FINGERS_M - af.PALM_ALONG_FINGERS_M - 0.0175
+    body = _grasp_body()
+    assert "tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)" in body
