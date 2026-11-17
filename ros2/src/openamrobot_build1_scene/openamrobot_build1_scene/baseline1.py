@@ -118,8 +118,27 @@ def spawn(rig, log):
         log.quantity("spawn_drive_configured", bool(rig.get("/sil/drive/status")["configured"]), "bool", low=True, high=True)
 
 
+def scan_returns(rig, log):
+    """How the simulated LiDAR reports beams without a return: +inf (REP 117) or range_max. A no-return beam at
+    range_max is a false obstacle for the costmaps and a false wall for AMCL (openamr-platform-sw #165)."""
+    for topic in ("/scan", "/scan_filtered"):
+        scan = rig.get(topic)
+        if scan is None:
+            log.event(f"{topic}: no message, no-return beams not recorded")
+            continue
+        ranges = list(scan.ranges)
+        key = topic.strip("/").replace("/", "_")
+        log.quantity(f"{key}_beams", len(ranges), "beams")
+        log.quantity(f"{key}_no_return_inf", sum(1 for v in ranges if math.isinf(v)), "beams")
+        log.quantity(f"{key}_nan", sum(1 for v in ranges if math.isnan(v)), "beams")
+        log.quantity(f"{key}_at_range_max", sum(1 for v in ranges if math.isfinite(v) and v >= scan.range_max - 1e-3),
+                     "beams", note=f"finite readings at range_max {scan.range_max:.2f} m: a no-return reported as a range")
+        log.quantity(f"{key}_below_range_min", sum(1 for v in ranges if math.isfinite(v) and v < scan.range_min), "beams")
+
+
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
+    scan_returns(rig, log)
     gx, gy, gyaw = _station(WORK_STATION)
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"     # AMCL starts at the spawn pose in the world frame (launch_support.nav2_params)
