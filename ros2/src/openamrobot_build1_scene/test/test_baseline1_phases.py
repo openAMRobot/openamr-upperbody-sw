@@ -168,3 +168,8 @@ def test_report_script_exit_status_and_table(tmp_path, capsys):
     assert baseline1_report.main([str(tmp_path)]) == 1
     out = capsys.readouterr().out
     assert "| arm_approach |" in out and "PLANNING" in out and "drive_emulator_plant_switches = 2" in out
+
+
+def test_a_short_cartesian_path_is_a_planning_failure():
+    text = "grasp_lift_cartesian_fraction = 0.9375 1, allowed 0.999 to 1.0"
+    assert phases.classify(text) == phases.PLANNING

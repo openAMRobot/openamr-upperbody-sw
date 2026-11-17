@@ -51,7 +51,7 @@ _RULES = (  # (class, pattern on the failure text), first match wins
     (STARTUP, r"not ready after|did not start|no /build1/run_info|did not appear|no /tf |server is missing|"
               r"did not accept the goal|no parameter service"),
     (CONTACT, r"^item_|^finger_|mimic|pushed"),
-    (PLANNING, r"^nav_status"),
+    (PLANNING, r"^nav_status|_cartesian_fraction"),   # a MoveIt Cartesian path that covers less than the straight line
     (CONTROL, r"_servo_torque_max|_tracking_error|^lift_|lift did not|fault_bits|distance_from_park|park pose|"
               r"settle_time|heading_change|position_error|yaw_error|ground_truth_distance|odometry_minus|"
               r"_status = |motion_without_permit|not refused|permit did not|base_speed|along_heading|drive_configured|"
