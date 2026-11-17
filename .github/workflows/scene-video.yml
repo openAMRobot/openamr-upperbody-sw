@@ -154,8 +154,12 @@ jobs:
           launch_pid=$!
           for i in $(seq 1 120); do ros2 topic list 2>/dev/null | grep -qx /build1/rtf_stats && break; sleep 5; done
           timeout 300 ros2 topic echo --once /build1/rtf_stats std_msgs/msg/String || { tail -200 "$out/launch.log"; exit 1; }
+          # create places the entity at its -x -y -z -R -P -Y arguments (default 0) and ignores the model's own pose:
+          # the pose is read from the SDF and passed explicitly.
           for cam in observer_camera arms_camera; do
-            ros2 run ros_gz_sim create -world build1 -name "$cam" -file "$tools/$cam.sdf" 2>&1 | tee -a "$out/spawn_camera.log"
+            read -r x y z roll pitch yaw < <(python3 -c "import sys,xml.etree.ElementTree as E; print(E.parse(sys.argv[1]).find('model/pose').text)" "$tools/$cam.sdf")
+            ros2 run ros_gz_sim create -world build1 -name "$cam" -file "$tools/$cam.sdf" \
+              -x "$x" -y "$y" -z "$z" -R "$roll" -P "$pitch" -Y "$yaw" 2>&1 | tee -a "$out/spawn_camera.log"
           done
           ros2 run ros_gz_bridge parameter_bridge '/observer/image@sensor_msgs/msg/Image[gz.msgs.Image' \
             '/observer/arms_image@sensor_msgs/msg/Image[gz.msgs.Image' --ros-args -p use_sim_time:=true > "$out/bridge.log" 2>&1 &
@@ -172,7 +176,7 @@ jobs:
           kill -INT $launch_pid; sleep 10; kill -9 $launch_pid 2>/dev/null
           pkill -9 -f "gz sim" ; true
           ls "$out/frames" | wc -l; ls "$out/arms_frames" | wc -l
-          tail -3 "$out/recorder.log" "$out/recorder_arms.log"
+          tail -n 3 "$out/recorder.log" "$out/recorder_arms.log"
 
       - name: Encode video, GIF, stills and capture.json
         if: always()

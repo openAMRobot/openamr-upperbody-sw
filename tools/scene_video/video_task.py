@@ -68,11 +68,8 @@ def main(out_dir):
         rig.sleep_sim(1.0)
         step("turn_right_0.5_rad_s_for_3.14_s", truth=rig.truth())
 
-        for attempt in (1, 2):      # README Known limits: in DART the lift did not move on some commands
-            lifted = rig.lift_move(2)
-            step(f"lift_to_stop_2_L1350_attempt_{attempt}", succeeded=lifted, lift_m=rig.lift_truth())
-            if rig.lift_truth() > 0.3:
-                break
+        lifted = rig.lift_move(2)       # README Known limits: in DART the lift did not move on some commands
+        step("lift_to_stop_2_L1350", succeeded=lifted, lift_m=rig.lift_truth())
 
         mark("reach_begin")
         arms(HANDS_UP, 3.0, "arms_park_to_hands_up")
