@@ -70,6 +70,9 @@
   <test_depend>launch_testing_ament_cmake</test_depend>
   <test_depend>launch_testing</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <test_depend>ros_gz_interfaces</test_depend>
+  <test_depend>rosbag2_py</test_depend>
+  <test_depend>diagnostic_msgs</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

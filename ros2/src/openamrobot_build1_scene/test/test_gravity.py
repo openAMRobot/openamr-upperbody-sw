@@ -208,6 +208,8 @@ def test_scenario_4_adds_the_held_item_only_after_the_grasp_is_reported_and_clea
         text = f.read()
     body = text[text.index("def grasp(rig, log):"):text.index("def _held_payload(")]
     closed, held = body.index("closed = rig.gripper(side, CLOSED"), body.index("_held_payload(rig, log, side) if closed is not None")
-    lift, release = body.index('"grasp_lift"'), body.index("rig.gripper(side, OPEN)\n    if held:")
+    lift, release = body.index('"grasp_lift"'), body.index("released = True")
     assert closed < held < lift < release
-    assert body.index('{"payload_mass_kg": 0.0}') > release
+    # Cleared after the release, in the finally block of the grasp: also on a failed reach, close or lift.
+    clear = body.index('{"payload_mass_kg": 0.0}')
+    assert clear > release and body.rindex("finally:", 0, clear) > release and "if held:" in body[body.rindex("finally:", 0, clear):clear]

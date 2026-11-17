@@ -24,6 +24,38 @@ All notable changes to this repository. Evidence for the description is static a
 - **New scenarios.** `scn16_lift_fast` (stops 2, 0, 1, 2, 0, success without arrival fails) and `scn17_base_yaw_fast` (ground truth
   yaw against r * (wR - wL) / track and `/odom`, castors present, track read and not changed). New CI job "fast lift stops and
   base yaw".
+### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
+
+- **Straight reach and lift.** The scn04 reach and lift were pose goals with 0.3 rad per axis: the hand turned 8 to 31 degrees
+  between approach, grasp and lift. The fingers swept the item 24 to 55 mm before closing, and the TCP (0.138 m from the hand base)
+  rose 21 to 49 mm while the hand base rose 64 to 91 mm (Baseline 1 runs 44114692549, 44114738411, 44100053272 and diagnostics run
+  44131608383, FK of the driver's joint readings). Both are now straight lines of the hand with the orientation the approach ended
+  with, from MoveIt's `/compute_cartesian_path`, executed with `/execute_trajectory` (`arm_frames.grasp_line`, `straight_lift`).
+  The 40 mm requirement, friction, mass and gripper values are unchanged.
+- **Planning clearance to the shelf.** MoveIt planned with zero padding. In the diagnostics runs a finger hit `work_shelf_board_0` in
+  most scn03 reaches and returns and Baseline 1 retreats (9.8 to 370 N); a wedged finger made MoveIt refuse the next start state (-10),
+  left the arm 0.92 to 1.57 rad off park and drove joint 6 onto its limit (the 46 N m case). `planning_scene_loader.py` adds
+  `FIXTURE_PADDING_M` = 0.015 m on every side of each fixed box in the planning scene only (parameter `fixture_padding_m`, Proposed):
+  the executed hand base leaves its plan by at most 0.009 m without contact, 0.013 m at the fingertips. 0.04 m was tried and made the
+  lift and the level-0 reaches infeasible. Gazebo's boxes, the tote, the item and the payload are unchanged.
+- **Planning scene, release and payload after the grasp.** The item and the tote were taken out of the planning scene for the reach and
+  never put back, so later moves planned through them (a retreat drove a finger into the tote walls at 104 to 208 N). Only the item
+  leaves the scene now (`planning_scene.excluded_from_planning`), the tote stays (a finger touched its front wall during a reach). On
+  every path out of the grasp the gripper opens, the hand withdraws 0.10 m along the fingers, the payload leaves the gravity
+  feed-forward, and then the item comes back. The straight reach runs 0.02 m above the grasp height and the hand comes down onto it last, and the approach's
+  orientation tolerance is 0.12 rad per axis (was 0.3): the gripper's collision meshes reach 0.0305 m below the TCP and 0.11 m along
+  the fingers, over the tote's front wall, and a tilted hand caught the wall once (8.8 N, item pushed 45 mm). Closing higher on the
+  item instead (0.05 m) left the lifted hand no room under the board above (lift refused, 696458d). Tests: `test_arm_frames.py`, `test_gravity.py`.
+
+### Added (17 Nov 2026; Build 1 arm diagnostics; simulation only)
+
+- **Arm diagnostics workflow** `build1-arm-diagnostics.yml`: scn04 grasp-and-lift with the Baseline 1 retreat (`diag_grasp`) and the
+  scn03 level-0 reach and return (`diag_reach_return`), five runs in DART. With `BUILD1_CONTACT_SENSORS=1` the launch adds gz contact
+  sensors to the 18 arm links (`diagnostics.py`; links, joints and physics unchanged) and gz-sim's Contact system to the world.
+  `diagnostics_live.py` records per-finger contact force (normal, tangential, points), finger positions, limit flags and efforts, the
+  item against the TCP (slip and onset), hand and item heights, joint torques and limit flags on the return moves, MoveIt's planned
+  against executed path, and arm contacts with the world; `scripts/diag_table.py` prints a per-run table. Trace JSON and a bag excerpt
+  are uploaded. Default off; no scenario check or limit changed. Test dependencies: `ros_gz_interfaces`, `rosbag2_py`.
 
 ### Fixed (17 Nov 2026; Build 1 arm path, stacked on #70 `77bbf18`; simulation only)
 

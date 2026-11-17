@@ -164,6 +164,106 @@ item 6 below).
 | profiles fast and fine | 8 of 8 PASS, scn15_grasp_fast included (it failed on 16 Nov: item pushed 52 mm) |
 | drive, lift, cancel; faults; single writer | 2 PASS and 1 BLOCKED each, as on #70; scn09 PASS |
 
+## Cycle 5: Baseline 1 lift_object and the return to park, from contact forces (17 Nov)
+
+Inputs: Baseline 1 runs 44114692549 and 44114738411 (upperbody-sw `d1c88be`) and 44100053272 (`dad65e7`); scene-test
+runs on `9301130`, `2c0b7c1` and `d1c88be`; and the new workflow `build1-arm-diagnostics.yml`, which runs scn04's
+grasp-and-lift with the Baseline 1 retreat (`diag_grasp`) and scn03 at lift stop 0 (`diag_reach_return`) five times in
+DART with gz contact sensors (`diagnostics.py`, `diagnostics_live.py`, table by `scripts/diag_table.py`). Diagnostic
+runs: 44131608383 (`3b8e537`), 44135128051 (`ab79db0`), 44137806328 (`d3368c3`, first with contact forces, the
+baseline below), 44138101782 (`e1301bc`), the run of `bbd1346`, 44144252655 (`d139f76`) and the run of `696458d`.
+
+Contact sensors on the 18 robot links were advertised and silent in DART, with collision names that match the
+converted model (gz sdf, printed by the workflow). The sensors that work are in the world file: one each on the item,
+the tote and the shelf fixtures, which report the touching robot link. The model has no `self_collide`, so Gazebo
+computes no contact between two robot links: an arm cannot hit the robot body in this simulation.
+
+### lift_object: the item rose 0.0386 m
+
+Forward kinematics of the driver's joint readings at the end of `grasp_reach` and `grasp_lift` (`gravity.py` on the
+expanded model), with the item carried rigidly by the TCP:
+
+| Run | Hand base rise | TCP rise | Hand turned | Rigid-grasp item rise | Measured item rise | Difference (slip) |
+|---|---|---|---|---|---|---|
+| Baseline 1 run B, 44114738411 | 0.0642 m | 0.0436 m | 10.9 deg | 0.0439 m | 0.0386 m | 0.0053 m |
+| Baseline 1 run A, 44114692549 | 0.0905 m | 0.0485 m | 28.9 deg | 0.0516 m | 0.0519 m | -0.0003 m |
+| Baseline 1, 44100053272 | 0.0756 m | 0.0484 m | 12.6 deg | 0.0491 m | 0.0488 m | 0.0003 m |
+| scene tests `d1c88be` | 0.0794 m | 0.0684 m | 14.3 deg | 0.0689 m | 0.0473 m | 0.0216 m |
+| scene tests `9301130` | 0.0692 m | 0.0948 m | 10.7 deg | 0.0954 m | 0.0015 m | 0.0939 m |
+
+The hand did not rise 0.08 m at the item. The lift was a pose goal on the hand base with the nominal side-grasp
+orientation, a 0.015 m sphere and 0.3 rad per axis, and MoveIt ended with the hand turned 11 to 29 degrees: the TCP,
+0.138 m from the hand base, rose 0.044 to 0.049 m in the three Baseline 1 runs. Where the grasp held, the item followed
+the TCP to within 5.3 mm. The region of that goal allows a TCP rise below 0 (`arm_frames.worst_tcp_rise`).
+
+Contact forces, diagnostics baseline (`d3368c3`, 5 runs; per finger, the item's sensor, mean over lift and hold):
+
+| | Range |
+|---|---|
+| Normal force, finger 1 / finger 2 | 0.67 to 1.80 N / 1.00 to 3.97 N |
+| Needed per finger, m g / (2 mu), mass 0.15 kg and mu 1.0 (both estimated) | 0.736 N (0.98 N at the 3.25 m/s^2 peak) |
+| Tangential force on the item per finger | 0.72 to 3.31 N |
+| Contact points per message, finger 1 / finger 2 | 1.2 to 10.1 / 1.2 to 2.4 (mesh on box) |
+| Hand turned during the lift | 7.7 to 22.4 deg |
+| Item slip in the TCP frame | 9.8 to 44.2 mm, onset 0.09 to 0.52 s after the lift starts |
+| Finger joint 1 on a position limit | 0 of the samples in all five; finger joint 2 minus 1: 0.021 to 0.092 rad |
+| Arm emulator torque on finger joint 1 (kp 4.884 x error) | 0.48 to 1.58 N m |
+| Gazebo's transmitted torque about the finger axis | 0.07 to 0.24 N m |
+
+So the grip holds the item with a factor of 0.9 to 5.4 over the static need, and the friction is near its limit during
+a turning lift. The finger does not rest on its limit when it holds the item; it does when it closed on nothing (0.55
+and 0.87 of the samples in those runs). The gripper command (GripperCommand max_effort 3.0 N m) does not set the grip:
+the position adapter and the MIT kp of 5 do. The torque the emulator reports is 5 to 7 times the torque that the
+contact forces balance at the TCP's 0.07 m from the finger axis; this is not resolved here (Proposed, below).
+
+### Return to park: 46 N m with joint 6 on its limit, and 21.5 N m on joint 2
+
+Diagnostics baseline, 10 retreats and 20 scn03 reaches and returns. Contacts with the world, largest force per pair:
+
+| Move | Runs with a finger on `work_shelf_board_0` | Force | Other contacts |
+|---|---|---|---|
+| Baseline 1 retreat of the left arm (tote and item out of the planning scene) | 4 of 5 | 18 to 89 N | tote front and right walls 84 to 162 N in 2 runs, item 0.7 to 21 N |
+| scn03 reach, left or right | 6 of 10 | 9.8 to 76 N | item under the left target: 0.5 to 1.2 N |
+| scn03 return to park | 8 of 10 | 3.8 to 68 N | item 17 N once |
+
+The retreat that ended 0.785 rad from park (joint 6 on its upper limit, joint 1 at 36.7 N m) had a finger on the board
+at 89 N: the 46 N m case of 44100053272. A reach that ends displaced (0.13 to 0.19 m at the hand, joint 2 at 18 to 21 N m,
+the 21.5 N m case) has a finger on the board at 42 to 76 N. When it wedges there, MoveIt refuses the next start state
+(-10 START_STATE_IN_COLLISION, three attempts) and the arm stays 0.92 to 1.57 rad from park. The plans are inside the
+joint limits (margin 0.039 to 0.109 rad). MoveIt plans with zero padding, and the executed hand base leaves its planned
+path by up to 0.009 m where it touches nothing (`hand_path_deviation_m`, runs of `bbd1346` and `d139f76`). Not a gravity feed-forward error: its
+command was never zero after start-up, and the gains were not touched. Not a collision with the robot body: none is
+simulated.
+
+### Fixes
+
+| Fix | Test (fails when reverted) |
+|---|---|
+| scn04 reach and lift are straight lines of the hand with the orientation the approach ended with (`/compute_cartesian_path`, `/execute_trajectory`; `arm_frames.grasp_line`, `straight_lift`) | `test_arm_frames.py`: grasp line, lift on straight lines, old goal region |
+| Only the item leaves the planning scene; on every path out of the grasp the gripper opens, the hand withdraws 0.10 m along the fingers, the payload is cleared, then the item returns (`planning_scene.excluded_from_planning`, `_withdraw`) | `test_arm_frames.py`: exclusion on every path, order of release, withdraw and return; `test_gravity.py`: payload cleared in the finally block |
+| 0.015 m planning clearance on every fixed box, planning scene only (`FIXTURE_PADDING_M`, loader parameter `fixture_padding_m`) | `test_arm_frames.py`: padded boxes, measured deviation, lift and grasp still feasible (0.04 m is refused) |
+| The straight reach runs 0.02 m above the grasp height (0.03 m above the item centre, unchanged) and comes down last; approach tolerance 0.12 rad per axis (was 0.3); from the gripper's collision meshes over the tote's front wall and under the board above | `test_arm_frames.py`: hand above the wall on the way in, lifted hand below the padded board above |
+
+The 40 mm requirement, friction, masses, gains, limits and the gripper values are unchanged. 0.04 m of clearance was
+tried (`bbd1346`): it closed the 0.25 m between the work shelf boards and the lift and the level-0 reaches were refused
+(Cartesian fractions 0.52 to 0.88, MoveIt 99999).
+
+### After the fixes
+
+| Head | Grasps passing | Item rise | Item minus TCP rise | Hand turned in the lift | Retreats and scn03 returns at park | Board contacts in reaches and returns |
+|---|---|---|---|---|---|---|
+| `d3368c3` (before) | 3 of 5 | 0.0166 to 0.0822 m | -42.8 to -8.5 mm | 7.7 to 22.4 deg | 19 of 20 | 18 of 30 moves |
+| `d139f76` | 4 of 5 | 0.0797 to 0.0803 m (one 0: wall caught in the reach) | -3.4 to -2.5 mm | 0.7 to 0.8 deg | 20 of 20 | 0 of 30 moves (tote wall 8 to 48 N in 3) |
+| `696458d` (grasp 0.05 m above the centre, reverted) | 0 of 5: lift refused, Cartesian fraction 0.71 to 0.82 | - | - | - | 20 of 20 | 0 of 30 moves |
+| `b2fd0b3` (run 44150680222) | 5 of 5 | 0.0788 to 0.0795 m | -4.1 to -3.7 mm | 0.7 to 0.8 deg | 20 of 20 | 0 of 30 moves (tote wall 24 to 888 N in 3 returns, see below) |
+
+On `b2fd0b3` the normal force per finger was 1.95 to 2.35 N (2.7 to 3.2 times the static need), the slip 4.2 to 6.3 mm,
+no reach touched the tote, and the scene tests passed scn04 (0.0799 m), scn09 and all eight `fast`/`fine` scenarios
+(scn15 0.0646 m); scn02, scn03 and scn05 were BLOCKED by the CTL-017 lift model at real-time factors 0.32 to 0.53, as
+before. Still open on that head: the withdraw after the release was refused in 3 of 5 runs (Cartesian fraction 0.0 in
+one), and in one of those the retreat then hit the tote (888 N peak, joint 6 on its limit for a moment) before it
+reached park; the scn03 left target sits 0.015 m above the item's top and the hand base touches it (0.3 to 6.7 N).
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the
@@ -215,7 +315,7 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
 5. Emulator effects (torque quantisation of the 12-bit tau field, the damping filter above 200 Hz) are inside the
    loop and were not separated here.
 6. scn03 level-0 reach: one arm per run ends displaced by up to 1.21 rad with a sound plan (right in cycles 2 and 4,
-   left in cycle 3). The
-   same vector holds in MuJoCo, which has no shelf. Next step: a Gazebo contact sensor or the contacts topic on the
-   hand and forearm links during scn03, or one rendered run of scn03, before any parameter is touched.
+   left in cycle 3). Explained in cycle 5: a finger on the edge of work_shelf_board_0 (42 to 76 N). Fixed there by a
+   planning clearance. Still open: the left target is 0.015 m above the item's top, and the hand base touches the item
+   (0.4 to 16 N) in most runs; once that held the servo torque at 0.73 N m.
 7. scn03 never reaches level 1 in CI: the lift move faults the CTL-017 model below a real-time factor of 0.55.

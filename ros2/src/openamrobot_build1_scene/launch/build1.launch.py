@@ -83,6 +83,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
+from openamrobot_build1_scene import diagnostics
 from openamrobot_build1_scene import launch_support as support
 from openamrobot_build1_scene import scene as scene_model
 
@@ -199,8 +200,11 @@ def launch_setup(context):
     spawn = scene_model.station(scene, value("station"))
     work_dir = tempfile.mkdtemp(prefix="build1_scene_")
     world_file = os.path.join(work_dir, f"build1_{step}.sdf")
+    # Diagnostics only (BUILD1_CONTACT_SENSORS=1): contact sensors on the arm links and gz-sim's Contact system.
+    contact_links = diagnostics.contact_links() if diagnostics.enabled(os.environ) else []
+    world_text = scene_model.world_sdf(scene, step, sensors=sensors)
     with open(world_file, "w", encoding="utf-8") as f:
-        f.write(scene_model.world_sdf(scene, step, sensors=sensors))
+        f.write(diagnostics.world_with_contact_system(world_text) if contact_links else world_text)
     map_file = scene_model.write_map(scene, work_dir)
     objects = sorted(scene_model.movable_objects(scene))
     control_share, emulator_share = get_package_share_directory(CONTROL), get_package_share_directory(EMULATOR)
@@ -249,6 +253,16 @@ def launch_setup(context):
         requested = 750 if support.direct_overlay_needed(step) else arm_controllers["controller_manager"]["ros__parameters"]["update_rate"]
         info.update(lift_command_interface="effort", lift_controller_overlay=os.path.basename(overlays[-1]))
         info.update(controller_rate_requested_hz=requested, controller_rate_hz=support.effective_rate(support.step_seconds(scene, step), requested))
+    if contact_links:
+        with_sensors = diagnostics.with_contact_sensors(sim_urdf, contact_links)
+        root_urdf = with_sensors if root_urdf is sim_urdf else root_urdf
+        sim_urdf = with_sensors
+        info["contact_sensors"] = contact_links
+        model_copy = os.path.join(os.environ.get("BUILD1_LOG_DIR", work_dir), "diag_plant_model.urdf")
+        os.makedirs(os.path.dirname(model_copy), exist_ok=True)
+        with open(model_copy, "w", encoding="utf-8") as f:
+            f.write(sim_urdf)
+        actions.append(LogInfo(msg=f"diagnostics: plant model with contact sensors written to {model_copy}"))
     info["model_sha256"] = hashlib.sha256(sim_urdf.encode()).hexdigest()
     info["finger_joint2_owner"] = "finger_mimic_follower.py" if follower else "mimic constraint of the engine"
     actions.append(LogInfo(msg="Build 1 scene: " + json.dumps(info, sort_keys=True)))
@@ -270,6 +284,12 @@ def launch_setup(context):
     temp_files.append(control_bridge_file)
     actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_control_bridge", output="screen",
                         parameters=[{"config_file": control_bridge_file}]))
+    if contact_links:
+        contact_bridge_file = temp_yaml("build1_contact_bridge_", diagnostics.contact_bridge(
+            contact_links + [diagnostics.world_contact_link(model) for model in diagnostics.WORLD_SENSOR_MODELS]))
+        temp_files.append(contact_bridge_file)
+        actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_contact_bridge", output="screen",
+                            parameters=[{"config_file": contact_bridge_file}]))
     if sensors:
         sensor_bridge_file = temp_yaml("build1_sensor_bridge_", support.sensor_bridge(flag("extra_sensors")))
         temp_files.append(sensor_bridge_file)

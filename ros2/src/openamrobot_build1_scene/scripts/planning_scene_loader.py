@@ -8,7 +8,8 @@ when Nav2 localises, else the spawn pose with odom -> base_footprint). When the 
 again. This node is the one writer of /planning_scene besides move_group itself.
 
 Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
-before a grasp. Simulation only.
+before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
+side; the tote, the item and the payload get none. Simulation only.
 """
 import math
 
@@ -23,6 +24,7 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
+from openamrobot_build1_scene.planning_scene import FIXTURE_PADDING_M, padded
 
 
 def yaw_of(q):
@@ -34,7 +36,11 @@ class PlanningSceneLoader(Node):
         super().__init__("planning_scene_loader")
         self.scene = scene_model.load(self.declare_parameter("scene_file", "").value)
         self.spawn = self.declare_parameter("spawn_pose", [0.0, 0.0, 0.0]).value
-        self.boxes = scene_model.collision_boxes(self.scene)
+        padding = float(self.declare_parameter("fixture_padding_m", FIXTURE_PADDING_M).value)
+        fixed = {name for name, _size, _centre, _yaw in scene_model.static_boxes(self.scene)}
+        self.boxes = padded(scene_model.collision_boxes(self.scene), fixed, padding)
+        self.get_logger().info(f"planning clearance {padding} m on every side of the {len(fixed)} fixed boxes; "
+                               "tote, item and payload unpadded")
         self.excluded, self.sent_names = set(), set()
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
