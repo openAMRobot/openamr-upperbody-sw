@@ -891,6 +891,33 @@ def base_yaw(rig, log):
                 log.quantity(f"{name}_ground_truth_minus_kinematic_percent",
                              100.0 * (_distance(truth0, truth1) - kinematic_distance) / kinematic_distance, "%")
                 log.quantity(f"{name}_ground_truth_heading_change", truth_yaw, "rad")
+
+        # The command sequence of the scene video of 16 Nov 2026 (tools/scene_video/video_task.py on viz/scene-video):
+        # arms to park, 0.2 m/s for 8 s, 1 s, -0.5 rad/s for 3.14 s, 1 s. That run gave -1.508 rad of ground truth yaw.
+        name = "video_sequence_turn"
+        handles = {side: rig.follow_joint_trajectory(side, PARK, 3.0) for side in ("left", "right")}
+        for side, handle in handles.items():
+            log.require(handle is not None and rig.succeeded(rig.wait_result(handle, 23.0, f"{side} park")[0]), f"{side} arm to park")
+        rig.sleep_sim(1.0)
+        drive.command = (0.2, 0.0)
+        rig.sleep_sim(8.0)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
+        drive.command = (0.0, -0.5)
+        rig.sleep_sim(3.14)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth1, odom1, (left1, right1) = rig.truth(), rig.odom(), wheels()
+        kinematic_yaw = radius * ((right1 - right0) - (left1 - left0)) / track
+        truth_yaw, odom_yaw = angle_diff(truth1[2], truth0[2]), angle_diff(odom1[2], odom0[2])
+        log.quantity(f"{name}_commanded_yaw", -0.5 * 3.14, "rad", kind="command")
+        log.quantity(f"{name}_kinematic_yaw", kinematic_yaw, "rad", note="r * (dR - dL) / track from the wheel joint positions")
+        log.quantity(f"{name}_ground_truth_yaw", truth_yaw, "rad", note="the video run gave -1.508 rad")
+        log.quantity(f"{name}_odometry_yaw", odom_yaw, "rad")
+        log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%")
+        log.quantity(f"{name}_ground_truth_minus_commanded_percent", 100.0 * (truth_yaw + 1.57) / -1.57, "%")
+        log.quantity(f"{name}_still_turning_at_reading", rig.truth_speed()[1], "rad/s", note="ground truth yaw rate 1 s after the stop")
     finally:
         drive.stop()
 

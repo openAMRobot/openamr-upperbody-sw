@@ -21,7 +21,7 @@ joints:
   right_wheel_joint: *wheel
   lift_joint:
     group: lift
-    direct: "MoveIt or an action client > lift_controller in /controller_manager > position interface of gz_ros2_control > Gazebo"
+    direct: "MoveIt or an action client > lift_controller in /controller_manager > effort interface of gz_ros2_control > Gazebo"
     devices: "/sil/lift/command and /sil/lift/permit > sil_stm32_host_client > vcan_aux (RPDO1 0x210, permit 0x410) > sil_ctl017 > /sil/lift/gz_cmd_vel > build1_control_bridge > JointController of the lift > Gazebo"
   left_arm: &arm
     group: arm
@@ -107,12 +107,14 @@ tf_frames:
   nav2: {/amcl: {odom: map}}
 
 # ros2_control: each controlled joint has exactly one claimed command interface.
-#   direct   one controller manager, in Gazebo. Position, claimed by the trajectory and gripper controllers.
+#   direct   one controller manager, in Gazebo. Position, claimed by the trajectory and gripper controllers, except
+#            lift_joint: effort, claimed by lift_controller (config/lift_controller_gazebo.yaml; DART cannot lift the joint
+#            off its lower limit through the position interface, docs/build1_lift_and_base_diagnosis.md).
 #   devices  /sim/controller_manager in Gazebo: effort, claimed by the arm emulator of that side. The lift has no
 #            ros2_control interface there at all. /controller_manager with the real driver: position.
 controller_managers:
   direct:
-    - {name: /controller_manager, claimed: position, joints: [arm, gripper, lift]}
+    - {name: /controller_manager, claimed: position, joints: [arm, gripper, lift], claimed_by_group: {lift: effort}}
   devices:
     - {name: /sim/controller_manager, claimed: effort, joints: [arm, gripper], absent_joints: [lift_joint]}
     - {name: /controller_manager, claimed: position, joints: [arm, gripper]}

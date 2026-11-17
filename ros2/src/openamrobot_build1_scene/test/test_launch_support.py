@@ -214,3 +214,44 @@ def test_nav2_parameters_keep_the_platform_values_and_get_the_spawn_pose():
     assert "initial_pose" not in platform["amcl"]["ros__parameters"]
     assert support.deep_merge({"a": {"b": 1, "c": 2}}, {"a": {"b": 3}}) == {"a": {"b": 3, "c": 2}}
     assert (load_yaml("config", "nav2_overrides.yaml") or {}) == {}, "an override must be listed in the README first"
+
+
+def test_lift_effort_plant_adds_one_effort_interface_to_the_lift_and_nothing_else(direct_urdf, devices_urdf):
+    """docs/build1_lift_and_base_diagnosis.md: without devices lift_controller commands effort, because DART skips a
+    velocity servo while the joint rests on its lower limit under gravity."""
+    urdf = support.lift_effort_plant(direct_urdf)
+    block = re.search(r'<ros2_control name="openamr_lift_gazebo".*?</ros2_control>', urdf, re.S).group(0)
+    assert re.findall(r'<command_interface name="(\w+)"\s*/>', block) == ["position", "effort"]
+    pair = '<command_interface name="position"/><command_interface name="effort"/>'
+    assert urdf.count(pair) == 1 and urdf.replace(pair, '<command_interface name="position"/>') == direct_urdf, "only the one interface is added"
+    arms = re.search(r'<ros2_control name="openamr_arms_gazebo".*?</ros2_control>', urdf, re.S).group(0)
+    assert arms == re.search(r'<ros2_control name="openamr_arms_gazebo".*?</ros2_control>', direct_urdf, re.S).group(0)
+    with pytest.raises(RuntimeError, match="openamr_lift_gazebo"):
+        support.lift_effort_plant(support.sim_description(devices_urdf))
+
+
+def test_lift_controller_overlay_commands_effort_and_checks_the_goal():
+    parameters = load_yaml("config", "lift_controller_gazebo.yaml")["lift_controller"]["ros__parameters"]
+    assert parameters["command_interfaces"] == ["effort"] and parameters["state_interfaces"] == ["position", "velocity"]
+    gains = parameters["gains"]["lift_joint"]
+    assert gains["p"] > 0 and gains["i"] > 0 and gains["d"] >= 0
+    constraints = parameters["constraints"]
+    assert constraints["goal_time"] > 0, "with goal_time 0 the controller waits forever instead of aborting"
+    with open(package_path("openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        window = float(re.search(r"^LIFT_STOP_TOLERANCE_M = ([0-9.]+)", f.read(), re.M).group(1))
+    assert 0 < constraints["lift_joint"]["goal"] <= window, "a goal tolerance of 0 is not checked: success without arrival"
+
+
+def test_the_direct_overlay_merges_the_fine_step_values_and_the_lift_controller():
+    with open(package_path("..", "openamrobot_upperbody_control", "config", "sim_overlay.yaml"), encoding="utf-8") as f:
+        import yaml
+        fine = yaml.safe_load(f)
+    lift = load_yaml("config", "lift_controller_gazebo.yaml")
+    merged = support.merge_parameters(fine, lift)
+    assert merged["controller_manager"]["ros__parameters"]["update_rate"] == 750
+    assert merged["lift_controller"]["ros__parameters"]["command_interfaces"] == ["effort"]
+    assert merged["left_gripper_controller"] == fine["left_gripper_controller"]
+    assert support.merge_parameters({"a": {"b": 1, "c": [1]}}, {"a": {"c": [2]}}) == {"a": {"b": 1, "c": [2]}}
+    with open(package_path("launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert "lift_controller_gazebo.yaml" in launch and "support.lift_effort_plant(" in launch

@@ -188,9 +188,10 @@ Rule: `docs/architecture/sil-topology.md` section 6 of openamr-platform-sw #141.
 - **Arm reach in `firmware_sil`.** MoveIt reports success for both arms at L1000. The hand base settles 0.03 to
   0.09 m from the goal. In one run the left arm then stood in contact with the shelf board in MoveIt's scene, and
   MoveIt refused to plan the return. The scenario fails there and never reaches the second lift height.
-- **Lift motion in DART.** Intermittent in local runs of `fast`: the same command moved the lift in some runs and not
-  in others, with no fault. One CI move in `firmware_sil` ended in a stall fault at a real-time factor of 0.53. The
-  cause is open. No lift move over CAN3 has passed.
+- **Lift motion in DART.** In `fast` and `fine` the lift could not leave its lower limit through the position
+  interface of `gz_ros2_control`, and `lift_controller` reported success without the joint moving. Cause, fix and
+  numbers: [`build1_lift_and_base_diagnosis.md`](build1_lift_and_base_diagnosis.md). Over CAN3 the lift leaves L1000
+  and then stops on a CTL-017 stall fault at a real-time factor of about 0.55. No lift move over CAN3 has passed.
 - **MoveIt from the activation pose with the real driver.** Joint 4 reads 0.0002 rad below its lower limit and MoveIt
   refuses the start state. The scenarios first command the park pose through the arm controllers.
 - **Bullet Featherstone base.** See Engines.

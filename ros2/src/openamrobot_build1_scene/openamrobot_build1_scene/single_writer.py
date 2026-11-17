@@ -126,12 +126,20 @@ def interface_problems(command_map, kind, interfaces_by_manager):
             present = sorted(name for name in interfaces if name.startswith(f"{joint}/"))
             if present:
                 problems.append(f"{manager['name']}: {joint} must have no command interface, found {present}")
-        for joint in joints_of_groups(command_map, manager["joints"]):
-            claimed = sorted(name for name, is_claimed in interfaces.items() if name.startswith(f"{joint}/") and is_claimed)
-            if claimed != [f"{joint}/{manager['claimed']}"]:
-                problems.append(f"{manager['name']}: {joint} has claimed command interfaces {claimed}, "
-                                f"the map says ['{joint}/{manager['claimed']}']")
+        for group in manager["joints"]:
+            kind_of_group = claimed_interface(manager, group)
+            for joint in joints_of_groups(command_map, [group]):
+                claimed = sorted(name for name, is_claimed in interfaces.items() if name.startswith(f"{joint}/") and is_claimed)
+                if claimed != [f"{joint}/{kind_of_group}"]:
+                    problems.append(f"{manager['name']}: {joint} has claimed command interfaces {claimed}, "
+                                    f"the map says ['{joint}/{kind_of_group}']")
     return problems
+
+
+def claimed_interface(manager, group):
+    """The command interface the map says a controller manager claims for a joint group: `claimed`, unless
+    `claimed_by_group` names another one for that group."""
+    return manager.get("claimed_by_group", {}).get(group, manager["claimed"])
 
 
 def mapped_joints(command_map):

@@ -105,7 +105,7 @@ devices only: they turn MIT frames into joint effort and joint state into reply 
 | Joint | `fast`, `fine` | `firmware_sil`, `faults` |
 |---|---|---|
 | `left_wheel_joint`, `right_wheel_joint` | `/cmd_vel` > control bridge > DiffDrive plugin of the base | `/cmd_vel` > host test client > `vcan_drive` (SDO 60FFh, or RPDO 0x201 with `stm32:=renode_readonly`) > ZLAC8015D emulator > `/sil/drive/gz_cmd_vel` > `wheel_command_adapter` > one velocity input per wheel |
-| `lift_joint` | `lift_controller` > position interface of `gz_ros2_control` | `/sil/lift/command` and `/sil/lift/permit` > host test client > `vcan_aux` (RPDO1 0x210, permit 0x410) > CTL-017 emulator > velocity input of the lift |
+| `lift_joint` | `lift_controller` > effort interface of `gz_ros2_control` (`config/lift_controller_gazebo.yaml`) | `/sil/lift/command` and `/sil/lift/permit` > host test client > `vcan_aux` (RPDO1 0x210, permit 0x410) > CTL-017 emulator > velocity input of the lift |
 | `openarm_{left,right}_joint1..7` | `{side}_arm_controller` > position interface of `gz_ros2_control` | `{side}_arm_controller` in `/controller_manager` > `openarm_hardware/OpenArmHW` > `vcan_arm_{l,r}` (CAN FD) > `{side}_arm_emulator` in `/sim/controller_manager` > effort interface |
 | `openarm_{left,right}_finger_joint1` | `{side}_gripper_controller` > position interface | `{side}_gripper_controller` > real driver > `vcan_arm_{l,r}` (CAN FD) > `{side}_arm_emulator` > effort interface |
 | `openarm_{left,right}_finger_joint2` | mimic joint, no controller. Owner by engine: the mimic constraint of Bullet Featherstone, else `finger_mimic_follower` | the same |
@@ -283,9 +283,12 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
   controller reads as a stall. `scn04_grasp` fails there today. The grasp passes in `fast` with Bullet Featherstone.
 - **Arm accuracy through the real driver.** MoveIt reports success, and the hand base settles 0.03 to 0.07 m from a
   goal region of 0.02 m, under gravity with the driver's gains.
-- **Lift in DART.** In local runs of `fast` the lift did not move on some commands and moved on others, with the same
-  command and no fault reported. In CI one lift move in `firmware_sil` ended in a stall fault of the CTL-017 model
-  at a real-time factor of 0.53. The cause is open.
+- **Lift in DART.** Through the position interface of `gz_ros2_control` the lift could not leave its lower limit
+  (L1000) in `fast` and `fine`, and `lift_controller` still reported success. Cause and fix:
+  [`docs/build1_lift_and_base_diagnosis.md`](../../../docs/build1_lift_and_base_diagnosis.md). `fast` and `fine` now
+  drive the lift through an effort interface with a goal tolerance (`config/lift_controller_gazebo.yaml`), added by the
+  launch to the plant model only. The device profiles keep the CTL-017 velocity input; the same DART limit applies
+  there when the lift rests on its lower limit (see that document).
 - **Lift on a slow machine.** On the CI runner the full device stack ran at a real-time factor of 0.26 to 0.50.
   The CTL-017 model needs about 0.5 while the lift moves. Lift checks report BLOCKED there.
 

@@ -97,6 +97,42 @@ def sim_description(urdf):
     return urdf
 
 
+LIFT_EFFORT_ANCHOR = '<ros2_control name="openamr_lift_gazebo" type="system">'
+LIFT_POSITION_COMMAND = re.compile(r'(<ros2_control name="openamr_lift_gazebo" type="system">.*?<joint name="lift_joint">\s*'
+                                   r'<command_interface name="position"\s*/>)', re.S)
+
+
+def lift_effort_plant(urdf):
+    """The plant URDF of the profiles without devices (fast, fine): lift_joint of the system openamr_lift_gazebo gets an
+    effort command interface next to its position one, for lift_controller (config/lift_controller_gazebo.yaml).
+
+    gz_ros2_control turns a position command into a joint velocity command. DART applies it as a servo constraint of the
+    lowest priority: while the joint rests on its lower limit under gravity, the limit constraint is active at every step
+    and the servo is skipped, so the lift cannot leave L1000 (docs/build1_lift_and_base_diagnosis.md). An effort command
+    is a joint force in the dynamics. No link, joint, limit, mass or inertia changes; the description package is not edited."""
+    if urdf.count(LIFT_EFFORT_ANCHOR) != 1:
+        raise RuntimeError("the lift ros2_control system openamr_lift_gazebo was not found exactly once in the model")
+    urdf, added = LIFT_POSITION_COMMAND.subn(r'\1<command_interface name="effort"/>', urdf)
+    if added != 1:
+        raise RuntimeError("lift_joint of openamr_lift_gazebo has no position command interface to put the effort one next to")
+    return urdf
+
+
+def merge_parameters(*documents):
+    """ROS parameter documents merged in order, a later value wins, nested dictionaries are merged key by key."""
+    def merge(into, other):
+        for key, value in other.items():
+            if isinstance(value, dict) and isinstance(into.get(key), dict):
+                merge(into[key], value)
+            else:
+                into[key] = copy.deepcopy(value)
+        return into
+    out = {}
+    for document in documents:
+        merge(out, document or {})
+    return out
+
+
 def step_seconds(scene, profile):
     return float(scene["physics_profiles"][profile]["max_step_size"])
 

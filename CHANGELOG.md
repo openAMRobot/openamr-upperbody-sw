@@ -5,6 +5,18 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
+
+- **Lift in `fast` and `fine` on DART.** The lift could not leave its lower limit (L1000) through the position interface of
+  `gz_ros2_control`: DART skips a velocity servo on a joint loaded into its position limit. `lift_controller` reported success
+  anyway (no goal tolerance). The launch now adds an effort command interface to `lift_joint` in the plant model only, and
+  `config/lift_controller_gazebo.yaml` makes `lift_controller` command effort with a 3 mm goal tolerance and a 2 s goal time.
+  The description, the joint limits and the 350 mm travel are unchanged. `rig.lift_move` checks arrival on `/joint_states`.
+  The command map claims `lift_joint/effort` without devices. Evidence: `docs/build1_lift_and_base_diagnosis.md`.
+- **New scenarios.** `scn16_lift_fast` (stops 2, 0, 1, 2, 0, success without arrival fails) and `scn17_base_yaw_fast` (ground truth
+  yaw against r * (wR - wL) / track and `/odom`, castors present, track read and not changed). New CI job "fast lift stops and
+  base yaw".
+
 ### Changed (15 Nov 2026, 23:59 Kyiv; WS0 repin of the Build 1 scene)
 
 Main `37b93f5` (with #66 in its merged form) merged into this branch. Pins moved: openamr-platform-sw main `0741778` to `69847ab`
