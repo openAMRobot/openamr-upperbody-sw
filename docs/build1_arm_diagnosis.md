@@ -14,7 +14,7 @@ Their download host was refused by this session's network policy. The evidence b
 | Failure | Cause, one sentence |
 |---|---|
 | scn03: right arm "3.0 rad from park" (fixed: both arms return; right reach still displaced, see cycle 2) | The return move was never planned: MoveIt refused the start state three times (error -26, START_STATE_INVALID, log lines 14990, 15003, 15016) because `openarm_right_joint1` read -1.39639 rad, 9.1e-5 rad past its lower limit -1.3963, which is less than one step (3.8e-4 rad) of the Damiao position field the driver reads it through, and the start-state clamp only allowed 1e-5 rad. |
-| scn04: gripper stays at 0.785 rad, MoveIt -10 on grasp_lift (fixed, PASS in cycle 2) | No gravity torque reaches the arm motors (the MIT frame's tau is 0), so with the driver's gains the hand settles about 7 cm below the grasp pose, its finger lands on the shelf board, friction holds the finger where it is when the close command arrives, and MoveIt then refuses the lift because the measured start state is in collision with the board (error -10, START_STATE_IN_COLLISION). |
+| scn04: gripper stays at 0.785 rad, MoveIt -10 on grasp_lift (fixed: PASS in cycle 2; cycles 3 and 4 grasp, lift and hold the item and fail only the new tracking check, see below) | No gravity torque reaches the arm motors (the MIT frame's tau is 0), so with the driver's gains the hand settles about 7 cm below the grasp pose, its finger lands on the shelf board, friction holds the finger where it is when the close command arrives, and MoveIt then refuses the lift because the measured start state is in collision with the board (error -10, START_STATE_IN_COLLISION). |
 
 Neither failure is a joint-order, left/right, sign, offset or wrap-around error, and in both the command reached the
 motor emulator. The 3.0 rad is the reach pose itself, held because no return trajectory was ever sent.
@@ -152,6 +152,18 @@ So one of the two level-0 reaches is displaced in each run, the right one in cyc
 with sound plans and the other arm tracking to 0.02 rad. The scene objects do not move. Not explained yet (open
 item 6 below).
 
+## CI cycle 4 (head `d7c6ffd`, run 43991379633)
+
+| Check | Cycle 4 |
+|---|---|
+| scn04 | item lifted 71 mm and held. FAIL on `grasp_lift_servo_torque_max` 0.75 N m (joint 1, 0.0107 rad) |
+| scn04, why | the held item is not in the gravity model: 0.15 kg x 9.81 m/s^2 x about 0.5 m from joint 1 = 0.74 N m. The check finds the missing payload term; the unloaded moves read 0.15 and 0.26 N m |
+| scn03 left reach | 0.20 N m, hand base 13.7 mm from the target |
+| scn03 right reach | displaced again: joint 7 -1.21 rad, joint 2 0.18 rad (12.8 N m at kp 70), hand base 0.13 m off; plan inside the limits |
+| scn03 result | BLOCKED: CTL-017 lift fault at real-time factor 0.32 |
+| profiles fast and fine | 8 of 8 PASS, scn15_grasp_fast included (it failed on 16 Nov: item pushed 52 mm) |
+| drive, lift, cancel; faults; single writer | 2 PASS and 1 BLOCKED each, as on #70; scn09 PASS |
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the
@@ -189,7 +201,9 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
 
 ## Remaining risk
 
-1. The gravity model has no payload: an item in the hand is not compensated (0.15 kg in scn04).
+1. The gravity model has no payload: an item in the hand is not compensated (0.15 kg in scn04, 0.75 N m left on
+   joint 1, which fails `grasp_lift_servo_torque_max`). Next step: add the held item's mass at the TCP while the
+   gripper reports a grasp.
 2. The feed-forward runs as a ROS node at 100 Hz of ROS time, not in the real-time loop. On hardware it would need
    the software lead's decision, a payload model and a review of what happens when the joint states stop (today:
    the effort controller keeps its last command).
@@ -199,7 +213,8 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
    measured from the meshes.
 5. Emulator effects (torque quantisation of the 12-bit tau field, the damping filter above 200 Hz) are inside the
    loop and were not separated here.
-6. scn03 level-0 reach: one arm per run ends displaced by up to 0.67 rad with a sound plan (cycles 2 and 3). The
+6. scn03 level-0 reach: one arm per run ends displaced by up to 1.21 rad with a sound plan (right in cycles 2 and 4,
+   left in cycle 3). The
    same vector holds in MuJoCo, which has no shelf. Next step: a Gazebo contact sensor or the contacts topic on the
    hand and forearm links during scn03, or one rendered run of scn03, before any parameter is touched.
 7. scn03 never reaches level 1 in CI: the lift move faults the CTL-017 model below a real-time factor of 0.55.
