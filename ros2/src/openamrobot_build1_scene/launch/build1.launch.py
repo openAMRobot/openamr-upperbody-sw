@@ -248,6 +248,11 @@ def launch_setup(context):
         root_urdf = with_sensors if root_urdf is sim_urdf else root_urdf
         sim_urdf = with_sensors
         info["contact_sensors"] = contact_links
+        model_copy = os.path.join(os.environ.get("BUILD1_LOG_DIR", work_dir), "diag_plant_model.urdf")
+        os.makedirs(os.path.dirname(model_copy), exist_ok=True)
+        with open(model_copy, "w", encoding="utf-8") as f:
+            f.write(sim_urdf)
+        actions.append(LogInfo(msg=f"diagnostics: plant model with contact sensors written to {model_copy}"))
     info["model_sha256"] = hashlib.sha256(sim_urdf.encode()).hexdigest()
     info["finger_joint2_owner"] = "finger_mimic_follower.py" if follower else "mimic constraint of the engine"
     actions.append(LogInfo(msg="Build 1 scene: " + json.dumps(info, sort_keys=True)))

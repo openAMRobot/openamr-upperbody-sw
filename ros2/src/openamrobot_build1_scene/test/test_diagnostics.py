@@ -128,3 +128,8 @@ def test_the_table_reads_one_run(tmp_path):
     out = subprocess.run([sys.executable, package_path("scripts", "diag_table.py"), str(run)], capture_output=True, text=True, check=True).stdout
     assert "| run1 | FAIL | 0.160 | 9.50 |" in out and "0.0433" in out and "0.0386 |" in out
     assert "| run1 | retreat_left_to_park | 0.780 | joint6 7.9 | joint6:upper |" in out and "ee_link1~tote:front_collision: 30.0" in out
+
+
+def test_resampling_drops_repeated_states():
+    stair = [(0.00, 0.0), (0.01, 0.0), (0.02, 0.001), (0.05, 0.001), (0.06, 0.002), (0.11, 0.004)]
+    assert dx.resample(stair, 0.05) == [(0.00, 0.0), (0.05, 0.001), (0.11, 0.004)]

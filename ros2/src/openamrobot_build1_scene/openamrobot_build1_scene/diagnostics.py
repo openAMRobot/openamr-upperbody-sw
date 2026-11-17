@@ -182,6 +182,16 @@ def planned_limit_margin(planned, limits_by_index):
     return margin
 
 
+def resample(samples, spacing):
+    """Every sample at least `spacing` seconds after the last one kept: sampled states repeat between messages, and a
+    second difference over repeated values is noise, not acceleration."""
+    out = []
+    for t, value in samples:
+        if not out or t - out[-1][0] >= spacing:
+            out.append((t, value))
+    return out
+
+
 def peak_vertical_accel(samples):
     """Largest |d2z/dt2| (m/s^2) of [(t, z)] by central differences over the recorded samples; None with fewer than 3."""
     if len(samples) < 3:

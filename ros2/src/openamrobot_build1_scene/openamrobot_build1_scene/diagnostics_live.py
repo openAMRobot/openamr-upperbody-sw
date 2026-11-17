@@ -14,6 +14,7 @@ Simulation only.
 import json
 import math
 import os
+import subprocess
 import threading
 import time
 
@@ -226,6 +227,27 @@ class Recorder:
         return f"bag not written ({last_error})"
 
 
+def gz_probe(topics, echo_s=4.0):
+    """What gz transport shows for the contact sensors: the advertised contact topics, and whether one message arrives on
+    each of `topics` within `echo_s` wall seconds. Text for the log; a probe failure is reported, not raised."""
+    lines = []
+    try:
+        listed = subprocess.run(["gz", "topic", "-l"], capture_output=True, text=True, timeout=20).stdout.split()
+        contact = [t for t in listed if "contact" in t]
+        lines.append(f"gz topic -l: {len(listed)} topics, {len(contact)} with 'contact': {contact[:24]}")
+    except Exception as error:  # noqa: BLE001
+        lines.append(f"gz topic -l failed: {error}")
+    for topic in topics:
+        try:
+            done = subprocess.run(["timeout", str(echo_s), "gz", "topic", "-e", "-n", "1", "-t", topic],
+                                  capture_output=True, text=True, timeout=echo_s + 10)
+            text = " ".join(done.stdout.split())
+            lines.append(f"gz topic -e {topic}: exit {done.returncode}, {len(done.stdout)} bytes: {text[:600]}")
+        except Exception as error:  # noqa: BLE001
+            lines.append(f"gz topic -e {topic} failed: {error}")
+    return lines
+
+
 # ---------------------------------------------------------------- the numbers of one grasp
 
 def grasp_numbers(recorder, side, mass, mu):
@@ -256,7 +278,7 @@ def grasp_numbers(recorder, side, mass, mu):
             out["item_tilt_deg"] = math.degrees(dx.rotation_angle(
                 dx.quat_matrix(*first["item"][1]).T @ dx.quat_matrix(*final["item"][1])))
         lifting = [s for s in held if t_lift0 is not None and t_lift1 is not None and t_lift0 <= s["t"] <= t_lift1 and tcp in s]
-        out["tcp_peak_vertical_accel_mps2"] = dx.peak_vertical_accel([(s["t"], s[tcp][1][2]) for s in lifting])
+        out["tcp_peak_vertical_accel_mps2"] = dx.peak_vertical_accel(dx.resample([(s["t"], s[tcp][1][2]) for s in lifting], 0.05))
         for joint in (f"openarm_{side}_finger_joint1", f"openarm_{side}_finger_joint2"):
             values = [s["fingers"].get(joint) for s in held if s["fingers"].get(joint) is not None]
             efforts = [s["tau"].get(joint) for s in held if s["tau"].get(joint) is not None]

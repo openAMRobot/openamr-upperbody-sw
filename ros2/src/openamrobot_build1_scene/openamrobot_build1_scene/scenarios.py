@@ -440,6 +440,8 @@ def grasp(rig, log):
     closed = rig.gripper(side, CLOSED, sim_s=30.0)
     rig.sleep_sim(1.5)
     _mark(rig, "closed")
+    if getattr(rig, "recorder", None) is not None:
+        _diag_probe(rig, log, "fingers closed")
     finger_closed = rig.physics_joint(finger)
     log.quantity("finger_position_on_item", finger_closed, "rad", low=0.02, high=OPEN - 0.05,
                  note="above 0 means the fingers stopped on the item and did not close fully")
@@ -862,7 +864,15 @@ def _diag_start(rig, log):
     recorder = Recorder(rig, dx.contact_links()).start()
     rig.wait(lambda: recorder.model is not None, 30.0, "/robot_description for the TCP kinematics")
     log.quantity("diag_model_received", recorder.model is not None, "bool", low=True, high=True)
+    _diag_probe(rig, log, "start")
     return recorder
+
+
+def _diag_probe(rig, log, when):
+    from openamrobot_build1_scene import diagnostics as dx
+    from openamrobot_build1_scene.diagnostics_live import gz_probe
+    for line in gz_probe([dx.gz_contact_topic("openarm_left_ee_link1"), dx.gz_contact_topic("openarm_left_ee_link2")]):
+        log.event(f"probe at {when}: {line}")
 
 
 def _diag_return(rig, log, side, label, required=False):
@@ -885,6 +895,8 @@ def _diag_report(rig, log, recorder, name, grasped, returns):
     mass, mu = scene_model.value(scene["item"]["mass"]), scene_model.value(scene["item"]["friction"])
     report = {"contact_messages": dict(sorted(recorder.contact_counts.items())), "samples": len(recorder.samples),
               "marks": recorder.marks}
+    log.quantity("diag_contact_messages_received", sum(recorder.contact_counts.values()), "messages",
+                 note=f"ROS contact messages per link: {report['contact_messages']}")
     if grasped:
         report["grasp"] = live.grasp_numbers(recorder, "left", mass, mu)
     joints = [f"openarm_{side}_joint{i}" for side in ("left", "right") for i in range(1, 8)]

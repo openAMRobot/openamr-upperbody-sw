@@ -180,6 +180,27 @@ jobs:
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
           ls -la "$BUILD1_LOG_DIR"
 
+      - name: Contact sensors in the converted model
+        if: always()
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          model="diag/run${{ matrix.run }}/diag_plant_model.urdf"
+          [ -f "$model" ] || { echo "no $model"; exit 0; }
+          export GZ_SIM_RESOURCE_PATH="$(dirname "$(ros2 pkg prefix openarm_description)/share/openarm_description"):$(dirname "$(ros2 pkg prefix openamrobot_description)/share/openamrobot_description")"
+          gz sdf -p "$model" > diag_plant_model.sdf 2> gz_sdf_stderr.txt || echo "gz sdf exit $?"
+          head -c 3000 gz_sdf_stderr.txt
+          python3 - diag_plant_model.sdf <<'EOF'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for link in root.iter("link"):
+              name = link.get("name")
+              if name and ("ee_link" in name or name.endswith("link2")):
+                  print(name, "collisions:", [c.get("name") for c in link.findall("collision")],
+                        "sensors:", [(s.get("name"), s.get("type"), s.findtext("contact/collision"), s.findtext("contact/topic"))
+                                     for s in link.findall("sensor")])
+          EOF
+
       - name: Per-run table
         if: always()
         working-directory: ws
