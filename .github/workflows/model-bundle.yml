@@ -126,7 +126,7 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           python3 src/openamr-upperbody-sw/tools/model_bundle/build_bundle.py --version "$VERSION" --out dist --zip \
-            --pins "$PINS_FILE" \
+            --pins "../$PINS_FILE" \
             --source openamr-upperbody-sw=src/openamr-upperbody-sw \
             --source openamr-platform-sw=src/openamr-platform-sw \
             --source openarm_description=src/upstream/openarm_description
