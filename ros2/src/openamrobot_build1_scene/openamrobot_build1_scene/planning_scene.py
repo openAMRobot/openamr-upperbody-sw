@@ -40,3 +40,21 @@ def padded(boxes, fixed_names, margin):
             size = tuple(float(v) + 2.0 * margin for v in size)
         out.append((name, tuple(size), centre, yaw))
     return out
+
+
+# Where the planning scene puts the objects, relative to the robot. The scenarios place the grasp and the reach targets
+# from the ground truth base pose (a stand-in for perceiving them from the robot), so the obstacles next to those
+# targets must come from the same pose. From the localization (AMCL) they were 0.023 to 0.064 m and up to 0.024 rad out
+# of place in the Baseline 1 missions of 17 Nov (runs 44155397328 to 44155485209): the straight lift and reach were
+# then cut short against a board or tote that was not there (Cartesian fractions 0.9375 and 0.185).
+POSE_SOURCES = ("ground_truth", "localization")
+DEFAULT_POSE_SOURCE = "ground_truth"
+
+
+def choose_base_pose(source, ground_truth, localization):
+    """(pose, label) for the planning scene: (x, y, yaw) of base_footprint in the scene frame, or (None, None)."""
+    if source not in POSE_SOURCES:
+        raise ValueError(f"pose_source must be one of {POSE_SOURCES}, got {source!r}")
+    if source == "ground_truth":
+        return (ground_truth, "ground truth") if ground_truth is not None else (None, None)
+    return localization

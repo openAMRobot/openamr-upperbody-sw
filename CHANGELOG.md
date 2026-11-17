@@ -5,25 +5,17 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
-### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
+### Fixed (17 Nov 2026; scn04 in the Baseline 1 mission; simulation only)
 
-- `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
-  arm_approach, grasp, lift_object, retreat) in one `firmware_sil` launch, with phase-tagged checks, a failure class per phase,
-  a synchronized trace and a final table that reports partial passes apart. `baseline1.py` composes the existing scn02, scn03
-  and scn04 checks; `baseline1_phases.py` and `scripts/baseline1_report.py` have no ROS import; `test_baseline1_phases.py`
-  (25 tests) runs in the static job. Platform input: openamr-platform-sw `integration/baseline1` `d36b33a`.
+- **Approach square to the item's face.** In the mission the base stands up to 0.067 m and 0.08 rad off the station, and the approach
+  (0.12 rad per axis) ended 0.025 to 0.075 rad off the face; the fingers closed at 0.069 to 0.107 rad, the grip torque (kp times that
+  angle) fell to 0.18 to 0.33 N m and the item was not lifted in 4 of 7 grasps. The tolerance about the vertical is now 0.02 rad
+  (`arm_frames.approach_tolerances`); 0.12 rad about the other axes.
+- **Planning scene in the frame of the targets.** `planning_scene_loader.py` placed the objects from AMCL (0.023 to 0.064 m and up to
+  0.024 rad off the ground truth in the mission), while the grasp targets come from the ground truth: the straight lift and reach were
+  cut short (Cartesian fractions 0.9375 and 0.185). New parameter `pose_source` (default `ground_truth`, Proposed). Tests:
+  `test_arm_frames.py`.
 
-### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
-
-- **Lift in `fast` and `fine` on DART.** The lift could not leave its lower limit (L1000) through the position interface of
-  `gz_ros2_control`: DART skips a velocity servo on a joint loaded into its position limit. `lift_controller` reported success
-  anyway (no goal tolerance). The launch now adds an effort command interface to `lift_joint` in the plant model only, and
-  `config/lift_controller_gazebo.yaml` makes `lift_controller` command effort with a 3 mm goal tolerance and a 2 s goal time.
-  The description, the joint limits and the 350 mm travel are unchanged. `rig.lift_move` checks arrival on `/joint_states`.
-  The command map claims `lift_joint/effort` without devices. Evidence: `docs/build1_lift_and_base_diagnosis.md`.
-- **New scenarios.** `scn16_lift_fast` (stops 2, 0, 1, 2, 0, success without arrival fails) and `scn17_base_yaw_fast` (ground truth
-  yaw against r * (wR - wL) / track and `/odom`, castors present, track read and not changed). New CI job "fast lift stops and
-  base yaw".
 ### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
 
 - **Straight reach and lift.** The scn04 reach and lift were pose goals with 0.3 rad per axis: the hand turned 8 to 31 degrees
