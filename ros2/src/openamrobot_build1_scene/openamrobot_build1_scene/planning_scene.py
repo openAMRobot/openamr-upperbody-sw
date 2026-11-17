@@ -22,12 +22,14 @@ def excluded_from_planning(publish, sleep, names, message):
 
 
 # MoveIt's planning clearance to the fixed boxes of the scene (shelf boards, posts, floor boxes), added to every side of
-# each box in the planning scene only; Gazebo's boxes are unchanged. MoveIt plans with zero padding, and the executed arm
-# leaves its planned joint path by up to 0.064 rad where it touches nothing (diagnostics run 44137806328, scn03 returns
-# and reaches), about 0.038 m at the hand 0.6 m from the shoulder. In 6 of 10 recorded reaches and returns a finger then
-# hit work_shelf_board_0 (9.8 to 89 N): the arm wedged on the board edge, MoveIt refused the next start state (-10) and the
-# arm stayed off park. The tote, the item and the payload get no padding: the fingers must close on the item.
-FIXTURE_PADDING_M = 0.04
+# each box in the planning scene only; Gazebo's boxes are unchanged. MoveIt plans with zero padding. With none, a finger
+# hit work_shelf_board_0 in most scn03 reaches and returns and Baseline 1 retreats (9.8 to 370 N, diagnostics runs
+# 44137806328 and 44138101782); the arm wedged on the board edge and MoveIt refused the next start state (-10).
+# The executed hand base leaves its planned path by at most 0.007 m where it touches nothing, and a wrist error of
+# 0.03 rad moves the fingertips 0.138 m out by 0.004 m more (diagnostics run of bbd1346): 0.011 m. 0.04 m was tried and
+# closed the 0.25 m between the two work shelf boards: the lift and the level 0 reaches became infeasible (Cartesian
+# fractions 0.52 to 0.88, MoveIt 99999). The tote, the item and the payload get no padding: the fingers close on the item.
+FIXTURE_PADDING_M = 0.015
 
 
 def padded(boxes, fixed_names, margin):

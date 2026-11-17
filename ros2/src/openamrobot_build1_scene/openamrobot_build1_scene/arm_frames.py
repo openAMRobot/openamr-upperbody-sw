@@ -51,6 +51,9 @@ def face_yaw(base_yaw, item_yaw):
 # they closed, and the TCP, 0.138 m from the hand base, rose 21 to 49 mm when the hand base rose 64 to 91 mm.
 LIFT_RISE_M = 0.08
 REACH_STANDOFF_M = 0.10
+# The approach goal's orientation tolerance per axis. The reach keeps the orientation the approach ended with, and with
+# 0.3 rad the open fingers could be tilted by up to 0.52 rad, enough to bring a fingertip below the tote wall top.
+APPROACH_ANGLE_TOLERANCE_RAD = 0.15
 CARTESIAN_STEP_M = 0.005
 CARTESIAN_MIN_FRACTION = 0.999
 

@@ -129,13 +129,36 @@ def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the
     body = _grasp_body()
     assert 'rig.publish("exclude"' not in body, "the exclusion goes through excluded_from_planning only"
     lines = body.splitlines()
-    block = next(i for i, line in enumerate(lines) if "with excluded_from_planning(rig.publish, rig.sleep_sim, \"item,tote\", String):" in line)
+    block = next(i for i, line in enumerate(lines) if "with excluded_from_planning(rig.publish, rig.sleep_sim, \"item\", String):" in line)
     indent = len(lines[block]) - len(lines[block].lstrip())
     inner = [i for i, line in enumerate(lines) if i > block and line.strip() and len(line) - len(line.lstrip()) <= indent][0]
     inside = "\n".join(lines[block:inner])
     for step in ('"grasp_reach"', "rig.gripper(side, CLOSED", '"grasp_lift"', "rig.gripper(side, OPEN)"):
         assert step in inside, step
-    assert "finally:" in inside and '{"payload_mass_kg": 0.0}' in inside.split("finally:")[-1]
+    cleanup = inside.split("finally:")[-1]
+    assert "finally:" in inside and '{"payload_mass_kg": 0.0}' in cleanup
+    # Released and withdrawn before the item comes back into the planning scene, on every path out of the grasp.
+    assert "if closing and not released:" in cleanup and cleanup.index("rig.gripper(side, OPEN)") < cleanup.index("_withdraw(rig, log, side, link)")
+    assert "tote" not in lines[block], "the tote stays in the planning scene"
+
+
+def test_the_approach_tolerance_keeps_the_open_fingertips_above_the_tote_wall(scene):
+    """The reach keeps the orientation the approach ended with. A tilt of the open hand lowers one fingertip by
+    lateral offset x sin(tilt); the TCP is 0.03 m above the item centre. Open fingertips 0.067 m to the side of the
+    TCP and fingers 0.015 m below it are estimates from the model geometry (finger joint 0.018 m off the axis, 0.07 m
+    finger, 45 degrees open)."""
+    from openamrobot_build1_scene import scene as scene_model
+    boxes = {name: (size, centre) for name, size, centre, _ in scene_model.collision_boxes(scene)}
+    tote, item = boxes["tote"], boxes["item"]
+    wall_top = tote[1][2] + tote[0][2] / 2.0
+    tcp = item[1][2] + 0.03
+
+    def lowest_fingertip(tolerance):
+        return tcp - 0.015 - 0.067 * math.sin(math.sqrt(3.0) * tolerance)
+
+    assert lowest_fingertip(af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
+    assert lowest_fingertip(0.3) < wall_top + 0.005, "the old 0.3 rad allowed a fingertip down to the wall"
+    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in _grasp_body()
 
 
 def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene):
@@ -150,14 +173,15 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
         assert np.allclose(out[name][0], np.array(original[name][0]) + 2 * FIXTURE_PADDING_M) and out[name][1] == original[name][1]
     for name in ("tote", "item", "payload"):
         assert out[name] == (tuple(original[name][0]), original[name][1])
-    # Larger than the measured contact-free deviation at the hand: 0.064 rad at 0.6 m from the shoulder.
-    assert FIXTURE_PADDING_M >= 0.064 * 0.6
-    # The grasp stays possible: the padded board top stays below the fingers at the grasp height (item centre + 0.03 m,
-    # fingers about 0.015 m below the TCP) and below the hand base of the scn03 reach targets.
-    board = original["work_shelf_board_0"]
-    padded_top = board[1][2] + board[0][2] / 2.0 + FIXTURE_PADDING_M
-    item = original["item"]
-    assert padded_top < item[1][2] + 0.03 - 0.015
+    # Larger than the measured contact-free deviation: 0.007 m at the hand base, 0.004 m more at the fingertips.
+    assert FIXTURE_PADDING_M >= 0.007 + 0.03 * 0.138
+    # The grasp and the lift stay possible: the padded board 0 top stays below the fingers at the grasp height (item
+    # centre + 0.03 m, fingers about 0.015 m below the TCP), and the padded board 1 bottom above the lifted hand (hand
+    # body about 0.04 m above the TCP, estimated). 0.04 m failed this: the lift was refused in CI.
+    board0, board1, item = original["work_shelf_board_0"], original["work_shelf_board_1"], original["item"]
+    assert board0[1][2] + board0[0][2] / 2.0 + FIXTURE_PADDING_M < item[1][2] + 0.03 - 0.015
+    assert board1[1][2] - board1[0][2] / 2.0 - FIXTURE_PADDING_M > item[1][2] + 0.03 + 0.08 + 0.04
+    assert not board1[1][2] - board1[0][2] / 2.0 - 0.04 > item[1][2] + 0.03 + 0.08 + 0.04
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert 'declare_parameter("fixture_padding_m", FIXTURE_PADDING_M)' in loader

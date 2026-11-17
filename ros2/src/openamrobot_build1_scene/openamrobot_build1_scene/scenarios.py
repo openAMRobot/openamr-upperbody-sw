@@ -16,8 +16,9 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M, LIFT_RISE_M, SIDE_GRASP, TCP_FRAME, face_yaw,
-                                                  grasp_line, hand_for_tcp_at, rotate_z, side_grasp, side_grasp_offset, straight_lift)
+from openamrobot_build1_scene.arm_frames import (APPROACH_ANGLE_TOLERANCE_RAD, CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M, LIFT_RISE_M,
+                                                  SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
+                                                  side_grasp_offset, straight_lift)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, ScenarioFailed, angle_diff)
 
@@ -481,17 +482,19 @@ def grasp(rig, log):
                  note="finger_joint2 against finger_joint1 in the physics (SW-09)")
 
     _mark(rig, "grasp_approach_start")
-    approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3), "grasp_approach")
+    approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3,
+                                                     angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD), "grasp_approach")
     _mark(rig, "grasp_approach_end")
     if not approached_ok:
         return
-    # The item and the tote leave the planning scene for the last 0.10 m: the fingers must pass next to the item. They
-    # come back after the release, also when a step fails: a return move planned without them can sweep the open hand
-    # through the tote (Baseline 1 run 44100053272: left retreat stuck with joint 6 on its limit, 46 N m servo torque).
-    # The held item's payload leaves the gravity feed-forward on every path out of the grasp, not only after the release.
+    # Only the item leaves the planning scene for the last 0.10 m: the fingers must pass on both sides of it. The tote
+    # stays, so that no straight line sweeps a finger over its wall (diagnostics: ee_link1 on the tote front wall, 6.9 N,
+    # item pushed 37 mm; with the tote out a retreat drove a finger into its walls at 104 to 208 N). On every path out
+    # of the grasp the item is released, the hand withdraws 0.10 m along the fingers, the payload leaves the gravity
+    # feed-forward, and only then the item comes back: a hand still around the item is a start state in collision.
     from std_msgs.msg import String
-    held = False
-    with excluded_from_planning(rig.publish, rig.sleep_sim, "item,tote", String):
+    held, closing, released = False, False, False
+    with excluded_from_planning(rig.publish, rig.sleep_sim, "item", String):
         try:
             # The reach is a straight line along the fingers with the orientation the approach ended with: the hand
             # goes 0.10 m back from the item on that line, then in, so that the open fingers pass on both sides of it.
@@ -508,6 +511,7 @@ def grasp(rig, log):
                 return
             log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
 
+            closing = True
             closed = rig.gripper(side, CLOSED, sim_s=30.0)
             rig.sleep_sim(1.5)
             _mark(rig, "closed")
@@ -555,13 +559,31 @@ def grasp(rig, log):
             _mark(rig, "hold_end")
             log.quantity("item_height_drift_while_held", item2[2] - item1[2], "m", low=-0.01, high=0.01, note="over 3 s of Gazebo time")
             rig.gripper(side, OPEN)
+            released = True
             _mark(rig, "released")
         finally:
+            if closing and not released:
+                rig.gripper(side, OPEN)
+                log.event("grasp left early: the gripper opened where the hand is")
+            _mark(rig, "grasp_withdraw_start")
+            _withdraw(rig, log, side, link)
+            _mark(rig, "grasp_withdraw_end")
             if held:
                 rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
                 log.event("gravity feed-forward payload cleared")
     rig.sleep_sim(2.0)
     log.quantity("item_height_after_release", rig.object_position("item")[2] - item0[2], "m", note="recorded, no limit: it falls back")
+
+
+def _withdraw(rig, log, side, link):
+    """The hand REACH_STANDOFF_M straight back along its fingers, orientation held. Recorded, no limit: a return move."""
+    hand = rig.transform("base_footprint", link)
+    if hand is None:
+        log.event("withdraw: no /tf of the hand")
+        return False
+    orientation = (hand[1].x, hand[1].y, hand[1].z, hand[1].w)
+    back, _ = grasp_line(hand[0], (0.0, 0.0, 0.0), orientation)
+    return _cartesian(rig, log, side, link, [back], orientation, "grasp_withdraw", 0.1, required=False)
 
 
 def _held_payload(rig, log, side):
@@ -1012,7 +1034,8 @@ def diag_grasp(rig, log):
                 _diag_return(rig, log, side, f"retreat_{side}_to_park")
     finally:
         recorder.stop()
-        _diag_report(rig, log, recorder, "diag_grasp", True, [("left", "grasp_approach"), ("left", "grasp_reach"), ("left", "grasp_lift")]
+        _diag_report(rig, log, recorder, "diag_grasp", True, [("left", "grasp_approach"), ("left", "grasp_reach"), ("left", "grasp_lift"),
+                                                               ("left", "grasp_withdraw")]
                      + [(s, f"retreat_{s}_to_park") for s in ("left", "right")])
 
 
