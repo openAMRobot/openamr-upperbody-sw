@@ -110,6 +110,20 @@ def work_shelf_front(scene):
     return (x + nx * depth / 2.0, y + ny * depth / 2.0), (nx, ny)
 
 
+def station_marker_pose(scene):
+    """(x, y, z, yaw) of the station marker model: its +x face (the tags) along the shelf's outward normal, the face
+    `face_offset` in front of the shelf front edge (model origin half the plate thickness behind the face)."""
+    (fx, fy), (nx, ny) = work_shelf_front(scene)
+    marker = scene["station_marker"]
+    offset = value(marker["face_offset"])
+    return fx + nx * offset / 2.0, fy + ny * offset / 2.0, value(marker["height"]), math.atan2(ny, nx)
+
+
+def station_marker_standoff(scene):
+    """Distance from the marker face to the work-shelf station along the face normal (the detector's `standoff`)."""
+    return value(scene["work_shelf"]["parking_gap"]) + FOOTPRINT_FRONT_X - value(scene["station_marker"]["face_offset"])
+
+
 def station(scene, name):
     """(x, y, yaw) where the robot's base_footprint is spawned for station `name`."""
     entry = scene["stations"][name]
@@ -255,6 +269,10 @@ def world_sdf(scene, profile, sensors=True):
     dock = scene["dock"]
     out.append(f'<include><name>apriltag_dock</name><uri>{dock["model_uri"]}</uri>'
                f'<pose>{" ".join(str(v) for v in value(dock["pose"]))}</pose></include>')
+    if "station_marker" in scene:
+        x, y, z, yaw = station_marker_pose(scene)
+        out.append(f'<include><name>station_marker</name><uri>{scene["station_marker"]["model_uri"]}</uri>'
+                   f"<pose>{x:.5f} {y:.5f} {z:.5f} 0 0 {yaw:.5f}</pose></include>")
     for name, body in movable_objects(scene).items():
         out.append(_movable_sdf(name, body))
     out += ["</world>", "</sdf>", ""]

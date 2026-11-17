@@ -22,7 +22,9 @@ random.seed(int(os.environ.get("BASELINE1_SEED", "20261117")))
 
 @pytest.mark.launch_test
 def generate_test_description():
-    return build1_harness.description(profile="firmware_sil", station="origin", nav2="true", moveit="true")
+    alignment = os.environ.get("BASELINE1_STATION_ALIGNMENT", "1") != "0" and os.environ.get("BASELINE1_STATION_APPROACH", "1") != "0"
+    return build1_harness.description(profile="firmware_sil", station="origin", nav2="true", moveit="true",
+                                      station_alignment="true" if alignment else "false")
 
 
 class TestBaseline1Mission(unittest.TestCase):

@@ -209,12 +209,17 @@ def launch_setup(context):
     objects = sorted(scene_model.movable_objects(scene))
     control_share, emulator_share = get_package_share_directory(CONTROL), get_package_share_directory(EMULATOR)
     extra_sensors = "true" if sensors and flag("extra_sensors") else "false"
+    alignment = nav2 and flag("station_alignment")
+    station_camera = "true" if alignment else "false"
+    info_alignment = {"station_alignment": alignment,
+                      "station_camera": ("SIMULATION-ONLY test sensor of openamr-platform-sw #167 at base_camera_link, pending the "
+                                         "description's base camera (Vineeth)") if alignment else "none"}
     wrapper = os.path.join(share, "urdf", "build1_robot.urdf.xacro")
     with open(os.path.join(control_share, "config", "arm_controllers.yaml")) as f:
         arm_controllers = yaml.safe_load(f)
     info = {"profile": run["name"], "physics_step": step, "step_s": support.step_seconds(scene, step), "physics_engine": engine,
             "devices": devices, "station": value("station"), "sensors": sensors, "nav2": nav2, "moveit": flag("moveit"),
-            "seed": "none set: a repeated run is not guaranteed to be identical"}
+            "seed": "none set: a repeated run is not guaranteed to be identical", **info_alignment}
 
     if devices:
         with open(os.path.join(emulator_share, "config", "sim_controllers.yaml")) as f:
@@ -227,7 +232,7 @@ def launch_setup(context):
                                                                                                     gravity_feedforward=gravity))
         temp_files += [sim_controllers_file, driver_controllers_file]
         sim_urdf = support.sim_description(xacro(wrapper, hardware_profile="gazebo", controllers_file=sim_controllers_file,
-                                                 devices="true", extra_sensors=extra_sensors,
+                                                 devices="true", extra_sensors=extra_sensors, station_camera=station_camera,
                                                  finger_follower="true" if follower else "false"))
         # What robot_state_publisher and the real driver read: the real profile with the two bus names.
         root_urdf = xacro(os.path.join(emulator_share, "urdf", "openarm_sil_real.urdf.xacro"), hardware_profile="real",
@@ -247,7 +252,7 @@ def launch_setup(context):
         temp_files.append(overlay)
         sim_urdf = support.lift_effort_plant(xacro(wrapper, hardware_profile="gazebo",
                                                    controllers_file=os.path.join(control_share, "config", "arm_controllers.yaml"),
-                                                   controllers_overlay_file=overlay, devices="false", extra_sensors=extra_sensors,
+                                                   controllers_overlay_file=overlay, devices="false", extra_sensors=extra_sensors, station_camera=station_camera,
                                                    finger_follower="true" if follower else "false"))
         root_urdf = sim_urdf
         requested = 750 if support.direct_overlay_needed(step) else arm_controllers["controller_manager"]["ros__parameters"]["update_rate"]
@@ -274,6 +279,9 @@ def launch_setup(context):
         actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH", os.path.dirname(get_package_share_directory(package))))
     actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH",
                                              os.path.join(get_package_share_directory("openamrobot_docking"), "models")))
+    # The station marker plate of the world (model://station_marker, openamr-platform-sw #167).
+    actions.append(AppendEnvironmentVariable("GZ_SIM_RESOURCE_PATH",
+                                             os.path.join(get_package_share_directory("openamrobot_station_alignment"), "models")))
     headless = flag("headless")
     gz_args = f"-r {'-s --headless-rendering ' if headless else ''}-v 2 --physics-engine {engine} {world_file}"
     actions.append(IncludeLaunchDescription(
@@ -291,7 +299,7 @@ def launch_setup(context):
         actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_contact_bridge", output="screen",
                             parameters=[{"config_file": contact_bridge_file}]))
     if sensors:
-        sensor_bridge_file = temp_yaml("build1_sensor_bridge_", support.sensor_bridge(flag("extra_sensors")))
+        sensor_bridge_file = temp_yaml("build1_sensor_bridge_", support.sensor_bridge(flag("extra_sensors"), station_camera=alignment))
         temp_files.append(sensor_bridge_file)
         actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_sensor_bridge", output="screen",
                             parameters=[{"config_file": sensor_bridge_file}]))
@@ -378,6 +386,14 @@ def launch_setup(context):
                 launch_arguments={"use_sim_time": "true", "params_file": nav2_file, **arguments}.items()))
         actions.append(Node(package=PACKAGE, executable="footprint_publisher.py", name="footprint_publisher", output="screen",
                             parameters=[{"use_sim_time": True, "nav2_params_file": nav2_file}]))
+        # 6b. Station marker alignment (openamr-platform-sw #167, Proposed): an action client of Nav2's navigate_to_pose
+        # with the station tree; no velocity publisher. The camera it reads is the simulation-only sensor of part 4.
+        if alignment:
+            align_share = get_package_share_directory("openamrobot_station_alignment")
+            actions.append(IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(os.path.join(align_share, "launch", "station_alignment.launch.py")),
+                launch_arguments={"use_sim_time": "true", "image_topic": "/base_camera/color/image_raw",
+                                  "camera_info_topic": "/base_camera/color/camera_info"}.items()))
 
     # 7. MoveIt 2. With devices the lift is not a MoveIt controller: it moves through CTL-017 only (SW-06).
     rviz_parameters = [{"use_sim_time": True}]
@@ -457,6 +473,9 @@ def generate_launch_description():
         DeclareLaunchArgument("extra_sensors", default_value="true", choices=boolean,
                               description="The RGB-D and wrist cameras this package adds to the model"),
         DeclareLaunchArgument("nav2", default_value="true", choices=boolean, description="Start Nav2"),
+        DeclareLaunchArgument("station_alignment", default_value="false", choices=boolean,
+                              description="Proposed. Start openamr-platform-sw #167's station marker alignment with the "
+                                          "simulation-only station camera (needs nav2)"),
         DeclareLaunchArgument("moveit", default_value="true", choices=boolean, description="Start MoveIt 2"),
         DeclareLaunchArgument("rviz", default_value="false", choices=boolean, description="Start RViz with rviz/build1.rviz"),
         DeclareLaunchArgument("headless", default_value="false", choices=boolean, description="gz sim -s: server only, no window"),

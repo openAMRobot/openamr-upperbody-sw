@@ -52,6 +52,15 @@ work_shelf:
   pose: [0.0, -3.0, 0.0]       # x, y, yaw of the unit centre. Its front face looks along +y.
   parking_gap: {value: 0.30, unit: m, status: sourced, source: "UC1, the robot parks about 30 cm away"}
 
+# Station marker plate (Proposed, openamr-platform-sw #167 at 353e3d6): two AprilTag 36h11 panels (ids 3 and 4, 0.10 m
+# black square, centres 0.10 m either side of the unit centre along the shelf) 0.32 m above the floor, the plate face
+# 0.002 m in front of the work-shelf front edge. Visual only (no collision), above the LiDAR plane. The detector's
+# standoff (0.713 m) is parking_gap + footprint front x - face_offset; test_scene.py checks the two agree.
+station_marker:
+  model_uri: "model://station_marker"
+  height: {value: 0.32, unit: m, status: estimated, source: "openamr-platform-sw #167, scene.py MARKER_HEIGHT"}
+  face_offset: {value: 0.002, unit: m, status: estimated, source: "openamr-platform-sw #167, scene.py MARKER_FACE_OFFSET"}
+
 dock:
   model_uri: "model://apriltag_dock"
   pose: {value: [6.5, 0.0, 0.30, 0.0, 0.0, 3.14159], status: estimated,

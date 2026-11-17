@@ -308,7 +308,7 @@ def control_bridge(objects, devices=True, replay_drive=False, replay_aux=False, 
     return entries + _ground_truth(objects)
 
 
-def sensor_bridge(extra_sensors=True):
+def sensor_bridge(extra_sensors=True, station_camera=False):
     """Bridge entries of every sensor. One process carries them all, so that the stale sensor fault can stop it."""
     scan = ("sensor_msgs/msg/LaserScan", "gz.msgs.LaserScan")
     image = ("sensor_msgs/msg/Image", "gz.msgs.Image")
@@ -328,6 +328,9 @@ def sensor_bridge(extra_sensors=True):
         for side in ("left", "right"):
             entries += [_entry(f"/{side}_wrist_camera/image", f"/{side}_wrist_camera/image", *image, "GZ_TO_ROS"),
                         _entry(f"/{side}_wrist_camera/camera_info", f"/{side}_wrist_camera/camera_info", *info, "GZ_TO_ROS")]
+    if station_camera:   # the simulation-only station camera (build1_robot.urdf.xacro part 4)
+        entries += [_entry("/base_camera/color/image_raw", "/base_camera/color/image_raw", *image, "GZ_TO_ROS"),
+                    _entry("/base_camera/color/camera_info", "/base_camera/color/camera_info", *info, "GZ_TO_ROS")]
     return entries
 
 

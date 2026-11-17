@@ -18,6 +18,7 @@
   <exec_depend>openamrobot_description</exec_depend>
   <exec_depend>openamrobot_docking</exec_depend>
   <exec_depend>openamrobot_nav2</exec_depend>
+  <exec_depend>openamrobot_station_alignment</exec_depend>
   <exec_depend>openamrobot_perception</exec_depend>
   <exec_depend>openamrobot_sil</exec_depend>
   <exec_depend>openarm_hardware</exec_depend>

@@ -28,6 +28,13 @@ REACH_XY_M, REACH_YAW_RAD = 0.04, 0.08
 # openamr-platform-sw #164: the station tree (default navigation, then StationPlanner, StationApproach and
 # station_goal_checker). BASELINE1_STATION_APPROACH=0 sends the goal with the default tree (the revert run).
 STATION_TREE = "navigate_to_station.xml"
+# openamr-platform-sw #167 (Proposed): the marker alignment action. It sends the goal to Nav2 with STATION_TREE first,
+# then corrects it from the shelf marker. BASELINE1_STATION_ALIGNMENT=0 sends the goal to Nav2 directly (the revert run).
+ALIGNMENT_ACTION = "/station_alignment/navigate_to_station"
+
+
+def alignment_on():
+    return os.environ.get("BASELINE1_STATION_ALIGNMENT", "1") != "0" and os.environ.get("BASELINE1_STATION_APPROACH", "1") != "0"
 SUCCEEDED = 4                   # action_msgs/GoalStatus
 
 
@@ -189,10 +196,19 @@ def nav_to_station(rig, log):
     log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map), "
               f"behavior tree {goal.behavior_tree or 'default'}")
     start = rig.sim_time()
-    handle = rig.send_goal("/navigate_to_pose", "nav2_msgs.action", "NavigateToPose", goal)
+    server = ALIGNMENT_ACTION if alignment_on() else "/navigate_to_pose"
+    log.data["baseline1"]["navigate_action"] = server
+    reports = []
+    if alignment_on():
+        from std_msgs.msg import String
+        rig.node.create_subscription(String, "/station_alignment/report", lambda m: reports.append(m.data), 10)
+    handle = rig.send_goal(server, "nav2_msgs.action", "NavigateToPose", goal)
     if not log.require(handle is not None, "Nav2 navigate_to_pose did not accept the goal"):
         return
-    status, _ = rig.wait_result(handle, NAV_SIM_S, f"navigate to {WORK_STATION}")
+    status, _ = rig.wait_result(handle, NAV_SIM_S, f"navigate to {WORK_STATION} through {server}")
+    for report in reports:
+        log.event(f"station alignment report: {report}")
+    log.data["baseline1"]["alignment_reports"] = list(reports)
     log.quantity("nav_status", status, "GoalStatus", low=SUCCEEDED, high=SUCCEEDED, note="4 SUCCEEDED, 6 ABORTED, None: no result in time")
     log.quantity("nav_time", rig.sim_time() - start, "s of Gazebo time")
     log.quantity("nav_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)

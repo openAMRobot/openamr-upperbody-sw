@@ -18,6 +18,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openamrobot">
   <xacro:arg name="extra_sensors" default="true"/>
   <xacro:arg name="devices" default="true"/>
+  <xacro:arg name="station_camera" default="false"/>
   <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/combined_robot.xacro"/>
 
   <gazebo>
@@ -169,5 +170,29 @@
     </xacro:macro>
     <xacro:build1_wrist_camera side="left"/>
     <xacro:build1_wrist_camera side="right"/>
+  </xacro:if>
+
+  <xacro:if value="$(arg station_camera)">
+    <!-- 4. SIMULATION-ONLY station camera, the test sensor of openamr-platform-sw #167 (station_alignment_test_robot.urdf.xacro
+         at 353e3d6), copied unchanged: at the pose of base_camera_link (base_link + (0.387, 0, 0.046), pitch -0.1745 rad,
+         10 deg up), image frame base_camera_color_optical_frame, 640 x 400 at 5 Hz, 94 deg horizontal field of view.
+         It stands in until the description carries a verified base camera sensor (Vineeth; platform-sw #53, audits #89).
+         Every camera value is UNVERIFIED. Read by the station marker detector only. No safety function. -->
+    <gazebo reference="base_link">
+      <sensor name="station_alignment_base_camera" type="camera">
+        <pose>0.387 0 0.046 0 -0.1745 0</pose>
+        <topic>/base_camera/color/image_raw</topic>
+        <gz_frame_id>base_camera_color_optical_frame</gz_frame_id>
+        <update_rate>5</update_rate>
+        <camera>
+          <horizontal_fov>1.6406</horizontal_fov>
+          <image><width>640</width><height>400</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>8.0</far></clip>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
+        </camera>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </gazebo>
   </xacro:if>
 </robot>
