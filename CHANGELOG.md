@@ -17,7 +17,7 @@ All notable changes to this repository. Evidence for the description is static a
   most scn03 reaches and returns and Baseline 1 retreats (9.8 to 370 N); a wedged finger made MoveIt refuse the next start state (-10),
   left the arm 0.92 to 1.57 rad off park and drove joint 6 onto its limit (the 46 N m case). `planning_scene_loader.py` adds
   `FIXTURE_PADDING_M` = 0.015 m on every side of each fixed box in the planning scene only (parameter `fixture_padding_m`, Proposed):
-  the executed hand base leaves its plan by at most 0.007 m without contact, 0.011 m at the fingertips. 0.04 m was tried and made the
+  the executed hand base leaves its plan by at most 0.009 m without contact, 0.013 m at the fingertips. 0.04 m was tried and made the
   lift and the level-0 reaches infeasible. Gazebo's boxes, the tote, the item and the payload are unchanged.
 - **Planning scene, release and payload after the grasp.** The item and the tote were taken out of the planning scene for the reach and
   never put back, so later moves planned through them (a retreat drove a finger into the tote walls at 104 to 208 N). Only the item

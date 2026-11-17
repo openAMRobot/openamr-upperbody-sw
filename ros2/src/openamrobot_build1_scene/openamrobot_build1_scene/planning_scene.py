@@ -25,8 +25,8 @@ def excluded_from_planning(publish, sleep, names, message):
 # each box in the planning scene only; Gazebo's boxes are unchanged. MoveIt plans with zero padding. With none, a finger
 # hit work_shelf_board_0 in most scn03 reaches and returns and Baseline 1 retreats (9.8 to 370 N, diagnostics runs
 # 44137806328 and 44138101782); the arm wedged on the board edge and MoveIt refused the next start state (-10).
-# The executed hand base leaves its planned path by at most 0.007 m where it touches nothing, and a wrist error of
-# 0.03 rad moves the fingertips 0.138 m out by 0.004 m more (diagnostics run of bbd1346): 0.011 m. 0.04 m was tried and
+# The executed hand base leaves its planned path by at most 0.009 m where it touches nothing, and a wrist error of
+# 0.03 rad moves the fingertips 0.138 m out by 0.004 m more (diagnostics runs of bbd1346 and d139f76): 0.013 m. 0.04 m was tried and
 # closed the 0.25 m between the two work shelf boards: the lift and the level 0 reaches became infeasible (Cartesian
 # fractions 0.52 to 0.88, MoveIt 99999). The tote, the item and the payload get no padding: the fingers close on the item.
 FIXTURE_PADDING_M = 0.015

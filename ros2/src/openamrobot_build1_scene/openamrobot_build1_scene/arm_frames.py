@@ -59,7 +59,7 @@ APPROACH_ANGLE_TOLERANCE_RAD = 0.12
 # pins) reach 0.0305 m below the TCP with the hand body (ee_base_link, 0.0319 m below the hand axis, which is 0.0014 m
 # above the TCP) and 0.0275 m with the fingers, and the hand body reaches 0.11 m along the fingers, over the tote's
 # front wall when the TCP is on the item (the item stands 0.035 m behind that wall). At 0.03 m the hand body cleared
-# the wall top by 0.0145 m level; a tilt inside the approach tolerance and the 0.007 m path deviation closed that, and
+# the wall top by 0.0145 m level; a tilt inside the approach tolerance and the 0.009 m path deviation closed that, and
 # a finger caught the wall (diagnostics run of d139f76: 8.8 N, item pushed 45 mm). The fingers still cover the item
 # from 0.0225 m above its centre to its top (0.07 m above it).
 GRASP_ABOVE_ITEM_CENTRE_M = 0.05

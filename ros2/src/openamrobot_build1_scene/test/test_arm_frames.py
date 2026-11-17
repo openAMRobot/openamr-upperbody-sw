@@ -145,7 +145,7 @@ def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the
 def test_the_grasp_height_and_the_approach_tolerance_keep_the_hand_above_the_tote_wall(scene):
     """The reach keeps the orientation the approach ended with. A tilt of the hand inside the approach tolerance (up to
     sqrt(3) times the per-axis value) lowers the front of the hand body, 0.11 m along the fingers, by 0.11 sin(tilt); the
-    executed hand leaves its plan by up to 0.007 m. Mesh extents from openarm_description at the pins (arm_frames.py)."""
+    executed hand leaves its plan by up to 0.009 m. Mesh extents from openarm_description at the pins (arm_frames.py)."""
     from openamrobot_build1_scene import scene as scene_model
     boxes = {name: (size, centre) for name, size, centre, _ in scene_model.collision_boxes(scene)}
     tote, item = boxes["tote"], boxes["item"]
@@ -154,7 +154,7 @@ def test_the_grasp_height_and_the_approach_tolerance_keep_the_hand_above_the_tot
 
     def lowest_point(above_centre, tolerance):
         tilt = math.sqrt(3.0) * tolerance
-        return item[1][2] + above_centre - af.HAND_BODY_BELOW_TCP_M - af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) - 0.007
+        return item[1][2] + above_centre - af.HAND_BODY_BELOW_TCP_M - af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) - 0.009
 
     assert lowest_point(af.GRASP_ABOVE_ITEM_CENTRE_M, af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
     assert lowest_point(0.03, 0.3) < wall_top, "the old 0.03 m and 0.3 rad let the hand reach the wall"
@@ -178,8 +178,8 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
         assert np.allclose(out[name][0], np.array(original[name][0]) + 2 * FIXTURE_PADDING_M) and out[name][1] == original[name][1]
     for name in ("tote", "item", "payload"):
         assert out[name] == (tuple(original[name][0]), original[name][1])
-    # Larger than the measured contact-free deviation: 0.007 m at the hand base, 0.004 m more at the fingertips.
-    assert FIXTURE_PADDING_M >= 0.007 + 0.03 * 0.138
+    # Larger than the measured contact-free deviation: 0.009 m at the hand base, 0.004 m more at the fingertips.
+    assert FIXTURE_PADDING_M >= 0.009 + 0.03 * 0.138
     # The grasp and the lift stay possible: the padded board 0 top stays below the fingers at the grasp height (item
     # centre + 0.03 m, fingers about 0.015 m below the TCP), and the padded board 1 bottom above the lifted hand (hand
     # body about 0.04 m above the TCP, estimated). 0.04 m failed this: the lift was refused in CI.
