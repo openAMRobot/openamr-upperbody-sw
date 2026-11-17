@@ -409,5 +409,45 @@ def return_numbers(recorder, side, label, limits):
             executed = [[s["q"][j] for j in plan["joint_names"]] for s in window if all(j in s["q"] for j in plan["joint_names"])]
             out["planned_points"] = len(plan["points"])
             out["path_deviation_rad"] = dx.path_deviation(plan["points"], executed)
+            hand = tcp_path_deviation(recorder, side, plan, window)
+            if hand is not None:
+                out["hand_path_deviation_m"] = hand
             out["planned_limit_margin_rad"] = dx.planned_limit_margin(plan["points"], [limits[j] for j in plan["joint_names"]])
     return out
+
+
+def tcp_path_deviation(recorder, side, plan, window):
+    """Largest distance (m) of the executed hand base from the hand base path of the plan, both by forward kinematics of
+    the model in base_footprint (the other joints as recorded at the start of the move). None without the model."""
+    model = recorder.model
+    if model is None or not window:
+        return None
+    frame = f"openarm_{side}_ee_base_link"
+    base = dict(window[0]["q_driver"])
+    base.update(window[0]["q"])
+
+    def hand(positions):
+        links, _ = model._frames(positions)
+        R0, p0 = links["base_footprint"] if "base_footprint" in links else (np.eye(3), np.zeros(3))
+        return R0.T @ (links[frame][1] - p0)
+
+    planned = []
+    for point in plan["points"]:
+        q = dict(base)
+        q.update(zip(plan["joint_names"], point))
+        planned.append(hand(q))
+    if len(planned) == 1:
+        planned = planned * 2
+    worst = 0.0
+    for sample in window[::5]:
+        q = dict(base)
+        q.update(sample["q"])
+        p = hand(q)
+        best = math.inf
+        for a, b in zip(planned[:-1], planned[1:]):
+            ab = b - a
+            denominator = float(ab @ ab)
+            t = 0.0 if denominator == 0.0 else min(1.0, max(0.0, float((p - a) @ ab) / denominator))
+            best = min(best, float(np.linalg.norm(p - (a + t * ab))))
+        worst = max(worst, best)
+    return worst

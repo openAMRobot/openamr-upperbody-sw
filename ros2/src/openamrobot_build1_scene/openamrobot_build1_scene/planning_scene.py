@@ -19,3 +19,22 @@ def excluded_from_planning(publish, sleep, names, message):
     finally:
         publish("exclude", message(data=""))
         sleep(SETTLE_S)
+
+
+# MoveIt's planning clearance to the fixed boxes of the scene (shelf boards, posts, floor boxes), added to every side of
+# each box in the planning scene only; Gazebo's boxes are unchanged. MoveIt plans with zero padding, and the executed arm
+# leaves its planned joint path by up to 0.064 rad where it touches nothing (diagnostics run 44137806328, scn03 returns
+# and reaches), about 0.038 m at the hand 0.6 m from the shoulder. In 6 of 10 recorded reaches and returns a finger then
+# hit work_shelf_board_0 (9.8 to 89 N): the arm wedged on the board edge, MoveIt refused the next start state (-10) and the
+# arm stayed off park. The tote, the item and the payload get no padding: the fingers must close on the item.
+FIXTURE_PADDING_M = 0.04
+
+
+def padded(boxes, fixed_names, margin):
+    """`boxes` [(name, size, centre, yaw)] with `margin` added on every side of each box named in `fixed_names`."""
+    out = []
+    for name, size, centre, yaw in boxes:
+        if name in fixed_names:
+            size = tuple(float(v) + 2.0 * margin for v in size)
+        out.append((name, tuple(size), centre, yaw))
+    return out

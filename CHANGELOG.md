@@ -13,6 +13,12 @@ All notable changes to this repository. Evidence for the description is static a
   44131608383, FK of the driver's joint readings). Both are now straight lines of the hand with the orientation the approach ended
   with, from MoveIt's `/compute_cartesian_path`, executed with `/execute_trajectory` (`arm_frames.grasp_line`, `straight_lift`).
   The 40 mm requirement, friction, mass and gripper values are unchanged.
+- **Planning clearance to the shelf.** MoveIt planned with zero padding, and the executed arm left its planned joint path by up to
+  0.072 rad where it touched nothing. In the diagnostics runs a finger hit `work_shelf_board_0` in most scn03 reaches and returns and
+  Baseline 1 retreats (9.8 to 370 N); a wedged finger made MoveIt refuse the next start state (-10) and left the arm off park (0.92 to
+  1.57 rad), and drove joint 6 onto its limit (the 46 N m case). `planning_scene_loader.py` now adds `FIXTURE_PADDING_M` = 0.04 m on
+  every side of each fixed box in the planning scene only (parameter `fixture_padding_m`, Proposed); Gazebo's boxes, the tote, the item
+  and the payload are unchanged.
 - **Planning scene and payload after the grasp.** The item and the tote were taken out of the planning scene for the reach and never
   put back, so every later move (the Baseline 1 retreat, scn03 after scn04) planned through them. `planning_scene.excluded_from_planning`
   puts them back on every path out of the grasp; the held item's payload leaves the gravity feed-forward on every path too.

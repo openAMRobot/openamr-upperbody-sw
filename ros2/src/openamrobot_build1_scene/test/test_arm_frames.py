@@ -136,3 +136,29 @@ def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the
     for step in ('"grasp_reach"', "rig.gripper(side, CLOSED", '"grasp_lift"', "rig.gripper(side, OPEN)"):
         assert step in inside, step
     assert "finally:" in inside and '{"payload_mass_kg": 0.0}' in inside.split("finally:")[-1]
+
+
+def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene):
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import FIXTURE_PADDING_M, padded
+    boxes = scene_model.collision_boxes(scene)
+    fixed = {name for name, _s, _c, _y in scene_model.static_boxes(scene)}
+    out = {name: (size, centre) for name, size, centre, _yaw in padded(boxes, fixed, FIXTURE_PADDING_M)}
+    original = {name: (size, centre) for name, size, centre, _yaw in boxes}
+    assert "work_shelf_board_0" in fixed and {"tote", "item", "payload"} <= set(out) and not {"tote", "item", "payload"} & fixed
+    for name in fixed:
+        assert np.allclose(out[name][0], np.array(original[name][0]) + 2 * FIXTURE_PADDING_M) and out[name][1] == original[name][1]
+    for name in ("tote", "item", "payload"):
+        assert out[name] == (tuple(original[name][0]), original[name][1])
+    # Larger than the measured contact-free deviation at the hand: 0.064 rad at 0.6 m from the shoulder.
+    assert FIXTURE_PADDING_M >= 0.064 * 0.6
+    # The grasp stays possible: the padded board top stays below the fingers at the grasp height (item centre + 0.03 m,
+    # fingers about 0.015 m below the TCP) and below the hand base of the scn03 reach targets.
+    board = original["work_shelf_board_0"]
+    padded_top = board[1][2] + board[0][2] / 2.0 + FIXTURE_PADDING_M
+    item = original["item"]
+    assert padded_top < item[1][2] + 0.03 - 0.015
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert 'declare_parameter("fixture_padding_m", FIXTURE_PADDING_M)' in loader
+    assert "self.boxes = padded(scene_model.collision_boxes(self.scene), fixed, padding)" in loader

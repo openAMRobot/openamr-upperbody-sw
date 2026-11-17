@@ -480,7 +480,10 @@ def grasp(rig, log):
     log.quantity("finger_mimic_error_open", rig.finger_mimic_error(), "rad", low=0.0, high=0.03,
                  note="finger_joint2 against finger_joint1 in the physics (SW-09)")
 
-    if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3), "grasp_approach"):
+    _mark(rig, "grasp_approach_start")
+    approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3), "grasp_approach")
+    _mark(rig, "grasp_approach_end")
+    if not approached_ok:
         return
     # The item and the tote leave the planning scene for the last 0.10 m: the fingers must pass next to the item. They
     # come back after the release, also when a step fails: a return move planned without them can sweep the open hand
@@ -497,9 +500,12 @@ def grasp(rig, log):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
             pre_grasp, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)
-            if not _cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1):
-                return
+            _mark(rig, "grasp_reach_start")
+            reached = _cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1)
             rig.sleep_sim(1.0)
+            _mark(rig, "grasp_reach_end")
+            if not reached:
+                return
             log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
 
             closed = rig.gripper(side, CLOSED, sim_s=30.0)
@@ -530,9 +536,11 @@ def grasp(rig, log):
             rotation = at_grasp[1]
             lifted, lift_orientation = straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)
             _mark(rig, "lift_start")
+            _mark(rig, "grasp_lift_start")
             if not _cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1):
                 return
             _mark(rig, "lift_end")
+            _mark(rig, "grasp_lift_end")
             rig.sleep_sim(3.0)
             item1 = rig.object_position("item")
             log.quantity("item_height_gain_after_lift", item1[2] - item0[2], "m", low=0.04, high=0.12)
@@ -1004,7 +1012,8 @@ def diag_grasp(rig, log):
                 _diag_return(rig, log, side, f"retreat_{side}_to_park")
     finally:
         recorder.stop()
-        _diag_report(rig, log, recorder, "diag_grasp", True, [(s, f"retreat_{s}_to_park") for s in ("left", "right")])
+        _diag_report(rig, log, recorder, "diag_grasp", True, [("left", "grasp_approach"), ("left", "grasp_reach"), ("left", "grasp_lift")]
+                     + [(s, f"retreat_{s}_to_park") for s in ("left", "right")])
 
 
 def diag_reach_return(rig, log):

@@ -74,8 +74,8 @@ def grasp_rows(runs):
 
 
 def return_rows(runs):
-    lines = ["| run | move | from park rad | worst joint effort N m | limit hits | path dev rad | plan limit margin rad | contacts (link~object: max N) |",
-             "|---|---|---|---|---|---|---|---|"]
+    lines = ["| run | move | from park rad | worst joint effort N m | limit hits | path dev rad | hand path dev m | plan limit margin rad | contacts (link~object: max N) |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for label, directory in runs:
         for name in ("diag_grasp", "diag_reach_return"):
             log = _load(directory, name)
@@ -86,9 +86,11 @@ def return_rows(runs):
                 worst = max(efforts, key=efforts.get) if efforts else None
                 hits = [f"{k[:-len('_limit_hit')]}:{v}" for k, v in numbers.items() if k.endswith("_limit_hit") and v]
                 contacts = numbers.get("contacts_max_force_N") or {}
-                lines.append(f"| {label} | {move} | {_f(_quantity(log, f'{move}_distance_from_park'), 3)} | "
+                park = _quantity(log, f"{move}_distance_from_park") if "park" in move else None
+                lines.append(f"| {label} | {move} | {_f(park, 3)} | "
                              f"{f'{worst} {efforts[worst]:.1f}' if worst else '-'} | {', '.join(hits) or '-'} | "
-                             f"{_f(numbers.get('path_deviation_rad'), 3)} | {_f(numbers.get('planned_limit_margin_rad'), 3)} | "
+                             f"{_f(numbers.get('path_deviation_rad'), 3)} | {_f(numbers.get('hand_path_deviation_m'), 3)} | "
+                             f"{_f(numbers.get('planned_limit_margin_rad'), 3)} | "
                              f"{', '.join(f'{k}: {v}' for k, v in contacts.items()) or 'none'} |")
     return lines
 
