@@ -176,9 +176,9 @@ def scan_returns(rig, log):
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
     scan_returns(rig, log)
-    amcl = AmclListener(rig)
+    amcl_topic = AmclListener(rig)
     rig.sleep_sim(0.5)
-    amcl_count0 = amcl.count
+    amcl_count0 = amcl_topic.count
     gx, gy, gyaw = _station(WORK_STATION)
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"     # AMCL starts at the spawn pose in the world frame (launch_support.nav2_params)
@@ -222,7 +222,7 @@ def nav_to_station(rig, log):
     left = -(x - gx) * math.sin(gyaw) + (y - gy) * math.cos(gyaw)
     log.quantity("nav_station_error_along_heading", along, "m", note="+ is closer to the shelf; reachable -0.06 to +0.12 alone")
     log.quantity("nav_station_error_left", left, "m", note="reachable +-0.15 alone")
-    localization_record(rig, log, amcl, (x, y, yaw), amcl_count0)
+    localization_record(rig, log, amcl_topic, (x, y, yaw), amcl_count0)
     log.quantity("station_reach_position_error", math.hypot(x - gx, y - gy), "m", low=0.0, high=REACH_XY_M,
                  note="ground truth against the station: the arm-reach budget (docs/integration/station_approach.md), derived")
     log.quantity("station_reach_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", low=0.0, high=REACH_YAW_RAD,
