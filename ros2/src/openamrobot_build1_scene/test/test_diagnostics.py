@@ -80,7 +80,7 @@ def test_contact_bridge_and_the_switch():
 
 def test_the_combined_model_takes_a_sensor_on_every_arm_link(devices_urdf):
     out = dx.with_contact_sensors(devices_urdf, dx.contact_links())
-    sensors = ET.fromstring(out).findall("gazebo/sensor")
+    sensors = [s for s in ET.fromstring(out).findall("gazebo/sensor") if s.get("name", "").startswith("build1_contact_")]
     assert len(sensors) == 18
     for sensor, link in zip(sensors, dx.contact_links()):
         assert sensor.find("contact/collision").text == dx.sdf_collision_names(devices_urdf, link)[0]
