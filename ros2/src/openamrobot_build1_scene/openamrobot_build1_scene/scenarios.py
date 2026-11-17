@@ -16,7 +16,8 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.arm_frames import (APPROACH_ANGLE_TOLERANCE_RAD, CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M, LIFT_RISE_M,
+from openamrobot_build1_scene.arm_frames import (APPROACH_ANGLE_TOLERANCE_RAD, CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M,
+                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
                                                   side_grasp_offset, straight_lift)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
@@ -460,7 +461,7 @@ def grasp(rig, log):
     log.quantity("grasp_face_yaw", yaw, "rad", note="the side grasp turned about z of base_footprint to the item's face")
     quaternion = side_grasp(yaw)
     item = _in_base(rig, item0)
-    grasp_z = item[2] + 0.03                      # above the tote wall
+    grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M  # the hand body and the fingers clear the tote wall (arm_frames.py)
     # D9 step 2: the item goes to the model's TCP, openarm_left_grasp_frame (0.138 m along the fingers, from the URDF
     # through /tf), not to an estimated depth. The estimate of 0.105 m put the item against the finger roots: it was
     # pushed 52 mm (fast) and 90 mm (firmware_sil) before the fingers closed.

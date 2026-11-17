@@ -23,8 +23,9 @@ All notable changes to this repository. Evidence for the description is static a
   never put back, so later moves planned through them (a retreat drove a finger into the tote walls at 104 to 208 N). Only the item
   leaves the scene now (`planning_scene.excluded_from_planning`), the tote stays (a finger touched its front wall during a reach). On
   every path out of the grasp the gripper opens, the hand withdraws 0.10 m along the fingers, the payload leaves the gravity
-  feed-forward, and then the item comes back. The approach's orientation tolerance is 0.15 rad per axis (was 0.3), so that the
-  held orientation cannot tilt an open fingertip below the tote wall. Tests: `test_arm_frames.py`, `test_gravity.py`.
+  feed-forward, and then the item comes back. The TCP closes 0.05 m above the item centre (was 0.03) and the approach's orientation tolerance is 0.12 rad per axis
+  (was 0.3): the gripper's collision meshes reach 0.0305 m below the TCP and 0.11 m along the fingers, over the tote's front wall, and
+  at 0.03 m a tilted hand caught the wall (8.8 N, item pushed 45 mm). Tests: `test_arm_frames.py`, `test_gravity.py`.
 
 ### Added (17 Nov 2026; Build 1 arm diagnostics; simulation only)
 

@@ -142,23 +142,28 @@ def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the
     assert "tote" not in lines[block], "the tote stays in the planning scene"
 
 
-def test_the_approach_tolerance_keeps_the_open_fingertips_above_the_tote_wall(scene):
-    """The reach keeps the orientation the approach ended with. A tilt of the open hand lowers one fingertip by
-    lateral offset x sin(tilt); the TCP is 0.03 m above the item centre. Open fingertips 0.067 m to the side of the
-    TCP and fingers 0.015 m below it are estimates from the model geometry (finger joint 0.018 m off the axis, 0.07 m
-    finger, 45 degrees open)."""
+def test_the_grasp_height_and_the_approach_tolerance_keep_the_hand_above_the_tote_wall(scene):
+    """The reach keeps the orientation the approach ended with. A tilt of the hand inside the approach tolerance (up to
+    sqrt(3) times the per-axis value) lowers the front of the hand body, 0.11 m along the fingers, by 0.11 sin(tilt); the
+    executed hand leaves its plan by up to 0.007 m. Mesh extents from openarm_description at the pins (arm_frames.py)."""
     from openamrobot_build1_scene import scene as scene_model
     boxes = {name: (size, centre) for name, size, centre, _ in scene_model.collision_boxes(scene)}
     tote, item = boxes["tote"], boxes["item"]
     wall_top = tote[1][2] + tote[0][2] / 2.0
-    tcp = item[1][2] + 0.03
+    item_top = item[1][2] + item[0][2] / 2.0
 
-    def lowest_fingertip(tolerance):
-        return tcp - 0.015 - 0.067 * math.sin(math.sqrt(3.0) * tolerance)
+    def lowest_point(above_centre, tolerance):
+        tilt = math.sqrt(3.0) * tolerance
+        return item[1][2] + above_centre - af.HAND_BODY_BELOW_TCP_M - af.HAND_BODY_REACH_ALONG_FINGERS_M * math.sin(tilt) - 0.007
 
-    assert lowest_fingertip(af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
-    assert lowest_fingertip(0.3) < wall_top + 0.005, "the old 0.3 rad allowed a fingertip down to the wall"
-    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in _grasp_body()
+    assert lowest_point(af.GRASP_ABOVE_ITEM_CENTRE_M, af.APPROACH_ANGLE_TOLERANCE_RAD) > wall_top
+    assert lowest_point(0.03, 0.3) < wall_top, "the old 0.03 m and 0.3 rad let the hand reach the wall"
+    assert lowest_point(0.03, af.APPROACH_ANGLE_TOLERANCE_RAD) < wall_top, "0.03 m alone was not enough"
+    # The fingers still close on the item: their lower edge is below the item's top.
+    assert item[1][2] + af.GRASP_ABOVE_ITEM_CENTRE_M - af.FINGER_HALF_HEIGHT_M < item_top - 0.04
+    body = _grasp_body()
+    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in body
+    assert "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
 
 
 def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene):
