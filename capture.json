@@ -1,0 +1,271 @@
+{
+  "label": "visual capture, not a test result",
+  "known_defects_seen_in_this_run": {
+    "lift": {
+      "commanded_m": 0.35,
+      "measured_end_m": -1.3960199329705155e-14,
+      "action_reported_success": [
+        true
+      ],
+      "text": "lift_controller reported success, lift_joint stayed at 0.000 m in DART"
+    },
+    "grippers": {
+      "commanded_rad": {
+        "open": 0.7854,
+        "closed": 0.0
+      },
+      "measured_finger_joint1_rad": {
+        "left_gripper_close": -2.3250289299776697e-15,
+        "right_gripper_close": 2.325160340703863e-15,
+        "left_gripper_open": -2.324999225136502e-15,
+        "right_gripper_open": 2.3251103433999447e-15
+      },
+      "text": "both grippers stayed at 0 rad in DART (README Known limits)"
+    }
+  },
+  "workflow_sha": "8e044065721bbb4532ec094a5ca0f07f2a1a3db1",
+  "pins": [
+    "src/openamr-upperbody-sw 8e044065721bbb4532ec094a5ca0f07f2a1a3db1",
+    "src/openamr-platform-sw 69847ab7c9c6cd49b3022dc1a62f86c044ba10ff",
+    "src/pins/platform-pr145 8c5bd52fcb534f54c67d6e1801d36be9e5c775fd",
+    "src/upstream/openarm_can bfd4e52194aefe38389fa6e670be3738136facb9",
+    "src/upstream/openarm_description 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831",
+    "src/upstream/openarm_ros2 4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
+  ],
+  "profile": "fast",
+  "physics_engine": "gz-physics-dartsim-plugin",
+  "run_info": {
+    "controller_rate_hz": 100.0,
+    "controller_rate_requested_hz": 100,
+    "devices": false,
+    "finger_joint2_owner": "finger_mimic_follower.py",
+    "model_sha256": "0bc1382b1b62466e778c91f3a6d5706c090982e77b969381980d84950f400c66",
+    "moveit": false,
+    "nav2": false,
+    "physics_engine": "gz-physics-dartsim-plugin",
+    "physics_step": "fast",
+    "profile": "fast",
+    "seed": "none set: a repeated run is not guaranteed to be identical",
+    "sensors": true,
+    "station": "origin",
+    "step_s": 0.001
+  },
+  "gazebo_rtf": {
+    "rtf_last": 0.26,
+    "rtf_max": 0.3402,
+    "rtf_mean": 0.2573,
+    "rtf_min": 0.0,
+    "sim_s": 74.738,
+    "step_s": 0.001,
+    "steps": 74738,
+    "wall_ms_per_step": 3.8872,
+    "wall_s": 290.518
+  },
+  "cameras": {
+    "main": {
+      "sdf": "tools/scene_video/observer_camera.sdf",
+      "resolution": [
+        1280,
+        720
+      ],
+      "rate_hz_sim": 15
+    },
+    "arms": {
+      "sdf": "tools/scene_video/arms_camera.sdf",
+      "resolution": [
+        960,
+        540
+      ],
+      "rate_hz_sim": 15
+    }
+  },
+  "frames_recorded": 1139,
+  "frames_in_video": 792,
+  "arms_frames_recorded": 1138,
+  "arms_frames_in_closeup": 176,
+  "video_sim_seconds": 52.73,
+  "video_fps": 15,
+  "video_plays_at": "1x Gazebo time when no frame was dropped",
+  "markers_sim_s": {
+    "start": 25.102,
+    "reach_begin": 63.706,
+    "reach": 67.749,
+    "reach_end": 73.414,
+    "end": 74.92
+  },
+  "stills": {
+    "start": {
+      "file": "still_start.png",
+      "sim_s": 25.134
+    },
+    "reach": {
+      "file": "still_reach.png",
+      "sim_s": 67.734
+    },
+    "end": {
+      "file": "still_end.png",
+      "sim_s": 74.934
+    },
+    "reach_closeup": {
+      "file": "still_reach_closeup.png",
+      "sim_s": 67.734
+    }
+  },
+  "commands": [
+    {
+      "name": "ready",
+      "sim_s": 21.04,
+      "rtf_last": 0.3402,
+      "run_info": {
+        "controller_rate_hz": 100.0,
+        "controller_rate_requested_hz": 100,
+        "devices": false,
+        "finger_joint2_owner": "finger_mimic_follower.py",
+        "model_sha256": "0bc1382b1b62466e778c91f3a6d5706c090982e77b969381980d84950f400c66",
+        "moveit": false,
+        "nav2": false,
+        "physics_engine": "gz-physics-dartsim-plugin",
+        "physics_step": "fast",
+        "profile": "fast",
+        "seed": "none set: a repeated run is not guaranteed to be identical",
+        "sensors": true,
+        "station": "origin",
+        "step_s": 0.001
+      }
+    },
+    {
+      "name": "arms_activation_to_park",
+      "sim_s": 24.098,
+      "rtf_last": 0.3037,
+      "succeeded": {
+        "left": true,
+        "right": true
+      }
+    },
+    {
+      "name": "start",
+      "sim_s": 25.102,
+      "rtf_last": 0.3172,
+      "truth": [
+        0.0004678065103404135,
+        1.7918062982408174e-07,
+        -1.0823999824988722e-05
+      ]
+    },
+    {
+      "name": "drive_forward_0.2_m_s_for_8_s",
+      "sim_s": 34.118,
+      "rtf_last": 0.22,
+      "truth": [
+        1.601081982420678,
+        -1.770118899791565e-05,
+        -1.1181195755502538e-05
+      ]
+    },
+    {
+      "name": "turn_right_0.5_rad_s_for_3.14_s",
+      "sim_s": 38.344,
+      "rtf_last": 0.2599,
+      "truth": [
+        1.6100222984678125,
+        0.008030013048091974,
+        -1.5115994744237273
+      ]
+    },
+    {
+      "name": "lift_to_stop_2_L1350",
+      "sim_s": 63.706,
+      "rtf_last": 0.252,
+      "succeeded": true,
+      "lift_m": -1.3960196266640636e-14
+    },
+    {
+      "name": "arms_park_to_hands_up",
+      "sim_s": 66.74,
+      "rtf_last": 0.2191,
+      "succeeded": {
+        "left": true,
+        "right": true
+      }
+    },
+    {
+      "name": "left_gripper_close",
+      "sim_s": 67.793,
+      "rtf_last": 0.2089,
+      "result": [
+        true,
+        false,
+        -2.3250210537623485e-15
+      ],
+      "finger_joint1_rad": -2.3250289299776697e-15
+    },
+    {
+      "name": "right_gripper_close",
+      "sim_s": 67.82,
+      "rtf_last": 0.2089,
+      "result": [
+        true,
+        false,
+        2.325151521121727e-15
+      ],
+      "finger_joint1_rad": 2.325160340703863e-15
+    },
+    {
+      "name": "left_gripper_open",
+      "sim_s": 69.34,
+      "rtf_last": 0.273,
+      "result": [
+        false,
+        true,
+        -2.324999225136502e-15
+      ],
+      "finger_joint1_rad": -2.324999225136502e-15
+    },
+    {
+      "name": "right_gripper_open",
+      "sim_s": 70.384,
+      "rtf_last": 0.2127,
+      "result": [
+        false,
+        true,
+        2.3251196630397282e-15
+      ],
+      "finger_joint1_rad": 2.3251103433999447e-15
+    },
+    {
+      "name": "arms_hands_up_to_park",
+      "sim_s": 73.414,
+      "rtf_last": 0.258,
+      "succeeded": {
+        "left": true,
+        "right": true
+      }
+    },
+    {
+      "name": "end",
+      "sim_s": 74.92,
+      "rtf_last": 0.26,
+      "truth": [
+        1.6100222984678125,
+        0.008030013048091974,
+        -1.5115994744237273
+      ],
+      "lift_m": -1.3960199329705155e-14,
+      "finger_joint1_rad": {
+        "left": -2.877627505757723e-14,
+        "right": 2.877668759051728e-14
+      },
+      "rtf_stats": {
+        "rtf_last": 0.26,
+        "rtf_max": 0.3402,
+        "rtf_mean": 0.2573,
+        "rtf_min": 0.0,
+        "sim_s": 74.738,
+        "step_s": 0.001,
+        "steps": 74738,
+        "wall_ms_per_step": 3.8872,
+        "wall_s": 290.518
+      }
+    }
+  ]
+}
