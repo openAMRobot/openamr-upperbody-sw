@@ -1,0 +1,213 @@
+# SPDX-License-Identifier: MIT
+"""Integrated Digital Twin Baseline 1: one whole-robot mission in one launch, phase by phase.
+
+spawn > nav_to_station > stop_authorize > lift_to_target > arm_approach > grasp > lift_object > retreat.
+The checks are the existing ones of scenarios.py and rig.py wherever they exist (lift refusal of scn02, park and grasp
+of scn04, lift_move, wait_stopped); this module adds the navigation, authorization, lift and retreat steps around them,
+tags every check with its phase (baseline1_phases.Tracker) and records a synchronized trace of base, lift, hand and
+item on the Gazebo time base. Simulation evidence only: never hardware, physical acceptance or safety evidence.
+"""
+import math
+import os
+import threading
+import time
+
+from openamrobot_build1_scene import baseline1_phases as phases
+from openamrobot_build1_scene.rig import LIFT_STOP_M, Blocked, angle_diff
+
+SEED = int(os.environ.get("BASELINE1_SEED", "20261117"))
+SPAWN_STATION, WORK_STATION = "origin", "work_shelf"
+LIFT_SEQUENCE = (1, 0)          # L1175, then back to L1000: the grasp height of shelf level 0 (scn03 uses stop 0 there)
+RETREAT_M, RETREAT_SPEED = 0.30, 0.10
+NAV_SIM_S = 300.0
+# Nav2 goal checker of openamr-platform-sw nav2_params.yaml: xy_goal_tolerance 0.35 m, yaw_goal_tolerance 0.35 rad.
+NAV_XY_TOLERANCE_M, NAV_YAW_TOLERANCE_RAD = 0.35, 0.35
+SUCCEEDED = 4                   # action_msgs/GoalStatus
+
+
+class Trace:
+    """Samples every channel of the run on one time base, every TRACE_SIM_S Gazebo seconds, in its own thread."""
+    TRACE_SIM_S = 0.5
+    LIMIT = 6000
+
+    def __init__(self, rig, tracker):
+        self.rig, self.tracker, self.samples = rig, tracker, []
+        self.running = True
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self):
+        self.thread.start()
+        return self
+
+    def _read(self, function):
+        try:
+            return function()
+        except Exception:  # noqa: BLE001 - a channel without data is recorded as None
+            return None
+
+    def sample(self):
+        rig = self.rig
+        truth, odom, speed = self._read(rig.truth), self._read(rig.odom), self._read(rig.truth_speed)
+        item = self._read(lambda: rig.object_position("item"))
+        return {"sim": rig.sim_time(), "wall": time.time(), "phase": self.tracker.current,
+                "x": truth[0] if truth else None, "y": truth[1] if truth else None, "yaw": truth[2] if truth else None,
+                "v": speed[0] if speed else None, "w": speed[1] if speed else None,
+                "odom_err": math.hypot(odom[0] - truth[0], odom[1] - truth[1]) if truth and odom else None,
+                "lift": self._read(rig.lift_truth), "lift_js": self._read(lambda: rig.joint("lift_joint")),
+                "finger": self._read(lambda: rig.physics_joint("openarm_left_finger_joint1")),
+                "item_z": item[2] if item else None, "rtf": self._read(rig.rtf)}
+
+    def _loop(self):
+        last = None
+        while self.running and len(self.samples) < self.LIMIT:
+            now = self.rig.sim_time()
+            if last is None or now - last >= self.TRACE_SIM_S:
+                last = now
+                self.samples.append(self.sample())
+            time.sleep(0.05)
+
+    def stop(self):
+        self.running = False
+        self.thread.join(timeout=2.0)
+
+
+def _station(name):
+    from ament_index_python.packages import get_package_share_directory
+    from openamrobot_build1_scene import scene as scene_model
+    scene = scene_model.load(os.path.join(get_package_share_directory("openamrobot_build1_scene"), "config", "scene.yaml"))
+    return scene_model.station(scene, name)
+
+
+def spawn(rig, log):
+    sx, sy, syaw = _station(SPAWN_STATION)
+    x, y, yaw = rig.truth()
+    log.quantity("spawn_position_error", math.hypot(x - sx, y - sy), "m", low=0.0, high=0.02,
+                 note="ground truth against config/scene.yaml stations.origin. Guard value, estimated")
+    log.quantity("spawn_yaw_error", abs(angle_diff(yaw, syaw)), "rad", low=0.0, high=0.02, note="guard value, estimated")
+    log.quantity("spawn_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0,
+                 note="until below 0.01 m/s and 0.02 rad/s for 0.5 s (rig.base_stopped)")
+    ox, oy, _ = rig.odom()
+    log.quantity("spawn_odometry_minus_ground_truth", math.hypot(ox - x, oy - y), "m", low=0.0, high=0.02,
+                 note="odom starts at the spawn pose, which is the world origin here. Guard value, estimated")
+    if rig.devices:
+        log.quantity("spawn_drive_configured", bool(rig.get("/sil/drive/status")["configured"]), "bool", low=True, high=True)
+
+
+def nav_to_station(rig, log):
+    from nav2_msgs.action import NavigateToPose
+    gx, gy, gyaw = _station(WORK_STATION)
+    goal = NavigateToPose.Goal()
+    goal.pose.header.frame_id = "map"     # AMCL starts at the spawn pose in the world frame (launch_support.nav2_params)
+    goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
+    goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
+    log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map)")
+    start = rig.sim_time()
+    handle = rig.send_goal("/navigate_to_pose", "nav2_msgs.action", "NavigateToPose", goal)
+    if not log.require(handle is not None, "Nav2 navigate_to_pose did not accept the goal"):
+        return
+    status, _ = rig.wait_result(handle, NAV_SIM_S, f"navigate to {WORK_STATION}")
+    log.quantity("nav_status", status, "GoalStatus", low=SUCCEEDED, high=SUCCEEDED, note="4 SUCCEEDED, 6 ABORTED, None: no result in time")
+    log.quantity("nav_time", rig.sim_time() - start, "s of Gazebo time")
+    log.quantity("nav_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
+    x, y, yaw = rig.truth()
+    ox, oy, _ = rig.odom()
+    log.quantity("nav_ground_truth_position_error", math.hypot(x - gx, y - gy), "m", low=0.0, high=NAV_XY_TOLERANCE_M,
+                 note="against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml")
+    log.quantity("nav_ground_truth_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", low=0.0, high=NAV_YAW_TOLERANCE_RAD,
+                 note="Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml")
+    log.quantity("nav_odometry_minus_ground_truth", math.hypot(ox - x, oy - y), "m", low=0.0, high=0.10,
+                 note="the guard value of scn01 for 2 m, estimated")
+    if rig.devices:
+        log.quantity("nav_host_client_drive_thread_alive", rig.drive_host_alive(), "bool", low=True, high=True,
+                     note="false: the drive thread of openamrobot_sil's host test client ended (an unexpected SDO reply, "
+                          "seen on slow runners); the base could not be commanded after that")
+
+
+def stop_authorize(rig, log):
+    from openamrobot_build1_scene import scenarios
+    log.quantity("stop_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
+    v, w = rig.truth_speed()
+    log.quantity("stop_base_speed", v, "m/s", low=0.0, high=0.01, note="the provisional base-stopped rule of 13 Nov 2026")
+    log.quantity("stop_base_yaw_rate", w, "rad/s", low=0.0, high=0.02)
+    if not rig.devices:
+        log.event("no device emulators in this profile: no lift permit to authorize")
+        return
+    emulator = "/sil/lift/emulator_state"
+    log.require(rig.get(emulator)["permit_gate"], "the permit gate of the CTL-017 emulator is off")
+    rig.lift_permit(False)
+    rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+    scenarios._lift_refused(rig, log, LIFT_SEQUENCE[0], "authorize")     # scn02's refusal check, unchanged
+    rig.lift_permit(True)
+    log.require(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"),
+                "authorize: the permit did not become fresh")
+    rig.lift_permit(False)                                               # lift_move grants it again per move
+
+
+def lift_to_target(rig, log):
+    for stop in LIFT_SEQUENCE:
+        before = rig.lift_truth()
+        log.quantity(f"lift_stop_{stop}_expected_travel", abs(LIFT_STOP_M[stop] - before), "m", kind="expected")
+        arrived = rig.lift_move(stop, 60.0)
+        log.require(arrived, f"lift did not arrive at stop {stop}")
+        rig.sleep_sim(0.5)
+        log.quantity(f"lift_stop_{stop}_gazebo_position", rig.lift_truth(), "m",
+                     low=LIFT_STOP_M[stop] - 0.006, high=LIFT_STOP_M[stop] + 0.006, note="the window of scn02")
+        log.quantity(f"lift_stop_{stop}_joint_state_position", rig.joint("lift_joint"), "m",
+                     low=LIFT_STOP_M[stop] - 0.008, high=LIFT_STOP_M[stop] + 0.008, note="/joint_states, the window of scn02")
+        if rig.devices:
+            log.quantity(f"lift_stop_{stop}_fault_bits", rig.get("/sil/lift/emulator_state")["faults"], "bits", low=0, high=0)
+
+
+def retreat(rig, log):
+    from nav2_msgs.action import BackUp
+    from openamrobot_build1_scene import scenarios
+    for side in ("left", "right"):
+        # scn03's return move: a MoveIt joint goal to park, so the arm does not sweep through the shelf.
+        park = {f"openarm_{side}_joint{i}": value for i, value in enumerate(scenarios.PARK, 1)}
+        scenarios._move_group(rig, log, scenarios._joint_goal(f"{side}_arm", park, 0.3), f"retreat_{side}_to_park", attempts=3)
+        rig.sleep_sim(1.0)
+        away = max(abs(rig.physics_joint(f"openarm_{side}_joint{i}") - value) for i, value in enumerate(scenarios.PARK, 1))
+        log.quantity(f"retreat_{side}_distance_from_park", away, "rad", low=0.0, high=0.1, note="as in scn03")
+    x0, y0, yaw0 = rig.truth()
+    goal = BackUp.Goal()
+    goal.target.x, goal.speed, goal.time_allowance = RETREAT_M, RETREAT_SPEED, scenarios._duration(60.0)
+    handle = rig.send_goal("/backup", "nav2_msgs.action", "BackUp", goal)
+    if not log.require(handle is not None, "Nav2 backup did not accept the goal"):
+        return
+    status, _ = rig.wait_result(handle, 120.0, "retreat")
+    log.quantity("retreat_status", status, "GoalStatus", low=SUCCEEDED, high=SUCCEEDED)
+    log.quantity("retreat_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
+    x1, y1, yaw1 = rig.truth()
+    along = (x1 - x0) * math.cos(yaw0) + (y1 - y0) * math.sin(yaw0)
+    log.quantity("retreat_along_heading", along, "m", low=-(RETREAT_M + 0.05), high=-(RETREAT_M - 0.05),
+                 note="negative: away from the shelf. Guard value, estimated")
+    log.quantity("retreat_heading_change", math.degrees(angle_diff(yaw1, yaw0)), "deg", low=-5.0, high=5.0, note="as in scn01")
+
+
+def mission(rig, log):
+    from openamrobot_build1_scene import scenarios
+    log.event(f"Baseline 1 mission, seed {SEED} (BASELINE1_SEED): Python random and the ROS domain of the test. "
+              "Gazebo is started without a seed argument; the launch has none")
+    log.data["baseline1"] = {"seed": SEED, "spawn": SPAWN_STATION, "station": WORK_STATION, "lift_sequence": list(LIFT_SEQUENCE)}
+    tracker = phases.Tracker(log, clock=rig.sim_time)
+    trace = Trace(rig, tracker).start()
+    try:
+        tracker.run("spawn", lambda: spawn(rig, log))
+        tracker.run("nav_to_station", lambda: nav_to_station(rig, log))
+        tracker.run("stop_authorize", lambda: stop_authorize(rig, log))
+        tracker.run("lift_to_target", lambda: lift_to_target(rig, log))
+        # scn04's grasp, unchanged: park, open, approach, reach, close, lift 0.08 m, hold, release.
+        tracker.run("arm_approach", lambda: scenarios.grasp(rig, log), then=("grasp", "lift_object"))
+        tracker.run("retreat", lambda: retreat(rig, log))
+    finally:
+        trace.stop()
+        log.data["phases"] = tracker.result()
+        log.data["trace"] = trace.samples
+        for line in phases.trace_summary(trace.samples, tracker.result()):
+            print(f"BASELINE1 TRACE {line}", flush=True)
+        for line in phases.trace_table(trace.samples):
+            print(f"BASELINE1 SAMPLE {line}", flush=True)
+        print(phases.render(phases.rows(log.data)), flush=True)
+    blocked = tracker.blocked()
+    if blocked and not log.failures:
+        raise Blocked("; ".join(f"{r['phase']}: {r['exception']['text']}" for r in blocked))

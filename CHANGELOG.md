@@ -5,6 +5,14 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
+
+- `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
+  arm_approach, grasp, lift_object, retreat) in one `firmware_sil` launch, with phase-tagged checks, a failure class per phase,
+  a synchronized trace and a final table that reports partial passes apart. `baseline1.py` composes the existing scn02, scn03
+  and scn04 checks; `baseline1_phases.py` and `scripts/baseline1_report.py` have no ROS import; `test_baseline1_phases.py`
+  (25 tests) runs in the static job. Platform input: openamr-platform-sw `integration/baseline1` `d36b33a`.
+
 ### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
 
 - **Lift in `fast` and `fine` on DART.** The lift could not leave its lower limit (L1000) through the position interface of

@@ -1,0 +1,236 @@
+# SPDX-License-Identifier: MIT
+# Integrated Digital Twin Baseline 1: the canonical acceptance run of the whole robot.
+#
+# One launch (firmware_sil: every device on virtual CAN, Nav2, MoveIt 2, Gazebo on simulation time), one mission in
+# eight phases: spawn, nav_to_station, stop_authorize, lift_to_target, arm_approach, grasp, lift_object, retreat
+# (ros2/src/openamrobot_build1_scene/openamrobot_build1_scene/baseline1.py). Every check is tagged with its phase and
+# every failed phase gets a class: ENV/INFRA, BUILD, STARTUP, CONTROL, PLANNING, CONTACT/PHYSICS or TIMEOUT
+# (UNCLASSIFIED when no rule matches). The phase table, the classes and the synchronized trace summary are printed to
+# this log and to the job summary by scripts/baseline1_report.py.
+#
+# Baseline 1 is complete only when all eight phases pass in this one run. Partial passes and the subsystem scenarios
+# of build1-scene-tests.yml are reported apart and never make it complete. The job fails unless it is complete.
+# Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+name: Baseline 1 acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/baseline1-acceptance.yml'
+      - 'ros2/src/openamrobot_build1_scene/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  # openamr-platform-sw integration/baseline1: main 69847ab with #152, #146, #149, #151, #158 merged
+  # (docs/integration/baseline1.md). Description, Nav2, perception and docking come from it.
+  PLATFORM_SW_SHA: d36b33a01f02ecbadaa26827495522175c5c6355
+  # openamrobot_sil still comes from #145 8c5bd52 (config/pins.yaml platform_sw_pr145): the scene's launch calls
+  # sil.launch.py's can_nodes(config, stm32, gazebo, renode) and default_renode_args(), which only #141 onward has.
+  # #141/#144/#145 are not merged into the platform integration branch (docs/integration/baseline1.md).
+  # Gazebo vendor builds as re-pinned by openamr-platform-sw #152 (16 Nov 2026), checked against gz-sim 8.15.0.
+  GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
+  GZ_TOOLS_VENDOR: 0.0.8-1noble.20261025.230735
+  SDFORMAT_VENDOR: 0.0.14-1noble.20261031.120928
+  GZ_SIM_VERSION: 8.15.0
+  SDFORMAT_VERSION: 14.9.0
+  # Deterministic start: Python random (and the ROS domain of the test), hash seed, simulation time everywhere.
+  BASELINE1_SEED: '20261117'
+  PYTHONHASHSEED: '20261117'
+
+jobs:
+  baseline1:
+    name: Baseline 1 whole-robot mission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    concurrency:
+      group: baseline1-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ env.PLATFORM_SW_SHA }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform_sw_pr145 }}
+          path: ws/src/pins/platform-pr145
+          sparse-checkout: ros2/src/openamrobot_sil
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout and pins
+        working-directory: ws
+        run: |
+          touch src/openamr-platform-sw/ros2/src/openamrobot_sil/COLCON_IGNORE
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr145 src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+          echo "wheel_radius in the built openamrobot_sil (#145):"; grep -n wheel_radius src/pins/platform-pr145/ros2/src/openamrobot_sil/config/sil.yaml || true
+          echo "wheel_radius in the integration description:"; grep -rn 'wheel_radius' src/openamr-platform-sw/ros2/src/openamrobot_description/urdf/*.xacro | head -5 || true
+          { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "ENV/INFRA: virtual CAN"
+        run: |
+          uname -r
+          sudo apt-get update
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" iproute2 can-utils || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed"
+          sudo modprobe can_raw || echo "modprobe can_raw failed"
+          set +e
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh" 2>&1 | tee vcan.txt
+          rc=${PIPESTATUS[0]}
+          echo "VCAN_RC=$rc" >> "$GITHUB_ENV"
+          ip -details link show type vcan | tee -a vcan.txt
+          [ "$rc" = "0" ] || echo "ENV_REASON=setup_vcan_all.sh exit $rc: virtual CAN unavailable on this runner" >> "$GITHUB_ENV"
+
+      - name: "ENV/INFRA: pinned Gazebo vendor builds (as openamr-platform-sw #152)"
+        id: gazebo
+        run: |
+          sudo apt-get install -y --allow-downgrades \
+            ros-jazzy-gz-sim-vendor=${GZ_SIM_VENDOR} \
+            ros-jazzy-gz-tools-vendor=${GZ_TOOLS_VENDOR} \
+            ros-jazzy-sdformat-vendor=${SDFORMAT_VENDOR}
+          sudo apt-mark hold ros-jazzy-gz-sim-vendor ros-jazzy-gz-tools-vendor ros-jazzy-sdformat-vendor
+
+      - name: "ENV/INFRA: rosdep and the stack"
+        id: deps
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+
+      - name: "ENV/INFRA: check the pinned versions"
+        id: versions
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sim=$(gz sim --versions); sdf=$(gz sdf --versions)
+          echo "gz sim ${sim}, gz sdf ${sdf}"
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|ros-gz|gz-|ros2-control|controller-manager|hardware-interface|joint-trajectory-controller|xacro|moveit|navigation2|nav2-bringup)|python3-can)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          test "${sim}" = "${GZ_SIM_VERSION}" || { echo "ENV/INFRA: expected gz-sim ${GZ_SIM_VERSION}, found ${sim}"; exit 1; }
+          test "${sdf}" = "${SDFORMAT_VERSION}" || { echo "ENV/INFRA: expected sdformat ${SDFORMAT_VERSION}, found ${sdf}"; exit 1; }
+
+      - name: "BUILD: colcon build"
+        id: build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: "Mission: eight phases in one launch"
+        id: mission
+        if: steps.build.outcome == 'success' && env.VCAN_RC == '0'
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/build1_logs"
+          mkdir -p "$BUILD1_LOG_DIR"
+          echo "nproc $(nproc)"
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_baseline1_mission$'
+          echo "MISSION_RC=$?" >> "$GITHUB_ENV"
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: Phase table, failure classes and trace summary
+        if: always()
+        run: |
+          set +e
+          env_ok=1
+          reason="${ENV_REASON:-}"
+          [ "${VCAN_RC:-1}" = "0" ] || env_ok=0
+          deps="gazebo pin ${{ steps.gazebo.outcome }}, rosdep ${{ steps.deps.outcome }}, version check ${{ steps.versions.outcome }}"
+          for s in "${{ steps.gazebo.outcome }}" "${{ steps.deps.outcome }}" "${{ steps.versions.outcome }}"; do
+            [ "$s" = "success" ] || { env_ok=0; reason="${reason:+$reason; }a pinned dependency step did not succeed ($deps)"; }
+          done
+          build_ok=1
+          [ "${{ steps.build.outcome }}" = "success" ] || build_ok=0
+          [ "$env_ok" = "1" ] || build_ok=1     # an environment failure is reported as ENV/INFRA, not BUILD
+          python3 "$PACKAGE_DIR/scripts/baseline1_report.py" ws/build1_logs --build-ok "$build_ok" --env-ok "$env_ok" \
+            --env-reason "$reason" --summary "$GITHUB_STEP_SUMMARY"
+          echo "REPORT_RC=$?" >> "$GITHUB_ENV"
+          echo "virtual CAN exit status:  ${VCAN_RC:-not run}"
+          echo "colcon build outcome:     ${{ steps.build.outcome }}"
+          echo "mission colcon test rc:   ${MISSION_RC:-not run}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: baseline1-acceptance
+          path: |
+            ws/build1_logs/
+            ws/build/openamrobot_build1_scene/test_results/
+            ws/log/latest_test/
+            vcan.txt
+            versions.txt
+            pins.txt
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          echo "Baseline 1 report exit status: ${REPORT_RC:-not run} (0: all eight phases passed in this run)"
+          [ "${REPORT_RC:-1}" = "0" ]

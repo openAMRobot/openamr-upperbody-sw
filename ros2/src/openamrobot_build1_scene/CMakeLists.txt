@@ -30,7 +30,7 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   # Static tests: no simulator, no virtual CAN. They run on any machine.
-  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity)
+  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
 
@@ -68,6 +68,9 @@ if(BUILD_TESTING)
       add_launch_test(test/test_${name}.py TARGET test_${name} TIMEOUT ${seconds})
       set_tests_properties(test_${name} PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
     endforeach()
+    # Integrated Digital Twin Baseline 1: the whole-robot mission, run by .github/workflows/baseline1-acceptance.yml.
+    add_launch_test(test/test_baseline1_mission.py TARGET test_baseline1_mission TIMEOUT 5400)
+    set_tests_properties(test_baseline1_mission PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
   endif()
 endif()
 
