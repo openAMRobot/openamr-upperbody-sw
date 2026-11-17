@@ -67,11 +67,26 @@
 
   <xacro:if value="$(arg devices)">
     <gazebo>
-      <!-- 1a. Lift: the CTL-017 emulator commands a velocity. The only command path of lift_joint with devices. -->
+      <!-- 1a. Lift: the CTL-017 emulator commands a velocity. The only command path of lift_joint with devices.
+           Force mode: the plugin turns the velocity error into a joint force through its PID. In velocity mode DART
+           applies the command as a servo of the lowest priority and skips it while the carriage rests on its lower limit
+           (L1000) under gravity, so the lift never left L1000 and the CTL-017 model raised F03, no Hall pulses while
+           driving (Baseline 1 run 44105673151, fault bits 4, lift travel 0.000 m; docs/build1_lift_and_base_diagnosis.md).
+           Gains: UNVERIFIED working values for the 19.8 kg lift subtree (194 N): p 3000 N s/m, i 80000 N/m (a 2.4 mm
+           holding error under 194 N), overdamped (zeta about 1.2) at the 1 ms step. The force is held inside the 800 N
+           effort limit of lift_joint. No joint limit, speed, mass or stop is changed. -->
       <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
         <joint_name>lift_joint</joint_name>
         <topic>/sil/gz/lift_cmd_vel</topic>
         <initial_velocity>0.0</initial_velocity>
+        <use_force_commands>true</use_force_commands>
+        <p_gain>3000.0</p_gain>
+        <i_gain>80000.0</i_gain>
+        <d_gain>0.0</d_gain>
+        <i_max>800.0</i_max>
+        <i_min>-800.0</i_min>
+        <cmd_max>800.0</cmd_max>
+        <cmd_min>-800.0</cmd_min>
       </plugin>
       <!-- 1b. Wheels: one velocity input per wheel. The drive emulator's per-wheel demand is applied per wheel.
            build1.launch.py takes the DiffDrive plugin of the base out of the model for the device profiles, so

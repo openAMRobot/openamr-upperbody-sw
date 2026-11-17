@@ -18,6 +18,7 @@ import os
 import threading
 import time
 
+from openamrobot_build1_scene.faults import ctl017_faults
 import rclpy
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
@@ -429,10 +430,11 @@ class Rig:
         factor = (self.sim_time() - sim0) / wall if wall > 0 else 0.0
         state = self.get("/sil/lift/emulator_state") or {}
         self.log.quantity(f"lift_move_to_stop_{stop}_real_time_factor", factor, "1", note="while the lift was commanded")
-        if not arrived and state.get("faults") and factor < LIFT_MIN_RTF:
-            raise Blocked(f"the CTL-017 model raised fault bits {state.get('faults')} while Gazebo ran at real-time factor "
-                          f"{factor:.2f}. Its Hall rate rule runs on the host clock and needs about {LIFT_MIN_RTF} or more "
-                          "(sil-topology.md section 6). The machine is too slow for this check")
+        if not arrived and state.get("faults"):
+            # Since openamr-platform-sw #162 every CTL-017 timer and the node step run on the simulation clock, so a fault
+            # at a low real-time factor is a result of the run, not of the runner: reported with its codes, never BLOCKED.
+            self.log.event(f"lift to stop {stop}: CTL-017 fault bits {state.get('faults')} = {ctl017_faults(state.get('faults'))} "
+                           f"at real-time factor {factor:.2f}")
         return arrived
 
     def lift_move(self, stop, sim_s=60.0):
