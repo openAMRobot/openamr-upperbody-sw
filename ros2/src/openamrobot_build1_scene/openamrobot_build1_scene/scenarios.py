@@ -413,6 +413,9 @@ def grasp(rig, log):
     if closed is not None:
         log.quantity("gripper_reported_stalled", bool(closed[1]), "bool")
         log.quantity("gripper_reported_reached_goal", bool(closed[0]), "bool")
+    # The held item enters the gravity feed-forward only once the grasp is reported: the gripper action returned and the
+    # fingers stopped on the item. Its mass is the scene's, at the model's TCP. Cleared again after the release.
+    held = _held_payload(rig, log, side) if closed is not None and finger_closed > 0.02 else False
 
     lifted = (hand[0], hand[1], hand[2] + 0.08)
     if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, lifted, quaternion, 0.1, position_tolerance=0.015), "grasp_lift"):
@@ -424,8 +427,27 @@ def grasp(rig, log):
     item2 = rig.object_position("item")
     log.quantity("item_height_drift_while_held", item2[2] - item1[2], "m", low=-0.01, high=0.01, note="over 3 s of Gazebo time")
     rig.gripper(side, OPEN)
+    if held:
+        rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
+        log.event("gravity feed-forward payload cleared after the release")
     rig.sleep_sim(2.0)
     log.quantity("item_height_after_release", rig.object_position("item")[2] - item0[2], "m", note="recorded, no limit: it falls back")
+
+
+def _held_payload(rig, log, side):
+    """Give the gravity feed-forward the held item: the scene's mass at the TCP of `side`. -> True when it was set.
+    The link and the CoM go first: the node checks every parameter on its own, and a mass without a link is refused."""
+    if not (rig.get("/build1/run_info") or {}).get("gravity_feedforward"):
+        log.event("no gravity feed-forward in this run: the held item is not added")
+        return False
+    from ament_index_python.packages import get_package_share_directory
+    from openamrobot_build1_scene import scene as scene_model
+    scene = scene_model.load(os.path.join(get_package_share_directory("openamrobot_build1_scene"), "config", "scene.yaml"))
+    mass = scene_model.value(scene["item"]["mass"])
+    rig.set_parameters("/gravity_feedforward", {"payload_link": TCP_FRAME[side], "payload_com_xyz": [0.0, 0.0, 0.0],
+                                                "payload_mass_kg": mass})
+    log.quantity("gravity_payload_mass", mass, "kg", note=f"set after the grasp was reported, at {TCP_FRAME[side]}. Estimated")
+    return True
 
 
 # ---------------------------------------------------------------- 5. bus loss on each bus

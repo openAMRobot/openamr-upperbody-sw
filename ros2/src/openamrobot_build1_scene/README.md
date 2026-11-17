@@ -88,7 +88,7 @@ profile, the baseline lock, the hash of the expanded model and the engine.
 | `nav2`, `moveit`, `rviz`, `headless` | `true`, `false` | `true`, `true`, `false`, `false` | |
 | `create_vcan` | `true`, `false` | `true` | run `setup_vcan_all.sh` first |
 | `driver_rate` | `auto`, Hz | `auto` | real driver's controller manager. Every second physics step |
-| `gravity_feedforward` | `true`, `false` | `true` | device profiles: the arms' gravity torque through the real driver's effort interface (Proposed, see `docs/build1_arm_diagnosis.md`) |
+| `gravity_feedforward` | `true`, `false` | `true` | device profiles: the arms' gravity torque through the real driver's effort interface (Proposed, see `docs/build1_arm_diagnosis.md`). Tau 0 for an arm whose joint state is stale; a held item as an optional payload (`docs/architecture/d4_mit_frame_field_ownership.md`) |
 | `driver_clock` | `sim`, `wall` | `sim` | clock of the real driver's controller manager |
 | `sim_state_rate` | Hz, `step` | `100` | rate of `/sim/joint_states`. `step` is every physics step and costs real-time factor |
 | `replay_drive`, `replay_bms`, `replay_aux`, `replay_arm_l`, `replay_arm_r` | a `candump -L` file | empty | replay hook |

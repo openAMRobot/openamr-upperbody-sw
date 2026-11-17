@@ -9,9 +9,16 @@ for the grasp pose of scenario 4 (docs/build1_arm_diagnosis.md). This module com
 that holds the arm still against gravity at its measured position, so that it can be sent through the effort interface
 the driver already reads.
 
-What it is NOT. Not a safety function, not a dynamics model (no velocity or acceleration terms), not a payload model:
-an object in the hand is not included. The masses are the model's; none of them is a measurement of a delivered arm.
+What it is NOT. Not a safety function, not a dynamics model (no velocity or acceleration terms). A held object enters
+only as an optional point mass (`Payload`) that the caller sets after a grasp is reported. The masses are the model's;
+none of them is a measurement of a delivered arm.
+
+`FeedForward` is the command logic of scripts/gravity_feedforward.py without ROS: per arm, the model torque when every
+joint of that arm has a state younger than max_age_s, otherwise zeros. Zeros because the JointGroupEffortController
+that carries the value to the tau field keeps its last command for ever (D4 refinement, docs/architecture). This is a
+functional command timeout of a simulation and driver-path controller. It is not a safety function.
 """
+from collections import namedtuple
 import math
 import xml.etree.ElementTree as ET
 
@@ -19,6 +26,9 @@ import numpy as np
 
 GRAVITY = (0.0, 0.0, -9.80665)   # m/s^2 in the root frame of the model (base_footprint, level floor). Gazebo's default -9.8 differs by 0.07 %
 ARM_JOINTS = {side: [f"openarm_{side}_joint{i}" for i in range(1, 8)] for side in ("left", "right")}
+
+# A held object as a point mass: `mass` kg at `com` (m, in the frame of `link`) on the URDF link `link`.
+Payload = namedtuple("Payload", "link mass com")
 
 
 def _xyz(element, key, default=(0.0, 0.0, 0.0)):
@@ -102,30 +112,46 @@ class GravityModel:
         return links, joints
 
     def _subtree_links(self, joint_name):
+        """Every link the joint moves, massless ones included (a payload can hang on a massless TCP frame)."""
         cache = self.__dict__.setdefault("_subtrees", {})
         if joint_name not in cache:
             out, stack = [], [self.joints[joint_name]["child"]]
             while stack:
                 link = stack.pop()
-                if self.links.get(link, (0.0, None))[0] > 0.0:
-                    out.append(link)
+                out.append(link)
                 stack += [self.joints[j]["child"] for j in self.children.get(link, [])]
             cache[joint_name] = out
         return cache[joint_name]
 
-    def torques(self, positions, joint_names, gravity=GRAVITY):
+    def payload(self, mass, com, link):
+        """A Payload from the node's parameters, or None when mass is 0 (off). Raises ValueError on a bad value."""
+        mass = float(mass)
+        if mass == 0.0:
+            return None
+        if not mass > 0.0 or not math.isfinite(mass):
+            raise ValueError(f"payload mass must be 0 (off) or positive, got {mass}")
+        com = [float(v) for v in com]
+        if len(com) != 3 or not all(math.isfinite(v) for v in com):
+            raise ValueError(f"payload CoM must be three finite numbers, got {com}")
+        if link not in self.links:
+            raise ValueError(f"payload link {link!r} is not a link of the model")
+        return Payload(link, mass, np.array(com, dtype=float))
+
+    def torques(self, positions, joint_names, gravity=GRAVITY, payloads=()):
         """Holding torque (N m, or N for a prismatic joint) of each joint in `joint_names` at `positions` ({joint: value};
         missing joints are at 0). The sign is the one the joint's effort command needs: tau = -sum(m g . dc/dq).
         Per joint: the subtree's mass M and first moment S = sum(m c) give tau = -g . (axis x (S - M p)) for a revolute
-        joint and -M g . axis for a prismatic one."""
+        joint and -M g . axis for a prismatic one. Each Payload adds its mass and first moment to every joint above its link."""
         g = np.array(gravity, dtype=float)
         links, joints = self._frames(positions)
         out = []
         for name in joint_names:
             axis, origin = joints[name]
             mass, moment = 0.0, np.zeros(3)
-            for link in self._subtree_links(name):
-                m, com = self.links[link]
+            subtree = self._subtree_links(name)
+            point_masses = [self.links[link] + (link,) for link in subtree if self.links.get(link, (0.0,))[0] > 0.0]
+            point_masses += [(load.mass, load.com, load.link) for load in payloads if load.link in subtree]
+            for m, com, link in point_masses:
                 R, p = links[link]
                 mass += m
                 moment += m * (p + R @ com)
@@ -134,3 +160,38 @@ class GravityModel:
             else:
                 out.append(-mass * float(g @ axis))
         return out
+
+
+class FeedForward:
+    """What the gravity node publishes each cycle, per arm, from the joint states it has received. No ROS import.
+
+    Every joint keeps the ROS time its last position arrived. An arm whose seven joints are all younger than max_age_s
+    gets the model torque (with the payload, if one is set); any other arm, never received included, gets zeros."""
+
+    def __init__(self, model, max_age_s, arms=None):
+        if not max_age_s > 0.0:
+            raise ValueError(f"max_age_s must be positive, got {max_age_s}")
+        self.model, self.max_age_s = model, float(max_age_s)
+        self.arms = ARM_JOINTS if arms is None else arms
+        self.positions, self.received = {}, {}
+        self.payload = None
+
+    def on_state(self, names, positions, now_s):
+        for name, value in zip(names, positions):
+            self.positions[name] = float(value)
+            self.received[name] = float(now_s)
+
+    def fresh(self, side, now_s):
+        return all(name in self.received and now_s - self.received[name] <= self.max_age_s for name in self.arms[side])
+
+    def command(self, now_s):
+        """-> ({side: torques}, [stale sides]). Every arm gets exactly one vector each cycle."""
+        fresh = [side for side in self.arms if self.fresh(side, now_s)]
+        out = {side: [0.0] * len(joints) for side, joints in self.arms.items()}
+        if fresh:
+            names = [name for side in fresh for name in self.arms[side]]
+            payloads = () if self.payload is None else (self.payload,)
+            torques = dict(zip(names, self.model.torques(self.positions, names, payloads=payloads)))
+            for side in fresh:
+                out[side] = [torques[name] for name in self.arms[side]]
+        return out, [side for side in self.arms if side not in fresh]

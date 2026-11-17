@@ -201,12 +201,13 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
 
 ## Remaining risk
 
-1. The gravity model has no payload: an item in the hand is not compensated (0.15 kg in scn04, 0.75 N m left on
-   joint 1, which fails `grasp_lift_servo_torque_max`). Next step: add the held item's mass at the TCP while the
-   gripper reports a grasp.
-2. The feed-forward runs as a ROS node at 100 Hz of ROS time, not in the real-time loop. On hardware it would need
-   the software lead's decision, a payload model and a review of what happens when the joint states stop (today:
-   the effort controller keeps its last command).
+1. The held item (0.15 kg in scn04, about 0.75 N m on joint 1) is now added as a point mass at the model's TCP once
+   the gripper reports the grasp, and cleared after the release (Proposed). Its centre is taken at the TCP; the
+   grasp puts the TCP 0.03 m above the item's centre. Not yet seen in a CI run.
+2. The feed-forward runs as a ROS node at 100 Hz of ROS time, not in the real-time loop. When the joint states of an
+   arm are older than `max_state_age_s` (0.2 s) or never arrived, it sends tau 0 for that arm every cycle, because the
+   effort controller keeps its last command (docs/architecture/d4_mit_frame_field_ownership.md, Proposed). That is a
+   functional command timeout, not a safety function. On hardware it would need the software lead's decision.
 3. A MoveIt goal can still end within a step of a joint limit and a joint can rest on its stop; readings more than
    one step past a limit are refused, as before.
 4. The finger geometry near the finger roots is inferred from the push and the closing angle seen in `fast`, not
