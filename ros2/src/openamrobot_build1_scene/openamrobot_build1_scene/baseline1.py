@@ -118,6 +118,43 @@ def spawn(rig, log):
         log.quantity("spawn_drive_configured", bool(rig.get("/sil/drive/status")["configured"]), "bool", low=True, high=True)
 
 
+class AmclListener:
+    """The latest /amcl_pose (map pose and its covariance) and how many AMCL published, for the localization record."""
+
+    def __init__(self, rig):
+        from geometry_msgs.msg import PoseWithCovarianceStamped
+        from rclpy.qos import DurabilityPolicy, QoSProfile
+        self.rig, self.last, self.count = rig, None, 0
+        qos = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        rig.node.create_subscription(PoseWithCovarianceStamped, "/amcl_pose", self._on, qos)
+
+    def _on(self, msg):
+        self.last, self.count = msg, self.count + 1
+
+
+def localization_record(rig, log, amcl, truth, count_at_start):
+    """AMCL against ground truth at the station: 1-sigma of its covariance, updates during the navigation, LiDAR beams
+    with a return. Recorded, no limits: docs/integration/station_approach.md turns them into run statistics."""
+    log.quantity("loc_amcl_updates_during_nav", amcl.count - count_at_start, "messages", note="/amcl_pose during nav_to_station")
+    msg = amcl.last
+    if msg is not None:
+        c = msg.pose.covariance
+        log.quantity("loc_amcl_sigma_x", math.sqrt(max(c[0], 0.0)), "m", note="sqrt of covariance[0], map frame")
+        log.quantity("loc_amcl_sigma_y", math.sqrt(max(c[7], 0.0)), "m", note="sqrt of covariance[7]")
+        log.quantity("loc_amcl_sigma_yaw", math.sqrt(max(c[35], 0.0)), "rad", note="sqrt of covariance[35]")
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        log.quantity("loc_amcl_last_update_age", rig.sim_time() - stamp, "s of Gazebo time", note="at the station check")
+        p = msg.pose.pose
+        from openamrobot_build1_scene.rig import yaw_of
+        log.quantity("loc_amcl_pose_minus_ground_truth", math.hypot(p.position.x - truth[0], p.position.y - truth[1]), "m",
+                     note="the last /amcl_pose, not the /tf map pose")
+        log.quantity("loc_amcl_pose_yaw_minus_ground_truth", abs(angle_diff(yaw_of(p.orientation), truth[2])), "rad")
+    scan = rig.get("/scan")
+    if scan is not None:
+        log.quantity("loc_scan_beams_with_return", sum(1 for v in scan.ranges if math.isfinite(v)), "beams",
+                     note=f"of {len(scan.ranges)}, at the station")
+
+
 def scan_returns(rig, log):
     """How the simulated LiDAR reports beams without a return: +inf (REP 117) or range_max. A no-return beam at
     range_max is a false obstacle for the costmaps and a false wall for AMCL (openamr-platform-sw #165)."""
@@ -139,6 +176,9 @@ def scan_returns(rig, log):
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
     scan_returns(rig, log)
+    amcl = AmclListener(rig)
+    rig.sleep_sim(0.5)
+    amcl_count0 = amcl.count
     gx, gy, gyaw = _station(WORK_STATION)
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"     # AMCL starts at the spawn pose in the world frame (launch_support.nav2_params)
@@ -182,6 +222,7 @@ def nav_to_station(rig, log):
     left = -(x - gx) * math.sin(gyaw) + (y - gy) * math.cos(gyaw)
     log.quantity("nav_station_error_along_heading", along, "m", note="+ is closer to the shelf; reachable -0.06 to +0.12 alone")
     log.quantity("nav_station_error_left", left, "m", note="reachable +-0.15 alone")
+    localization_record(rig, log, amcl, (x, y, yaw), amcl_count0)
     log.quantity("station_reach_position_error", math.hypot(x - gx, y - gy), "m", low=0.0, high=REACH_XY_M,
                  note="ground truth against the station: the arm-reach budget (docs/integration/station_approach.md), derived")
     log.quantity("station_reach_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", low=0.0, high=REACH_YAW_RAD,

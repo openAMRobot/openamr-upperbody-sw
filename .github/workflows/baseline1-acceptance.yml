@@ -59,8 +59,10 @@ jobs:
     name: Baseline 1 whole-robot mission
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    # Dispatched runs each get their own group, so repeated runs of one SHA run side by side on separate runners;
+    # pull_request runs of one PR still queue behind each other.
     concurrency:
-      group: baseline1-${{ github.ref }}
+      group: baseline1-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'pr' }}
       cancel-in-progress: false
     steps:
       - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
