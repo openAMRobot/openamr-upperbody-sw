@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: MIT
+# lift_controller in the plant of the Build 1 scene, run profiles fast and fine only (no device). build1.launch.py
+# hands it to gz_ros2_control after arm_controllers.yaml (and after sim_overlay.yaml in fine): a later file wins.
+# arm_controllers.yaml stays one file for mock, gazebo and real and is unchanged. The device profiles never read this
+# file: there the lift has no ros2_control interface and CTL-017 owns it (SW-06).
+#
+# Why effort (docs/build1_lift_and_base_diagnosis.md): gz_ros2_control turns a position command into a joint velocity
+# command, and DART applies a velocity command as a servo constraint that has the lowest priority in its joint
+# constraint. While lift_joint rests on its lower position limit (L1000 is that limit) and gravity loads it into the
+# limit, the limit constraint is active at every step and the servo is skipped: the joint cannot leave the limit,
+# whatever the command. An effort command is a joint force in the dynamics and lifts the carriage off the limit.
+# The trajectory, the action interface, the joint limits and the 800 N push of the joint are unchanged.
+#
+# UNVERIFIED gains: working values for the simulated carriage, not a model of the DOLD column's motor control.
+# Chosen on a one-axis model of 19.8 kg (the lift_joint child subtree of the gazebo profile), gravity, the 0.018 m/s
+# velocity limit and the 800 N effort limit, at 100 Hz and 750 Hz controller rates: settles at the stop in both.
+# Goal tolerance 3 mm and goal time 2 s: the action aborts instead of reporting success when the joint is not at the
+# stop (JointTrajectoryController checks no goal tolerance when it is 0). Simulation acceptance values, not decisions.
+
+lift_controller:
+  ros__parameters:
+    command_interfaces:
+      - effort
+    state_interfaces:
+      - position
+      - velocity
+    gains:
+      lift_joint:
+        p: 30000.0  # N/m
+        i: 60000.0  # N/(m*s)
+        d: 1200.0   # N*s/m
+    constraints:
+      goal_time: 2.0                    # s after the last point
+      stopped_velocity_tolerance: 0.002  # m/s
+      lift_joint:
+        trajectory: 0.0                 # no path check
+        goal: 0.003                     # m, the arrival window of the scenarios
