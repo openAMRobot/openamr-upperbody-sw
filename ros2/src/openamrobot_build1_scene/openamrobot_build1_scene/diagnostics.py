@@ -10,6 +10,7 @@ touch the world (shelf, tote, item, floor, fixtures) only.
 Simulation only. A contact force of the simulator is development evidence, not a measurement of a gripper.
 """
 import math
+import re
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -77,13 +78,38 @@ def with_contact_sensors(urdf_text, links, rate_hz=CONTACT_RATE_HZ):
     return urdf_text.replace("</robot>", "".join(blocks) + "</robot>")
 
 
-def world_with_contact_system(world_text):
-    """The world with gz-sim's Contact system, which the contact sensors need. Inserted once, after the Physics system."""
+WORLD_SENSOR_MODELS = ("item", "tote", "fixtures")
+
+
+def world_contact_link(model):
+    """The name the recorder gives the contact sensor of a world model (its topics use it like a link name)."""
+    return f"world_{model}"
+
+
+def world_with_contact_system(world_text, models=WORLD_SENSOR_MODELS, rate_hz=CONTACT_RATE_HZ):
+    """The world with gz-sim's Contact system, which the contact sensors need (inserted once, after the Physics system),
+    and one contact sensor on the link of each model in `models` over all of its collisions. These sensors are part of
+    the world file, not of the spawned robot: they report the robot's links as the other collision."""
     if CONTACT_SYSTEM in world_text:
         return world_text
     if world_text.count(PHYSICS_SYSTEM) != 1:
         raise ValueError("the world has no single Physics system element")
-    return world_text.replace(PHYSICS_SYSTEM, PHYSICS_SYSTEM + CONTACT_SYSTEM)
+    out = world_text.replace(PHYSICS_SYSTEM, PHYSICS_SYSTEM + CONTACT_SYSTEM)
+    for model in models:
+        start = out.find(f'<model name="{model}">')
+        if start < 0:
+            raise ValueError(f"the world has no model {model!r}")
+        end = out.index("</link>", start)
+        names = re.findall(r'<collision name="([^"]+)"', out[start:end])
+        if not names:
+            raise ValueError(f"model {model!r} has no collision in its first link")
+        topic = gz_contact_topic(world_contact_link(model))
+        collisions = "".join(f"<collision>{name}</collision>" for name in names)
+        sensor = (f'<sensor name="build1_contact_{model}" type="contact"><always_on>true</always_on>'
+                  f"<update_rate>{rate_hz}</update_rate><topic>{topic}</topic><contact>{collisions}<topic>{topic}</topic>"
+                  "</contact></sensor>")
+        out = out[:end] + sensor + out[end:]
+    return out
 
 
 def contact_bridge(links):

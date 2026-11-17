@@ -335,8 +335,10 @@ def _reach(rig, log, stop, level, side, targets, scale):
     log.quantity(f"{label}_target_height", target[2], "m", note=f"work shelf level {level}, 0.16 m above the board")
     # A pose goal, not a position-only one: with any orientation allowed the planner returned the right arm with
     # joint 1 on its limit and joint 2 at 3.0 rad, over the top (CI, 16 Nov, docs/build1_arm_diagnosis.md).
+    _mark(rig, f"{label}_start")
     ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, target, SIDE_GRASP, scale, position_tolerance=0.02), label)
     rig.sleep_sim(1.5)
+    _mark(rig, f"{label}_end")
     found = rig.transform("base_footprint", link)
     if found is not None:
         log.event(f"{label} hand base {[round(v, 4) for v in found[0]]} for the target {[round(v, 4) for v in target]} "
@@ -939,6 +941,7 @@ def diag_reach_return(rig, log):
         park_arms(rig, log)
         log.quantity("L0_lift_gazebo_position", rig.lift_truth(), "m", note="no lift move here: the lift starts at stop 0")
         for side in ("left", "right"):
+            labels.append((side, f"L0_{side}"))
             _reach(rig, log, 0, 0, side, targets, 0.3)
         for side in ("left", "right"):
             labels.append((side, f"L0_{side}_back_to_park"))

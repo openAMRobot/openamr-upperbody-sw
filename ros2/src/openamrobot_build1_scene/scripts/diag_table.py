@@ -43,12 +43,14 @@ GRASP_COLUMNS = (
     ("result", None, 0), ("finger q rad", "q", 3), ("f1 N", "finger1_normal_N_mean", 2), ("f2 N", "finger2_normal_N_mean", 2),
     ("f1 T N", "finger1_tangential_sum_N_mean", 2), ("f2 T N", "finger2_tangential_sum_N_mean", 2),
     ("f1 pts", "finger1_points_per_message_mean", 1), ("f2 pts", "finger2_points_per_message_mean", 1),
-    ("need N", "required_normal_per_finger_N", 3), ("tau1 phys", "openarm_left_finger_joint1_physics_effort_mean_Nm", 2),
+    ("need N", "required_normal_per_finger_N", 3), ("tau1 emu", "emulator_finger_torque_mean_Nm", 2), ("kp*err", "emulator_finger_kp_times_error_Nm", 2),
+    ("tau1 phys", "openarm_left_finger_joint1_physics_effort_mean_Nm", 2),
     ("tau2 phys", "openarm_left_finger_joint2_physics_effort_mean_Nm", 2), ("tau1 drv", "finger_joint1_driver_effort_mean_Nm", 2),
     ("hand dz", "hand_rise_m", 4), ("TCP dz", "tcp_rise_m", 4), ("item dz", "item_rise_m", 4),
     ("item-TCP dz", "item_rise_minus_tcp_rise_m", 4), ("slip", "slip_total_m", 4), ("slip onset s", "slip_onset_s_after_lift_start", 2),
     ("hand rot deg", "hand_rotation_deg", 1), ("item tilt deg", "item_tilt_deg", 1), ("TCP acc", "tcp_peak_vertical_accel_mps2", 2),
-    ("f1 on limit", "openarm_left_finger_joint1_on_limit_fraction", 2))
+    ("f1 on limit", "openarm_left_finger_joint1_on_limit_fraction", 2),
+    ("q2-q1 rad", "finger_joint2_minus_joint1_rad", 3))
 
 
 def grasp_rows(runs):

@@ -41,13 +41,30 @@ def test_contact_sensors_observe_and_change_nothing_else():
     assert [g.get("reference") for g in root.findall("gazebo")] == ["a", "b", "b"]
 
 
-def test_world_gets_the_contact_system_once():
-    world = f"<sdf><world>{dx.PHYSICS_SYSTEM}</world></sdf>"
-    once = dx.world_with_contact_system(world)
+def test_world_gets_the_contact_system_once_and_sensors_on_its_models():
+    item = '<model name="item"><link name="link"><collision name="body_collision"/></link></model>'
+    tote = '<model name="tote"><link name="link"><collision name="front_collision"/><collision name="back_collision"/></link></model>'
+    world = f"<sdf><world>{dx.PHYSICS_SYSTEM}{item}{tote}</world></sdf>"
+    once = dx.world_with_contact_system(world, models=("item", "tote"))
     assert once.count(dx.CONTACT_SYSTEM) == 1 and once.index(dx.CONTACT_SYSTEM) > once.index(dx.PHYSICS_SYSTEM)
-    assert dx.world_with_contact_system(once) == once
+    assert dx.world_with_contact_system(once, models=("item", "tote")) == once
+    root = ET.fromstring(once)
+    sensors = {s.get("name"): s for s in root.iter("sensor")}
+    assert [c.text for c in sensors["build1_contact_item"].findall("contact/collision")] == ["body_collision"]
+    assert [c.text for c in sensors["build1_contact_tote"].findall("contact/collision")] == ["front_collision", "back_collision"]
+    assert sensors["build1_contact_tote"].findtext("contact/topic") == "/build1/gz/contacts/world_tote"
     with pytest.raises(ValueError):
         dx.world_with_contact_system("<sdf><world/></sdf>")
+    with pytest.raises(ValueError, match="no model"):
+        dx.world_with_contact_system(f"<sdf><world>{dx.PHYSICS_SYSTEM}</world></sdf>", models=("item",))
+
+
+def test_the_generated_world_takes_the_three_world_sensors(scene):
+    from openamrobot_build1_scene import scene as scene_model
+    out = dx.world_with_contact_system(scene_model.world_sdf(scene, "fast", sensors=False))
+    names = [s.get("name") for s in ET.fromstring(out[out.index("<sdf"):]).iter("sensor")]
+    assert names == ["build1_contact_item", "build1_contact_tote", "build1_contact_fixtures"] or sorted(names) == sorted(
+        ["build1_contact_item", "build1_contact_tote", "build1_contact_fixtures"])
 
 
 def test_contact_bridge_and_the_switch():

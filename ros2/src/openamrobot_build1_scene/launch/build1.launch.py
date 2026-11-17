@@ -275,7 +275,8 @@ def launch_setup(context):
     actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_control_bridge", output="screen",
                         parameters=[{"config_file": control_bridge_file}]))
     if contact_links:
-        contact_bridge_file = temp_yaml("build1_contact_bridge_", diagnostics.contact_bridge(contact_links))
+        contact_bridge_file = temp_yaml("build1_contact_bridge_", diagnostics.contact_bridge(
+            contact_links + [diagnostics.world_contact_link(model) for model in diagnostics.WORLD_SENSOR_MODELS]))
         temp_files.append(contact_bridge_file)
         actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_contact_bridge", output="screen",
                             parameters=[{"config_file": contact_bridge_file}]))

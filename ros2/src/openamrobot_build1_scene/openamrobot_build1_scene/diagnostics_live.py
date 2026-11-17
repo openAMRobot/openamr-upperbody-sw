@@ -45,9 +45,10 @@ class Recorder:
         self.contact_counts = {}
         try:
             from ros_gz_interfaces.msg import Contacts
-            for link in self.links:
+            self.world_links = [dx.world_contact_link(model) for model in dx.WORLD_SENSOR_MODELS]
+            for link in self.links + self.world_links:
                 rig.node.create_subscription(Contacts, dx.ros_contact_topic(link), lambda m, l=link: self._on_contacts(l, m), 50)
-            self.types.update({dx.ros_contact_topic(link): "ros_gz_interfaces/msg/Contacts" for link in self.links})
+            self.types.update({dx.ros_contact_topic(link): "ros_gz_interfaces/msg/Contacts" for link in self.links + self.world_links})
             self.contacts_available = True
         except ImportError:
             self.contacts_available = False
@@ -62,6 +63,17 @@ class Recorder:
                                   ("/build1/ground_truth/odom", Odometry, "nav_msgs/msg/Odometry")):
             self.types[topic] = name
             rig.node.create_subscription(kind, topic, lambda m, t=topic: self._on_raw(t, m), 50)
+        self.emulator, self.feedforward = {}, {}
+        from std_msgs.msg import Float64MultiArray
+        for side in ("left", "right"):
+            rig.node.create_subscription(Float64MultiArray, f"/{side}_arm_gravity_controller/commands",
+                                         lambda m, s=side: self._on_feedforward(s, m), 10)
+        try:
+            from diagnostic_msgs.msg import DiagnosticArray
+            for side in ("left", "right"):
+                rig.node.create_subscription(DiagnosticArray, f"/sim/{side}_arm_emulator/status", self._on_emulator, 10)
+        except ImportError:
+            pass
         rig.plans = []
         rig.recorder = self
 
@@ -70,6 +82,24 @@ class Recorder:
         with self.lock:
             if self.model is None:
                 self.urdf, self.model = msg.data, GravityModel(msg.data)
+
+    def _on_feedforward(self, side, msg):
+        with self.lock:
+            self.feedforward[side] = list(msg.data)
+
+    def _on_emulator(self, msg):
+        """The arm emulator's own view of each motor: applied torque and the last MIT command it received."""
+        for status in msg.status:
+            joint = status.name.rsplit("/", 1)[-1]
+            if "finger" not in joint:
+                continue
+            values = {kv.key: kv.value for kv in status.values}
+            try:
+                entry = {k: float(values[k]) for k in ("torque", "position", "mit_q", "mit_kp", "mit_kd")}
+            except (KeyError, ValueError):
+                continue
+            with self.lock:
+                self.emulator[joint] = entry
 
     def _on_raw(self, topic, msg):
         if self.running:
@@ -83,14 +113,26 @@ class Recorder:
         t = self.rig.sim_time()
         rows = []
         for contact in msg.contacts:
-            other = contact.collision2.name if link in contact.collision1.name else contact.collision1.name
+            if link.startswith("world_"):
+                # A world sensor: collision1 is the world model's, collision2 the touching one. The row is keyed by the
+                # robot link that touches (model::link::collision), so that one table holds both kinds of sensor.
+                model = link[len("world_"):]
+                mine, theirs = contact.collision1.name, contact.collision2.name
+                if not mine.startswith(model + "::") and theirs.startswith(model + "::"):
+                    mine, theirs = theirs, mine
+                parts = theirs.split("::")
+                row_link = parts[1] if len(parts) >= 3 and parts[0] == "openamrobot" else theirs
+                other, source = mine, link
+            else:
+                other = contact.collision2.name if link in contact.collision1.name else contact.collision1.name
+                row_link, source = link, link
             for i, point in enumerate(contact.positions):
                 force = contact.wrenches[i].body_1_wrench.force if i < len(contact.wrenches) else None
                 normal = contact.normals[i] if i < len(contact.normals) else None
                 f = (force.x, force.y, force.z) if force is not None else (math.nan,) * 3
                 n = (normal.x, normal.y, normal.z) if normal is not None else (math.nan,) * 3
                 normal_force, tangential = dx.normal_tangential(f, n) if normal is not None else (math.nan, math.nan)
-                rows.append({"t": t, "link": link, "other": other, "point": (point.x, point.y, point.z), "force": f,
+                rows.append({"t": t, "link": row_link, "sensor": source, "other": other, "point": (point.x, point.y, point.z), "force": f,
                              "normal": n, "fn": normal_force, "ft": tangential,
                              "depth": contact.depths[i] if i < len(contact.depths) else math.nan})
         with self.lock:
@@ -139,7 +181,11 @@ class Recorder:
         driver = self._joint_map("/joint_states", "position")
         driver_effort = self._joint_map("/joint_states", "effort")
         fingers = self._joint_map(FINGERS, "position")
-        sample = {"t": t, "q": physics, "tau": effort, "q_driver": driver, "tau_driver": driver_effort, "fingers": fingers}
+        with self.lock:
+            emulator = {joint: dict(values) for joint, values in self.emulator.items()}
+            feedforward = {side: list(values) for side, values in self.feedforward.items()}
+        sample = {"t": t, "q": physics, "tau": effort, "q_driver": driver, "tau_driver": driver_effort, "fingers": fingers,
+                  "emulator": emulator, "feedforward": feedforward}
         item = self.rig.get("/build1/ground_truth/item/pose")
         if item is not None:
             p, o = item.pose.position, item.pose.orientation
@@ -287,6 +333,18 @@ def grasp_numbers(recorder, side, mass, mu):
                 out[f"{joint}_on_limit_fraction"] = float(np.mean([dx.on_limit(v, 0.0, 0.7854) != "" for v in values]))
             if efforts:
                 out[f"{joint}_physics_effort_mean_Nm"] = float(np.mean(efforts))
+        q1 = out.get(f"openarm_{side}_finger_joint1_mean_rad")
+        q2 = out.get(f"openarm_{side}_finger_joint2_mean_rad")
+        if q1 is not None and q2 is not None:
+            out["finger_joint2_minus_joint1_rad"] = q2 - q1
+        finger = f"openarm_{side}_finger_joint1"
+        motor = [s["emulator"][finger] for s in held if finger in s.get("emulator", {})]
+        if motor:
+            out["emulator_finger_torque_mean_Nm"] = float(np.mean([m["torque"] for m in motor]))
+            out["emulator_finger_mit_kp"] = float(np.mean([m["mit_kp"] for m in motor]))
+            out["emulator_finger_mit_q"] = float(np.mean([m["mit_q"] for m in motor]))
+            out["emulator_finger_kp_times_error_Nm"] = float(np.mean([m["mit_kp"] * (m["mit_q"] - m["position"]) for m in motor]))
+        out["gripper_command_max_effort_Nm"] = 3.0
         driver_efforts = [s["tau_driver"].get(f"openarm_{side}_finger_joint1") for s in held
                           if s["tau_driver"].get(f"openarm_{side}_finger_joint1") is not None]
         if driver_efforts:
@@ -298,6 +356,9 @@ def grasp_numbers(recorder, side, mass, mu):
         out["required_normal_per_finger_at_peak_accel_N"] = dx.required_normal_force(mass, mu, accel=accel)
         for number, link in enumerate(fingers, 1):
             on_item = [c for c in hold if c["link"] == link and "item" in c["other"]]
+            if any(c.get("sensor") == "world_item" for c in on_item):     # one sensor per contact: the item's when it reports
+                on_item = [c for c in on_item if c.get("sensor") == "world_item"]
+            out[f"finger{number}_contact_sensor"] = sorted({c.get("sensor") for c in on_item})
             elsewhere = sorted({c["other"] for c in hold if c["link"] == link and "item" not in c["other"]})
             stamps = sorted({c["t"] for c in on_item})
             per_message = [[c for c in on_item if c["t"] == t] for t in stamps]
@@ -328,6 +389,11 @@ def return_numbers(recorder, side, label, limits):
             out[f"{joint[-6:]}_limit_hit"] = ",".join(hits)
         final = window[-1]
         out["final_q"] = {joint[-6:]: round(final["q"].get(joint, math.nan), 4) for joint in joints}
+        ff = [s["feedforward"].get(side) for s in window if s.get("feedforward", {}).get(side)]
+        if ff:
+            out["feedforward_final_Nm"] = [round(v, 2) for v in ff[-1]]
+            out["feedforward_zero_fraction"] = float(np.mean([all(v == 0.0 for v in f) for f in ff]))
+        out["final_physics_effort_Nm"] = {joint[-6:]: round(final["tau"].get(joint, math.nan), 2) for joint in joints}
     t0, t1 = recorder.mark_time(f"{label}_start"), recorder.mark_time(f"{label}_end", last=True)
     if t0 is not None and t1 is not None:
         world = [c for c in recorder.contacts_between(t0, t1) if c["link"].startswith(f"openarm_{side}_")]
