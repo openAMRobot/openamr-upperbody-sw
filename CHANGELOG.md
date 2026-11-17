@@ -5,6 +5,18 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (17 Nov 2026; public model bundle, built by CI)
+
+- **`tools/model_bundle/`**: `build_bundle.py` packs `openamrobot-2.0-model-<version>.zip`: six expanded URDFs (bp000 and bp050 as
+  `mock`, `gazebo` and `mock` with `sim_dynamics:=on`), the 30 meshes they reference under `share/<package>/`, `bundle_lock.json`
+  (source commits and the sha256, licence and source of every file), `SHA256SUMS`, `NOTICE.md`, licences and a README with loading
+  instructions for RViz and Gazebo and the known limitations. No MJCF: the generator (#69) is not on main. `verify_bundle.py` checks
+  a bundle against its lock. Evidence class static; not simulation, hardware or safety evidence.
+- **Workflow `model-bundle.yml`**: manual run, `model-v*` tags (zip attached to the tag's release as a draft, never published by the
+  workflow), and pull requests that touch the bundle tooling.
+- **Tests** `tools/tests/test_model_bundle.py` (13): every referenced mesh listed, every sha256 matching, and each failure the
+  verifier and the builder claim to catch.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,

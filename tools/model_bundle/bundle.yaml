@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MIT
+# What the public model bundle contains: the configurations it expands and the licence of every file it copies.
+# Read by build_bundle.py. A copied file that matches no licence rule stops the build (no licence is guessed).
+schema_version: 1
+name: openamrobot-2.0-model
+
+# One URDF per entry. Every entry is the combined_robot.xacro of the installed openamrobot_upperbody_description with
+# these xacro arguments; the other arguments take their defaults (option B's baseline: dold_v4_350, hp30, bt10).
+# The lift is joint state (lift_joint, 0 .. 0.350 m), not a configuration: every URDF carries the full stroke.
+# The real hardware profile is not published here: it is the hardware driver's contract, not a model to load.
+configurations:
+  - id: bp000-mock
+    use: RViz and kinematics (no physics elements on the arm joints)
+    args: {base_plate: bp000, arm_package: openarm, hardware_profile: mock}
+  - id: bp000-gazebo
+    use: Gazebo Harmonic (gz_ros2_control block, joint damping and friction on the OpenArm joints)
+    args: {base_plate: bp000, arm_package: openarm, hardware_profile: gazebo}
+  - id: bp000-dynamics
+    use: input for MuJoCo or another physics tool (mock profile with joint damping and friction)
+    args: {base_plate: bp000, arm_package: openarm, hardware_profile: mock, sim_dynamics: "on"}
+  - id: bp050-mock
+    use: as bp000-mock, column 50 mm further forward
+    args: {base_plate: bp050, arm_package: openarm, hardware_profile: mock}
+  - id: bp050-gazebo
+    use: as bp000-gazebo, column 50 mm further forward
+    args: {base_plate: bp050, arm_package: openarm, hardware_profile: gazebo}
+  - id: bp050-dynamics
+    use: as bp000-dynamics, column 50 mm further forward
+    args: {base_plate: bp050, arm_package: openarm, hardware_profile: mock, sim_dynamics: "on"}
+
+# The source repositories whose commits the lock records. key: the package whose share directory the meshes come from.
+sources:
+  openamr-upperbody-sw: {repository: openAMRobot/openamr-upperbody-sw, packages: [openamrobot_upperbody_description]}
+  openamr-platform-sw: {repository: openAMRobot/openamr-platform-sw, packages: [openamrobot_description], pin: openamr_platform_sw}
+  openarm_description: {repository: enactic/openarm_description, packages: [openarm_description], pin: openarm_description}
+
+# Licence of every copied mesh, by bundle path; the first matching glob wins.
+licence_rules:
+  - glob: share/openarm_description/**
+    licence: Apache-2.0
+    note: OpenArm 2.0 description by Enactic, Inc., unmodified copies
+  - glob: share/openamrobot_description/meshes/visual/base_chassis.stl
+    licence: CERN-OHL-P-2.0
+    note: tessellated export of OpenAMRobot CAD (openamr-platform-hw)
+  - glob: share/openamrobot_description/meshes/visual/base_covers.stl
+    licence: CERN-OHL-P-2.0
+    note: tessellated export of OpenAMRobot CAD (openamr-platform-hw)
+  - glob: share/openamrobot_description/meshes/visual/*.stl
+    licence: MIT
+    note: generated envelope (box, cylinder or revolved profile); no vendor geometry
+
+# The licence of each expanded URDF: it composes the files of all three sources.
+urdf_licence: MIT AND CERN-OHL-P-2.0 AND Apache-2.0
+
+# Third-party licence texts copied into licenses/, from the source checkout named by `source`.
+licence_files:
+  - {source: openarm_description, path: LICENSE.txt, as: licenses/openarm_description-Apache-2.0.txt}
+  - {source: openamr-platform-sw, path: LICENSE, as: licenses/openamr-platform-sw-MIT.txt}
+  - {source: openamr-upperbody-sw, path: LICENSE, as: LICENSE}
