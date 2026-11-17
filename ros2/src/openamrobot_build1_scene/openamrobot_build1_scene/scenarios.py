@@ -16,7 +16,8 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.arm_frames import SIDE_GRASP, TCP_FRAME, hand_for_tcp_at, side_grasp_offset
+from openamrobot_build1_scene.arm_frames import (SIDE_GRASP, TCP_FRAME, face_yaw, hand_for_tcp_at, rotate_z, side_grasp,
+                                                  side_grasp_offset)
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M, ScenarioFailed,
                                           angle_diff)
 
@@ -371,7 +372,13 @@ def grasp(rig, log):
     finger = "openarm_left_finger_joint1"
     item0 = rig.object_position("item")
     log.quantity("item_start_height", item0[2], "m")
-    quaternion = SIDE_GRASP
+    # The fingers point square at the item's face, not along the base heading: a base that stops a few degrees off
+    # (the station approach allows 0.05 rad) otherwise sweeps the fingers into the item and the tote wall (Baseline 1
+    # run 44100120091: base 0.073 rad off, item pushed 51 mm, not lifted). 0 when the base stands square to the item.
+    from openamrobot_build1_scene.rig import yaw_of
+    yaw = face_yaw(rig.truth()[2], yaw_of(rig.get("/build1/ground_truth/item/pose").pose.orientation))
+    log.quantity("grasp_face_yaw", yaw, "rad", note="the side grasp turned about z of base_footprint to the item's face")
+    quaternion = side_grasp(yaw)
     item = _in_base(rig, item0)
     grasp_z = item[2] + 0.03                      # above the tote wall
     # D9 step 2: the item goes to the model's TCP, openarm_left_grasp_frame (0.138 m along the fingers, from the URDF
@@ -382,8 +389,9 @@ def grasp(rig, log):
     if not log.require(found is not None, f"no /tf from {link} to {TCP_FRAME[side]}"):
         return
     log.quantity("tcp_depth_along_fingers", side_grasp_offset(found[0])[0], "m", note=f"{TCP_FRAME[side]} in {link}, from /tf")
-    hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0])
-    approach = (hand[0] - 0.10, hand[1], hand[2])
+    hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0], yaw)
+    back = rotate_z((0.10, 0.0, 0.0), yaw)       # 0.10 m back along the fingers
+    approach = (hand[0] - back[0], hand[1] - back[1], hand[2])
 
     park_arms(rig, log)
     opened = rig.gripper(side, OPEN)

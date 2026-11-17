@@ -35,7 +35,7 @@ jobs:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
           - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|canfd_vcan|replay_vcan)$"
+            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|arm_frames|canfd_vcan|replay_vcan)$"
           - name: firmware_sil drive, lift, cancel
             tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
           - name: firmware_sil arms, grasp, single writer
@@ -47,9 +47,19 @@ jobs:
           - name: fast lift stops and base yaw
             tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
     steps:
-      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
-        with:
-          required-ros-distributions: jazzy
+      # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
+      # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source 1.3.0)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.3.0/ros2-apt-source_1.3.0.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools
+          sudo rosdep init || echo "rosdep init: already initialized"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
