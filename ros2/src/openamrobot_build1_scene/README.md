@@ -285,7 +285,8 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
   shelf board under a hand that had settled 7 cm low (`docs/build1_arm_diagnosis.md`).
 - **Arm accuracy through the real driver.** Without the gravity feed-forward the driver's gains leave the arm below
   every pose: 0.145 rad on joint 1 and 74 mm at the hand for the grasp pose (MuJoCo, the same gains). With it the
-  scenarios check commanded against read joint positions to 0.02 rad (`*_tracking_error_max`).
+  scenarios check commanded against read joint positions, weighed by the driver's kp: at most 0.5 N m of servo
+  torque left (`*_servo_torque_max`; `*_tracking_error_max` is recorded in rad).
 - **Lift in DART.** In local runs of `fast` the lift did not move on some commands and moved on others, with the same
   command and no fault reported. In CI one lift move in `firmware_sil` ended in a stall fault of the CTL-017 model
   at a real-time factor of 0.53. The cause is open.

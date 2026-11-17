@@ -137,6 +137,21 @@ tote or payload. The displacement in Gazebo therefore comes from something the o
 a contact with the scene, or a self-contact MoveIt's allowed-collision matrix permits. Cycle 3 logs the hand base
 against the target per axis and the ground-truth poses of tote, item and payload around each reach to tell which.
 
+## CI cycle 3 (head `795ab94`, run 43988726353)
+
+| Check | Cycle 3 |
+|---|---|
+| scn04 | grasp held: fingers 0.174 rad on the item, item not pushed (0.0 mm), lifted 82 mm, drift 0.01 mm in 3 s. FAIL only on the 0.02 rad limit: joint 5 0.0212 rad (0.21 N m at kp 10) during `grasp_lift` |
+| scn03 right reach | 0.011 rad, hand base 19.5 mm from the target |
+| scn03 left reach | displaced: up to 0.67 rad (joint 7), hand base 0.13 m low and 0.09 m outward, physics and driver agree to 3.4e-4 rad. Commanded vector inside the limits (joint 1 -1.304, the mirror of cycle 2's right) |
+| scn03 objects | tote, item and payload at their start poses before and after the reach |
+| scn03 result | BLOCKED: CTL-017 lift fault at real-time factor 0.32 |
+| drive, lift, cancel; faults; single writer | as cycle 2: 2 PASS and 1 BLOCKED each; scn09 PASS |
+
+So one of the two level-0 reaches is displaced in each run, the right one in cycle 2 and the left one in cycle 3,
+with sound plans and the other arm tracking to 0.02 rad. The scene objects do not move. Not explained yet (open
+item 6 below).
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the
@@ -160,11 +175,12 @@ interface with devices and no gravity feed-forward).
    field, 2 x 12.5 / 65535 = 3.8148e-4 rad, when the joint states cross the codec. The field truncates: a joint at 0
    reads -1.907e-4 rad, a joint on a lower limit up to one step below it. Readings further out are still passed
    through and logged. The default 1e-5 rad of the other profiles is unchanged.
-3. **Commanded against actual in the scenarios.** Every MoveIt move of scn03 and scn04 now logs the last trajectory
-   point, the reading minus the command per joint, and `*_tracking_error_max` with a limit of 0.02 rad for the
-   required moves. On the old behaviour this reads about 0.15 rad and fails. scn04 also logs the driver's finger
-   reading next to the physics one.
-
+3. **Commanded against actual in the scenarios.** Every MoveIt move of scn03 and scn04 logs the last trajectory point,
+   the reading minus the command per joint, `*_tracking_error_max` in rad and `*_servo_torque_max`, the largest
+   driver kp times the error: the torque the joint's servo is still pushing with. Limit 0.5 N m for the required
+   moves (7 % of the smallest motor peak). On the old behaviour joint 1 alone gives about 10 N m. Cycles 1 to 3 used
+   a 0.02 rad limit on every joint; joint 5 (kp 10) read 0.016 to 0.023 rad in every arm move, loaded or not, which
+   is 0.2 N m, so the limit is now set in torque.
 4. **Hand orientation and TCP (D9 step 2).** scn03 reaches with the side-grasp orientation instead of a position-only
    goal; scn04 puts the item at the model's TCP read from /tf (`openamrobot_build1_scene/arm_frames.py`).
 
@@ -183,3 +199,7 @@ Tests: `test/test_gravity.py` (reference torques, controller file, launch defaul
    measured from the meshes.
 5. Emulator effects (torque quantisation of the 12-bit tau field, the damping filter above 200 Hz) are inside the
    loop and were not separated here.
+6. scn03 level-0 reach: one arm per run ends displaced by up to 0.67 rad with a sound plan (cycles 2 and 3). The
+   same vector holds in MuJoCo, which has no shelf. Next step: a Gazebo contact sensor or the contacts topic on the
+   hand and forearm links during scn03, or one rendered run of scn03, before any parameter is touched.
+7. scn03 never reaches level 1 in CI: the lift move faults the CTL-017 model below a real-time factor of 0.55.

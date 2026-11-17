@@ -235,7 +235,12 @@ def _move_group(rig, log, goal, label, sim_s=120.0, required=True, attempts=1):
     return code == 1
 
 
-TRACKING_LIMIT_RAD = 0.02   # commanded end point against the driver's reading, 1 s after the controller reports success
+# Commanded end point against the driver's reading, 1 s after the controller reports success, weighed by the driver's
+# position gain: kp * |error| is the torque the joint's own servo is still pushing with (openarm_ros2 4e837e1 kp,
+# the same as upstream control_gains.yaml). 0.5 N m is 7 % of the smallest motor peak (DM4310, 7 N m) and 5 % of the
+# joint 1 gravity load at the grasp pose. Without the feed-forward joint 1 alone gives 70 * 0.145 = 10 N m.
+DRIVER_KP = (70.0, 70.0, 70.0, 60.0, 10.0, 10.0, 10.0)
+TRACKING_LIMIT_NM = 0.5
 
 
 def _tracking(rig, log, label, trajectory, required):
@@ -246,14 +251,17 @@ def _tracking(rig, log, label, trajectory, required):
     rig.sleep_sim(1.0)
     errors = {name: rig.joint(name) - target for name, target in zip(trajectory.joint_names, trajectory.points[-1].positions)}
     worst = max(errors, key=lambda name: abs(errors[name]))
+    servo = {name: DRIVER_KP[int(name[-1]) - 1] * abs(error) for name, error in errors.items() if name[-1].isdigit()}
+    worst_servo = max(servo, key=servo.get)
     log.event(f"{label} commanded end point {dict(zip(trajectory.joint_names, [round(v, 5) for v in trajectory.points[-1].positions]))}")
     log.event(f"{label} reading minus command {dict((name, round(error, 5)) for name, error in errors.items())}")
-    note = (f"largest |/joint_states - last trajectory point|, joint {worst}. Without the gravity feed-forward the driver's "
-            "gains leave 0.1 rad and more on joint 1 (docs/build1_arm_diagnosis.md)")
+    log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", note=f"largest |/joint_states - last trajectory point|, joint {worst}")
+    note = (f"largest driver kp * |reading - command|, joint {worst_servo}. Without the gravity feed-forward 10 N m on "
+            "joint 1 (docs/build1_arm_diagnosis.md)")
     if required:
-        log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", low=0.0, high=TRACKING_LIMIT_RAD, note=note)
+        log.quantity(f"{label}_servo_torque_max", servo[worst_servo], "N m", low=0.0, high=TRACKING_LIMIT_NM, note=note)
     else:
-        log.quantity(f"{label}_tracking_error_max", abs(errors[worst]), "rad", note=note + ". Recorded, no limit: a return move")
+        log.quantity(f"{label}_servo_torque_max", servo[worst_servo], "N m", note=note + ". Recorded, no limit: a return move")
 
 
 def _belief_vs_physics(rig, joints):

@@ -16,7 +16,7 @@ gripper path). Xacro (pinocchio) and MJCF (MuJoCo) FK agree to 5e-13 mm. Neither
 - **Start-state resolution with devices.** `joint_state_clamp` allows one step of the Damiao position field (3.8148e-4 rad) when the joint
   states cross the codec; the -1.39639 rad reading that stopped the right arm's return move is inside it.
 - **Commanded against actual.** scn03 and scn04 log the trajectory end point against the driver's reading per joint, with
-  `*_tracking_error_max` limited to 0.02 rad for required moves. Tests: `test_gravity.py`, `test_command_map.py`.
+  `*_servo_torque_max` (driver kp times the error) limited to 0.5 N m for required moves. Tests: `test_gravity.py`, `test_command_map.py`.
 
 ### Changed (15 Nov 2026, 23:59 Kyiv; WS0 repin of the Build 1 scene)
 
