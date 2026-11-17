@@ -14,6 +14,8 @@
 name: Baseline 1 acceptance
 
 on:
+  push:
+    branches: ['diag/worker-g-mission']
   pull_request:
     branches: [main]
     paths:
@@ -69,8 +71,12 @@ jobs:
     # Dispatched runs each get their own group, so repeated runs of one SHA run side by side on separate runners;
     # pull_request runs of one PR still queue behind each other.
     concurrency:
-      group: baseline1-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'pr' }}
+      group: baseline1-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'pr' }}-${{ matrix.run }}
       cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        run: [1, 2, 3, 4, 5]
     steps:
       - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
         run: |
@@ -204,6 +210,8 @@ jobs:
         working-directory: ws
         env:
           QT_QPA_PLATFORM: offscreen
+          BUILD1_CONTACT_SENSORS: "1"
+          BUILD1_DIAG_MISSION: "1"
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
@@ -217,6 +225,16 @@ jobs:
             --ctest-args -R '^test_baseline1_mission$'
           echo "MISSION_RC=$?" >> "$GITHUB_ENV"
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: Diagnostics table (diagnostics branch)
+        if: always()
+        working-directory: ws
+        run: |
+          set +e
+          mkdir -p diag/run${{ matrix.run }}
+          cp build1_logs/baseline1_mission.json diag/run${{ matrix.run }}/diag_grasp.json
+          python3 "src/openamr-upperbody-sw/ros2/src/$PACKAGE/scripts/diag_table.py" diag/run${{ matrix.run }} --summary "$GITHUB_STEP_SUMMARY"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(json.dumps(d.get('diagnostics'), default=str)[:30000])" build1_logs/baseline1_mission.json
 
       - name: Phase table, failure classes and trace summary
         if: always()
@@ -264,7 +282,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: baseline1-acceptance-attempt${{ github.run_attempt }}
+          name: baseline1-acceptance-attempt${{ github.run_attempt }}-run${{ matrix.run }}
           retention-days: 30
           path: |
             ws/build1_logs/

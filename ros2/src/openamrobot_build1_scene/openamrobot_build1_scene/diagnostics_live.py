@@ -192,6 +192,16 @@ class Recorder:
             sample["item"] = ((p.x, p.y, p.z), (o.x, o.y, o.z, o.w))
         odom = self.rig.get("/build1/ground_truth/odom")
         lift = self._joint_map("/sil/gz/joint_states", "position").get("lift_joint")
+        sample["lift_physics"] = lift
+        sample["lift_driver"] = driver.get("lift_joint")
+        try:
+            belief = self.rig.transform("map", "base_footprint")
+            if belief is not None and odom is not None:
+                from openamrobot_build1_scene.rig import pose2d, yaw_of
+                truth = pose2d(odom)
+                sample["belief_minus_truth"] = (belief[0][0] - truth[0], belief[0][1] - truth[1], yaw_of(belief[1]) - truth[2])
+        except Exception:  # noqa: BLE001 - a trace field only
+            pass
         with self.lock:
             model = self.model
         if odom is not None and model is not None:
@@ -313,6 +323,10 @@ def grasp_numbers(recorder, side, mass, mu):
             out["item_in_tcp_at_close"] = [round(v, 4) for v in rel[0][1]]
             out["item_in_tcp_at_hold_end"] = [round(v, 4) for v in rel[-1][1]]
         first, final = held[0], held[-1]
+        if "belief_minus_truth" in first:
+            out["localization_minus_truth_at_close"] = [round(v, 4) for v in first["belief_minus_truth"]]
+        out["lift_physics_at_close_m"] = first.get("lift_physics")
+        out["lift_driver_at_close_m"] = first.get("lift_driver")
         tcp = f"openarm_{side}_grasp_frame"
         hand = f"openarm_{side}_ee_base_link"
         if tcp in first and tcp in final and "item" in first and "item" in final:

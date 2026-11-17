@@ -30,5 +30,17 @@ def generate_test_description():
 class TestBaseline1Mission(unittest.TestCase):
     def test_baseline1_mission(self):
         from openamrobot_build1_scene import baseline1, scenarios
-        scenarios.SCENARIOS.setdefault("baseline1_mission", (baseline1.mission, True, {"nav2": True, "moveit": True}))
+        function = baseline1.mission
+        if os.environ.get("BUILD1_DIAG_MISSION") == "1":     # diagnostics branch only: the mission with the recorder on
+            def function(rig, log):
+                recorder = scenarios._diag_start(rig, log)
+                try:
+                    baseline1.mission(rig, log)
+                finally:
+                    recorder.stop()
+                    scenarios._diag_report(rig, log, recorder, "baseline1_mission_diag", True,
+                                           [("left", "grasp_approach"), ("left", "grasp_reach"), ("left", "grasp_lift"),
+                                            ("left", "grasp_withdraw"), ("left", "retreat_left_to_park"),
+                                            ("right", "retreat_right_to_park")])
+        scenarios.SCENARIOS.setdefault("baseline1_mission", (function, True, {"nav2": True, "moveit": True}))
         build1_harness.run(self, "baseline1_mission")
