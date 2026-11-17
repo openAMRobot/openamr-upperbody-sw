@@ -21,6 +21,33 @@ from .urdf_model import URDF
 
 USD_ANGULAR_PER_DEGREE = math.pi / 180.0
 
+# Isaac Sim's URDF converter drops a root link that has no inertial and no geometry, and the bodies under it then come out as
+# separate articulations fixed to the world (found by the OpenRAL import of this model, OpenRAL PR 497, robots/openamrobot_v2).
+# In this model base_link and lift_column_base_link are both fixed children of base_footprint, so the split is the chassis in one
+# articulation and the lift and arms in another. The source model keeps its massless REP 105 root and its height datum; only the
+# importer's copy gets this declared placeholder (0.1 % of the robot's mass), recorded in the job.
+ROOT_PLACEHOLDER = {"mass": 0.1, "inertia": 1e-4,
+                    "source": "import-step deviation: Isaac Sim URDF converter drops an empty massless root (OpenRAL PR 497 finding)"}
+
+
+def articulation_root(u):
+    """The articulation root body: the URDF root. The upper body hangs from base_footprint beside base_link (heights from the floor,
+    height datum decision), so only the root links the chassis and the lift and arms into one tree."""
+    return u.root_link
+
+
+def _root_placeholder(text, root):
+    """The URDF text with a placeholder inertial in the massless root link. Raises if the root already has one."""
+    m = re.search(rf'<link name="{re.escape(root)}"\s*/>|<link name="{re.escape(root)}"\s*>', text)
+    if m is None:
+        raise ValueError(f"root link {root} not found")
+    i = ROOT_PLACEHOLDER["inertia"]
+    inertial = (f'<link name="{root}"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="{ROOT_PLACEHOLDER["mass"]}"/>'
+                f'<inertia ixx="{i}" ixy="0" ixz="0" iyy="{i}" iyz="0" izz="{i}"/></inertial>')
+    if m.group(0).endswith("/>"):
+        inertial += "</link>"
+    return text[:m.start()] + inertial + text[m.end():]
+
 
 def _absolute_meshes(text, package_dirs):
     def repl(match):
@@ -36,7 +63,12 @@ def build_job(expansion, out_dir, overrides=OVERRIDES, profile=PROFILE):
     prof = load_yaml(profile)
     u = URDF(expansion.text)
     urdf_path = out_dir / f"openamrobot_{expansion.name}_isaac.urdf"
-    urdf_path.write_text(_absolute_meshes(expansion.text, expansion.package_dirs))
+    text = _absolute_meshes(expansion.text, expansion.package_dirs)
+    deviations = []
+    if u.links[u.root_link].inertial is None:
+        text = _root_placeholder(text, u.root_link)
+        deviations.append({"link": u.root_link, "added_inertial_kg": ROOT_PLACEHOLDER["mass"], "reason": ROOT_PLACEHOLDER["source"]})
+    urdf_path.write_text(text)
     act = ov["actuators"]
     drives = {}
     for side in ("left", "right"):
@@ -70,6 +102,7 @@ def build_job(expansion, out_dir, overrides=OVERRIDES, profile=PROFILE):
         "importer": ov["isaac"]["importer"],
         "physics": {"time_steps_per_second": round(1.0 / ov["common"]["physics_step"]["value"]),
                     "gravity": ov["common"]["gravity"]["value"]},
+        "articulation_root": articulation_root(u), "importer_deviations": deviations,
         "drives": job_drives, "armature": armature, "mimic": mimic, "castors": ov["isaac"]["drives"]["castors"],
         "unsupported": [
             {"item": "joint friction", "handling": "PhysX joint friction is a unitless coefficient; URDF friction torque not applied"},
@@ -187,6 +220,31 @@ def check_usd(usd_path, urdf_text, job):
                             job["mimic"][j.name]["joint"], [t.name for t in ref])
                     gearing = prim.GetAttribute(f"physxMimicJoint:{inst[0]}:gearing").Get()
                     r.near("usd.mimic_gearing", j.name, -job["mimic"][j.name]["multiplier"], gearing if gearing is not None else float("nan"), 1e-6)
+    roots = [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.ArticulationRootAPI)]
+    r.check("usd.articulation_count", "robot", len(roots) == 1, 1, [str(p.GetPath()) for p in roots])
+    if len(roots) == 1:
+        # Every moving joint must connect bodies reachable from the articulation root through joints, never through the world.
+        bodies = {p.GetName() for p in stage.Traverse() if is_body(p)}
+        edges = {}
+        for p in stage.Traverse():
+            if is_joint(p):
+                jo = UsdPhysics.Joint(p)
+                b0 = [t.name for t in jo.GetBody0Rel().GetTargets()]
+                b1 = [t.name for t in jo.GetBody1Rel().GetTargets()]
+                if b0 and b1:
+                    edges.setdefault(b0[0], set()).add(b1[0])
+                    edges.setdefault(b1[0], set()).add(b0[0])
+        start = roots[0].GetName()
+        if start not in bodies:  # root API on an Xform above the bodies: start from the job's articulation body
+            start = job.get("articulation_root", start)
+        seen, stack = {start}, [start]
+        while stack:
+            for nxt in edges.get(stack.pop(), ()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        outside = sorted(j.name for j in u.joints.values() if j.type != "fixed" and not {j.parent, j.child} <= seen)
+        r.check("usd.articulation_contains_moving_joints", "robot", not outside, [], outside)
     scenes = [p for p in stage.Traverse() if p.IsA(UsdPhysics.Scene)]
     r.check("usd.physics_scene", "scene", len(scenes) == 1, 1, len(scenes))
     if len(scenes) == 1:
