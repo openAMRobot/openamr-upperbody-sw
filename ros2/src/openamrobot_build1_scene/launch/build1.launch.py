@@ -230,12 +230,22 @@ def launch_setup(context):
                     driver_clock="gazebo" if driver_sim_time else "wall", replayed_buses=sorted(replays),
                     sim_state_rate=value("sim_state_rate"))
     else:
-        overlay = os.path.join(control_share, "config", "sim_overlay.yaml") if support.direct_overlay_needed(step) else ""
-        sim_urdf = xacro(wrapper, hardware_profile="gazebo", controllers_file=os.path.join(control_share, "config", "arm_controllers.yaml"),
-                         controllers_overlay_file=overlay, devices="false", extra_sensors=extra_sensors,
-                         finger_follower="true" if follower else "false")
+        # The overlay: sim_overlay.yaml of #66 at the fine step, then this scene's lift_controller (effort, goal tolerance).
+        overlays = [os.path.join(control_share, "config", "sim_overlay.yaml")] if support.direct_overlay_needed(step) else []
+        overlays.append(os.path.join(share, "config", "lift_controller_gazebo.yaml"))
+        documents = []
+        for path in overlays:
+            with open(path) as f:
+                documents.append(yaml.safe_load(f))
+        overlay = temp_yaml("build1_direct_overlay_", support.merge_parameters(*documents))
+        temp_files.append(overlay)
+        sim_urdf = support.lift_effort_plant(xacro(wrapper, hardware_profile="gazebo",
+                                                   controllers_file=os.path.join(control_share, "config", "arm_controllers.yaml"),
+                                                   controllers_overlay_file=overlay, devices="false", extra_sensors=extra_sensors,
+                                                   finger_follower="true" if follower else "false"))
         root_urdf = sim_urdf
-        requested = 750 if overlay else arm_controllers["controller_manager"]["ros__parameters"]["update_rate"]
+        requested = 750 if support.direct_overlay_needed(step) else arm_controllers["controller_manager"]["ros__parameters"]["update_rate"]
+        info.update(lift_command_interface="effort", lift_controller_overlay=os.path.basename(overlays[-1]))
         info.update(controller_rate_requested_hz=requested, controller_rate_hz=support.effective_rate(support.step_seconds(scene, step), requested))
     info["model_sha256"] = hashlib.sha256(sim_urdf.encode()).hexdigest()
     info["finger_joint2_owner"] = "finger_mimic_follower.py" if follower else "mimic constraint of the engine"

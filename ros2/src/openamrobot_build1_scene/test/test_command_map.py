@@ -85,7 +85,8 @@ def test_sw03_the_drive_emulator_is_the_only_shaper_and_the_adapter_the_only_whe
 def claimed(command_map, kind):
     interfaces = {}
     for manager in command_map["controller_managers"][kind]:
-        interfaces[manager["name"]] = {f"{joint}/{manager['claimed']}": True for joint in sw.joints_of_groups(command_map, manager["joints"])}
+        interfaces[manager["name"]] = {f"{joint}/{sw.claimed_interface(manager, group)}": True
+                                       for group in manager["joints"] for joint in sw.joints_of_groups(command_map, [group])}
     return interfaces
 
 
@@ -109,7 +110,7 @@ def test_two_claims_on_one_joint_are_found(command_map):
     interfaces["/sim/controller_manager"]["openarm_left_joint1/position"] = True
     assert len(sw.interface_problems(command_map, "devices", interfaces)) == 1
     interfaces = claimed(command_map, "direct")
-    del interfaces["/controller_manager"]["lift_joint/position"]
+    del interfaces["/controller_manager"]["lift_joint/effort"]
     assert len(sw.interface_problems(command_map, "direct", interfaces)) == 1
     assert sw.interface_problems(command_map, "direct", {}) == ["/controller_manager did not answer list_hardware_interfaces"]
 
@@ -180,3 +181,15 @@ def test_unknown_profile(command_map):
     assert sw.kind_of(command_map, "faults") == "devices" and sw.kind_of(command_map, "fine") == "direct"
     with pytest.raises(ValueError):
         sw.kind_of(command_map, "geometry")
+
+
+def test_sw06_without_devices_lift_controller_claims_effort_on_the_lift_and_position_elsewhere(command_map):
+    """docs/build1_lift_and_base_diagnosis.md: through the position interface DART cannot lift the joint off L1000."""
+    assert "effort interface" in command_map["joints"]["lift_joint"]["direct"]
+    interfaces = claimed(command_map, "direct")["/controller_manager"]
+    assert interfaces["lift_joint/effort"] and "lift_joint/position" not in interfaces
+    assert interfaces["openarm_left_joint1/position"] and interfaces["openarm_right_finger_joint1/position"]
+    wrong = {"/controller_manager": dict(interfaces, **{"lift_joint/position": True})}
+    del wrong["/controller_manager"]["lift_joint/effort"]
+    assert sw.interface_problems(command_map, "direct", wrong) == [
+        "/controller_manager: lift_joint has claimed command interfaces ['lift_joint/position'], the map says ['lift_joint/effort']"]

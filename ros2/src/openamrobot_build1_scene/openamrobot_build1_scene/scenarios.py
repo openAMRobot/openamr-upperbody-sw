@@ -16,7 +16,8 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, ScenarioFailed, angle_diff)
+from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M, ScenarioFailed,
+                                          angle_diff)
 
 LIMIT_ZLAC = ("The ZLAC8015D emulator follows Manual 1.03 and CANopen Routine 1.08 as filed in platform-hw. "
               "The V4.2 package is still missing.")
@@ -740,6 +741,195 @@ def single_writer(rig, log):
                              note="the BRS flag is carried by vcan. No bit rate exists on a virtual bus")
 
 
+# ---------------------------------------------------------------- 16. lift to every stop through lift_controller, no device
+LIFT_SEQUENCE = (2, 0, 1, 2, 0)     # up from the lower limit, back onto it, and up again from it
+
+
+def _require_direct(rig):
+    if rig.devices:
+        raise ScenarioFailed("this scenario runs without devices: run it with profile fast or fine")
+
+
+def lift_stops(rig, log):
+    """The lift through its only command path of the fast and fine profiles: lift_controller, FollowJointTrajectory.
+    Each move is measured on /joint_states. The action must not report success when the joint is short of the stop.
+    The sequence returns to L1000, which is the lower position limit of lift_joint, and leaves it again."""
+    _require_direct(rig)
+    limits(rig, log)
+    log.event(f"stops {LIFT_STOP_M} m, arrival window {LIFT_STOP_TOLERANCE_M} m on /joint_states (a simulation acceptance value)")
+    log.quantity("lift_start_joint_states_position", rig.joint("lift_joint"), "m", low=-LIFT_STOP_TOLERANCE_M, high=LIFT_STOP_TOLERANCE_M)
+    for number, stop in enumerate(LIFT_SEQUENCE, start=1):
+        label = f"lift_move_{number}_to_stop_{stop}"
+        start, before = rig.sim_time(), rig.joint("lift_joint")
+        status, result = rig.lift_trajectory(stop)
+        succeeded = rig.succeeded(status)
+        reached = rig.lift_at(stop, settle_sim_s=1.0)
+        position = rig.joint("lift_joint")
+        log.event(f"{label}: action status {status}, error_code {getattr(result, 'error_code', None)}, "
+                  f"error_string {getattr(result, 'error_string', None)!r}")
+        log.quantity(f"{label}_travel_time", rig.sim_time() - start, "s of Gazebo time")
+        log.quantity(f"{label}_commanded_travel", LIFT_STOP_M[stop] - before, "m")
+        log.quantity(f"{label}_joint_states_position", position, "m",
+                     low=LIFT_STOP_M[stop] - LIFT_STOP_TOLERANCE_M, high=LIFT_STOP_M[stop] + LIFT_STOP_TOLERANCE_M,
+                     note="/joint_states, from the joint_state_broadcaster of gz_ros2_control")
+        log.quantity(f"{label}_physics_position", rig.lift_truth(), "m", note="/arm/joint_states, the simulator's broadcaster")
+        log.quantity(f"{label}_action_succeeded", succeeded, "bool", low=True, high=True)
+        log.quantity(f"{label}_success_without_arrival", succeeded and not reached, "bool", low=False, high=False,
+                     note="the action reported success while /joint_states showed the joint outside the arrival window")
+
+
+# ---------------------------------------------------------------- 17. base yaw against wheel kinematics, no device
+# (name, (linear m/s, angular rad/s), Gazebo seconds). Equal and opposite wheel speeds in both directions, then equal ones.
+BASE_SEGMENTS = (("spin_left", (0.0, 0.5), math.pi),
+                 ("spin_right", (0.0, -0.5), math.pi),
+                 ("spin_left_slow", (0.0, 0.25), 2.0 * math.pi),
+                 ("straight", (0.2, 0.0), 8.0))
+
+
+def _wheel_geometry(rig):
+    """Wheel radius and track of the running model, read from /robot_description: the drive wheel collision cylinders,
+    the y offsets of the wheel joints and the DiffDrive plugin's own values. Nothing is tuned here."""
+    import xml.etree.ElementTree as ET
+    from rclpy.qos import DurabilityPolicy, QoSProfile
+    from std_msgs.msg import String
+    rig.node.create_subscription(String, "/robot_description", lambda m: rig._store("/robot_description", m.data),
+                                 QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+    if not rig.wait(lambda: rig.get("/robot_description") is not None, 30.0, "robot description"):
+        raise ScenarioFailed("no /robot_description")
+    root = ET.fromstring(rig.get("/robot_description"))
+    geometry = {}
+    for side in ("left", "right"):
+        joint = root.find(f"joint[@name='{side}_wheel_joint']")
+        geometry[f"{side}_wheel_y"] = float(joint.find("origin").get("xyz").split()[1])
+        cylinder = root.find(f"link[@name='{side}_wheel_link']/collision/geometry/cylinder")
+        geometry[f"{side}_wheel_collision_radius"] = float(cylinder.get("radius"))
+        geometry[f"{side}_wheel_collision_width"] = float(cylinder.get("length"))
+    plugin = next(p for p in root.iter("plugin") if p.get("name") == "gz::sim::systems::DiffDrive")
+    geometry["diff_drive_wheel_radius"] = float(plugin.find("wheel_radius").text)
+    geometry["diff_drive_wheel_separation"] = float(plugin.find("wheel_separation").text)
+    geometry["track"] = geometry["left_wheel_y"] - geometry["right_wheel_y"]
+    return geometry
+
+
+def _pitch_roll(odometry):
+    q = odometry.pose.pose.orientation
+    roll = math.atan2(2.0 * (q.w * q.x + q.y * q.z), 1.0 - 2.0 * (q.x * q.x + q.y * q.y))
+    pitch = math.asin(max(-1.0, min(1.0, 2.0 * (q.w * q.y - q.z * q.x))))
+    return pitch, roll
+
+
+def base_yaw(rig, log):
+    """Order D8, first step that this scene can take: the drive wheels with the castors present, as the model has them.
+    Ground truth yaw against the wheel kinematics r * (dR - dL) / track from the wheel joint positions, and against
+    /odom. The track is the model's placeholder and is read, never changed."""
+    from sensor_msgs.msg import JointState
+    _require_direct(rig)
+    limits(rig, log)
+    geometry = _wheel_geometry(rig)
+    for name, value in sorted(geometry.items()):
+        log.quantity(f"model_{name}", value, "m", kind="model")
+    radius, track = geometry["left_wheel_collision_radius"], geometry["track"]
+    log.require(abs(geometry["diff_drive_wheel_radius"] - radius) < 1e-9 and abs(geometry["diff_drive_wheel_separation"] - track) < 1e-9,
+                "the DiffDrive plugin's radius or separation differs from the wheel geometry of the model")
+    log.event(f"kinematic expectation uses r = {radius} m (wheel collision radius) and track = {track} m (wheel joint offsets, a "
+              "placeholder of openamr-platform-sw, not tuned). Loaded radius 0.098 m is a design input that the pinned model "
+              "does not carry yet")
+    rig.node.create_subscription(JointState, "/base/joint_states", lambda m: rig._store("/base/joint_states", m), 10)
+    if not rig.wait(lambda: rig.get("/base/joint_states") is not None, 30.0, "wheel joint states"):
+        raise ScenarioFailed("no /base/joint_states")
+
+    def wheels():
+        return rig.joint("left_wheel_joint", "/base/joint_states"), rig.joint("right_wheel_joint", "/base/joint_states")
+
+    drive = CmdVel(rig)
+    try:
+        # First, from the spawn pose and heading as in the video: the command sequence of the scene video of 16 Nov 2026
+        # (tools/scene_video/video_task.py on viz/scene-video): arms to park, 0.2 m/s for 8 s, 1 s, -0.5 rad/s for 3.14 s,
+        # 1 s. That run gave -1.508 rad of ground truth yaw. Along +x from the origin the floor is free for 3 m
+        # (config/scene.yaml). After it the robot stands at about (1.6, 0) facing -y; the segments below turn on the spot
+        # and end with the straight drive along +x, clear of obstacle_post at (1.5, 1.2) and obstacle_box_a at (2.5, -1.5).
+        name = "video_sequence_turn"
+        handles = {side: rig.follow_joint_trajectory(side, PARK, 3.0) for side in ("left", "right")}
+        for side, handle in handles.items():
+            log.require(handle is not None and rig.succeeded(rig.wait_result(handle, 23.0, f"{side} park")[0]), f"{side} arm to park")
+        rig.sleep_sim(1.0)
+        start_pose = rig.truth()
+        drive.command = (0.2, 0.0)
+        rig.sleep_sim(8.0)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
+        log.quantity(f"{name}_drive_ground_truth_distance", _distance(start_pose, truth0), "m", note="the video run gave 1.601 m")
+        log.quantity(f"{name}_drive_end_pose", list(truth0), "x m, y m, yaw rad")
+        drive.command = (0.0, -0.5)
+        rig.sleep_sim(3.14)
+        drive.command = (0.0, 0.0)
+        rig.sleep_sim(1.0)
+        truth1, odom1, (left1, right1) = rig.truth(), rig.odom(), wheels()
+        kinematic_yaw = radius * ((right1 - right0) - (left1 - left0)) / track
+        truth_yaw, odom_yaw = angle_diff(truth1[2], truth0[2]), angle_diff(odom1[2], odom0[2])
+        log.quantity(f"{name}_commanded_yaw", -0.5 * 3.14, "rad", kind="command")
+        log.quantity(f"{name}_kinematic_yaw", kinematic_yaw, "rad", note="r * (dR - dL) / track from the wheel joint positions")
+        log.quantity(f"{name}_ground_truth_yaw", truth_yaw, "rad", note="the video run gave -1.508 rad")
+        log.quantity(f"{name}_odometry_yaw", odom_yaw, "rad")
+        log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%")
+        log.quantity(f"{name}_ground_truth_minus_commanded_percent", 100.0 * (truth_yaw + 1.57) / -1.57, "%")
+        log.quantity(f"{name}_still_turning_at_reading", rig.truth_speed()[1], "rad/s", note="ground truth yaw rate 1 s after the stop")
+        log.quantity(f"{name}_end_pose", list(truth1), "x m, y m, yaw rad", note="the video run gave [1.610, 0.008, -1.508]")
+        for name, command, seconds in BASE_SEGMENTS:
+            rig.wait_stopped(10.0)
+            truth0, odom0, (left0, right0) = rig.truth(), rig.odom(), wheels()
+            pitches = []
+            drive.command = command
+            end = rig.sim_time() + seconds
+            while rig.sim_time() < end:
+                pitches.append(_pitch_roll(rig.get("/build1/ground_truth/odom"))[0])
+                rig.sleep_sim(0.1)
+            drive.command = (0.0, 0.0)
+            log.quantity(f"{name}_settle_time", rig.wait_stopped(10.0), "s of Gazebo time")
+            truth1, odom1, (left1, right1) = rig.truth(), rig.odom(), wheels()
+            d_left, d_right = left1 - left0, right1 - right0
+            kinematic_yaw = radius * (d_right - d_left) / track
+            kinematic_distance = radius * (d_right + d_left) / 2.0
+            truth_yaw = angle_diff(truth1[2], truth0[2])
+            odom_yaw = angle_diff(odom1[2], odom0[2])
+            log.quantity(f"{name}_commanded_yaw", command[1] * seconds, "rad", kind="command")
+            log.quantity(f"{name}_commanded_distance", command[0] * seconds, "m", kind="command")
+            log.quantity(f"{name}_left_wheel_angle", d_left, "rad")
+            log.quantity(f"{name}_right_wheel_angle", d_right, "rad")
+            log.quantity(f"{name}_kinematic_yaw", kinematic_yaw, "rad", note="r * (dR - dL) / track from the wheel joint positions")
+            log.quantity(f"{name}_ground_truth_yaw", truth_yaw, "rad")
+            log.quantity(f"{name}_odometry_yaw", odom_yaw, "rad", note="/odom of the DiffDrive plugin")
+            log.quantity(f"{name}_kinematic_distance", kinematic_distance, "m")
+            log.quantity(f"{name}_ground_truth_distance", _distance(truth0, truth1), "m")
+            log.quantity(f"{name}_odometry_distance", _distance(odom0, odom1), "m")
+            log.quantity(f"{name}_mean_pitch", sum(pitches) / len(pitches) if pitches else None, "rad",
+                         note="ground truth. Positive: nose down, the front castors carry load")
+            if command[1]:
+                ratio = d_right / d_left if d_left else None
+                log.quantity(f"{name}_wheel_angle_ratio", ratio, "1", low=-1.02, high=-0.98, note="equal and opposite wheel speeds")
+                log.quantity(f"{name}_kinematic_over_commanded", kinematic_yaw / (command[1] * seconds), "1", low=0.95, high=1.05,
+                             note="the wheels turned as commanded, within the timing of a wall-clock /cmd_vel publisher "
+                                  "(measured 1.01 to 1.03 at real-time factors 0.6 to 0.8)")
+                log.quantity(f"{name}_ground_truth_sign_matches_command", math.copysign(1.0, truth_yaw) == math.copysign(1.0, command[1]),
+                             "bool", low=True, high=True)
+                log.quantity(f"{name}_ground_truth_minus_kinematic_percent", 100.0 * (truth_yaw - kinematic_yaw) / kinematic_yaw, "%",
+                             note="negative: the body turned less than the wheels say")
+                log.quantity(f"{name}_odometry_minus_ground_truth_percent", 100.0 * (odom_yaw - truth_yaw) / truth_yaw, "%")
+                log.quantity(f"{name}_odometry_minus_kinematic_percent", 100.0 * (odom_yaw - kinematic_yaw) / kinematic_yaw, "%",
+                             low=-1.0, high=1.0, note="DiffDrive integrates the same wheel positions with the same radius and separation")
+                log.quantity(f"{name}_position_shift", _distance(truth0, truth1), "m", note="a spin on the spot should not translate")
+            else:
+                ratio = d_right / d_left if d_left else None
+                log.quantity(f"{name}_wheel_angle_ratio", ratio, "1", low=0.98, high=1.02, note="equal wheel speeds")
+                log.quantity(f"{name}_ground_truth_minus_kinematic_percent",
+                             100.0 * (_distance(truth0, truth1) - kinematic_distance) / kinematic_distance, "%")
+                log.quantity(f"{name}_ground_truth_heading_change", truth_yaw, "rad")
+
+    finally:
+        drive.stop()
+
+
 BASE_SCENARIOS = ("scn01_drive", "scn05_bus_loss", "scn06_stale_sensors", "scn07_cancel_resume")     # they command the base
 
 SCENARIOS = {
@@ -754,4 +944,6 @@ SCENARIOS = {
     "scn08_arm_power_cut": (arm_power_cut, True, {}),
     "scn09_single_writer": (single_writer, False, {"nav2": True, "moveit": True}),
     "scn10_profile_report": (profile_report, False, {}),
+    "scn16_lift_stops": (lift_stops, False, {}),
+    "scn17_base_yaw": (base_yaw, False, {}),
 }
