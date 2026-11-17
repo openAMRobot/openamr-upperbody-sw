@@ -173,7 +173,9 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           rosdep update --rosdistro jazzy
-          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          # The #167 extension package is built only for the opt-in alignment run (station_alignment 1).
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" $extra --paths-only)
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
             ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
@@ -196,7 +198,8 @@ jobs:
         working-directory: ws
         run: |
           source /opt/ros/jazzy/setup.bash
-          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          colcon build --packages-up-to "$PACKAGE" $extra --event-handlers console_cohesion+
 
       - name: "Mission: eight phases in one launch"
         id: mission

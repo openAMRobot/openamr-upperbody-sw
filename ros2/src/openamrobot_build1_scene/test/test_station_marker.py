@@ -45,6 +45,8 @@ def test_baseline1_runs_without_the_alignment_by_default():
     assert "BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '0' }}" in wf
     with open(os.path.join(PACKAGE, "package.xml"), encoding="utf-8") as f:
         assert "openamrobot_station_alignment" not in f.read(), "no hard dependency on the extension package"
+    # but the opt-in run must still build it
+    assert wf.count('[ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"') == 2
 
 
 def test_the_station_camera_is_bridged_only_with_the_alignment():
