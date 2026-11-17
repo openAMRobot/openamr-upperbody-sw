@@ -34,9 +34,9 @@ env:
   PACKAGE: openamrobot_build1_scene
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
   # openamr-platform-sw integration/baseline1: main 69847ab with #152, #146, #149, #151, #158, #164 (station
-  # approach), #162 (lift firmware-SIL path on the simulation clock) and #166 (#141 reconciled with the clock contract)
+  # approach, AMCL 0.05 m / 0.05 rad, bt_navigator 30000 ms server wait), #162 (lift firmware-SIL path on the simulation clock) and #166 (#141 reconciled with the clock contract)
   # merged (docs/integration/baseline1.md). Description, Nav2, perception, docking and openamrobot_sil come from it.
-  PLATFORM_SW_SHA: 182ee1b305f2279e5216f9242cc283601ce1fc79
+  PLATFORM_SW_SHA: 9dc0ab70c6750edbdcfbee9a5ba4aec66aafcf88
   # ros-infrastructure/ros-apt-source release, pinned: ros-tooling/setup-ros looks the latest tag up through the
   # unauthenticated GitHub API, which returned no tag on 17 Nov 2026 (rate limit) and made the download 404.
   ROS_APT_SOURCE_VERSION: '1.3.0'
