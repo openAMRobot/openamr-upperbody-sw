@@ -500,21 +500,33 @@ class Rig:
 
     def set_emulator_parameter(self, side, name, value):
         """Fault injection of the arm emulator: one parameter of /sim/<side>_arm_emulator."""
+        self.set_parameters(f"/sim/{side}_arm_emulator", {name: value})
+
+    def set_parameters(self, node, values):
+        """Set parameters of another node in one request: bool, float, str or a list of floats."""
         from rcl_interfaces.msg import Parameter as ParameterMsg, ParameterType, ParameterValue
         from rcl_interfaces.srv import SetParameters
-        client = self.node.create_client(SetParameters, f"/sim/{side}_arm_emulator/set_parameters")
+        client = self.node.create_client(SetParameters, f"{node}/set_parameters")
         if not client.wait_for_service(timeout_sec=30.0):
-            raise ScenarioFailed(f"/sim/{side}_arm_emulator has no parameter service")
-        if isinstance(value, bool):
-            parameter_value = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
-        else:
-            parameter_value = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(value))
-        future = client.call_async(SetParameters.Request(parameters=[ParameterMsg(name=name, value=parameter_value)]))
+            raise ScenarioFailed(f"{node} has no parameter service")
+        parameters = []
+        for name, value in values.items():
+            if isinstance(value, bool):
+                parameter_value = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
+            elif isinstance(value, str):
+                parameter_value = ParameterValue(type=ParameterType.PARAMETER_STRING, string_value=value)
+            elif isinstance(value, (list, tuple)):
+                parameter_value = ParameterValue(type=ParameterType.PARAMETER_DOUBLE_ARRAY, double_array_value=[float(v) for v in value])
+            else:
+                parameter_value = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=float(value))
+            parameters.append(ParameterMsg(name=name, value=parameter_value))
+        future = client.call_async(SetParameters.Request(parameters=parameters))
         end = time.monotonic() + 30.0
         while not future.done() and time.monotonic() < end:
             time.sleep(0.02)
         if not future.done() or not all(r.successful for r in future.result().results):
-            raise ScenarioFailed(f"could not set {name} on /sim/{side}_arm_emulator")
+            reasons = [r.reason for r in future.result().results] if future.done() else ["no answer in 30 s"]
+            raise ScenarioFailed(f"could not set {sorted(values)} on {node}: {reasons}")
 
     def drive_host_alive(self, wall_s=3.0):
         """True when the host test client still reads the drive: its sample counter moves.
