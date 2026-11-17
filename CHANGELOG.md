@@ -5,6 +5,19 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
+
+- **Straight reach and lift.** The scn04 reach and lift were pose goals with 0.3 rad per axis: the hand turned 8 to 31 degrees
+  between approach, grasp and lift. The fingers swept the item 24 to 55 mm before closing, and the TCP (0.138 m from the hand base)
+  rose 21 to 49 mm while the hand base rose 64 to 91 mm (Baseline 1 runs 44114692549, 44114738411, 44100053272 and diagnostics run
+  44131608383, FK of the driver's joint readings). Both are now straight lines of the hand with the orientation the approach ended
+  with, from MoveIt's `/compute_cartesian_path`, executed with `/execute_trajectory` (`arm_frames.grasp_line`, `straight_lift`).
+  The 40 mm requirement, friction, mass and gripper values are unchanged.
+- **Planning scene and payload after the grasp.** The item and the tote were taken out of the planning scene for the reach and never
+  put back, so every later move (the Baseline 1 retreat, scn03 after scn04) planned through them. `planning_scene.excluded_from_planning`
+  puts them back on every path out of the grasp; the held item's payload leaves the gravity feed-forward on every path too.
+  Tests: `test_arm_frames.py`.
+
 ### Added (17 Nov 2026; Build 1 arm diagnostics; simulation only)
 
 - **Arm diagnostics workflow** `build1-arm-diagnostics.yml`: scn04 grasp-and-lift with the Baseline 1 retreat (`diag_grasp`) and the

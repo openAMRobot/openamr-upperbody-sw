@@ -16,8 +16,9 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.arm_frames import (SIDE_GRASP, TCP_FRAME, face_yaw, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset)
+from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M, LIFT_RISE_M, SIDE_GRASP, TCP_FRAME, face_yaw,
+                                                  grasp_line, hand_for_tcp_at, rotate_z, side_grasp, side_grasp_offset, straight_lift)
+from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, ScenarioFailed, angle_diff)
 
 LIMIT_ZLAC = ("The ZLAC8015D emulator follows Manual 1.03 and CANopen Routine 1.08 as filed in platform-hw. "
@@ -242,6 +243,57 @@ def _move_group(rig, log, goal, label, sim_s=120.0, required=True, attempts=1):
     return code == 1
 
 
+def _cartesian(rig, log, side, link, waypoints, quaternion, label, velocity_scale, required=True):
+    """A straight line of `link` through `waypoints` (base_footprint) with the orientation `quaternion` held, from MoveIt's
+    Cartesian path service, executed with /execute_trajectory. The whole line or nothing: a fraction below
+    CARTESIAN_MIN_FRACTION is not executed. -> True when the line was executed to its end."""
+    from geometry_msgs.msg import Pose
+    from moveit_msgs.action import ExecuteTrajectory
+    from moveit_msgs.srv import GetCartesianPath
+    client = rig.node.create_client(GetCartesianPath, "/compute_cartesian_path")
+    if not log.require(client.wait_for_service(timeout_sec=60.0), f"{label}: no /compute_cartesian_path service"):
+        return False
+    request = GetCartesianPath.Request()
+    request.header.frame_id = "base_footprint"
+    request.start_state.is_diff = True
+    request.group_name, request.link_name = f"{side}_arm", link
+    for xyz in waypoints:
+        pose = Pose()
+        pose.position.x, pose.position.y, pose.position.z = (float(v) for v in xyz)
+        pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = (float(v) for v in quaternion)
+        request.waypoints.append(pose)
+    request.max_step, request.jump_threshold, request.avoid_collisions = CARTESIAN_STEP_M, 0.0, True
+    for field in ("max_velocity_scaling_factor", "max_acceleration_scaling_factor"):
+        if hasattr(request, field):
+            setattr(request, field, float(velocity_scale))
+    future = client.call_async(request)
+    end = time.monotonic() + 120.0
+    while not future.done() and time.monotonic() < end:
+        time.sleep(0.05)
+    response = future.result() if future.done() else None
+    fraction = response.fraction if response is not None else None
+    log.quantity(f"{label}_cartesian_fraction", fraction, "1", low=CARTESIAN_MIN_FRACTION if required else None,
+                 high=1.0 if required else None, note="share of the straight line MoveIt found collision-free and reachable")
+    if fraction is None or fraction < CARTESIAN_MIN_FRACTION:
+        return False
+    goal = ExecuteTrajectory.Goal()
+    goal.trajectory = response.solution
+    handle = rig.send_goal("/execute_trajectory", "moveit_msgs.action", "ExecuteTrajectory", goal, server_wall_s=120.0)
+    result = rig.wait_result(handle, 120.0, label)[1] if handle is not None else None
+    code = result.error_code.val if result is not None else None
+    log.quantity(f"{label}_moveit_error_code", code, "MoveItErrorCodes", low=1 if required else None, high=1 if required else None,
+                 note="1 is SUCCESS (/execute_trajectory)")
+    trajectory = response.solution.joint_trajectory
+    plans = getattr(rig, "plans", None)
+    if plans is not None and code == 1:
+        plans.append({"label": label, "joint_names": list(trajectory.joint_names), "t_result": rig.sim_time(),
+                      "points": [list(point.positions) for point in trajectory.points],
+                      "times": [point.time_from_start.sec + point.time_from_start.nanosec * 1e-9 for point in trajectory.points]})
+    if code == 1:
+        _tracking(rig, log, label, trajectory, required)
+    return code == 1
+
+
 # Commanded end point against the driver's reading, 1 s after the controller reports success, weighed by the driver's
 # position gain: kp * |error| is the torque the joint's own servo is still pushing with (openarm_ros2 4e837e1 kp,
 # the same as upstream control_gains.yaml). 0.5 N m is 7 % of the smallest motor peak (DM4310, 7 N m) and 5 % of the
@@ -430,49 +482,76 @@ def grasp(rig, log):
 
     if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3), "grasp_approach"):
         return
-    # The item and the tote leave the planning scene for the last 0.10 m: the fingers must pass next to the item.
+    # The item and the tote leave the planning scene for the last 0.10 m: the fingers must pass next to the item. They
+    # come back after the release, also when a step fails: a return move planned without them can sweep the open hand
+    # through the tote (Baseline 1 run 44100053272: left retreat stuck with joint 6 on its limit, 46 N m servo torque).
+    # The held item's payload leaves the gravity feed-forward on every path out of the grasp, not only after the release.
     from std_msgs.msg import String
-    rig.publish("exclude", String(data="item,tote"))
-    rig.sleep_sim(2.0)
-    if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, hand, quaternion, 0.1), "grasp_reach"):
-        return
-    rig.sleep_sim(1.0)
-    log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
+    held = False
+    with excluded_from_planning(rig.publish, rig.sleep_sim, "item,tote", String):
+        try:
+            # The reach is a straight line along the fingers with the orientation the approach ended with: the hand
+            # goes 0.10 m back from the item on that line, then in, so that the open fingers pass on both sides of it.
+            approached = rig.transform("base_footprint", link)
+            if not log.require(approached is not None, "no /tf of the hand after the approach"):
+                return
+            held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
+            pre_grasp, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)
+            if not _cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1):
+                return
+            rig.sleep_sim(1.0)
+            log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
 
-    closed = rig.gripper(side, CLOSED, sim_s=30.0)
-    rig.sleep_sim(1.5)
-    _mark(rig, "closed")
-    if getattr(rig, "recorder", None) is not None:
-        _diag_probe(rig, log, "fingers closed")
-    finger_closed = rig.physics_joint(finger)
-    log.quantity("finger_position_on_item", finger_closed, "rad", low=0.02, high=OPEN - 0.05,
-                 note="above 0 means the fingers stopped on the item and did not close fully")
-    log.quantity("finger_driver_reading_on_item", rig.joint(finger), "rad",
-                 note="D9 step 4: commanded 0, this is what the driver reads back over CAN; finger_position_on_item is the physics")
-    if closed is not None:
-        log.quantity("gripper_reported_stalled", bool(closed[1]), "bool")
-        log.quantity("gripper_reported_reached_goal", bool(closed[0]), "bool")
-    # The held item enters the gravity feed-forward only once the grasp is reported: the gripper action returned and the
-    # fingers stopped on the item. Its mass is the scene's, at the model's TCP. Cleared again after the release.
-    held = _held_payload(rig, log, side) if closed is not None and finger_closed > 0.02 else False
+            closed = rig.gripper(side, CLOSED, sim_s=30.0)
+            rig.sleep_sim(1.5)
+            _mark(rig, "closed")
+            if getattr(rig, "recorder", None) is not None:
+                _diag_probe(rig, log, "fingers closed")
+            finger_closed = rig.physics_joint(finger)
+            log.quantity("finger_position_on_item", finger_closed, "rad", low=0.02, high=OPEN - 0.05,
+                         note="above 0 means the fingers stopped on the item and did not close fully")
+            log.quantity("finger_driver_reading_on_item", rig.joint(finger), "rad",
+                         note="D9 step 4: commanded 0, this is what the driver reads back over CAN; finger_position_on_item is the physics")
+            if closed is not None:
+                log.quantity("gripper_reported_stalled", bool(closed[1]), "bool")
+                log.quantity("gripper_reported_reached_goal", bool(closed[0]), "bool")
+            # The held item enters the gravity feed-forward only once the grasp is reported: the gripper action returned
+            # and the fingers stopped on the item. Its mass is the scene's, at the model's TCP.
+            held = _held_payload(rig, log, side) if closed is not None and finger_closed > 0.02 else False
 
-    lifted = (hand[0], hand[1], hand[2] + 0.08)
-    _mark(rig, "lift_start")
-    if not _move_group(rig, log, _pose_goal(f"{side}_arm", link, lifted, quaternion, 0.1, position_tolerance=0.015), "grasp_lift"):
-        return
-    _mark(rig, "lift_end")
-    rig.sleep_sim(3.0)
-    item1 = rig.object_position("item")
-    log.quantity("item_height_gain_after_lift", item1[2] - item0[2], "m", low=0.04, high=0.12)
-    rig.sleep_sim(3.0)
-    item2 = rig.object_position("item")
-    _mark(rig, "hold_end")
-    log.quantity("item_height_drift_while_held", item2[2] - item1[2], "m", low=-0.01, high=0.01, note="over 3 s of Gazebo time")
-    rig.gripper(side, OPEN)
-    _mark(rig, "released")
-    if held:
-        rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
-        log.event("gravity feed-forward payload cleared after the release")
+            # The lift raises the TCP 0.08 m straight up: the hand keeps the orientation it has on the item and is translated
+            # (arm_frames.py). With the old pose goal the TCP rose 21 to 49 mm in five of eight runs; where the grasp was
+            # sound the item followed the TCP to within 0.3 to 7 mm (docs/build1_arm_diagnosis.md, cycle 5).
+            at_grasp = rig.transform("base_footprint", link)
+            tcp_at_grasp = rig.transform("base_footprint", TCP_FRAME[side])
+            if not log.require(at_grasp is not None and tcp_at_grasp is not None, "no /tf of the hand and the TCP after the close"):
+                return
+            item_closed = rig.object_position("item")
+            rotation = at_grasp[1]
+            lifted, lift_orientation = straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)
+            _mark(rig, "lift_start")
+            if not _cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1):
+                return
+            _mark(rig, "lift_end")
+            rig.sleep_sim(3.0)
+            item1 = rig.object_position("item")
+            log.quantity("item_height_gain_after_lift", item1[2] - item0[2], "m", low=0.04, high=0.12)
+            tcp_lifted = rig.transform("base_footprint", TCP_FRAME[side])
+            if tcp_lifted is not None:
+                tcp_rise = tcp_lifted[0][2] - tcp_at_grasp[0][2]
+                log.quantity("grasp_lift_tcp_rise", tcp_rise, "m", note="TCP from /tf (the driver's joint states). Commanded 0.08")
+                log.quantity("grasp_lift_item_rise_minus_tcp_rise", (item1[2] - item_closed[2]) - tcp_rise, "m",
+                             note="recorded, no limit: below 0 the item slid down in the fingers")
+            rig.sleep_sim(3.0)
+            item2 = rig.object_position("item")
+            _mark(rig, "hold_end")
+            log.quantity("item_height_drift_while_held", item2[2] - item1[2], "m", low=-0.01, high=0.01, note="over 3 s of Gazebo time")
+            rig.gripper(side, OPEN)
+            _mark(rig, "released")
+        finally:
+            if held:
+                rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
+                log.event("gravity feed-forward payload cleared")
     rig.sleep_sim(2.0)
     log.quantity("item_height_after_release", rig.object_position("item")[2] - item0[2], "m", note="recorded, no limit: it falls back")
 

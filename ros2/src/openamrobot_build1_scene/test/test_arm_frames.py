@@ -52,3 +52,87 @@ def test_scenario_4_turns_the_grasp_and_the_approach_to_the_items_face():
     assert "quaternion = side_grasp(yaw)" in body and "quaternion = SIDE_GRASP" not in body
     assert "hand_for_tcp_at((item[0], item[1], grasp_z), found[0], yaw)" in body
     assert "rotate_z((0.10, 0.0, 0.0), yaw)" in body
+
+
+def _grasp_body():
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "scenarios.py"), encoding="utf-8") as f:
+        text = f.read()
+    return text[text.index("def grasp(rig, log):"):text.index("def _held_payload(")]
+
+
+def test_the_straight_lift_translates_the_hand_and_keeps_its_orientation():
+    q = (0.01, -0.70, 0.02, 0.71)
+    xyz, kept = af.straight_lift((0.6, 0.17, 0.93), q, 0.08)
+    assert np.allclose(xyz, (0.6, 0.17, 1.01)) and kept == q
+    offset = np.array([-0.0014, 0.0, -0.138])
+    tcp_before = np.array((0.6, 0.17, 0.93)) + matrix(*q) @ offset
+    tcp_after = np.array(xyz) + matrix(*kept) @ offset
+    assert np.allclose(tcp_after - tcp_before, (0.0, 0.0, 0.08), atol=1e-12)
+
+
+def test_the_old_lift_goal_region_allowed_a_tcp_below_the_40_mm_requirement():
+    # The old goal: the hand base within 0.015 m, each axis within 0.3 rad. The TCP is 0.138 m from the hand base.
+    assert af.worst_tcp_rise(0.08, 0.015, 0.3, 0.138) < 0.0
+    # Measured with that goal (FK of the driver's joint readings, Baseline 1 runs of 17 Nov): hand turned up to 28.9 degrees,
+    # which alone moves the TCP by up to 2 * 0.138 * sin(28.9 deg / 2) = 0.069 m.
+    assert 2.0 * 0.138 * math.sin(math.radians(28.9) / 2.0) > 0.06
+
+
+@pytest.mark.parametrize("yaw", [0.0, 0.2])
+@pytest.mark.parametrize("tilt", [0.0, 0.15])
+def test_the_grasp_line_runs_along_the_fingers_and_ends_with_the_tcp_on_the_point(yaw, tilt):
+    x, y, z, w = af.side_grasp(yaw)
+    tx, ty, tz, tw = (math.sin(tilt / 2.0), 0.0, 0.0, math.cos(tilt / 2.0))   # the approach ended `tilt` off about x
+    q = (w * tx + x * tw + y * tz - z * ty, w * ty - x * tz + y * tw + z * tx,
+         w * tz + x * ty - y * tx + z * tw, w * tw - x * tx - y * ty - z * tz)
+    offset = (-0.0014, 0.0, -0.138)
+    point = (0.75, 0.16, 0.925)
+    pre, grasp = af.grasp_line(point, offset, q)
+    R = matrix(*q)
+    assert np.allclose(np.array(grasp) + R @ np.array(offset), point, atol=1e-12)
+    fingers = R @ np.array((0.0, 0.0, -1.0))
+    assert np.allclose(np.array(grasp) - np.array(pre), af.REACH_STANDOFF_M * fingers, atol=1e-12)
+    if tilt == 0.0:
+        assert np.allclose(np.array(grasp) - np.array(pre), (0.10 * math.cos(yaw), 0.10 * math.sin(yaw), 0.0), atol=1e-12)
+
+
+def test_scenario_4_reaches_and_lifts_on_straight_lines_with_the_orientation_held():
+    body = _grasp_body()
+    assert '_pose_goal(f"{side}_arm", link, hand' not in body and '_pose_goal(f"{side}_arm", link, lifted' not in body
+    assert "pre_grasp, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)" in body
+    assert '_cartesian(rig, log, side, link, [pre_grasp, hand], held_orientation, "grasp_reach", 0.1)' in body
+    assert "straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)" in body
+    assert '_cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1)' in body
+    assert af.LIFT_RISE_M == 0.08 and af.CARTESIAN_MIN_FRACTION >= 0.99 and af.CARTESIAN_STEP_M <= 0.01
+    assert 'log.quantity("item_height_gain_after_lift", item1[2] - item0[2], "m", low=0.04, high=0.12)' in body
+
+
+def test_the_exclusion_ends_on_every_path_out_of_the_block():
+    from openamrobot_build1_scene.planning_scene import excluded_from_planning
+
+    class Message:
+        def __init__(self, data):
+            self.data = data
+
+    sent, slept = [], []
+    with excluded_from_planning(lambda key, m: sent.append((key, m.data)), slept.append, "item,tote", Message):
+        assert sent == [("exclude", "item,tote")]
+    assert sent == [("exclude", "item,tote"), ("exclude", "")] and slept == [2.0, 2.0]
+    sent.clear()
+    with pytest.raises(RuntimeError):
+        with excluded_from_planning(lambda key, m: sent.append((key, m.data)), slept.append, "item", Message):
+            raise RuntimeError("a failed move")
+    assert sent == [("exclude", "item"), ("exclude", "")]
+
+
+def test_scenario_4_puts_the_item_and_tote_back_after_the_release_and_clears_the_payload():
+    body = _grasp_body()
+    assert 'rig.publish("exclude"' not in body, "the exclusion goes through excluded_from_planning only"
+    lines = body.splitlines()
+    block = next(i for i, line in enumerate(lines) if "with excluded_from_planning(rig.publish, rig.sleep_sim, \"item,tote\", String):" in line)
+    indent = len(lines[block]) - len(lines[block].lstrip())
+    inner = [i for i, line in enumerate(lines) if i > block and line.strip() and len(line) - len(line.lstrip()) <= indent][0]
+    inside = "\n".join(lines[block:inner])
+    for step in ('"grasp_reach"', "rig.gripper(side, CLOSED", '"grasp_lift"', "rig.gripper(side, OPEN)"):
+        assert step in inside, step
+    assert "finally:" in inside and '{"payload_mass_kg": 0.0}' in inside.split("finally:")[-1]

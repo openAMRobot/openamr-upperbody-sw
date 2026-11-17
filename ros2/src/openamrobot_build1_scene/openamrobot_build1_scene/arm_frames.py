@@ -43,3 +43,50 @@ def face_yaw(base_yaw, item_yaw):
     faces, so the result wraps by quarter turns. 0 when the base is square to the item."""
     relative = item_yaw - base_yaw
     return (relative + math.pi / 4.0) % (math.pi / 2.0) - math.pi / 4.0
+
+
+# The reach and the lift of scn04 are straight lines of the hand with its orientation held, computed by MoveIt's Cartesian
+# path service. A pose goal with 0.3 rad per axis let the hand turn by 8 to 31 degrees between the approach, the grasp and
+# the lift (diagnostics run 44131608383 and the Baseline 1 runs of 17 Nov): the fingers swept the item 24 to 55 mm before
+# they closed, and the TCP, 0.138 m from the hand base, rose 21 to 49 mm when the hand base rose 64 to 91 mm.
+LIFT_RISE_M = 0.08
+REACH_STANDOFF_M = 0.10
+CARTESIAN_STEP_M = 0.005
+CARTESIAN_MIN_FRACTION = 0.999
+
+
+def quaternion_matrix(q):
+    """Rotation matrix (rows) of a unit quaternion (x, y, z, w)."""
+    x, y, z, w = q
+    return ((1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)),
+            (2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)),
+            (2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)))
+
+
+def _apply(R, v):
+    return tuple(sum(R[i][k] * v[k] for k in range(3)) for i in range(3))
+
+
+def grasp_line(tcp_point, tcp_offset, hand_quaternion, standoff=REACH_STANDOFF_M):
+    """The straight reach of the hand with orientation `hand_quaternion` (the one the approach ended with): the hand base
+    position that puts the TCP (`tcp_offset` from the hand base, in the hand frame) on `tcp_point`, and the position
+    `standoff` back along the fingers (-z of the hand) from it. -> (pre_grasp, grasp) hand base positions."""
+    R = quaternion_matrix(hand_quaternion)
+    offset = _apply(R, tcp_offset)
+    grasp = tuple(tcp_point[i] - offset[i] for i in range(3))
+    fingers = _apply(R, (0.0, 0.0, -1.0))
+    return tuple(grasp[i] - standoff * fingers[i] for i in range(3)), grasp
+
+
+def straight_lift(hand_xyz, hand_quaternion, rise):
+    """The hand base goal that raises the TCP and the held item by `rise` straight up: the hand translated along z of
+    base_footprint with the orientation it has on the item. A translation moves every point of the hand by the same vector."""
+    return (hand_xyz[0], hand_xyz[1], hand_xyz[2] + rise), tuple(hand_quaternion)
+
+
+def worst_tcp_rise(rise, position_tolerance, angle_tolerance, tcp_distance):
+    """The least the TCP can rise when MoveIt ends anywhere in the goal region of a lift goal on the hand base: the hand
+    base `position_tolerance` low, and the hand turned by up to sqrt(3) * angle_tolerance (an absolute tolerance on each of
+    three axes), which moves a point `tcp_distance` from the hand base by up to 2 * tcp_distance * sin(angle / 2)."""
+    angle = math.sqrt(3.0) * angle_tolerance
+    return rise - position_tolerance - 2.0 * tcp_distance * math.sin(angle / 2.0)
