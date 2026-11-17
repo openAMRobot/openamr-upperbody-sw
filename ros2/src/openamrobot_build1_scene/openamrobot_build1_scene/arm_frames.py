@@ -55,6 +55,21 @@ REACH_STANDOFF_M = 0.10
 # 0.3 rad the hand could be tilted by up to 0.52 rad, enough to bring the front of the hand body below the tote wall top.
 # With 0.12 rad (up to 0.21 rad combined) and REACH_CLEARANCE_M the lowest point clears the wall (test_arm_frames.py).
 APPROACH_ANGLE_TOLERANCE_RAD = 0.12
+# About the vertical the approach is tighter: the reach keeps the orientation the approach ended with, and a hand turned
+# about the vertical against the item's face closes on the item's edges. In the Baseline 1 missions of 17 Nov the base
+# stood up to 0.067 m and 0.08 rad off the station, the approach ended 0.025 to 0.075 rad off the face, and the fingers
+# stopped at 0.069 to 0.107 rad: the grip torque, kp times that angle, fell to 0.18 to 0.33 N m and the normal force to
+# 0.58 to 0.74 N per finger, at or below the 0.736 N the item needs; 4 of 7 lifted nothing. In the fixed-pose runs the
+# approach ended 0.012 to 0.025 rad off, the fingers stopped at 0.137 to 0.158 rad and held with 1.95 to 2.35 N.
+APPROACH_YAW_TOLERANCE_RAD = 0.02
+
+
+def approach_tolerances(quaternion, tolerance=APPROACH_ANGLE_TOLERANCE_RAD, yaw_tolerance=APPROACH_YAW_TOLERANCE_RAD):
+    """Per-axis orientation tolerances (x, y, z of the hand frame at `quaternion`, as MoveIt's OrientationConstraint reads
+    them): `yaw_tolerance` about the hand axis nearest to the vertical of base_footprint, `tolerance` about the others."""
+    R = quaternion_matrix(quaternion)
+    vertical = max(range(3), key=lambda i: abs(R[2][i]))
+    return tuple(yaw_tolerance if i == vertical else tolerance for i in range(3))
 # How the TCP gets onto the item. The collision meshes of the pinch gripper (openarm_description at the pins) reach
 # 0.0305 m below the TCP with the hand body (ee_base_link, 0.0319 m below the hand axis, which is 0.0014 m above the
 # TCP), 0.0464 m above it, and 0.11 m along the fingers, so the hand body passes over the tote's front wall (the item
@@ -109,3 +124,21 @@ def worst_tcp_rise(rise, position_tolerance, angle_tolerance, tcp_distance):
     three axes), which moves a point `tcp_distance` from the hand base by up to 2 * tcp_distance * sin(angle / 2)."""
     angle = math.sqrt(3.0) * angle_tolerance
     return rise - position_tolerance - 2.0 * tcp_distance * math.sin(angle / 2.0)
+
+
+# How deep the item sits in the fingers. The fingers are a position servo to closed (kp_hand 5, MIT kp 4.884 on the
+# emulator), so the grip torque is kp times the angle at which they meet the item, and that angle depends on where along
+# the fingers the item is. With the item centre on the TCP (0.138 m, near the fingertips) they met it at 0.065 to 0.12 rad
+# in the Baseline 1 missions: 0.18 to 0.41 N m, 0.58 to 2.6 N per finger, and 3 of 6 grasps lifted nothing or less than
+# 40 mm. With it 0.008 to 0.013 m deeper (fixed-pose runs, by tracking) they met it at 0.137 to 0.158 rad and 10 of 10
+# lifted 0.076 to 0.080 m. The palm (ee_base_link, 0.1106 m along the fingers) leaves the item's front face room for
+# 0.138 - 0.1106 - 0.0175 = 0.0099 m.
+ITEM_DEPTH_BEHIND_TCP_M = 0.009
+PALM_ALONG_FINGERS_M = 0.1106
+TCP_ALONG_FINGERS_M = 0.138
+
+
+def tcp_for_item(item_point, hand_quaternion, depth=ITEM_DEPTH_BEHIND_TCP_M):
+    """Where the TCP goes so that the item centre `item_point` sits `depth` behind it along the fingers (toward the palm)."""
+    fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
+    return tuple(item_point[i] + depth * fingers[i] for i in range(3))

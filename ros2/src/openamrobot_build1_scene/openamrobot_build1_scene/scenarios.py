@@ -16,10 +16,10 @@ import yaml
 from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
-from openamrobot_build1_scene.arm_frames import (APPROACH_ANGLE_TOLERANCE_RAD, CARTESIAN_MIN_FRACTION, CARTESIAN_STEP_M,
+from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
                                                   GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, REACH_CLEARANCE_M,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset, straight_lift)
+                                                  side_grasp_offset, straight_lift, tcp_for_item)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M,
                                           ScenarioFailed, angle_diff)
@@ -442,7 +442,9 @@ def _pose_goal(group, link, xyz, quaternion, velocity_scale, position_tolerance=
     orientation = OrientationConstraint(link_name=link, weight=1.0)
     orientation.header.frame_id = "base_footprint"
     orientation.orientation.x, orientation.orientation.y, orientation.orientation.z, orientation.orientation.w = quaternion
-    orientation.absolute_x_axis_tolerance = orientation.absolute_y_axis_tolerance = orientation.absolute_z_axis_tolerance = angle_tolerance
+    tolerances = angle_tolerance if isinstance(angle_tolerance, tuple) else (angle_tolerance,) * 3
+    (orientation.absolute_x_axis_tolerance, orientation.absolute_y_axis_tolerance,
+     orientation.absolute_z_axis_tolerance) = (float(v) for v in tolerances)
     goal.request.goal_constraints[0].orientation_constraints = [orientation]
     return goal
 
@@ -485,7 +487,7 @@ def grasp(rig, log):
 
     _mark(rig, "grasp_approach_start")
     approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3,
-                                                     angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD), "grasp_approach")
+                                                     angle_tolerance=approach_tolerances(quaternion)), "grasp_approach")
     _mark(rig, "grasp_approach_end")
     if not approached_ok:
         return
@@ -505,8 +507,9 @@ def grasp(rig, log):
             if not log.require(approached is not None, "no /tf of the hand after the approach"):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
-            pre_grasp, above = grasp_line((item[0], item[1], grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)
-            _, hand = grasp_line((item[0], item[1], grasp_z), found[0], held_orientation)
+            tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)   # the item 9 mm into the fingers
+            pre_grasp, above = grasp_line((tcp_x, tcp_y, grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)
+            _, hand = grasp_line((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
             _mark(rig, "grasp_reach_start")
             reached = _cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)
             rig.sleep_sim(1.0)

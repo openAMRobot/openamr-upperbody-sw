@@ -33,10 +33,32 @@ FIXTURE_PADDING_M = 0.015
 
 
 def padded(boxes, fixed_names, margin):
-    """`boxes` [(name, size, centre, yaw)] with `margin` added on every side of each box named in `fixed_names`."""
+    """`boxes` [(name, size, centre, yaw)] with `margin` added on every side but the underside of each box named in
+    `fixed_names`. The undersides stay: under the work shelf board above, the lifted hand has 0.004 m to the padded
+    face with the hand level, and a held orientation tilted 1 to 7 degrees cut the 0.08 m lift short (Cartesian fractions
+    0.9375 in Baseline 1 run 44155397328, 0.941 in diagnostics run 44168251650); no finger touched an underside."""
     out = []
     for name, size, centre, yaw in boxes:
         if name in fixed_names:
-            size = tuple(float(v) + 2.0 * margin for v in size)
+            size = (float(size[0]) + 2.0 * margin, float(size[1]) + 2.0 * margin, float(size[2]) + margin)
+            centre = (centre[0], centre[1], centre[2] + margin / 2.0)
         out.append((name, tuple(size), centre, yaw))
     return out
+
+
+# Where the planning scene puts the objects, relative to the robot. The scenarios place the grasp and the reach targets
+# from the ground truth base pose (a stand-in for perceiving them from the robot), so the obstacles next to those
+# targets must come from the same pose. From the localization (AMCL) they were 0.023 to 0.064 m and up to 0.024 rad out
+# of place in the Baseline 1 missions of 17 Nov (runs 44155397328 to 44155485209): the straight lift and reach were
+# then cut short against a board or tote that was not there (Cartesian fractions 0.9375 and 0.185).
+POSE_SOURCES = ("ground_truth", "localization")
+DEFAULT_POSE_SOURCE = "ground_truth"
+
+
+def choose_base_pose(source, ground_truth, localization):
+    """(pose, label) for the planning scene: (x, y, yaw) of base_footprint in the scene frame, or (None, None)."""
+    if source not in POSE_SOURCES:
+        raise ValueError(f"pose_source must be one of {POSE_SOURCES}, got {source!r}")
+    if source == "ground_truth":
+        return (ground_truth, "ground truth") if ground_truth is not None else (None, None)
+    return localization
