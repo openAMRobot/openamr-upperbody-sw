@@ -5,6 +5,17 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (17 Nov 2026; scn04 in the Baseline 1 mission; simulation only)
+
+- **Approach square to the item's face.** In the mission the base stands up to 0.067 m and 0.08 rad off the station, and the approach
+  (0.12 rad per axis) ended 0.025 to 0.075 rad off the face; the fingers closed at 0.069 to 0.107 rad, the grip torque (kp times that
+  angle) fell to 0.18 to 0.33 N m and the item was not lifted in 4 of 7 grasps. The tolerance about the vertical is now 0.02 rad
+  (`arm_frames.approach_tolerances`); 0.12 rad about the other axes.
+- **Planning scene in the frame of the targets.** `planning_scene_loader.py` placed the objects from AMCL (0.023 to 0.064 m and up to
+  0.024 rad off the ground truth in the mission), while the grasp targets come from the ground truth: the straight lift and reach were
+  cut short (Cartesian fractions 0.9375 and 0.185). New parameter `pose_source` (default `ground_truth`, Proposed). Tests:
+  `test_arm_frames.py`.
+
 ### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
 
 - **Straight reach and lift.** The scn04 reach and lift were pose goals with 0.3 rad per axis: the hand turned 8 to 31 degrees

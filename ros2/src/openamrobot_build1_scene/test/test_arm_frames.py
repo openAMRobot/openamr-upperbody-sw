@@ -170,7 +170,7 @@ def test_the_reach_clears_the_tote_wall_and_the_lift_clears_the_board_above(scen
     # The fingers close on the item: their lower edge is well below the item's top.
     assert item[1][2] + grasp - af.FINGER_HALF_HEIGHT_M < item_top - 0.06
     body = _grasp_body()
-    assert "angle_tolerance=APPROACH_ANGLE_TOLERANCE_RAD" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
+    assert "angle_tolerance=approach_tolerances(quaternion)" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
     assert "grasp_line((item[0], item[1], grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)" in body
     assert '_cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)' in body
 
@@ -200,3 +200,34 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
         loader = f.read()
     assert 'declare_parameter("fixture_padding_m", FIXTURE_PADDING_M)' in loader
     assert "self.boxes = padded(scene_model.collision_boxes(self.scene), fixed, padding)" in loader
+
+
+def test_the_planning_scene_sits_in_the_frame_of_the_grasp_targets():
+    """The grasp and reach targets come from the ground truth base pose, so the obstacles must too. With the
+    localization they were 0.023 to 0.064 m out of place in the Baseline 1 missions and the straight lines were cut short."""
+    from openamrobot_build1_scene import planning_scene as ps
+    truth, belief = (0.01, -2.10, -1.60), ((0.03, -2.12, -1.61), "map")
+    assert ps.DEFAULT_POSE_SOURCE == "ground_truth"
+    assert ps.choose_base_pose(ps.DEFAULT_POSE_SOURCE, truth, belief) == (truth, "ground truth")
+    assert ps.choose_base_pose("ground_truth", None, belief) == (None, None), "no silent fall-back to the localization"
+    assert ps.choose_base_pose("localization", truth, belief) == belief
+    with pytest.raises(ValueError):
+        ps.choose_base_pose("amcl", truth, belief)
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert 'declare_parameter("pose_source", DEFAULT_POSE_SOURCE)' in loader
+    assert "return choose_base_pose(self.pose_source, self.truth, self.localization_pose())" in loader
+    assert '"/build1/ground_truth/odom", self.on_truth' in loader
+
+
+@pytest.mark.parametrize("yaw", [0.0, -0.08, 0.05])
+def test_the_approach_holds_the_fingers_square_to_the_items_face(yaw):
+    """Measured: an approach that ended 0.025 to 0.075 rad off the face closed the fingers at 0.069 to 0.107 rad, with
+    0.18 to 0.33 N m of grip torque, and 4 of 7 such grasps lifted nothing; 0.012 to 0.025 rad off held 5 of 5 at
+    0.137 to 0.158 rad. The tolerance about the vertical stays inside the range that held."""
+    tolerances = af.approach_tolerances(af.side_grasp(yaw))
+    R = matrix(*af.side_grasp(yaw))
+    vertical = int(np.argmax(np.abs(R[2, :])))
+    assert vertical == 0, "the side grasp's hand x axis is the vertical"
+    assert tolerances[vertical] == af.APPROACH_YAW_TOLERANCE_RAD <= 0.025
+    assert all(t == af.APPROACH_ANGLE_TOLERANCE_RAD for i, t in enumerate(tolerances) if i != vertical)

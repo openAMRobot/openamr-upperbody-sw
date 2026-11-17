@@ -7,7 +7,9 @@ objects of config/scene.yaml are given in base_footprint, from the robot's own p
 when Nav2 localises, else the spawn pose with odom -> base_footprint). When the base has moved, the objects are sent
 again. This node is the one writer of /planning_scene besides move_group itself.
 
-Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
+The robot's pose for that comes from /build1/ground_truth/odom by default (pose_source, planning_scene.py): the
+scenarios place their targets from it, and the obstacles next to a target must be in the same frame. pose_source
+localization keeps the old behaviour. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
 before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
 side; the tote, the item and the payload get none. Simulation only.
 """
@@ -16,6 +18,7 @@ import math
 import rclpy
 from geometry_msgs.msg import Pose
 from moveit_msgs.msg import CollisionObject, PlanningScene
+from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from rclpy.time import Time
@@ -24,7 +27,7 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
-from openamrobot_build1_scene.planning_scene import FIXTURE_PADDING_M, padded
+from openamrobot_build1_scene.planning_scene import DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, choose_base_pose, padded
 
 
 def yaw_of(q):
@@ -42,6 +45,9 @@ class PlanningSceneLoader(Node):
         self.get_logger().info(f"planning clearance {padding} m on every side of the {len(fixed)} fixed boxes; "
                                "tote, item and payload unpadded")
         self.excluded, self.sent_names = set(), set()
+        self.pose_source = self.declare_parameter("pose_source", DEFAULT_POSE_SOURCE).value
+        self.truth = None
+        self.create_subscription(Odometry, "/build1/ground_truth/odom", self.on_truth, 10)
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
         self.publisher = self.create_publisher(PlanningScene, "/planning_scene", 10)
@@ -56,7 +62,16 @@ class PlanningSceneLoader(Node):
         self.excluded = {name.strip() for name in msg.data.split(",") if name.strip()}
         self.last_pose = None      # send again
 
+    def on_truth(self, msg):
+        p, q = msg.pose.pose.position, msg.pose.pose.orientation
+        self.truth = (p.x, p.y, yaw_of(q))
+
     def base_pose(self):
+        """(x, y, yaw) of base_footprint in the scene frame and its source: the ground truth by default (the frame of the
+        scenarios' targets, planning_scene.choose_base_pose), the localization with pose_source:=localization."""
+        return choose_base_pose(self.pose_source, self.truth, self.localization_pose())
+
+    def localization_pose(self):
         """(x, y, yaw) of base_footprint in the scene frame, and the source of that belief."""
         try:
             t = self.buffer.lookup_transform("map", "base_footprint", Time()).transform
