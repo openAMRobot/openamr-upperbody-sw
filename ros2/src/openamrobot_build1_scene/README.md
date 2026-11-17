@@ -201,6 +201,8 @@ is never PASS.
 | `scn12_profile_fast`, `scn13_profile_fine` | `fast`, `fine` | single writers, real-time factor, controller rate, missed updates |
 | `scn14_drive_fast` | `fast` | scenario 1 without devices |
 | `scn15_grasp_fast` | `fast`, Bullet Featherstone | scenario 4 without devices |
+| `scn16_lift_fast` | `fast`, DART | the lift to stops 2, 0, 1, 2, 0 through `lift_controller`. Position on `/joint_states`; an action success without arrival fails |
+| `scn17_base_yaw_fast` | `fast`, DART | equal, then equal and opposite wheel speeds with the castors present. Ground truth yaw against r * (wR - wL) / track and `/odom`. Diagnosis: see `docs/build1_lift_and_base_diagnosis.md` |
 
 Fault scenarios record observations. Next to each stands the entry of
 [`config/expected_reactions.yaml`](config/expected_reactions.yaml), a simulation-only reference. Those entries are

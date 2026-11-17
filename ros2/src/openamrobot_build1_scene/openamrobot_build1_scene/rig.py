@@ -36,6 +36,9 @@ MIN_RTF_FOR_WALL = 0.05          # wall limit of a wait = Gazebo limit / this, p
 LIFT_IDLE, LIFT_FAULT = 3, 6     # CTL-017 states (vendored emulator: INIT, UNHOMED, HOMING, IDLE, MOVING, STOPPING, FAULT)
 LIFT_REFUSED = 0x80              # openamrobot_sil config/sil.yaml lift.permit.refused_result, a SIL test value
 LIFT_STOP_M = (0.0, 0.175, 0.350)   # lift_joint at L1000, L1175, L1350
+# Arrival at a stop without devices, read on /joint_states. A simulation acceptance value of this scene, not a decision:
+# the CTL-017 stop window is not decided. scn02 allows 6 mm in the physics through CTL-017.
+LIFT_STOP_TOLERANCE_M = 0.003
 # The CTL-017 model raises F02 when the Hall rate falls below half of the nominal one (sil-topology.md section 6).
 LIFT_MIN_RTF = 0.55
 
@@ -434,7 +437,9 @@ class Rig:
 
     def lift_move(self, stop, sim_s=60.0):
         """Move the lift to a calibrated stop the way the run profile allows. -> True when it arrived.
-        With devices: permit on, CTL-017 command over CAN3, permit off. Without: the lift trajectory controller."""
+        With devices: permit on, CTL-017 command over CAN3, permit off. Without: the lift trajectory controller, and
+        arrival means the action succeeded AND /joint_states shows lift_joint within LIFT_STOP_TOLERANCE_M of the stop.
+        An action that reports success while the joint stayed short of the stop is not an arrival."""
         if self.devices:
             self.lift_permit(True)
             self.wait(lambda: self.get("/sil/lift/emulator_state")["permit_fresh"], 3.0, "permit fresh")
@@ -442,6 +447,17 @@ class Rig:
                 return self.lift_go(stop, sim_s)
             finally:
                 self.lift_permit(False)
+        status, _ = self.lift_trajectory(stop, sim_s)
+        return self.succeeded(status) and self.lift_at(stop)
+
+    def lift_at(self, stop, settle_sim_s=1.0):
+        """True when /joint_states shows lift_joint within LIFT_STOP_TOLERANCE_M of the stop, waiting up to settle_sim_s."""
+        return self.wait(lambda: abs(self.joint("lift_joint") - LIFT_STOP_M[stop]) <= LIFT_STOP_TOLERANCE_M,
+                         settle_sim_s, f"lift_joint at stop {stop} on /joint_states", step=0.05)
+
+    def lift_trajectory(self, stop, sim_s=60.0):
+        """One FollowJointTrajectory goal to lift_controller (profiles fast and fine). -> (status, result), (None, None)
+        when the server is missing, rejects the goal or does not answer in time."""
         from builtin_interfaces.msg import Duration
         from control_msgs.action import FollowJointTrajectory
         from trajectory_msgs.msg import JointTrajectoryPoint
@@ -453,9 +469,8 @@ class Rig:
         goal.trajectory.points = [point]
         handle = self.send_goal("/lift_controller/follow_joint_trajectory", "control_msgs.action", "FollowJointTrajectory", goal)
         if handle is None:
-            return False
-        status, _ = self.wait_result(handle, seconds + sim_s, f"lift to stop {stop}")
-        return self.succeeded(status)
+            return None, None
+        return self.wait_result(handle, seconds + sim_s, f"lift to stop {stop}")
 
     def follow_joint_trajectory(self, side, positions, duration_s):
         """Send one point to an arm controller. -> goal handle or None."""
