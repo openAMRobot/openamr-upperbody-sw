@@ -25,8 +25,12 @@ def member(n, out):
     node.create_timer(0.5, lambda: pub.publish(String(data=str(n))))
     stop = []
     signal.signal(signal.SIGTERM, lambda *_: stop.append(1))
+    signal.signal(signal.SIGUSR1, lambda *_: write(node, n, out))   # the view is taken while every member still runs
     while not stop:
         rclpy.spin_once(node, timeout_sec=0.2)
+
+
+def write(node, n, out):
     seen = sorted(int(t[len("/cap/p"):]) for t, _ in node.get_topic_names_and_types()
                   if t.startswith("/cap/p") and node.get_publishers_info_by_topic(t))
     with open(os.path.join(out, f"{n}.json"), "w") as f:
