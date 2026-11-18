@@ -114,6 +114,13 @@ def spawn(rig, log, scene, demo):
                  note="the sim-oracle profile declares pose_source: ground_truth (docs/integration/baseline1.md)")
 
 
+def alignment_launched(rig):
+    """True when the launch started openamr-platform-sw #167's station alignment (/build1/run_info station_alignment).
+    Only the work shelf has a station marker: the alignment node's standoff (0.713 m) is the shelf's parking gap, and the
+    packing station's 0.10 m gap needs a second marker and node configuration, which #167 does not have yet."""
+    return bool((rig.get("/build1/run_info") or {}).get("station_alignment"))
+
+
 def approach_pose(scene, name, distance=APPROACH_M):
     """The pose `distance` back from station `name` along its heading, facing the same way."""
     x, y, yaw = station(scene, name)
@@ -138,10 +145,21 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None,
     demo["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
     events(f"nav goal {name} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map), behavior tree {goal.behavior_tree or 'default'}")
     start, travelled0 = rig.sim_time(), demo["travelled"]
-    handle = rig.send_goal("/navigate_to_pose", "nav2_msgs.action", "NavigateToPose", goal)
-    if not log.require(handle is not None, "Nav2 navigate_to_pose did not accept the goal"):
+    # Station alignment (openamr-platform-sw #167, Proposed, NOT adopted into Baseline 1): prepared, off by default. With
+    # the launch argument station_alignment:=true the work-shelf goal goes through the alignment action, as in Baseline 1.
+    aligned = name == PICK_STATION and alignment_launched(rig)
+    server = b1.ALIGNMENT_ACTION if aligned else "/navigate_to_pose"
+    demo.setdefault("navigate_actions", {})[name] = server
+    reports = []
+    if aligned:
+        from std_msgs.msg import String
+        rig.node.create_subscription(String, "/station_alignment/report", lambda m: reports.append(m.data), 10)
+    handle = rig.send_goal(server, "nav2_msgs.action", "NavigateToPose", goal)
+    if not log.require(handle is not None, f"Nav2 navigate_to_pose did not accept the goal ({server})"):
         return None
     status = wait_nav(rig, log, handle, name, demo, events)
+    for report in reports:
+        events(f"station alignment report: {report}")
     if demo.get("odom_frozen"):
         return status
     events(f"nav result {name}: status {status}")

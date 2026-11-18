@@ -53,6 +53,15 @@ This demonstrator runs in the **sim-oracle** profile only (`docs/integration/bas
 - A pass is integration evidence of the ROS 2 stack, the firmware-SIL path, the controllers and the contact physics in
   simulation. It is never a perception result: the real robot does not have the ground truth.
 
+## Station alignment (prepared, off)
+
+openamr-platform-sw #167 (station marker alignment) is Proposed and not adopted into Baseline 1, so it is off here. It is
+ready behind one switch, as in Baseline 1: `GROCERY_STATION_ALIGNMENT=1` (workflow env) launches with
+`station_alignment:=true`, which places the marker plate on the work shelf, starts the alignment node and sends the
+work-shelf goal through `/station_alignment/navigate_to_station`. The packing station is not covered: the node's
+standoff (0.713 m) is the shelf parking gap, and the packing gap (0.10 m) needs a second marker and node configuration
+that #167 does not have. The packing station's last 0.60 m use `drive_on_heading` instead.
+
 ## Pinned inputs
 
 | Input | Repository | SHA |
@@ -145,6 +154,12 @@ The job log prints the phase table, an evidence summary and the trace summary pe
   between the stations; it is not from Use_Case_1.
 - The work shelf keeps Baseline 1's open space under level 0; the other shelf units have plinths.
 - Gazebo has no seed: repeated runs differ; a single pass is not repeatability.
+- Odometry drifts in turns in place (runs 44278919387 and 44299879412, from the 5 s odometry samples): straight
+  driving keeps distance within 0.5 % and heading within 0.01 rad per metre, but each turn in place leaves the
+  odometry heading about 0.03 rad off the body (per-turn ratio 0.88 to 1.11), mostly in one direction. Over the 6.3 m
+  to the packing bench 0.15 rad becomes about 0.9 m of odometry position error. Nav2 drives on AMCL, which stays
+  within 0.06 to 0.11 m, so the stations are reached. The wheel and caster contact model is the likely cause
+  (Proposed to its owners, not changed here).
 
 ## Evidence
 

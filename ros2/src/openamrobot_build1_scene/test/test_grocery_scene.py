@@ -268,3 +268,17 @@ def test_launch_offers_the_scene_argument_with_the_build1_default():
     assert '"scene_file": scene_file' in text
     with open(package_path("config", "grocery_scene.yaml"), encoding="utf-8") as f:
         assert yaml.safe_load(f)["world_name"] == "build1"
+
+
+def test_station_alignment_is_prepared_and_off(grocery):
+    """openamr-platform-sw #167 is not adopted into Baseline 1: the demonstrator has it ready behind one switch, off."""
+    test = open(package_path("test", "test_grocery_demo_mission.py"), encoding="utf-8").read()
+    assert 'os.environ.get("GROCERY_STATION_ALIGNMENT", "0") == "1"' in test and "station_alignment=alignment" in test
+    workflow = open(os.path.join(PACKAGE_DIR, "..", "..", "..", ".github", "workflows", "grocery-demo.yml"), encoding="utf-8").read()
+    assert "GROCERY_STATION_ALIGNMENT: '0'" in workflow
+    mission = open(package_path("openamrobot_build1_scene", "grocery_demo.py"), encoding="utf-8").read()
+    assert "aligned = name == PICK_STATION and alignment_launched(rig)" in mission
+    # The marker plate stands at the work shelf, where the alignment node's standoff (0.713 m) puts the station.
+    assert "station_marker" in scene_model.world_sdf(grocery, "fast", station_marker=True)
+    assert "station_marker" not in scene_model.world_sdf(grocery, "fast")
+    assert abs(scene_model.station_marker_standoff(grocery) - 0.713) < 1e-9

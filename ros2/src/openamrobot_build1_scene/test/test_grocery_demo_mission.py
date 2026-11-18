@@ -25,8 +25,11 @@ random.seed(int(os.environ.get("BASELINE1_SEED", "20261117")))
 @pytest.mark.launch_test
 def generate_test_description():
     # Profile sim-oracle, declared explicitly: the planning scene is placed from the simulator's ground truth.
+    # Station alignment (openamr-platform-sw #167) stays off until it is adopted into Baseline 1; GROCERY_STATION_ALIGNMENT=1
+    # switches it on for the work shelf (the launch argument station_alignment, as in Baseline 1).
+    alignment = "true" if os.environ.get("GROCERY_STATION_ALIGNMENT", "0") == "1" else "false"
     return build1_harness.description(profile="firmware_sil", station="origin", nav2="true", moveit="true",
-                                      station_alignment="false", scene="grocery_scene.yaml", planning_pose_source="ground_truth")
+                                      station_alignment=alignment, scene="grocery_scene.yaml", planning_pose_source="ground_truth")
 
 
 class TestGroceryDemoMission(unittest.TestCase):

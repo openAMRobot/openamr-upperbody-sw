@@ -40,6 +40,9 @@ env:
   # Nav2 goals with the station tree; no marker alignment (#167 is an opt-in extension of Baseline 1, not used here).
   BASELINE1_STATION_APPROACH: '1'
   BASELINE1_STATION_ALIGNMENT: '0'
+  # Station alignment for the work shelf (openamr-platform-sw #167): prepared, off until it is adopted into Baseline 1.
+  # '1' builds openamrobot_station_alignment and launches with station_alignment:=true (as baseline1-acceptance.yml).
+  GROCERY_STATION_ALIGNMENT: '0'
   # Acceptance profile sim-oracle (docs/integration/baseline1.md): the planning scene from simulator ground truth,
   # declared. The launch test also passes planning_pose_source:=ground_truth explicitly. Never a perception result.
   BASELINE1_PROFILE: sim-oracle
@@ -164,7 +167,8 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           rosdep update --rosdistro jazzy
-          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          extra=""; [ "${GROCERY_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" $extra --paths-only)
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
             ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
@@ -187,7 +191,8 @@ jobs:
         working-directory: ws
         run: |
           source /opt/ros/jazzy/setup.bash
-          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+          extra=""; [ "${GROCERY_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          colcon build --packages-up-to "$PACKAGE" $extra --event-handlers console_cohesion+
 
       - name: "Static: grocery scene, map, phases and report (no simulator)"
         id: static
