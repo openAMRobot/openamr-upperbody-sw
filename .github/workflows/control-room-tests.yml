@@ -107,16 +107,17 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           export ROS_DOMAIN_ID=77 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+          ros2 daemon stop || true      # a daemon from the test step would answer with another environment
           # A background job of a non-interactive shell ignores SIGINT, so the launch is bounded by timeout and
           # stopped with SIGTERM; every ros2 command is bounded too.
           timeout -s TERM 120 ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true \
             use_sim_time:=false > ../launch.log 2>&1 &
           pid=$!
           sleep 20
-          timeout 20 ros2 node list | tee ../graph.txt
+          timeout 30 ros2 node list --no-daemon | tee ../graph.txt
           for node in /control_room_monitor /control_room_vcan_monitor /control_room_foxglove_bridge; do
             echo "== $node" | tee -a ../graph.txt
-            timeout 20 ros2 node info "$node" | tee -a ../graph.txt
+            timeout 30 ros2 node info "$node" 2>&1 | tee -a ../graph.txt
           done
           # What the bridge offers a viewer, as a viewer sees it.
           timeout 20 python3 - <<'PY' 2>&1 | tee -a ../summary.txt || true
@@ -139,6 +140,9 @@ jobs:
           bad = []
           for block in text.split("== ")[1:]:
               node = block.splitlines()[0]
+              if "Publishers:" not in block:
+                  bad.append(f"{node}: not found on the graph, nothing checked")
+                  continue
               section = None
               for line in block.splitlines()[1:]:
                   head = line.strip().rstrip(":")

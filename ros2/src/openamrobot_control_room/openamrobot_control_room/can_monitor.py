@@ -89,6 +89,10 @@ class ReceiveOnlyBus:
 
 def open_socketcan(channel):
     """A receive-only socketcan bus. fd=True receives classic and FD frames; own frames are not looped back."""
+    import os
+    if not os.path.exists(f"/sys/class/net/{channel}"):
+        # Checked first: a python-can bus whose bind fails warns at every retry that it was not shut down.
+        raise OSError(f"no interface {channel}")
     import can
     return ReceiveOnlyBus(can.Bus(interface="socketcan", channel=channel, fd=True, receive_own_messages=False))
 
