@@ -294,6 +294,8 @@ class Rig:
         self.devices = bool(info.get("devices"))
         self.physics = "/sim/joint_states" if self.devices else "/arm/joint_states"
         self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)
+        from openamrobot_build1_scene.planning_scene import declaration
+        self.log.event(declaration(info.get("planning_pose_source", "not declared by the launch")))
         log.event(f"run profile {info.get('profile')}, step {info.get('physics_step')}, engine {info.get('physics_engine')}, "
                   f"model sha256 {info.get('model_sha256')}")
         checks = {"odometry": lambda: self.get("/odom") is not None}

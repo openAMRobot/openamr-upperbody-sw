@@ -89,6 +89,7 @@ profile, the baseline lock, the hash of the expanded model and the engine.
 | `create_vcan` | `true`, `false` | `true` | run `setup_vcan_all.sh` first |
 | `driver_rate` | `auto`, Hz | `auto` | real driver's controller manager. Every second physics step |
 | `gravity_feedforward` | `true`, `false` | `true` | device profiles: the arms' gravity torque through the real driver's effort interface (Proposed, see `docs/build1_arm_diagnosis.md`). Tau 0 for an arm whose joint state is stale; a held item as an optional payload (`docs/architecture/d4_mit_frame_field_ownership.md`) |
+| `planning_pose_source` | `map`, `ground_truth` | `map` | where the MoveIt planning scene's objects are placed from: the robot's own estimate (AMCL map, or spawn pose and odom before it), or Gazebo's ground truth, a simulation oracle that every run using it declares in `/build1/run_info` (`planning_pose_source`), in each scenario JSON (`run.planning_pose_source`) and in its log. Environment `BUILD1_PLANNING_POSE_SOURCE` sets it for the scenario tests (`test/build1_harness.py`). Proposed |
 | `driver_clock` | `sim`, `wall` | `sim` | clock of the real driver's controller manager |
 | `sim_state_rate` | Hz, `step` | `100` | rate of `/sim/joint_states`. `step` is every physics step and costs real-time factor |
 | `replay_drive`, `replay_bms`, `replay_aux`, `replay_arm_l`, `replay_arm_r` | a `candump -L` file | empty | replay hook |

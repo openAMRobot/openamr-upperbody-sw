@@ -17,10 +17,11 @@ All notable changes to this repository. Evidence for the description is static a
   centre along the fingers (`arm_frames.tcp_for_item`); the palm leaves 0.0099 m.
 - **No padding under the fixed boxes.** The 0.08 m lift left 0.004 m under the padded board above with the hand level; tilted held
   orientations cut it short (fractions 0.9375 in run 44155397328, 0.941 in diagnostics run 44168251650). Undersides are no longer padded.
-- **Planning scene in the frame of the targets.** `planning_scene_loader.py` placed the objects from AMCL (0.023 to 0.064 m and up to
-  0.024 rad off the ground truth in the mission), while the grasp targets come from the ground truth: the straight lift and reach were
-  cut short (Cartesian fractions 0.9375 and 0.185). New parameter `pose_source` (default `ground_truth`, Proposed). Tests:
-  `test_arm_frames.py`.
+- **Planning scene pose source (Proposed, reviewer Mohamed).** Launch argument `planning_pose_source`: `map` (default, the robot's own
+  estimate: AMCL map, or spawn pose and odom before it) or `ground_truth` (a simulation oracle, set explicitly). The value is in
+  `/build1/run_info`, in every scenario JSON as `run.planning_pose_source` and in the log (`planning_scene.declaration`).
+  `BUILD1_PLANNING_POSE_SOURCE` sets it for the scenario tests. With `map` the obstacles were 0.023 to 0.064 m off the frame of the
+  ground-truth grasp targets in the missions of 17 Nov (a reach cut short at fraction 0.185). Tests: `test_arm_frames.py`.
 
 ### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
 
