@@ -1,0 +1,327 @@
+# SPDX-License-Identifier: MIT
+# RViz2 configuration of the Digital Twin Control Room (openamrobot_control_room).
+# Read only: the toolbar has view, select, focus and measure tools only. No 2D Goal Pose, 2D Pose Estimate or Publish
+# Point tool, no Interact tool and no MoveIt MotionPlanning panel: RViz writes no topic here.
+# test/test_static.py checks this with readonly.rviz_violations.
+Panels:
+- Class: rviz_common/Displays
+  Name: Displays
+  Tree Height: 560
+  Splitter Ratio: 0.5
+- Class: rviz_common/Views
+  Name: Views
+- Class: rviz_common/Time
+  Name: Time
+  SyncMode: 0
+  SyncSource: ''
+Visualization Manager:
+  Class: ''
+  Name: root
+  Enabled: true
+  Value: true
+  Displays:
+  - Class: rviz_default_plugins/Grid
+    Name: Grid
+    Enabled: true
+    Value: true
+    Cell Size: 1
+    Plane Cell Count: 20
+    Reference Frame: map
+  - Class: rviz_default_plugins/TF
+    Name: TF
+    Enabled: false
+    Value: false
+    Show Names: false
+    Marker Scale: 0.4
+    Frame Timeout: 15
+  - Class: rviz_default_plugins/RobotModel
+    Name: Robot model
+    Enabled: true
+    Value: true
+    Description Source: Topic
+    Description Topic:
+      Value: /robot_description
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Visual Enabled: true
+  - Class: rviz_default_plugins/Map
+    Name: Map
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /map
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Alpha: 0.6
+  - Class: rviz_default_plugins/Map
+    Name: Global costmap
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /global_costmap/costmap
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Color Scheme: costmap
+    Alpha: 0.4
+  - Class: rviz_default_plugins/Map
+    Name: Local costmap
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /local_costmap/costmap
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Color Scheme: costmap
+    Alpha: 0.5
+  - Class: rviz_default_plugins/Polygon
+    Name: Footprint
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /local_costmap/published_footprint
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Color: 25; 255; 0
+  - Class: rviz_default_plugins/LaserScan
+    Name: LiDAR /scan_filtered
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /scan_filtered
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Size (m): 0.04
+    Style: Flat Squares
+    Color Transformer: FlatColor
+    Color: 255; 0; 0
+  - Class: rviz_default_plugins/LaserScan
+    Name: LiDAR /scan (raw)
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /scan
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+    Size (m): 0.03
+    Style: Flat Squares
+    Color Transformer: FlatColor
+    Color: 255; 170; 0
+  - Class: rviz_default_plugins/Odometry
+    Name: Odometry /odom
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /odom
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Keep: 1
+    Shape:
+      Value: Arrow
+      Color: 255; 170; 0
+      Shaft Length: 0.6
+  - Class: rviz_default_plugins/Odometry
+    Name: Ground truth (Gazebo)
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /build1/ground_truth/odom
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Keep: 1
+    Shape:
+      Value: Arrow
+      Color: 0; 170; 255
+      Shaft Length: 0.6
+  - Class: rviz_default_plugins/PoseWithCovariance
+    Name: AMCL pose
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /amcl_pose
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Shape: Arrow
+    Color: 255; 25; 0
+    Covariance:
+      Value: true
+  - Class: rviz_default_plugins/Pose
+    Name: Nav2 goal (end of /plan)
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /control_room/nav_goal
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Transient Local
+    Shape: Axes
+    Axes Length: 0.4
+    Axes Radius: 0.04
+  - Class: rviz_default_plugins/Path
+    Name: Global plan /plan
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /plan
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Color: 0; 0; 255
+  - Class: rviz_default_plugins/Path
+    Name: Local plan /local_plan
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /local_plan
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Color: 0; 200; 200
+  - Class: rviz_default_plugins/Pose
+    Name: Item (ground truth)
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /build1/ground_truth/item/pose
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+    Shape: Axes
+    Axes Length: 0.15
+    Axes Radius: 0.015
+  - Class: moveit_rviz_plugin/PlanningScene
+    Name: Planning scene
+    Enabled: true
+    Value: true
+    Planning Scene Topic: /monitored_planning_scene
+    Robot Description: robot_description
+    Scene Geometry:
+      Scene Alpha: 0.8
+      Show Scene Geometry: true
+    Scene Robot:
+      Show Robot Visual: false
+      Show Robot Collision: false
+  - Class: moveit_rviz_plugin/Trajectory
+    Name: MoveIt trajectory
+    Enabled: true
+    Value: true
+    Robot Description: robot_description
+    Trajectory Topic: /display_planned_path
+    Loop Animation: false
+    Show Robot Visual: true
+    Show Trail: false
+    State Display Time: 0.05 s
+  - Class: rviz_default_plugins/Image
+    Name: Observer camera (mission recording)
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /baseline1/observer/image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Reliable
+      Durability Policy: Volatile
+  - Class: rviz_default_plugins/Image
+    Name: Head camera
+    Enabled: true
+    Value: true
+    Topic:
+      Value: /head_camera/rgbd/image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+  - Class: rviz_default_plugins/Image
+    Name: Base depth
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /base_camera/rgbd/depth_image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+  - Class: rviz_default_plugins/Image
+    Name: Left wrist camera
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /left_wrist_camera/image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+  - Class: rviz_default_plugins/Image
+    Name: Right wrist camera
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /right_wrist_camera/image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+  - Class: rviz_default_plugins/Image
+    Name: Dock camera
+    Enabled: false
+    Value: false
+    Topic:
+      Value: /rgb_image
+      Depth: 5
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Durability Policy: Volatile
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 15
+  Tools:
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: rviz_default_plugins/Select
+  - Class: rviz_default_plugins/FocusCamera
+  - Class: rviz_default_plugins/Measure
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 8.0
+      Pitch: 0.8
+      Yaw: 3.9
+      Focal Point:
+        X: 1.5
+        Y: 0.8
+        Z: 0.5
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz_default_plugins)
+    Saved: null
+Window Geometry:
+  Height: 1000
+  Width: 1700
+  Hide Left Dock: false
+  Hide Right Dock: true

@@ -1,0 +1,146 @@
+# Digital Twin Control Room
+
+The control room shows a running OpenAMRobot 2.0 simulation (Build 1 scene, Baseline 1 mission, or any launch that
+uses the same topic names) and writes an offline HTML report of a recorded run. It lives in
+`ros2/src/openamrobot_control_room`.
+
+**It is read only.** It holds no command authority and never goes around the command arbiter of the stack: it
+publishes nothing outside `/control_room/`, sends no action goal, calls no service and writes no parameter. Everything
+it shows is simulation data: never hardware, physical acceptance or safety evidence.
+
+## What it shows and where it comes from
+
+| Display | Source topics | Where |
+|---|---|---|
+| Live scene | robot model, TF, map, costmaps, footprint, planning scene; observer camera `/baseline1/observer/image` (spawned by the mission's recorder), head, base depth, wrist and dock cameras | RViz, Lichtblick 3D and Image panels |
+| Mission state and phases | `/baseline1/mission_status` (**Proposed**, see below); until it exists, activity inferred from the action status topics of Nav2, MoveIt, the arm, gripper and lift controllers | `/control_room/status` field `mission` |
+| Nav2 goal, plans | `/plan` (its last pose is republished as `/control_room/nav_goal`), `/local_plan`, `/navigate_to_pose/_action/feedback` | RViz, status `nav` |
+| Robot pose and localization error | `/amcl_pose` and the `map` to `base_footprint` transform against Gazebo ground truth `/build1/ground_truth/odom` | `/control_room/localization/position_error`, `yaw_error`, `tf_position_error`; RViz shows AMCL, odometry and ground truth arrows |
+| Station error | ground truth against the station pose of `config/scene.yaml` (default `work_shelf`) | `/control_room/station_error`, status `station` (distance, along heading, left, yaw) |
+| MoveIt trajectories | `/display_planned_path`, `/monitored_planning_scene`, `/move_action` and `/execute_trajectory` status | RViz MoveIt Trajectory and Planning Scene displays |
+| Joint states, lift position | `/joint_states` (`lift_joint`), `/sil/gz/joint_states` (Gazebo physics) | `/control_room/lift/position`, status `lift` |
+| Camera and LiDAR | `/scan_filtered`, `/scan`, the camera topics above | RViz, Lichtblick |
+| Controller and firmware states | CTL-017 lift: `/sil/lift/status`, `/sil/lift/emulator_state`, `/sil/lift/permit` (read); drive emulator: `/sil/drive/status`, `/sil/drive/emulator_state`; BMS: `/sil/bms/*`; firmware: `/sil/fw/status` | status `lift`, `drive`, `bms`, `firmware` |
+| Virtual CAN | receive-only sockets on `vcan_drive`, `vcan_aux`, `vcan_bms`, `vcan_arm_l`, `vcan_arm_r` | `/control_room/can/summary` (frames, rate, CiA 301 frame class counts on the CANopen buses, top IDs), `/control_room/can/<bus>/rate_hz` |
+| Contacts, grasp, object motion | `/build1/contacts/*` (only with `BUILD1_CONTACT_SENSORS=1`), gripper action status, `/build1/ground_truth/finger_joint_states`, `/build1/ground_truth/item/pose` | `/control_room/contacts/max_force`, `/control_room/item/speed`, status `contacts`, `grasp`, `item` |
+| Simulation time, real-time factor | `/clock`, `/build1/rtf`, `/build1/rtf_stats`, `/build1/run_info` | status `sim_time`, `rtf`, `run_info`; Lichtblick plot |
+| Test results | the mission JSON (`baseline1_mission.json`) | offline report: phase timeline and phase table; live only through the Proposed mission status topic |
+
+## Run it next to a simulation
+
+Build once, from `ros2/` of a workspace that already builds the Build 1 scene:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-up-to openamrobot_control_room openamrobot_build1_scene
+source install/setup.bash
+```
+
+Terminal 1, the simulation (Baseline 1 configuration: firmware SIL, Nav2, MoveIt):
+
+```bash
+ros2 run openamrobot_build1_scene setup_vcan_all.sh
+ros2 launch openamrobot_build1_scene build1.launch.py profile:=firmware_sil nav2:=true moveit:=true
+```
+
+Terminal 2, the control room (RViz and the monitors):
+
+```bash
+ros2 launch openamrobot_control_room control_room.launch.py
+```
+
+Terminal 3, the Baseline 1 mission against the running stack:
+
+```bash
+export BUILD1_LOG_DIR=$PWD/build1_logs
+python3 -c "import sys; from openamrobot_build1_scene import baseline1, rig; r = rig.run('baseline1_mission', baseline1.mission, needs_devices=True, nav2=True, moveit=True); sys.exit(0 if r[0] == 'PASS' else 1)"
+```
+
+For the grocery scene, start its launch in terminal 1 instead; the control room needs no change as long as the topic
+names are the same. Pick the station for the station error with `station:=<name of config/scene.yaml stations>`.
+
+Launch arguments: `rviz` (true), `foxglove` (false), `foxglove_port` (8765), `foxglove_address` (127.0.0.1),
+`vcan` (true), `monitor` (true), `use_sim_time` (true), `station` (work_shelf).
+
+### In a browser (Lichtblick)
+
+```bash
+ros2 launch openamrobot_control_room control_room.launch.py rviz:=false foxglove:=true
+```
+
+Open Lichtblick (MPL-2.0, a community fork of Foxglove Studio), connect with "Foxglove WebSocket" to
+`ws://127.0.0.1:8765` and import the layout `ros2/src/openamrobot_control_room/config/lichtblick_layout.json`.
+The layout has a 3D scene, the observer and head cameras, plots of localization error, station error, lift
+position, real-time factor, CAN rates, contact force and item speed, the mission status, control room status and
+CAN summary, and the log. It has no Teleop, Publish, Call Service or Parameters panel.
+
+The bridge (`config/foxglove_bridge.yaml`) offers only the `connectionGraph` capability: no `clientPublish`,
+`services`, `parameters`, `parametersSubscribe` or `assets`, and the allowlists of those paths match nothing. The 3D
+panel's publish buttons therefore have nowhere to publish. Without `assets` the browser cannot fetch meshes from
+`package://` URLs, so the robot is drawn from its primitives only.
+
+### The Gazebo window
+
+The control room does not start the Gazebo GUI: its world controls (pause, step, reset) and transform tools write to
+the simulation. For a picture of the scene it uses camera topics instead.
+
+## Offline mission report
+
+```bash
+ros2 run openamrobot_control_room mission_report.py --bag $BUILD1_LOG_DIR/bag \
+  --mission $BUILD1_LOG_DIR/baseline1_mission.json --candump "$BUILD1_LOG_DIR/record_candump_*.log" \
+  -o $BUILD1_LOG_DIR/control_room_report.html
+```
+
+One static HTML file, no external resources: phase timeline and phase table from the mission JSON, station error,
+localization error, left and right arm joint states, lift position (joint states and Gazebo physics), item height,
+real-time factor, CAN frame rate (candump wall time) and contact force (when contact sensors were recorded), on the
+Gazebo time base with the phases as shaded bands. The station pose comes from `config/scene.yaml` of
+`openamrobot_build1_scene` (`--station X Y YAW` or `--scene PATH` to override). The verdicts are the mission's; the
+page computes none.
+
+`--synthetic DIR` writes a small synthetic bag and mission JSON first and reports them; `--synthetic-plain` renders
+the same fixture without ROS. The CI job `control-room-tests.yml` writes the synthetic report on every run and, when
+dispatched with a Baseline 1 acceptance run id, the report of that run's recorded bag; both are in the job's artifact.
+
+![Report from the synthetic fixture](media/control_room_report_synthetic.png)
+
+The picture is the synthetic fixture: invented numbers, not a robot run.
+
+## How read only is enforced and tested
+
+- Every publisher goes through `readonly.guard_publisher_topic`, which refuses any topic outside `/control_room/`.
+  The nodes are created without parameter services and create no service or action client.
+- `test_monitor_graph.py` reads both monitor nodes from a second node on a live ROS graph: publishers only under
+  `/control_room/` (plus `/rosout`, `/parameter_events`), no service or action client, no parameter service.
+- `test_foxglove_readonly.py` starts the bridge with the control room configuration and connects a WebSocket client:
+  no write capability is offered, a client advertise and messages on `/cmd_vel` create no ROS publisher and deliver
+  nothing, a parameter write leaves the probe node's parameter unchanged, an asset request returns no asset.
+- `test_vcan_listen.py` sends frames on a test vcan interface and counts every frame on it with a second socket: the
+  count equals what was sent, so the monitor transmitted nothing. `ReceiveOnlyBus` has no send method.
+- `test_static.py` checks the RViz configuration (view, select, focus and measure tools only; no 2D Goal Pose,
+  2D Pose Estimate, Publish Point, Interact or MotionPlanning), the layout and the bridge configuration, that the
+  launch file starts only the four monitoring components, and that no source calls a client, goal or parameter API.
+- The CI job also starts the launch file and fails if any node it started publishes outside `/control_room/` or has
+  a service or action client.
+
+## Proposed
+
+- `/baseline1/mission_status` (std_msgs/String JSON, latched), published by the Baseline 1 mission from its phase
+  tracker: current phase, state and the verdict of every phase. The mission does not publish it today; the control
+  room already subscribes and shows it when it appears. Contract change request: openamr-upperbody-sw issue 82.
+
+## Limitations
+
+- No live mission phase until the Proposed topic exists; the inferred activity comes from action status topics and is
+  not the mission's phase.
+- AMCL against ground truth assumes the map frame equals the Gazebo world frame, as in Baseline 1 (AMCL starts at the
+  spawn pose at the world origin). A launch with another map origin shows an offset.
+- Contact forces exist only when the scene runs with `BUILD1_CONTACT_SENSORS=1`; the Baseline 1 bag does not record
+  them.
+- The CAN monitor counts frames and classifies 11-bit identifiers by their CiA 301 function code on the CANopen buses;
+  it decodes no device payload.
+- The CAN plot of the report uses candump wall time, not Gazebo time.
+- Lichtblick draws the robot without meshes (no `assets` capability).
+- RViz and Lichtblick were not rendered headlessly for this page; the only picture is the report of the synthetic
+  fixture.

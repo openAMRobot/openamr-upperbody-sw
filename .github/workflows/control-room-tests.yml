@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: MIT
+# Digital Twin Control Room (ros2/src/openamrobot_control_room): read-only monitoring of the simulation.
+#
+# Builds the package alone on ROS 2 Jazzy, runs its tests (the read-only rule on the RViz, viewer and foxglove_bridge
+# configurations; the monitor nodes' ROS graph; the receive-only CAN monitor on a vcan interface; foxglove_bridge
+# refusing client publish, parameter writes and assets; the report generator on a synthetic bag), starts the launch
+# file for a smoke run and prints the graph of every node it started, and writes the offline HTML mission report.
+# A skipped (BLOCKED) test fails the job: BLOCKED is not PASS.
+# workflow_dispatch with a Baseline 1 acceptance run id also writes the report from that run's recorded bag.
+# Simulation monitoring only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+name: Control room tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/control-room-tests.yml'
+      - 'ros2/src/openamrobot_control_room/**'
+      - 'docs/demo/control_room.md'
+  workflow_dispatch:
+    inputs:
+      baseline1_run_id:
+        description: "Optional: run id of a Baseline 1 acceptance run whose bag and mission JSON are reported"
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_control_room
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_control_room
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+
+jobs:
+  control-room:
+    name: control room (read-only monitor, viewer configuration, report)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-ament-cmake-pytest \
+            ros-jazzy-nav2-msgs ros-jazzy-ros-gz-interfaces ros-jazzy-rosbag2-py ros-jazzy-rosbag2-storage-mcap \
+            ros-jazzy-foxglove-bridge python3-can python3-websockets python3-yaml iproute2 can-utils
+          dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-foxglove-bridge ros-jazzy-rosbag2-py python3-can python3-websockets \
+            | tee versions.txt
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: "ENV/INFRA: vcan kernel module"
+        run: |
+          uname -r
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed: test_vcan_listen will report BLOCKED and the job fails"
+
+      - name: "BUILD: colcon build"
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --packages-select "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: Tests
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --pytest-args -rs -v
+          rc=$?
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose | tee ../test_result.txt
+          python3 - "build/$PACKAGE" <<'EOF' | tee ../test_counts.txt
+          import glob, sys, xml.etree.ElementTree as ET
+          totals = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+          for path in glob.glob(f"{sys.argv[1]}/test_results/**/*.xml", recursive=True):
+              root = ET.parse(path).getroot()
+              for suite in ([root] if root.tag == "testsuite" else root.iter("testsuite")):
+                  for key in totals:
+                      totals[key] += int(suite.get(key, 0) or 0)
+          print(" ".join(f"{k}={v}" for k, v in totals.items()))
+          passed = totals["tests"] - totals["failures"] - totals["errors"] - totals["skipped"]
+          print(f"passed={passed}")
+          sys.exit(0 if totals["tests"] > 0 and totals["skipped"] == 0 and passed == totals["tests"] else 1)
+          EOF
+          counts=$?
+          { echo '### Control room tests'; echo '```'; cat ../test_counts.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "colcon test rc $rc, counts rc $counts (a skipped test is BLOCKED and fails the job)"
+          [ "$rc" = "0" ] && [ "$counts" = "0" ]
+
+      - name: Launch smoke run and the graph of every node it started
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export ROS_DOMAIN_ID=77 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+          ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true use_sim_time:=false \
+            > ../launch.log 2>&1 &
+          pid=$!
+          sleep 20
+          ros2 node list | tee ../graph.txt
+          for node in /control_room_monitor /control_room_vcan_monitor /control_room_foxglove_bridge; do
+            echo "== $node" | tee -a ../graph.txt
+            ros2 node info "$node" | tee -a ../graph.txt
+          done
+          ros2 topic echo --once /control_room/can/summary | head -40 | tee -a ../graph.txt
+          kill -INT $pid; wait $pid || true
+          cat ../launch.log
+          python3 - ../graph.txt <<'EOF'
+          import re, sys
+          text = open(sys.argv[1]).read()
+          bad = []
+          for block in text.split("== ")[1:]:
+              node = block.splitlines()[0]
+              section = None
+              for line in block.splitlines()[1:]:
+                  head = line.strip().rstrip(":")
+                  if head in ("Subscribers", "Publishers", "Service Servers", "Service Clients", "Action Servers", "Action Clients"):
+                      section = head
+                      continue
+                  topic = line.strip().split(":")[0]
+                  if not topic.startswith("/"):
+                      continue
+                  if section == "Publishers" and not (topic.startswith("/control_room/") or topic in ("/rosout", "/parameter_events")):
+                      bad.append(f"{node} publishes {topic}")
+                  if section in ("Service Clients", "Action Clients"):
+                      bad.append(f"{node} has a {section[:-1].lower()} {topic}")
+          print("\n".join(bad) or "every launched node publishes only under /control_room/ (plus /rosout, /parameter_events) and has no service or action client")
+          sys.exit(1 if bad else 0)
+          EOF
+
+      - name: Mission report from the synthetic bag (and a recorded Baseline 1 bag when dispatched with a run id)
+        working-directory: ws
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.inputs.baseline1_run_id }}
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          mkdir -p ../report
+          ros2 run "$PACKAGE" mission_report.py --synthetic ../report/synthetic -o ../report/control_room_report_synthetic.html
+          if [ -n "${RUN_ID}" ]; then
+            gh run download "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --dir ../baseline1 --pattern 'baseline1-acceptance-*'
+            logs=$(dirname "$(find ../baseline1 -name baseline1_mission.json | head -1)")
+            # The work-shelf station from openamrobot_build1_scene's scene.yaml (its scene module has no ROS import).
+            PYTHONPATH="src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene:${PYTHONPATH}" \
+            ros2 run "$PACKAGE" mission_report.py --bag "$logs/bag" --mission "$logs/baseline1_mission.json" \
+              --candump "$logs/record_candump_*.log" --scene src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene/config/scene.yaml \
+              -o ../report/control_room_report_run_${RUN_ID}.html \
+              || echo "no report from run ${RUN_ID}"
+          fi
+          # A picture of the page (Chrome on the runner image). A layout record only.
+          for page in ../report/*.html; do
+            google-chrome --headless=new --no-sandbox --disable-gpu --hide-scrollbars --window-size=1000,4300 \
+              --screenshot="${page%.html}.png" "file://$(realpath "$page")" || echo "no screenshot of $page"
+          done
+          ls -la ../report
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: control-room-attempt${{ github.run_attempt }}
+          retention-days: 30
+          path: |
+            report/
+            test_result.txt
+            test_counts.txt
+            graph.txt
+            launch.log
+            versions.txt
+            ws/build/openamrobot_control_room/test_results/
+          if-no-files-found: warn
