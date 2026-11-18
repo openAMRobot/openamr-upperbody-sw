@@ -163,6 +163,13 @@ grocery:
     size: {value: [0.50, 0.40, 0.06], unit: m, status: estimated,
            source: "not in UC1. Wall as high as the tray wall; 0.23 m and 0.18 m free around the product centre"}
     wall: {value: 0.01, unit: m, status: estimated, source: "not in UC1"}
+  # Rack-end protection bollards at both ends of every row line (rows B1 and B2 share the gondola line). They cut the
+  # LiDAR plane: features along the aisles for AMCL, which the long straight plinth faces do not give.
+  bollards:
+    size: {value: [0.25, 0.25, 1.00], unit: m, status: estimated, source: "not in UC1. Rack-end protection post"}
+    row_lines_y: [-2.6, 0.2, 3.0]
+    row_ends_x: [1.6, 6.4]
+    offset: {value: 0.30, unit: m, status: estimated, source: "not in UC1. Centre beyond the row end"}
   walls:
     thickness: {value: 0.10, unit: m, status: estimated, source: "store walls on the floor edge"}
     height: {value: 1.20, unit: m, status: estimated, source: "low enough for an overview camera"}

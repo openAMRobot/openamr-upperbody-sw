@@ -67,9 +67,12 @@ def main(argv=None):
         out += [f"No mission log in {args.log_dir}.", ""]
     contacts = load(os.path.join(args.log_dir, "grocery_contacts.json"))
     if contacts and contacts.get("rows"):
-        out += ["Contact events (gz contact sensors, per phase; simulation forces, not measurements):", "```"]
+        robot = [r for r in contacts["rows"] if "openamrobot::" in r["pair"]]
+        out += [f"Contact events of the robot with the world (gz contact sensors, per phase; simulation forces, not "
+                f"measurements; {len(contacts['rows']) - len(robot)} resting object contacts are in grocery_contacts.json):", "```"]
         out += [f"{r['phase']} | {r['sensor']} | {r['pair']} | messages {r['messages']} | max force {r['max_force_n']:.2f} N"
-                for r in contacts["rows"][:80]] + ["```", ""]
+                for r in robot[:80]] or ["none"]
+        out += ["```", ""]
     out += ["Simulation evidence only (sim-oracle profile): not hardware, physical acceptance, perception or safety evidence."]
     text = "\n".join(out)
     print(text)

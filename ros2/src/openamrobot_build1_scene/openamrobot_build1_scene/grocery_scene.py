@@ -23,7 +23,7 @@ PALETTE = ("0.85 0.20 0.15 1", "0.95 0.75 0.10 1", "0.20 0.55 0.25 1", "0.15 0.3
            "0.90 0.45 0.10 1", "0.55 0.25 0.60 1", "0.35 0.70 0.80 1", "0.60 0.40 0.25 1", "0.80 0.80 0.30 1")
 COLOURS = {"plinth": "0.25 0.27 0.30 1", "back": "0.82 0.84 0.86 1", "board": "0.62 0.64 0.67 1",
            "post": "0.35 0.37 0.40 1", "bench": "0.70 0.72 0.74 1", "order_tote": "0.10 0.45 0.35 1",
-           "wall": "0.90 0.90 0.86 1", "deco": "0.62 0.64 0.67 1"}
+           "wall": "0.90 0.90 0.86 1", "deco": "0.62 0.64 0.67 1", "bollard": "0.95 0.75 0.05 1"}
 
 
 def _rot(x, y, yaw):
@@ -197,6 +197,17 @@ def _walls(scene):
             ("wall_east", (t, fy - 2 * t, h), (fx / 2.0 - t / 2.0, 0.0, h / 2.0), 0.0)]
 
 
+def _bollards(scene):
+    spec = scene["grocery"].get("bollards")
+    if not spec:
+        return []
+    sx, sy, sz = value(spec["size"])
+    offset = value(spec["offset"])
+    west, east = spec["row_ends_x"]
+    return [(f"bollard_{i}_{j}", (sx, sy, sz), (x, y, sz / 2.0), 0.0)
+            for i, y in enumerate(spec["row_lines_y"]) for j, x in enumerate((west - offset, east + offset))]
+
+
 def static_boxes(scene):
     """The fixed boxes this extension adds to scene.static_boxes: (name, size, centre, yaw)."""
     boxes = []
@@ -205,13 +216,15 @@ def static_boxes(scene):
         boxes += _unit_boxes(scene, name, pose, plinth=True, back=row.get("back_panel", True))
     boxes += _work_shelf_decoration(scene)
     boxes += _bench_boxes(scene)
+    boxes += _bollards(scene)
     boxes += _walls(scene)
     return boxes
 
 
 def colour(name):
     """Ambient and diffuse colour of a fixed box, from its name. The Baseline 1 shelf colour where none matches."""
-    for prefix, key in (("order_tote", "order_tote"), ("packing_bench", "bench"), ("wall_", "wall"), ("work_shelf_deco", "deco")):
+    for prefix, key in (("order_tote", "order_tote"), ("packing_bench", "bench"), ("wall_", "wall"), ("work_shelf_deco", "deco"),
+                        ("bollard_", "bollard")):
         if name.startswith(prefix):
             return COLOURS[key]
     for key in ("plinth", "back", "post", "board"):

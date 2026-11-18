@@ -38,6 +38,11 @@ ODOMETRY_GUARD_PER_M = 0.05
 PLACE_CLEARANCE_M = 0.02                 # product bottom above the tote floor when the gripper opens. Estimated
 PLACE_LOWER_MAX_M = 0.10                 # the place never lowers the hand more than this. Estimated
 SETTLED_SPEED = 0.01                     # m/s of the product centre over 1 s of Gazebo time after release. Guard, estimated
+# With the product held the arm reaches 0.79 m ahead of the base centre, and the Nav2 footprint follows it. Turning in
+# place at the packing station sweeps it through the bench legs (run 44227129411: RotationShimController "collision
+# ahead", Nav2 ABORTED 1.56 rad off). So the robot turns APPROACH_M back from the station, facing the bench, and drives
+# the last APPROACH_M straight in. Estimated: the legs are 1.27 m from that turning point, the sweep 0.86 m.
+APPROACH_M = 0.60
 
 
 def scene_of(rig):
@@ -108,15 +113,22 @@ def spawn(rig, log, scene, demo):
                  note="the sim-oracle profile declares pose_source: ground_truth (docs/integration/baseline1.md)")
 
 
-def navigate(rig, log, scene, name, demo, events, reach_budget=False):
-    """Nav2 navigate_to_pose to station `name` with the station tree of openamr-platform-sw #164, and the checks of
-    Baseline 1's nav_to_station. The arm-reach budget (0.04 m, 0.08 rad) applies where the arm must reach a target from
-    the stop: the work shelf. Elsewhere the station is held to Nav2's own goal tolerance."""
+def approach_pose(scene, name, distance=APPROACH_M):
+    """The pose `distance` back from station `name` along its heading, facing the same way."""
+    x, y, yaw = station(scene, name)
+    return x - distance * math.cos(yaw), y - distance * math.sin(yaw), yaw
+
+
+def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None, checks=True):
+    """Nav2 navigate_to_pose to station `name` (or to `pose`) with the station tree of openamr-platform-sw #164, and the
+    checks of Baseline 1's nav_to_station. The arm-reach budget (0.04 m, 0.08 rad) applies where the arm must reach a
+    target from the stop: the work shelf. Elsewhere the station is held to Nav2's own goal tolerance. checks=False
+    records the result of an intermediate goal and checks only that Nav2 succeeded."""
     from nav2_msgs.action import NavigateToPose
     amcl = b1.AmclListener(rig)
     rig.sleep_sim(0.5)
     count0 = amcl.count
-    gx, gy, gyaw = station(scene, name)
+    gx, gy, gyaw = pose if pose is not None else station(scene, name)
     goal = NavigateToPose.Goal()
     goal.pose.header.frame_id = "map"
     goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
@@ -130,6 +142,13 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False):
         return None
     status, _ = rig.wait_result(handle, NAV_SIM_S, f"navigate to {name}")
     events(f"nav result {name}: status {status}")
+    if not checks:
+        log.quantity(f"nav_status_{name}", status, "GoalStatus", low=b1.SUCCEEDED, high=b1.SUCCEEDED,
+                     note="an intermediate goal: 4 SUCCEEDED, 6 ABORTED, None: no result in time")
+        x, y, yaw = rig.truth()
+        log.quantity(f"nav_{name}_position_error", math.hypot(x - gx, y - gy), "m", note="recorded, no limit")
+        log.quantity(f"nav_{name}_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", note="recorded, no limit")
+        return status
     log.quantity("nav_status", status, "GoalStatus", low=b1.SUCCEEDED, high=b1.SUCCEEDED, note="4 SUCCEEDED, 6 ABORTED, None: no result in time")
     log.quantity("nav_time", rig.sim_time() - start, "s of Gazebo time")
     log.quantity("nav_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
@@ -322,44 +341,74 @@ def retreat_with_item(rig, log, demo, events):
     held_checks(rig, log, demo, "after_backup")
 
 
-def place(rig, log, scene, demo, events):
-    """Lower the product into the order tote, open, check that it rests in the tote, withdraw the hand."""
+def nav_to_packing(rig, log, scene, demo, events):
+    """To the approach pose in front of the packing station, then straight in to the station; the product still held."""
+    events(f"packing approach: turn {APPROACH_M} m before the station, then straight in")
+    first = navigate(rig, log, scene, "packing_approach", demo, events, pose=approach_pose(scene, PACK_STATION), checks=False)
+    if first != b1.SUCCEEDED:
+        return
+    navigate(rig, log, scene, PACK_STATION, demo, events)
+    held_checks(rig, log, demo, "at_packing")
+
+
+def _lower_and_open(rig, log, scene, tote, events):
+    """Lower the held product to PLACE_CLEARANCE_M above the order tote floor and open. -> True once the gripper opened."""
     from openamrobot_build1_scene import grocery_scene
     from openamrobot_build1_scene import scenarios as s
     from openamrobot_build1_scene.arm_frames import straight_lift
-    tote = grocery_scene.order_tote(scene)
     half = scene_model.value(scene["item"]["size"])[2] / 2.0
+    side_half = scene_model.value(scene["item"]["size"])[0] / 2.0
     item = rig.object_position("item")
     along, deep = grocery_scene.in_tote(scene, item)
     log.quantity("place_item_offset_along_tote", along, "m", note="product centre in the order tote frame before lowering")
     log.quantity("place_item_offset_deep_tote", deep, "m")
-    side_half = scene_model.value(scene["item"]["size"])[0] / 2.0
     over = abs(along) <= tote["inner_half"][0] - side_half and abs(deep) <= tote["inner_half"][1] - side_half
     if not log.require(over, f"item_not_over_tote: the product is not over the order tote interior (along {along:.3f}, deep {deep:.3f})"):
-        return
+        return False
     bottom = item[2] - half
     lower = min(max(bottom - (tote["floor_top"] + PLACE_CLEARANCE_M), 0.0), PLACE_LOWER_MAX_M)
     log.quantity("place_lowering_distance", lower, "m", note=f"product bottom {bottom:.3f} m to {PLACE_CLEARANCE_M} m above the tote floor")
     hand = rig.transform("base_footprint", LINK)
     if not log.require(hand is not None, "no /tf of the hand before the place"):
-        return
+        return False
     target, orientation = straight_lift(hand[0], (hand[1].x, hand[1].y, hand[1].z, hand[1].w), -lower)
     events(f"place: lower {lower:.3f} m")
     if not s._cartesian(rig, log, SIDE, LINK, [target], orientation, "place_lower", 0.1):
-        return
+        return False
     rig.sleep_sim(1.0)
     events("place: open")
     opened = rig.gripper(SIDE, s.OPEN)
     log.require(opened is not None, "the gripper open command got no result (place)")
-    rig.sleep_sim(1.5)
-    log.quantity("finger_open_after_place", rig.physics_joint(FINGER), "rad", low=s.OPEN - 0.08, high=s.OPEN + 0.02,
-                 note="the open window of scn04's finger_open_position")
-    if demo.get("payload_set"):
-        rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
-        demo["payload_set"] = False
-        log.event("gravity feed-forward payload cleared")
-    events("place: withdraw")
-    s._withdraw(rig, log, SIDE, LINK)
+    return True
+
+
+def place(rig, log, scene, demo, events):
+    """Lower the product into the order tote, open, check that it rests in the tote, withdraw the hand. On any path out
+    of the place the gripper is open, the payload is out of the gravity feed-forward and the hand has withdrawn, so the
+    retreat that follows never drags a held product."""
+    from openamrobot_build1_scene import grocery_scene
+    from openamrobot_build1_scene import scenarios as s
+    tote = grocery_scene.order_tote(scene)
+    half = scene_model.value(scene["item"]["size"])[2] / 2.0
+    opened = False
+    try:
+        opened = _lower_and_open(rig, log, scene, tote, events)
+    finally:
+        if not opened:
+            rig.gripper(SIDE, s.OPEN)
+            events("place left early: the gripper opened where the hand is")
+        rig.sleep_sim(1.5)
+        if demo.get("payload_set"):
+            rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
+            demo["payload_set"] = False
+            log.event("gravity feed-forward payload cleared")
+        if opened:
+            log.quantity("finger_open_after_place", rig.physics_joint(FINGER), "rad", low=s.OPEN - 0.08, high=s.OPEN + 0.02,
+                         note="the open window of scn04's finger_open_position")
+        events("place: withdraw")
+        s._withdraw(rig, log, SIDE, LINK)
+    if not opened:
+        return
     rig.sleep_sim(2.0)
     p0, t0 = rig.object_position("item"), rig.sim_time()
     rig.sleep_sim(1.0)
@@ -451,7 +500,7 @@ def mission(rig, log):
             run("arm_approach", lambda: status.__setitem__("held", pick(rig, log, scene, demo, events)), then=("grasp", "lift_object"))
             if status["held"]:
                 run("retreat_with_item", lambda: retreat_with_item(rig, log, demo, events))
-                run("nav_to_packing", lambda: (navigate(rig, log, scene, PACK_STATION, demo, events), held_checks(rig, log, demo, "at_packing")))
+                run("nav_to_packing", lambda: nav_to_packing(rig, log, scene, demo, events))
                 run("place", lambda: place(rig, log, scene, demo, events))
             else:
                 skip(("retreat_with_item", "nav_to_packing", "place"), "the product is not held after lift_object")

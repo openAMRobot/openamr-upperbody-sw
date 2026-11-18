@@ -154,6 +154,30 @@ def test_stations_face_their_fixtures_and_the_lift_stays_at_l1000(grocery):
     assert 0.0 < level0 - bench_top <= 0.05, "the place happens at L1000, the stop of shelf level 0"
 
 
+def test_packing_approach_turns_clear_of_the_bench_legs(grocery):
+    """With the product held the Nav2 footprint reaches 0.79 m ahead (run 44227129411); the robot turns 0.60 m back from
+    the packing station (grocery_demo.APPROACH_M), where every bench leg is beyond that sweep, and drives straight in."""
+    text = open(package_path("openamrobot_build1_scene", "grocery_demo.py"), encoding="utf-8").read()
+    assert "APPROACH_M = 0.60" in text
+    x, y, yaw = grocery_scene.station(grocery, "packing")
+    ax, ay = x - 0.60 * math.cos(yaw), y - 0.60 * math.sin(yaw)
+    legs = [c for name, _s, c, _y in scene_model.static_boxes(grocery) if name.startswith("packing_bench_leg_")]
+    sweep = math.hypot(0.794, 0.333) + 0.02
+    assert len(legs) == 4
+    assert min(math.hypot(c[0] - ax, c[1] - ay) for c in legs) > sweep + 0.3
+    assert min(math.hypot(c[0] - x, c[1] - y) for c in legs) < sweep, "a turn at the station itself would sweep a leg"
+    grid, resolution, origin = scene_model.occupancy_grid(grocery)
+    assert grid[len(grid) - 1 - int((ay - origin[1]) / resolution)][int((ax - origin[0]) / resolution)] == 0
+
+
+def test_bollards_mark_the_row_ends_in_the_map(grocery):
+    grid, resolution, origin = scene_model.occupancy_grid(grocery)
+    bollards = [box for box in scene_model.static_boxes(grocery) if box[0].startswith("bollard_")]
+    assert len(bollards) == 6
+    for _name, _size, (x, y, _z), _yaw in bollards:
+        assert grid[len(grid) - 1 - int((y - origin[1]) / resolution)][int((x - origin[0]) / resolution)] == 100
+
+
 def test_camera_path_looks_at_its_target():
     from openamrobot_build1_scene import grocery_record as rec
     for eye, target in (rec.OVERVIEW, ((0.0, 0.0, 3.0), (2.0, 0.0, 0.5)), ((1.0, 1.0, 2.0), (0.0, 2.0, 0.9))):
