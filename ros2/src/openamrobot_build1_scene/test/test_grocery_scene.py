@@ -282,3 +282,46 @@ def test_station_alignment_is_prepared_and_off(grocery):
     assert "station_marker" in scene_model.world_sdf(grocery, "fast", station_marker=True)
     assert "station_marker" not in scene_model.world_sdf(grocery, "fast")
     assert abs(scene_model.station_marker_standoff(grocery) - 0.713) < 1e-9
+
+
+def _declared(path):
+    import re
+    return set(re.findall(r'DeclareLaunchArgument\(\s*"(\w+)"', open(path, encoding="utf-8").read()))
+
+
+def test_live_launcher_arguments_exist_in_the_launch_files():
+    """run_grocery_demo_gui.sh passes only arguments grocery_demo_gui.launch.py declares, and that launch passes only
+    arguments build1.launch.py declares."""
+    import ast
+    import re
+    gui = _declared(package_path("launch", "grocery_demo_gui.launch.py"))
+    stack = _declared(package_path("launch", "build1.launch.py"))
+    script = open(package_path("scripts", "run_grocery_demo_gui.sh"), encoding="utf-8").read()
+    passed = set(re.findall(r"(\w+):=", script))
+    assert passed and passed <= gui, sorted(passed - gui)
+    assert "grocery_demo_gui.launch.py" in script
+    tree = ast.parse(open(package_path("launch", "grocery_demo_gui.launch.py"), encoding="utf-8").read())
+    stack_arguments = next(ast.literal_eval(node.value) for node in ast.walk(tree)
+                           if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "STACK_ARGUMENTS")
+    assert set(stack_arguments) | {"create_vcan"} <= stack, sorted(set(stack_arguments) - stack)
+    assert stack_arguments["headless"] == "false" and stack_arguments["scene"] == "grocery_scene.yaml"
+    assert stack_arguments["planning_pose_source"] == "ground_truth" and stack_arguments["station_alignment"] == "false"
+    # The headless CI path is unchanged: the launch test keeps build1_harness's headless default and the workflow runs it.
+    test = open(package_path("test", "test_grocery_demo_mission.py"), encoding="utf-8").read()
+    assert "headless" not in test and "build1_harness.description(" in test
+    cmake = open(package_path("CMakeLists.txt"), encoding="utf-8").read()
+    for script_name in ("run_grocery_demo_gui.sh", "grocery_demo_run.py", "gz_follow.py"):
+        assert f"scripts/{script_name}" in cmake, script_name
+
+
+def test_live_rviz_config_is_read_only():
+    rviz = yaml.safe_load(open(package_path("rviz", "grocery_demo.rviz"), encoding="utf-8"))
+    manager = rviz["Visualization Manager"]
+    tools = {tool["Class"] for tool in manager["Tools"]}
+    assert tools <= {"rviz_default_plugins/MoveCamera", "rviz_default_plugins/Select", "rviz_default_plugins/FocusCamera",
+                     "rviz_default_plugins/Measure"}, tools
+    classes = {display["Class"] for display in manager["Displays"]}
+    assert "moveit_rviz_plugin/MotionPlanning" not in classes and "rviz_default_plugins/InteractiveMarkers" not in classes
+    topics = {display.get("Topic", {}).get("Value") for display in manager["Displays"] if isinstance(display.get("Topic"), dict)}
+    assert {"/plan", "/local_plan", "/amcl_pose", "/scan_filtered", "/head_camera/rgbd/image"} <= topics
+    assert {"rviz_default_plugins/TF", "moveit_rviz_plugin/Trajectory", "moveit_rviz_plugin/PlanningScene"} <= classes

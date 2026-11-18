@@ -66,8 +66,8 @@ that #167 does not have. The packing station's last 0.60 m use `drive_on_heading
 
 | Input | Repository | SHA |
 |---|---|---|
-| Base of this demonstrator | openAMRobot/openamr-upperbody-sw `integration/baseline1` | branched at `8f8df24`, merged up to `c023dc2` |
-| Platform (description, Nav2 and #164 station tree, perception, docking, `openamrobot_sil` with #162 and #166) | openAMRobot/openamr-platform-sw `integration/baseline1` | `e75e16e159d6c68888ba2ade2fa4de72dba13123` (the pin of baseline1-acceptance.yml since 4a67ee7; only openamrobot_station_alignment, not built here, differs from fe28d19) |
+| Base of this demonstrator | openAMRobot/openamr-upperbody-sw `integration/baseline1` | branched at `8f8df24`, merged up to `024ccb8` |
+| Platform (description, Nav2 and #164 station tree, perception, docking, `openamrobot_sil` with #162 and #166) | openAMRobot/openamr-platform-sw `integration/baseline1` | `931e631db661b16d1057dfd1ab1d13ea606482e2` (the pin of baseline1-acceptance.yml since d63e9ed) |
 | OpenArm driver | enactic/openarm_ros2 | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` |
 | OpenArm CAN | enactic/openarm_can | `bfd4e52194aefe38389fa6e670be3738136facb9` |
 | OpenArm description | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` |
@@ -121,6 +121,81 @@ The Nav2 map is generated from the scene geometry: every fixed box that the LiDA
 becomes occupied (shelf posts, plinths, bench legs, walls, the dock backing); boards, products and the tote above it do
 not. The launch writes it at start. A copy is committed in `config/maps/grocery_dark_store.{pgm,yaml}`; regenerate it
 with `python3 scripts/grocery_map.py` after a change of the scene (the static test compares the two).
+
+## Watch it live
+
+The real integrated stack (the same launch, devices on virtual CAN, Nav2, MoveIt 2 and mission as the CI run) with the
+Gazebo window, a camera that follows the robot, and RViz, on your own machine. Headless CI is not changed by this.
+
+### Prerequisites
+
+- Ubuntu 24.04 (noble) on x86_64, a desktop session (X11 or Wayland), 8 cores and 16 GB RAM recommended. The CI
+  runner (4 cores) reaches a real-time factor of 0.1 to 0.2; a desktop is faster, not real time.
+- ROS 2 Jazzy from packages.ros.org: `sudo apt install ros-jazzy-desktop ros-dev-tools` (rviz2 comes with desktop).
+- Gazebo Harmonic through the ROS vendor packages, pinned as in CI (gz-sim 8.15.0, sdformat 14.9.0):
+  `ros-jazzy-gz-sim-vendor=0.0.13-1noble.20261031.125555`, `ros-jazzy-gz-tools-vendor=0.0.8-1noble.20261025.230735`,
+  `ros-jazzy-sdformat-vendor=0.0.14-1noble.20261031.120928` (held with `apt-mark hold`). Check with `gz sim --versions`.
+- Rendering: a GPU with OpenGL 3.3 (ogre2) is best. Without one, software rendering works but is slow:
+  `export LIBGL_ALWAYS_SOFTWARE=1` before the command; `glxinfo -B` (mesa-utils) shows which renderer is in use.
+- Virtual CAN: the `vcan` kernel module (`sudo apt install linux-modules-extra-$(uname -r)`), `iproute2`, `can-utils`,
+  and sudo: the launcher runs `sudo modprobe vcan` and `sudo setup_vcan_all.sh` (three classic CAN buses, two CAN FD).
+- Sources, pinned: this repository on `demo/grocery-dark-store`, openamr-platform-sw at
+  `931e631db661b16d1057dfd1ab1d13ea606482e2`, enactic/openarm_description `14ff67b`, openarm_ros2 `4e837e1`,
+  openarm_can `bfd4e52` (config/pins.yaml), in one colcon workspace.
+- Build: `cd ~/openamr_ws && source /opt/ros/jazzy/setup.bash && colcon build --packages-up-to openamrobot_build1_scene`.
+  `--setup` below does all of this.
+
+### The one command
+
+First time (clones the pinned sources into `~/openamr_ws/src`, installs the pinned Gazebo packages and rosdep keys,
+builds), from a checkout of this repository:
+
+```bash
+bash ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --setup
+```
+
+Every time after that:
+
+```bash
+~/openamr_ws/install/openamrobot_build1_scene/lib/openamrobot_build1_scene/run_grocery_demo_gui.sh
+```
+
+It checks Ubuntu, ROS and the gz-sim version, builds when the workspace is not built (`--build` forces it), creates the
+virtual CAN buses with sudo and runs
+`ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py create_vcan:=false`. Options: `--no-rviz`,
+`--no-follow`, `--no-mission` (the store and the robot only), `--video` (also record the store camera as CI does),
+`--ws DIR`. The launch file alone takes `follow`, `follow_offset`, `rviz`, `mission`, `mission_delay`, `video`,
+`create_vcan` and `log_dir`. The mission starts 20 s after the stack and prints the phase table at the end.
+
+### Moving around
+
+- Gazebo window: left drag rotates (orbit), right drag or scroll zooms, middle drag (or Shift and left drag) pans.
+  The camera follows the robot model `openamrobot` (`gz_follow.py`, the GUI's camera tracking). To stop following,
+  or to follow by hand: right-click the robot in the Entity Tree (right panel) and choose Follow or Move to; Esc ends it.
+- RViz (`rviz/grocery_demo.rviz`, read only: no goal, pose or interactive tools): left drag orbits, scroll zooms, middle
+  drag pans; the orbit view follows `base_footprint` (Views panel, Target Frame, set it to `map` to stop following).
+  It shows TF, the robot model, map, costmaps, footprint, LiDAR (`/scan_filtered`, `/scan`), odometry, ground truth,
+  AMCL pose, Nav2 global and local plans, the item pose, the MoveIt planning scene and planned trajectories.
+
+### Sensor views
+
+- RViz image displays: head camera (`/head_camera/rgbd/image`, on), base depth, left and right wrist cameras and the dock
+  camera (off: tick them in the Displays panel); the store camera only with `--video`.
+- LiDAR: the two LaserScan displays in RViz; in Gazebo, add the Visualize Lidar plugin (top-right menu) for `/scan`.
+- Any topic: `ros2 run rqt_image_view rqt_image_view` or `ros2 topic echo /amcl_pose`.
+
+### Recording and replay
+
+- Every run records into `~/grocery_demo_logs/<date_time>/` (or `log_dir`): a ROS bag (`bag/`, the topics of
+  Recordings below, plus `/robot_description`), `record_candump_vcan_*.log` for the five buses, the mission log and
+  report JSON, states and contacts.
+- More topics, by hand: `ros2 bag record --use-sim-time -o my_bag /tf /tf_static /scan_filtered /head_camera/rgbd/image`.
+- Gazebo: the Video Recorder plugin (top-right menu, Video Recorder) records the Gazebo view to MP4; the
+  screenshot button saves a PNG.
+- Replay a bag with RViz: `ros2 bag play ~/grocery_demo_logs/<date_time>/bag --clock` in one terminal, and in another
+  `rviz2 -d ~/openamr_ws/install/openamrobot_build1_scene/share/openamrobot_build1_scene/rviz/grocery_demo.rviz --ros-args -p use_sim_time:=true`.
+  The robot model comes from the recorded `/robot_description`; the CAN logs replay into a bus with
+  `canplayer -I record_candump_vcan_drive.log`.
 
 ## Recordings
 

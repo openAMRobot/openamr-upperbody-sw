@@ -33,9 +33,9 @@ permissions:
 env:
   PACKAGE: openamrobot_build1_scene
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
-  # As baseline1-acceptance.yml (4a67ee7): openamr-platform-sw integration/baseline1 e75e16e (#164 station tree, #167, #162 firmware-SIL lift on
+  # As baseline1-acceptance.yml (d63e9ed): openamr-platform-sw integration/baseline1 931e631 (#164 station tree, #167, #162 firmware-SIL lift on
   # the simulation clock, #166 clock contract). Description, Nav2, perception, docking and openamrobot_sil come from it.
-  PLATFORM_SW_SHA: e75e16e159d6c68888ba2ade2fa4de72dba13123
+  PLATFORM_SW_SHA: 931e631db661b16d1057dfd1ab1d13ea606482e2
   ROS_APT_SOURCE_VERSION: '1.3.0'
   # Nav2 goals with the station tree; no marker alignment (#167 is an opt-in extension of Baseline 1, not used here).
   BASELINE1_STATION_APPROACH: '1'
@@ -47,6 +47,7 @@ env:
   # declared. The launch test also passes planning_pose_source:=ground_truth explicitly. Never a perception result.
   BASELINE1_PROFILE: sim-oracle
   BUILD1_PLANNING_POSE_SOURCE: ground_truth
+  BUILD1_OBJECT_POSE_SOURCE: ground_truth
   # Contact sensors on the arm links and on the item, tote and fixtures: observers only (diagnostics.py).
   BUILD1_CONTACT_SENSORS: '1'
   GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555

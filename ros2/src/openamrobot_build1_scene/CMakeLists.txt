@@ -27,6 +27,9 @@ install(PROGRAMS
   scripts/grocery_demo_report.py
   scripts/grocery_video.py
   scripts/grocery_map.py
+  scripts/grocery_demo_run.py
+  scripts/gz_follow.py
+  scripts/run_grocery_demo_gui.sh
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

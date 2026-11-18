@@ -29,7 +29,7 @@ CAMERA_SIZE = (960, 540)
 BAG_TOPICS = b1rec.BAG_TOPICS + (
     EVENTS_TOPIC, PHASE_TOPIC, "/build1/ground_truth/payload/pose", "/build1/planning_scene/objects",
     "/build1/planning_scene/exclude", "/navigate_to_pose/_action/feedback", "/local_costmap/published_footprint",
-    "/rosout", "/sil/base/odom", "/base/joint_states",
+    "/rosout", "/sil/base/odom", "/base/joint_states", "/robot_description",
 )
 BAG_REGEX = b1rec.BAG_REGEX + r"|/build1/contacts/.*"
 CAMERA_SDF = """<?xml version="1.0"?>
