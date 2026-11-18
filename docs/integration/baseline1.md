@@ -96,8 +96,10 @@ Two profiles. A run states its profile in its run information and log, and a res
 | `sim-oracle` (simulation-oracle integration) | simulator ground truth, declared as `pose_source: ground_truth` | station tree of platform-sw #164 | integration of the ROS 2 stack, firmware-SIL path, controllers and contact physics. Not proof of autonomous perception |
 | `perception` (perception-integrated, future) | the robot's own estimate, never ground truth | station tree plus station-relative alignment once adopted (platform-sw #167, extension today) | autonomous perception and positioning in simulation |
 
+Mechanism: `baseline1-acceptance.yml` input `profile` (`sim-oracle` default for this simulation acceptance workflow, `perception`) sets `BUILD1_PLANNING_POSE_SOURCE` (`ground_truth` or `map`), which the launch passes as `planning_pose_source` to the planning scene loader (#73 `1a84066`). The launch file and loader default to `map`. The profile and pose source are printed in the log and the job summary, and the run info and every scenario JSON record `planning_pose_source`. In the `perception` profile the grasp target still comes from ground truth today; a production path takes it from the robot's estimate or perception.
+
 Rules:
-- Ground truth is never a default. A run uses it only through the `sim-oracle` profile and declares `pose_source: ground_truth`.
+- Ground truth is never a default of the launch or the loader. A run uses it only through the `sim-oracle` profile and declares `pose_source: ground_truth`.
 - A `sim-oracle` pass is never reported as a perception result.
 - The acceptance checks against ground truth (station position 0.04 m, yaw 0.08 rad, item rise 0.04 m) are measurements of the outcome in both profiles, not inputs to the robot, and stay unchanged.
 - Partial trajectories fail; no failure is suppressed.
