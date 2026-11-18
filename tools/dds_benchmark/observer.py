@@ -240,8 +240,10 @@ class Observer:
             pubs = self.node.get_publishers_info_by_topic(topic)
             subs = self.node.get_subscriptions_info_by_topic(topic)
             row["topics"][topic] = [len(pubs), len(subs)]
-            if pubs or subs:
-                self.qos_seen[topic] = {"publishers": [endpoint(e) for e in pubs], "subscriptions": [endpoint(e) for e in subs]}
+            # Kept from the last snapshot with publishers: at shutdown the publishers leave before the observer does.
+            if pubs or (subs and topic not in self.qos_seen):
+                self.qos_seen[topic] = {"publishers": [endpoint(e) for e in pubs], "subscriptions": [endpoint(e) for e in subs],
+                                        "wall": row["wall"]}
         self.endpoint_history.append(row)
         self.participant_snapshot()
         if (not self.late_view_done and self.first_odom_wall is not None

@@ -208,7 +208,11 @@ jobs:
             # ros-jazzy-rmw-cyclonedds-cpp from packages.ros.org: Eclipse Public License 2.0 / Eclipse Distribution
             # License 1.0 (Eclipse Cyclone DDS) and Apache-2.0 (rmw_cyclonedds). Benchmark workflow only.
             sudo apt-get install -y ros-jazzy-rmw-cyclonedds-cpp
+            dpkg -s ros-jazzy-rmw-cyclonedds-cpp > /dev/null || { echo "ENV/INFRA: rmw_cyclonedds_cpp missing"; exit 1; }
           fi
+          # apt may satisfy rmw_implementation with either RMW when both are requested at once (seen on a hosted runner,
+          # 18 Nov 2026), so the Fast DDS RMW of the stack is checked, never installed here.
+          dpkg -s ros-jazzy-rmw-fastrtps-cpp > /dev/null || { echo "ENV/INFRA: rmw_fastrtps_cpp missing"; exit 1; }
 
       - name: "ENV/INFRA: check the pinned versions"
         run: |
