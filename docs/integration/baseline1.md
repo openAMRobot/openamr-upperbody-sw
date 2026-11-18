@@ -86,3 +86,42 @@ What blocks a full pass, in mission order:
    contract (#151, #158), so the clock contract is not in the whole-robot run.
 
 Heads that moved after these merges (pinned here at the verified SHA, not re-merged): #73 is now `4b638ee`.
+
+## Acceptance profiles (Proposed, 18 Nov 2026; contract review by the software lead)
+
+Two profiles. A run states its profile in its run information and log, and a result counts only for its own profile.
+
+| Profile | Planning scene objects | Station positioning | Counts as |
+|---|---|---|---|
+| `sim-oracle` (simulation-oracle integration) | simulator ground truth, declared as `pose_source: ground_truth` | station tree of platform-sw #164 | integration of the ROS 2 stack, firmware-SIL path, controllers and contact physics. Not proof of autonomous perception |
+| `perception` (perception-integrated, future) | the robot's own estimate, never ground truth | station tree plus station-relative alignment once adopted (platform-sw #167, extension today) | autonomous perception and positioning in simulation |
+
+Rules:
+- Ground truth is never a default. A run uses it only through the `sim-oracle` profile and declares `pose_source: ground_truth`.
+- A `sim-oracle` pass is never reported as a perception result.
+- The acceptance checks against ground truth (station position 0.04 m, yaw 0.08 rad, item rise 0.04 m) are measurements of the outcome in both profiles, not inputs to the robot, and stay unchanged.
+- Partial trajectories fail; no failure is suppressed.
+
+## Results, 18 Nov 2026
+
+Pinned: this branch `6921a29`, openamr-platform-sw integration branch `fe28d19`, `station_alignment` 0. These runs used ground-truth planning-scene placement (`pose_source: ground_truth`, from #73 `b096c7d`), so they belong to the `sim-oracle` profile.
+
+| Run | Phases | Station error | Yaw | Item rise | Result |
+|---|---|---|---|---|---|
+| [44194529196](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44194529196) | 8/8 | 0.0317 m | 0.021 rad | 0.0797 m | PASS |
+| [44194540813](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44194540813) | 7/8 | 0.0447 m | 0.049 rad | 0.0792 m | FAIL station position |
+| [44194552457](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44194552457) | 8/8 | 0.0260 m | 0.069 rad | 0.0802 m | PASS |
+
+Artifacts (bag, candump per bus, video, firmware and controller states, phase JSON) are kept until 17 and 18 Dec 2026.
+
+Status: two 8/8 passes on identical commits, not two consecutive passes (the runs ran in parallel and the failed run was dispatched between them). Baseline 1 is not complete.
+
+Extension runs on `aadde12` (`station_alignment` 1, platform-sw #167, simulation-only base camera): [44196268806](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44196268806) 5/8 (alignment ended 0.061 m, Nav2 status 6; reach Cartesian fraction 0.635), [44196280699](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44196280699) Nav2 aborted the first goal (status 6, base did not move), [44196292546](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44196292546) 7/8 (position 0.0046 m, yaw 0.167 rad against 0.08, Nav2 status 6).
+
+Limitations:
+- Parking variability is not yet explained; station-tree-only position errors range from 0.026 to 0.080 m across runs.
+- The `sim-oracle` planning scene uses information the real robot does not have.
+- Grip force, finger friction and item mass are estimates; the gripper is a position servo, so grip torque depends on the finger contact angle. The palm touches the item during the reach (0.4 to 2.6 N).
+- Nothing here is bench, physical robot, perception or safety evidence.
+
+Next: a verified parking correction, then the strict sequence: two acceptance runs one after the other on one pinned commit, each in a declared profile.
