@@ -29,7 +29,7 @@ CAMERA_SIZE = (960, 540)
 BAG_TOPICS = b1rec.BAG_TOPICS + (
     EVENTS_TOPIC, PHASE_TOPIC, "/build1/ground_truth/payload/pose", "/build1/planning_scene/objects",
     "/build1/planning_scene/exclude", "/navigate_to_pose/_action/feedback", "/local_costmap/published_footprint",
-    "/rosout",
+    "/rosout", "/sil/base/odom", "/base/joint_states",
 )
 BAG_REGEX = b1rec.BAG_REGEX + r"|/build1/contacts/.*"
 CAMERA_SDF = """<?xml version="1.0"?>
@@ -87,7 +87,7 @@ def camera_target(phase, robot, finished=False):
 class CameraPath:
     """Moves the store camera along the camera path with `gz service .../set_pose`, in its own thread. Smoothed, so a
     phase change or a turn of the robot is a glide, not a jump. Stops trying after five failed calls in a row."""
-    PERIOD_WALL_S = 0.4
+    PERIOD_WALL_S = 1.0     # each call starts a gz (ruby) process: kept to one per wall second
     SMOOTHING = 0.25
 
     def __init__(self, rig, tracker, log, world="build1"):

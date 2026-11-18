@@ -141,7 +141,9 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None,
     handle = rig.send_goal("/navigate_to_pose", "nav2_msgs.action", "NavigateToPose", goal)
     if not log.require(handle is not None, "Nav2 navigate_to_pose did not accept the goal"):
         return None
-    status, _ = rig.wait_result(handle, NAV_SIM_S, f"navigate to {name}")
+    status = wait_nav(rig, log, handle, name, demo, events)
+    if demo.get("odom_frozen"):
+        return status
     events(f"nav result {name}: status {status}")
     if not checks:
         log.quantity(f"nav_status_{name}", status, "GoalStatus", low=b1.SUCCEEDED, high=b1.SUCCEEDED,
@@ -182,6 +184,86 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None,
     if rig.devices:
         log.quantity("nav_host_client_drive_thread_alive", rig.drive_host_alive(), "bool", low=True, high=True)
     return status
+
+
+class OdomProbe:
+    """Diagnostics of the odometry chain (runs 44242589231, both attempts: /odom stood still while the base drove):
+    /sil/base/odom of openamrobot_sil's host client (the base_state_adapter's input), counted with its last twist."""
+
+    def __init__(self, rig):
+        from nav_msgs.msg import Odometry
+        from sensor_msgs.msg import JointState
+        self.rig, self.count, self.last, self.stamp = rig, 0, None, None
+        self.base_joints = 0                 # /base/joint_states: written by base_state_adapter.py on every tick
+        rig.node.create_subscription(Odometry, "/sil/base/odom", self._on, 10)
+        rig.node.create_subscription(JointState, "/base/joint_states", self._on_joints, 10)
+        self.lines = 0
+
+    def _on_joints(self, _msg):
+        self.base_joints += 1
+
+    def _on(self, msg):
+        self.count += 1
+        self.last = (msg.twist.twist.linear.x, msg.twist.twist.angular.z, msg.pose.pose.position.x, msg.pose.pose.position.y)
+        self.stamp = time.monotonic()
+
+    def line(self):
+        rig = self.rig
+
+        def read(function):
+            try:
+                return function()
+            except Exception:  # noqa: BLE001 - a diagnostic line never fails the mission
+                return None
+        truth, odom = read(rig.truth), read(rig.odom)
+        drive = rig.get("/sil/drive/status") or {}
+        emulator = rig.get("/sil/drive/emulator_state") or {}
+        wheels = read(lambda: [round(rig.joint(n, "/sil/gz/joint_states", "velocity"), 3) for n in ("left_wheel_joint", "right_wheel_joint")])
+        fmt = (lambda v: None if v is None else [round(x, 3) for x in v])  # noqa: E731
+        return (f"sim {rig.sim_time():.1f} truth {fmt(truth)} odom {fmt(odom)} /odom count {rig.count('/odom')} age "
+                f"{None if rig.age('/odom') is None else round(rig.age('/odom'), 2)} s | /sil/base/odom count {self.count} "
+                f"v,w,x,y {fmt(self.last)} age {None if self.stamp is None else round(time.monotonic() - self.stamp, 2)} s | "
+                f"drive status samples {drive.get('samples')} v {drive.get('v')} w {drive.get('w')} | emulator "
+                f"{str(emulator)[:400]} | "
+                f"gz wheel velocity {wheels} | /base/joint_states count {self.base_joints} | rtf {rig.rtf()}" + self._process())
+
+    def _process(self):
+        """Every sixth line: the base_state_adapter.py process as ps sees it (alive, state, CPU time)."""
+        self.lines += 1
+        if self.lines % 6 != 1:
+            return ""
+        import subprocess
+        done = subprocess.run(["ps", "-eo", "pid,stat,etime,time,args"], capture_output=True, text=True, check=False)
+        rows = [r.strip()[:120] for r in done.stdout.splitlines() if "base_state_adapter" in r or "stm32_host_client" in r]
+        return " | ps: " + " ; ".join(rows)
+
+
+FROZEN_TRUTH_M, FROZEN_ODOM_M = 0.50, 0.05
+
+
+def wait_nav(rig, log, handle, name, demo, events):
+    """rig.wait_result for a Nav2 goal, in 5 s steps of Gazebo time, each with an odometry diagnostic line. When the base
+    has driven FROZEN_TRUTH_M (ground truth) while /odom moved less than FROZEN_ODOM_M, the goal is cancelled: Nav2 then
+    drives on a frozen odom frame (runs 44242589231), which only ends against a fixture."""
+    probe = demo.setdefault("_probe", OdomProbe(rig))
+    future = handle.get_result_async()
+    start = rig.sim_time()
+    truth0, odom0 = rig.truth(), rig.odom()
+    while not future.done() and rig.sim_time() - start < NAV_SIM_S:
+        rig.wait(future.done, 5.0, f"navigate to {name}")
+        print(f"GROCERY ODOM {name} {probe.line()}", flush=True)
+        truth, odom = rig.truth(), rig.odom()
+        moved, odom_moved = math.dist(truth[:2], truth0[:2]), math.dist(odom[:2], odom0[:2])
+        if moved > FROZEN_TRUTH_M and odom_moved < FROZEN_ODOM_M:
+            events(f"odometry frozen: the base drove {moved:.2f} m (ground truth), /odom moved {odom_moved:.3f} m; goal cancelled")
+            log.require(False, f"nav_odometry_minus_ground_truth: /odom frozen, {odom_moved:.3f} m while the base drove {moved:.2f} m")
+            demo["odom_frozen"] = True
+            rig.cancel(handle)
+            rig.wait_stopped(10.0)
+            return None
+    if not future.done():
+        return None
+    return future.result().status
 
 
 def _held_payload(rig, log, scene):
@@ -509,7 +591,10 @@ def mission(rig, log):
         else:
             skip(("stop_authorize", "lift_to_target", "arm_approach", "grasp", "lift_object", "retreat_with_item",
                   "nav_to_packing", "place", "retreat"), "Nav2 did not reach the work shelf")
-        run("return_to_parking", lambda: navigate(rig, log, scene, SPAWN_STATION, demo, events))
+        if demo.get("odom_frozen"):
+            skip(("return_to_parking",), "odometry frozen (see GROCERY ODOM lines)")
+        else:
+            run("return_to_parking", lambda: navigate(rig, log, scene, SPAWN_STATION, demo, events))
     finally:
         if camera is not None:
             camera.finished = True
@@ -526,6 +611,7 @@ def mission(rig, log):
         if contacts is not None:
             record.write_json(directory, "grocery_contacts.json", {"available": contacts.available, "rows": contacts.rows()})
         table = phases.rows(log.data)
+        demo.pop("_probe", None)
         report = {"title": phases.TITLE, "profile": phases.PROFILE, "pose_source": demo.get("pose_source"),
                   "evidence_class": "simulation only: not hardware, physical acceptance, perception or safety evidence",
                   "scene": scene_name, "seed": SEED, "run": log.data.get("run", {}), "grocery": demo,

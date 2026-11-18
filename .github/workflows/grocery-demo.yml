@@ -33,9 +33,9 @@ permissions:
 env:
   PACKAGE: openamrobot_build1_scene
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
-  # As baseline1-acceptance.yml: openamr-platform-sw integration/baseline1 (#164 station tree, #162 firmware-SIL lift on
+  # As baseline1-acceptance.yml (4a67ee7): openamr-platform-sw integration/baseline1 e75e16e (#164 station tree, #167, #162 firmware-SIL lift on
   # the simulation clock, #166 clock contract). Description, Nav2, perception, docking and openamrobot_sil come from it.
-  PLATFORM_SW_SHA: fe28d19c2cf41de474b7bed610fb19e8396a930e
+  PLATFORM_SW_SHA: e75e16e159d6c68888ba2ade2fa4de72dba13123
   ROS_APT_SOURCE_VERSION: '1.3.0'
   # Nav2 goals with the station tree; no marker alignment (#167 is an opt-in extension of Baseline 1, not used here).
   BASELINE1_STATION_APPROACH: '1'

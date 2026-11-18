@@ -57,8 +57,8 @@ This demonstrator runs in the **sim-oracle** profile only (`docs/integration/bas
 
 | Input | Repository | SHA |
 |---|---|---|
-| Base of this demonstrator | openAMRobot/openamr-upperbody-sw `integration/baseline1` | `8f8df24` (code `6921a29`) |
-| Platform (description, Nav2 and #164 station tree, perception, docking, `openamrobot_sil` with #162 and #166) | openAMRobot/openamr-platform-sw `integration/baseline1` | `fe28d19c2cf41de474b7bed610fb19e8396a930e` |
+| Base of this demonstrator | openAMRobot/openamr-upperbody-sw `integration/baseline1` | branched at `8f8df24`, merged up to `c023dc2` |
+| Platform (description, Nav2 and #164 station tree, perception, docking, `openamrobot_sil` with #162 and #166) | openAMRobot/openamr-platform-sw `integration/baseline1` | `e75e16e159d6c68888ba2ade2fa4de72dba13123` (the pin of baseline1-acceptance.yml since 4a67ee7; only openamrobot_station_alignment, not built here, differs from fe28d19) |
 | OpenArm driver | enactic/openarm_ros2 | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` |
 | OpenArm CAN | enactic/openarm_can | `bfd4e52194aefe38389fa6e670be3738136facb9` |
 | OpenArm description | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` |
@@ -84,7 +84,7 @@ ros2 run openamrobot_build1_scene setup_vcan_all.sh          # five virtual CAN 
 The whole mission, headless, with every recording (as CI does it):
 
 ```bash
-export BUILD1_LOG_DIR=$PWD/build1_logs BUILD1_CONTACT_SENSORS=1 BASELINE1_STATION_ALIGNMENT=0
+export BUILD1_LOG_DIR=$PWD/build1_logs BUILD1_CONTACT_SENSORS=1 BASELINE1_STATION_ALIGNMENT=0 BUILD1_PLANNING_POSE_SOURCE=ground_truth
 colcon test --packages-select openamrobot_build1_scene --event-handlers console_direct+ \
   --ctest-args -R '^test_grocery_demo_mission$'
 python3 src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene/scripts/grocery_demo_report.py build1_logs
@@ -97,7 +97,7 @@ it from a second terminal (same workspace sourced, same `ROS_DOMAIN_ID`):
 ```bash
 # terminal 1: the store, Gazebo GUI and RViz (map, costmaps, footprint, planning scene, robot model)
 ros2 launch openamrobot_build1_scene build1.launch.py scene:=grocery_scene.yaml profile:=firmware_sil \
-  headless:=false rviz:=true
+  planning_pose_source:=ground_truth headless:=false rviz:=true
 
 # terminal 2: the mission (logs and recordings in BUILD1_LOG_DIR)
 export BUILD1_LOG_DIR=$PWD/build1_logs BASELINE1_STATION_ALIGNMENT=0
