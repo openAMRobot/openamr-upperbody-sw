@@ -2,7 +2,8 @@
 """The monitor nodes on a live ROS graph: what they publish, what they serve and call, and what they report.
 
 A control room node may publish only under /control_room/ (plus /rosout and /parameter_events), and may have no
-service client (an action client shows as the clients of its _action services), no service server but Jazzy's
+service client (an action client shows as the clients of its _action services), no action client or server in
+rcl_action's view of the graph (which counts an _action/feedback subscriber as a client), no service server but Jazzy's
 read-only type description service (no parameter services, so no parameter writes into it) and no publisher on a command topic. The graph is read from a second node.
 """
 import json
@@ -55,6 +56,10 @@ def test_graph_is_read_only_and_status_reports(ros):
             assert set(found["services"]) <= {f"/{name}/get_type_description"}, \
                 f"{name} serves {found['services']}: parameters could be written into it"
             assert not [t for t in found["publishers"] if readonly.is_command_topic(t)]
+            # rcl_action's view: no action client and no action server (it also counts _action/feedback subscribers).
+            from rclpy.action import graph as action_graph
+            assert action_graph.get_action_client_names_and_types_by_node(observer, name, "/") == [], name
+            assert action_graph.get_action_server_names_and_types_by_node(observer, name, "/") == [], name
         monitor_graph = ros_support.graph(observer, "control_room_monitor")
         for topic in ("/amcl_pose", "/build1/ground_truth/odom", "/navigate_to_pose/_action/status", "/sil/lift/status",
                       "/baseline1/mission_status", "/joint_states"):

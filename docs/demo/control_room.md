@@ -14,7 +14,7 @@ it shows is simulation data: never hardware, physical acceptance or safety evide
 |---|---|---|
 | Live scene | robot model, TF, map, costmaps, footprint, planning scene; observer camera `/baseline1/observer/image` (spawned by the mission's recorder), head, base depth, wrist and dock cameras | RViz, Lichtblick 3D and Image panels |
 | Mission state and phases | `/baseline1/mission_status` (**Proposed**, see below); until it exists, activity inferred from the action status topics of Nav2, MoveIt, the arm, gripper and lift controllers | `/control_room/status` field `mission` |
-| Nav2 goal, plans | `/plan` (its last pose is republished as `/control_room/nav_goal`), `/local_plan`, `/navigate_to_pose/_action/feedback` | RViz, status `nav` |
+| Nav2 goal, plans | `/plan` (its last pose is republished as `/control_room/nav_goal`; the status adds ground truth against it), `/local_plan` | RViz, status `nav` |
 | Robot pose and localization error | `/amcl_pose` and the `map` to `base_footprint` transform against Gazebo ground truth `/build1/ground_truth/odom` | `/control_room/localization/position_error`, `yaw_error`, `tf_position_error`; RViz shows AMCL, odometry and ground truth arrows |
 | Station error | ground truth against the station pose of `config/scene.yaml` (default `work_shelf`) | `/control_room/station_error`, status `station` (distance, along heading, left, yaw) |
 | MoveIt trajectories | `/display_planned_path`, `/monitored_planning_scene`, `/move_action` and `/execute_trajectory` status | RViz MoveIt Trajectory and Planning Scene displays |
@@ -112,7 +112,9 @@ The picture is the synthetic fixture: invented numbers, not a robot run.
 - Every publisher goes through `readonly.guard_publisher_topic`, which refuses any topic outside `/control_room/`.
   The nodes are created without parameter services and create no service or action client.
 - `test_monitor_graph.py` reads both monitor nodes from a second node on a live ROS graph: publishers only under
-  `/control_room/` (plus `/rosout`, `/parameter_events`), no service or action client, no parameter service.
+  `/control_room/` (plus `/rosout`, `/parameter_events`), no service client, no action client or server, no
+  parameter service. The monitor does not subscribe to any `_action/feedback` topic, because the ROS graph counts
+  such a subscriber as an action client.
 - `test_foxglove_readonly.py` starts the bridge with the control room configuration and connects a WebSocket client:
   no write capability is offered, a client advertise and messages on `/cmd_vel` create no ROS publisher and deliver
   nothing, a parameter write leaves the probe node's parameter unchanged, an asset request returns no asset.
@@ -142,5 +144,8 @@ The picture is the synthetic fixture: invented numbers, not a robot run.
   it decodes no device payload.
 - The CAN plot of the report uses candump wall time, not Gazebo time.
 - Lichtblick draws the robot without meshes (no `assets` capability).
+- The foxglove_bridge node keeps its own ROS parameter services (a ROS 2 node default). They are reachable from the
+  ROS graph, not from the browser; the bridge's settings are read at start.
+- No Nav2 feedback (distance remaining, recoveries): reading it would make the monitor look like an action client.
 - RViz and Lichtblick were not rendered headlessly for this page; the only picture is the report of the synthetic
   fixture.

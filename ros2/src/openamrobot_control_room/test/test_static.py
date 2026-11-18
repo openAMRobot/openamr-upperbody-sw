@@ -100,6 +100,13 @@ def test_sources_create_no_client_goal_or_parameter_write():
         assert not found, f"{path}: {found}"
 
 
+def test_no_subscription_to_action_feedback():
+    # The ROS graph (ros2 node info, rcl_action) reports a node that subscribes to an _action/feedback topic as an
+    # action client of that action. The control room must not even look like one.
+    for path in SOURCES:
+        assert "_action/feedback" not in open(path, encoding="utf-8").read().replace("an _action/feedback", ""), path
+
+
 def test_every_publisher_goes_through_the_guard():
     for path in SOURCES:
         text = open(path, encoding="utf-8").read()

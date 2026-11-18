@@ -48,7 +48,7 @@ class ControlRoomMonitor:
         self.station_name = node.declare_parameter("station_name", "").value
         self.base_frame = node.declare_parameter("base_frame", "base_footprint").value
         self.map_frame = node.declare_parameter("map_frame", "map").value
-        self.data = {"sim_time": None, "truth": None, "amcl": None, "tf_error": None, "goal": None, "nav_feedback": None,
+        self.data = {"sim_time": None, "truth": None, "amcl": None, "tf_error": None, "goal": None,
                      "lift_m": None, "lift_physics_m": None, "joint_names": 0, "fingers": None, "mission": None,
                      "permit": None, "json": {}, "scan": None}
         self.actions = state.ActionWatch()
@@ -86,11 +86,8 @@ class ControlRoomMonitor:
         sub(String, state.MISSION_STATUS_TOPIC, self.on_mission, latched)
         for action in state.ACTIONS:
             sub(GoalStatusArray, f"{action}/_action/status", lambda m, a=action: self.on_status(a, m), 10)
-        try:
-            from nav2_msgs.action import NavigateToPose
-            sub(NavigateToPose.Impl.FeedbackMessage, "/navigate_to_pose/_action/feedback", self.on_nav_feedback, 10)
-        except ImportError:
-            pass
+        # No subscription to an _action/feedback topic: the ROS graph reports a node that has one as an action client
+        # (ros2 node info, rcl_action), which this node is not. The distance to the goal is computed from ground truth.
         try:
             from sensor_msgs.msg import LaserScan
             sub(LaserScan, "/scan_filtered", self.on_scan, qos_profile_sensor_data)
@@ -132,11 +129,6 @@ class ControlRoomMonitor:
             if new != self.data["goal"]:
                 self.data["goal"] = new
                 self.pub["goal"].publish(out)
-
-    def on_nav_feedback(self, msg):
-        fb = msg.feedback
-        self.data["nav_feedback"] = {"distance_remaining_m": round(fb.distance_remaining, 3),
-                                     "recoveries": int(fb.number_of_recoveries)}
 
     def on_joint_states(self, msg):
         names = list(msg.name)
@@ -227,7 +219,8 @@ class ControlRoomMonitor:
                         "status topic yet; observed activity below is inferred from action status topics",
                         "status": mission, "observed_activity": self.actions.active()},
             "actions": self.actions.summary(),
-            "nav": {"goal_from_plan": d["goal"], "feedback": d["nav_feedback"]},
+            "nav": {"goal_from_plan": d["goal"],
+                    "ground_truth_to_goal": {k: _r(v) for k, v in (state.station_error(d["truth"], d["goal"]) or {}).items()} or None},
             "localization": {"amcl_minus_truth_m": _r(loc[0]), "amcl_yaw_minus_truth_rad": _r(loc[1]),
                              "tf_map_minus_truth_m": _r(tf_err[0]) if tf_err else None,
                              "amcl_sigma": {k: _r(v) for k, v in amcl.items() if k != "pose"} if amcl else None,
