@@ -12,8 +12,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Install ffmpeg
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Install ffmpeg (static build from PyPI, avoids the slow apt mirror)
+        run: |
+          python3 -m venv /tmp/ff && /tmp/ff/bin/pip install -q imageio-ffmpeg==0.5.1
+          FF=$(/tmp/ff/bin/python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())")
+          mkdir -p "$HOME/bin" && ln -sf "$FF" "$HOME/bin/ffmpeg" && echo "$HOME/bin" >> "$GITHUB_PATH"
+          "$FF" -version | head -1
       - name: Download artifacts of the three 8/8 runs
         env:
           GH_TOKEN: ${{ github.token }}
@@ -28,7 +32,7 @@ jobs:
         run: |
           find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' -o -iname '*.ogv' \) | while read -r f; do
             echo "== $f ($(stat -c %s "$f") bytes)"
-            ffprobe -v error -show_entries format=duration,format_name:stream=codec_name,width,height,r_frame_rate,pix_fmt -of compact "$f" || true
+            ffmpeg -hide_banner -i "$f" 2>&1 | grep -E "Duration|Stream" || true
           done
           echo "== image sequences:"; find art -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); [ "$n" -gt 20 ] && echo "$d $n png"; done; true
       - name: Convert to browser H.264 MP4
@@ -43,7 +47,7 @@ jobs:
               d=$(find "art/$run" -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); echo "$n $d"; done | sort -rn | head -1 | cut -d' ' -f2-)
               [ -n "$d" ] && ffmpeg -v error -y -framerate 10 -pattern_type glob -i "$d/*.png" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -movflags +faststart "out/baseline1_${run}.mp4" || true
             fi
-            [ -f "out/baseline1_${run}.mp4" ] && ffprobe -v error -show_entries format=duration:stream=codec_name,width,height -of compact "out/baseline1_${run}.mp4" | sed "s/^/OUT $run /"
+            [ -f "out/baseline1_${run}.mp4" ] && ffmpeg -hide_banner -i "out/baseline1_${run}.mp4" 2>&1 | grep -E "Duration|Stream" | sed "s/^/OUT $run /" || true
           done
           ls -la out
       - name: Publish pre-release and output branch
