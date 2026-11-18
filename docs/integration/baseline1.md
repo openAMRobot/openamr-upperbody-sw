@@ -127,3 +127,16 @@ Limitations:
 - Nothing here is bench, physical robot, perception or safety evidence.
 
 Next: a verified parking correction, then the strict sequence: two acceptance runs one after the other on one pinned commit, each in a declared profile.
+
+## #167 verification runs, 18 Nov 2026 (extension, not Baseline 1)
+
+Pinned: this branch `4a67ee7`, openamr-platform-sw integration branch `e75e16e` (#167 at `3e6e203`), profile `sim-oracle` (`pose_source: ground_truth`). Criterion from the parking analysis (#85): marker detected in all 3 runs and each station error at most 0.030 m. Result: not met, 1 of 3.
+
+| Run | Alignment | Phases | Station error | Outcome |
+|---|---|---|---|---|
+| [44247712314](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247712314) | on | 8/8 | 0.0035 m | aligned |
+| [44247720886](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247720886) | on | 6/8 | 0.0754 m | measured, then aborted: odom to base_footprint transform not found (unconnected TF trees); reach fraction 0.587 |
+| [44247729473](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247729473) | on | 7/8 | 0.0557 m | marker not seen, 0 poses received |
+| [44247710475](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247710475) | off | 6/8 | 0.0654 m | station tree only; reach fraction 0.603 |
+
+Baseline 1 status unchanged: not complete. The strict consecutive sequence waits for a correction that passes this check.

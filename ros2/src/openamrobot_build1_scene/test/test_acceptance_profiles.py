@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """The two acceptance profiles (Alex, 18 Nov 2026): ground truth only through the declared sim-oracle profile."""
 import os
 
