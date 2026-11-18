@@ -106,10 +106,17 @@ Not a parameter proposal: kp factors and close commands other than the generated
 | Approach, close, lift, hold | **controlled**: MuJoCo physics, `pick.py` on the generated actuators, Build 1 settings, real time |
 | Pull-back over the store | frozen state, camera only |
 
-Outputs of the sandbox run (binary output branch `viz/grocery-mujoco-output`, not for merge):
+Outputs of the sandbox run at `44f8c2b` (binary output branch `viz/grocery-mujoco-output`, commit `6125afa`, not for merge; the
+robot MJCF was generated there without the lock check, expansion SHA-256 `5d9a1b51`, the locked value):
 
-- Video: OUTPUT_VIDEO_URL
-- Stills: OUTPUT_STILL_URLS
+- Video (25.2 s, 755 frames, SHA-256 `8d377950...66bd3f`): https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/grocery_pick.mp4
+- Stills:
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_1_store.png
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_2_aisle.png
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_3_approach.png
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_4_lift.png
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_5_held.png
+  - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_6_overview.png
 
 The CI job uploads the same files as the artifact `grocery-demo`.
 
