@@ -110,7 +110,7 @@ jobs:
           ros2 daemon stop || true      # a daemon from the test step would answer with another environment
           # A background job of a non-interactive shell ignores SIGINT, so the launch is bounded by timeout and
           # stopped with SIGTERM; every ros2 command is bounded too.
-          timeout -s TERM 120 ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true \
+          timeout -s TERM 300 ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true \
             use_sim_time:=false > ../launch.log 2>&1 &
           pid=$!
           sleep 20
