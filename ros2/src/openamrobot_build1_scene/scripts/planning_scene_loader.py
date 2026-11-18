@@ -7,9 +7,8 @@ objects of config/scene.yaml are given in base_footprint, from the robot's own p
 when Nav2 localises, else the spawn pose with odom -> base_footprint). When the base has moved, the objects are sent
 again. This node is the one writer of /planning_scene besides move_group itself.
 
-The robot's pose for that comes from /build1/ground_truth/odom by default (pose_source, planning_scene.py): the
-scenarios place their targets from it, and the obstacles next to a target must be in the same frame. pose_source
-localization keeps the old behaviour. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
+The robot's pose for that comes from its own estimate by default (pose_source map, planning_scene.py); pose_source
+ground_truth (a simulation oracle) takes /build1/ground_truth/odom instead and must be asked for explicitly. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
 before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
 side; the tote, the item and the payload get none. Simulation only.
 """
@@ -27,7 +26,7 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
-from openamrobot_build1_scene.planning_scene import DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, choose_base_pose, padded
+from openamrobot_build1_scene.planning_scene import DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, choose_base_pose, declaration, padded
 
 
 def yaw_of(q):
@@ -46,6 +45,7 @@ class PlanningSceneLoader(Node):
                                "tote, item and payload unpadded")
         self.excluded, self.sent_names = set(), set()
         self.pose_source = self.declare_parameter("pose_source", DEFAULT_POSE_SOURCE).value
+        self.get_logger().info(declaration(self.pose_source))
         self.truth = None
         self.create_subscription(Odometry, "/build1/ground_truth/odom", self.on_truth, 10)
         self.buffer = Buffer()
@@ -67,8 +67,8 @@ class PlanningSceneLoader(Node):
         self.truth = (p.x, p.y, yaw_of(q))
 
     def base_pose(self):
-        """(x, y, yaw) of base_footprint in the scene frame and its source: the ground truth by default (the frame of the
-        scenarios' targets, planning_scene.choose_base_pose), the localization with pose_source:=localization."""
+        """(x, y, yaw) of base_footprint in the scene frame and its source: the robot's estimate (pose_source map, the
+        default) or the ground truth (pose_source ground_truth, a simulation oracle), planning_scene.choose_base_pose."""
         return choose_base_pose(self.pose_source, self.truth, self.localization_pose())
 
     def localization_pose(self):

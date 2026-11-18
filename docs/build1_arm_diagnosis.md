@@ -264,6 +264,34 @@ before. Still open on that head: the withdraw after the release was refused in 3
 one), and in one of those the retreat then hit the tote (888 N peak, joint 6 on its limit for a moment) before it
 reached park; the scn03 left target sits 0.015 m above the item's top and the hand base touches it (0.3 to 6.7 N).
 
+## Cycle 6: the mission grasp, the planning pose source, palm contact and grip force (18 Nov)
+
+Mission diagnostics (branch `diag/worker-g-mission`, not for merge): runs 44163167306, 44168271147, 44186974661.
+Standalone: 44168251650, 44186975009.
+
+**Item depth.** The gripper is a position servo to closed, so its grip torque is the emulator's MIT kp (4.884) times
+the finger angle at contact. With the item centre 2 to 5 mm behind the TCP (mission, before) the fingers met it at
+0.065 to 0.12 rad (0.11 to 0.41 N m, 0.58 to 2.6 N per finger) and 3 of 6 grasps failed the 40 mm; 9 mm deeper
+(`ITEM_DEPTH_BEHIND_TCP_M`) they met it at 0.134 to 0.162 rad and the mission lifted 5 of 5 (0.0767 to 0.0812 m)
+at station errors 0.020 to 0.036 m and heading errors 0.023 to 0.142 rad.
+
+**Planning pose source.** Default `map` (the robot's estimate); `ground_truth` is a simulation oracle that must be set
+and is declared in run info, JSON and log. With `map` the obstacles are as far from the targets' frame as AMCL is from
+the truth (0.023 to 0.064 m measured); the targets themselves still come from the ground truth.
+
+**Palm contact.** Achieved depth at the close: 12.0 to 13.8 mm in the mission (no palm contact in 5 of 5 reaches,
+reach servo torque 0.16 to 0.26 N m), 15.2 to 17.9 mm at the fixed station (palm on the item in 5 of 5 reaches at
+0.38 to 2.6 N; one reach servo torque 1.38 N m, item pushed 3 mm, still lifted 0.079 m). Contact starts between 13.8
+and 15.2 mm of achieved depth. The 3 to 9 mm beyond the commanded 9 mm come from the execution, more at the fixed
+station. The depth is kept: reducing it trades grip angle (about 0.005 rad per mm) for palm clearance.
+
+**Grip force after the fix (10 grasps).** Finger angle 0.134 to 0.172 rad; emulator torque 0.66 to 0.81 N m
+(= 4.884 x angle); normal force 2.62 to 3.56 N (finger 1) and 2.80 to 4.74 N (finger 2); slip 2.7 to 8.9 mm;
+TCP acceleration up to 3.26 m/s^2. Need per finger m g / (2 mu): 0.736 N at the estimated 0.15 kg and mu 1.0, 2.94 N
+with mu 0.5 and a safety factor of 2. The contact forces balance 0.14 to 0.26 N m at the 0.055 m lever, 3 to 5 times
+less than the emulator reports (5 to 7 times before the fix). Mass, mu and pad friction are estimates; nothing here is
+a gripper measurement.
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the

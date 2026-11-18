@@ -209,22 +209,45 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
     assert "self.boxes = padded(scene_model.collision_boxes(self.scene), fixed, padding)" in loader
 
 
-def test_the_planning_scene_sits_in_the_frame_of_the_grasp_targets():
-    """The grasp and reach targets come from the ground truth base pose, so the obstacles must too. With the
-    localization they were 0.023 to 0.064 m out of place in the Baseline 1 missions and the straight lines were cut short."""
+def test_the_planning_scene_defaults_to_the_robots_own_estimate_and_the_oracle_must_be_asked_for():
+    """Production-oriented runs must not plan against Gazebo's ground truth: the default is map, ground_truth is a
+    simulation oracle that is set explicitly. No silent fall-back between the two."""
     from openamrobot_build1_scene import planning_scene as ps
     truth, belief = (0.01, -2.10, -1.60), ((0.03, -2.12, -1.61), "map")
-    assert ps.DEFAULT_POSE_SOURCE == "ground_truth"
-    assert ps.choose_base_pose(ps.DEFAULT_POSE_SOURCE, truth, belief) == (truth, "ground truth")
-    assert ps.choose_base_pose("ground_truth", None, belief) == (None, None), "no silent fall-back to the localization"
-    assert ps.choose_base_pose("localization", truth, belief) == belief
+    assert ps.DEFAULT_POSE_SOURCE == "map" and ps.DEFAULT_POSE_SOURCE != ps.ORACLE_POSE_SOURCE
+    assert ps.choose_base_pose(ps.DEFAULT_POSE_SOURCE, truth, belief) == belief
+    assert ps.choose_base_pose("ground_truth", truth, belief) == (truth, "ground truth (simulation oracle)")
+    assert ps.choose_base_pose("ground_truth", None, belief) == (None, None)
     with pytest.raises(ValueError):
-        ps.choose_base_pose("amcl", truth, belief)
+        ps.choose_base_pose("localization", truth, belief)
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert 'declare_parameter("pose_source", DEFAULT_POSE_SOURCE)' in loader
     assert "return choose_base_pose(self.pose_source, self.truth, self.localization_pose())" in loader
-    assert '"/build1/ground_truth/odom", self.on_truth' in loader
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'DeclareLaunchArgument("planning_pose_source", default_value=planning_scene.DEFAULT_POSE_SOURCE' in launch
+    assert '"pose_source": pose_source' in launch
+
+
+def test_every_run_declares_its_planning_pose_source():
+    """The launch puts the source into /build1/run_info and logs it; the rig copies run_info into every scenario JSON
+    (run.planning_pose_source) and logs the declaration; the oracle is spelled out as one."""
+    from openamrobot_build1_scene import planning_scene as ps
+    assert ps.declaration("map") == "planning_pose_source: map"
+    assert ps.declaration("ground_truth").startswith("planning_pose_source: ground_truth (SIMULATION ORACLE")
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'info["planning_pose_source"] = pose_source' in launch and "LogInfo(msg=planning_scene.declaration(pose_source))" in launch
+    assert launch.index('info["planning_pose_source"] = pose_source') < launch.index('"run_info": json.dumps(info, sort_keys=True)')
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    assert 'self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)' in rig
+    assert 'self.log.event(declaration(info.get("planning_pose_source", "not declared by the launch")))' in rig
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        assert "self.get_logger().info(declaration(self.pose_source))" in f.read()
+    with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
+        assert 'arguments.setdefault("planning_pose_source", os.environ["BUILD1_PLANNING_POSE_SOURCE"])' in f.read()
 
 
 @pytest.mark.parametrize("yaw", [0.0, -0.08, 0.05])
