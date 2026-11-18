@@ -339,10 +339,11 @@ def test_the_loader_places_the_movable_objects_from_their_observed_poses_in_both
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert "object_pose_topic(self.object_pose_source, name)" in loader
-    assert "object_box_in_base(pose, position, quaternion, self.object_offset[name])" in loader
+    assert "object_box_in_base(base, position, quaternion, self.object_offset[name])" in loader
     assert "object_moved(self.object_sent.get(name), pose_now)" in loader
     assert "self.object_sent = dict(self.object_pose)" in loader
-    # The same base pose for objects and fixtures: the declared source, never a separate truth path for the objects.
+    # Objects given in the world take the same base pose as the fixtures (the declared planning_pose_source), never a
+    # separate truth path; objects already in base_footprint (object_pose_source estimate) take none.
     assert loader.count("object_box_in_base(") == 1
 
 
@@ -351,7 +352,7 @@ def test_object_poses_come_from_ground_truth_only_under_a_declared_object_pose_s
     poses and grasp targets are ground truth today (a perception stand-in): every reader goes through
     object_pose_topic, which refuses an undeclared source, and no reader names a ground-truth object topic itself."""
     from openamrobot_build1_scene import planning_scene as ps
-    assert ps.OBJECT_POSE_SOURCES == ("ground_truth",) and ps.DEFAULT_OBJECT_POSE_SOURCE == "ground_truth"
+    assert ps.OBJECT_POSE_SOURCES == ("ground_truth", "estimate") and ps.DEFAULT_OBJECT_POSE_SOURCE == "ground_truth"
     assert ps.object_pose_topic("ground_truth", "item") == "/build1/ground_truth/item/pose"
     for undeclared in (None, "", "map", "detector"):
         with pytest.raises(ValueError):
@@ -368,7 +369,7 @@ def test_object_poses_come_from_ground_truth_only_under_a_declared_object_pose_s
     with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
         rig = f.read()
     assert "return self.get(object_pose_topic(self.object_pose_source, name))" in rig
-    assert "p = self.object_pose(name).pose.position" in rig
+    assert "frame, position, quaternion = pose_fields(self.object_pose(name))" in rig
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert 'declare_parameter("object_pose_source", DEFAULT_OBJECT_POSE_SOURCE)' in loader

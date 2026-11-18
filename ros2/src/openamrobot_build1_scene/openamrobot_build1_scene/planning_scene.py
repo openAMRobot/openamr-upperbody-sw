@@ -77,17 +77,24 @@ def declaration(source):
 
 # The movable objects (tote, item, payload) are placed from their observed poses, the same input the scenarios take
 # their grasp targets from. Where those poses come from is its own declared source, object_pose_source (launch argument,
-# Proposed), independent of planning_pose_source. Its only implementation today is ground_truth, Gazebo's pose of each
-# object (/build1/ground_truth/<name>/pose), a stand-in for perception. It is recorded in /build1/run_info, every
-# scenario's JSON (run.object_pose_source) and the logs; a reader without the declaration is refused. With
-# object_pose_source ground_truth no run counts as the perception profile until an object detector replaces it. Before 18 Nov they stayed at their scene.yaml start poses: when the scn03 reach knocked the item over (it lay
+# Proposed), independent of planning_pose_source. ground_truth (the default) is Gazebo's pose of each object
+# (/build1/ground_truth/<name>/pose, geometry_msgs/PoseStamped in the world), a stand-in for perception. estimate
+# (Proposed, docs/architecture/object_perception.md) is the object pose estimator of openamrobot_object_perception: the
+# tote and the item from the head camera's depth image, /perception/objects/<name>/pose, PoseWithCovarianceStamped in
+# base_footprint; the payload is not estimated and stays at its scene.yaml pose, and ground truth is then read only to
+# measure the estimate (object_truth_topic). The source is recorded in /build1/run_info, every scenario's JSON
+# (run.object_pose_source) and the logs; a reader without the declaration is refused. With object_pose_source
+# ground_truth no run counts as the perception profile. Before 18 Nov they stayed at their scene.yaml start poses: when the scn03 reach knocked the item over (it lay
 # at z 0.8425, 0.09 m from its start), MoveIt still had it standing under the hand and refused every return move as a
 # start state in collision (item - openarm_left_ee_base_link, job 134653118730), and the arm stayed off park.
 MOVABLE_OBJECTS = ("tote", "item", "payload")
 OBJECT_MOVED_M = 0.01
 OBJECT_TURNED_RAD = 0.05
-OBJECT_POSE_SOURCES = ("ground_truth",)
+OBJECT_POSE_SOURCES = ("ground_truth", "estimate")
 DEFAULT_OBJECT_POSE_SOURCE = "ground_truth"
+ESTIMATE_SOURCE = "estimate"
+ESTIMATE_FRAME = "base_footprint"
+ESTIMATED_OBJECTS = ("tote", "item")     # estimate: what the estimator publishes; the payload is not estimated
 
 
 def object_pose_topic(source, name):
@@ -95,7 +102,29 @@ def object_pose_topic(source, name):
     reader takes Gazebo's object poses without the run saying so."""
     if source not in OBJECT_POSE_SOURCES:
         raise ValueError(f"object_pose_source must be declared as one of {OBJECT_POSE_SOURCES}, got {source!r}")
+    if source == ESTIMATE_SOURCE:
+        return f"/perception/objects/{name}/pose"
     return f"/build1/ground_truth/{name}/pose"
+
+
+def object_pose_type(source):
+    """The message type name on object_pose_topic(source, name)."""
+    if source not in OBJECT_POSE_SOURCES:
+        raise ValueError(f"object_pose_source must be declared as one of {OBJECT_POSE_SOURCES}, got {source!r}")
+    return "PoseWithCovarianceStamped" if source == ESTIMATE_SOURCE else "PoseStamped"
+
+
+def object_truth_topic(name):
+    """Gazebo's pose of object `name`, for measuring an estimate or a scenario outcome only. A grasp target or the
+    planning scene never reads it under object_pose_source estimate."""
+    return object_pose_topic("ground_truth", name)
+
+
+def pose_fields(msg):
+    """(frame_id, (x, y, z), (qx, qy, qz, qw)) of a PoseStamped or a PoseWithCovarianceStamped."""
+    pose = msg.pose.pose if hasattr(msg.pose, "covariance") else msg.pose
+    p, q = pose.position, pose.orientation
+    return msg.header.frame_id, (p.x, p.y, p.z), (q.x, q.y, q.z, q.w)
 
 
 def object_declaration(source):
@@ -104,6 +133,11 @@ def object_declaration(source):
         return ("object_pose_source: ground_truth (PERCEPTION STAND-IN: tote, item and payload poses and the grasp targets "
                 "come from Gazebo's ground truth; no run with it counts as the perception profile until an object detector "
                 "replaces it)")
+    if source == ESTIMATE_SOURCE:
+        return ("object_pose_source: estimate (Proposed: tote and item poses and the grasp targets from the head camera "
+                "depth estimator in base_footprint; ground truth is read only to measure the estimate error and the outcome; "
+                "the payload is not estimated and stays at its scene.yaml pose. Counts toward the perception profile only "
+                "with planning_pose_source map)")
     return f"object_pose_source: {source}"
 
 

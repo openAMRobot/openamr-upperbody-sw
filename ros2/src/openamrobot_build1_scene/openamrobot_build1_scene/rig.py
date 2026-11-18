@@ -21,7 +21,7 @@ import time
 from openamrobot_build1_scene.faults import ctl017_faults
 import rclpy
 from action_msgs.msg import GoalStatus
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
@@ -49,6 +49,7 @@ FINGERS = "/build1/ground_truth/finger_joint_states"
 
 JSON_TOPICS = ("/sil/drive/status", "/sil/drive/emulator_state", "/sil/lift/status", "/sil/lift/emulator_state",
                "/sil/bms/status", "/sil/bms/emulator_state", "/build1/rtf_stats", "/sil/fw/status")
+VALIDATION = "/build1/perception/validation"    # object_pose_validation.py: estimate minus ground truth (estimate only)
 
 
 class Blocked(Exception):
@@ -149,13 +150,15 @@ class Rig:
                                  (FINGERS, JointState, 10),
                                  ("/scan", LaserScan, sensor_qos), ("/scan_filtered", LaserScan, 10)):
             self.node.create_subscription(kind, topic, lambda m, t=topic: self._store(t, m), qos)
-        from openamrobot_build1_scene.planning_scene import OBJECT_POSE_SOURCES, object_pose_topic
+        from openamrobot_build1_scene.planning_scene import OBJECT_POSE_SOURCES, object_pose_topic, object_pose_type
         self.object_pose_source = None   # set from /build1/run_info in wait_ready; object reads are refused until then
+        kinds = {"PoseStamped": PoseStamped, "PoseWithCovarianceStamped": PoseWithCovarianceStamped}
         for name in ("item", "tote", "payload"):
             for source in OBJECT_POSE_SOURCES:
                 topic = object_pose_topic(source, name)
-                self.node.create_subscription(PoseStamped, topic, lambda m, t=topic: self._store(t, m), 10)
+                self.node.create_subscription(kinds[object_pose_type(source)], topic, lambda m, t=topic: self._store(t, m), 10)
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.node.create_subscription(String, VALIDATION, lambda m: self._store(VALIDATION, self._json(m)), latched)
         self.node.create_subscription(String, "/build1/planning_scene/objects",
                                       lambda m: self._store("/build1/planning_scene/objects", m.data), latched)
         self.node.create_subscription(String, "/build1/run_info", lambda m: self._store("/build1/run_info", self._json(m)), latched)
@@ -277,13 +280,63 @@ class Rig:
                    for side in ("left", "right"))
 
     def object_pose(self, name):
-        """The latest PoseStamped of object `name` from the run's declared object_pose_source (ValueError without one)."""
+        """The latest pose message of object `name` from the run's declared object_pose_source (ValueError without one):
+        PoseStamped in the world for ground_truth, PoseWithCovarianceStamped in base_footprint for estimate."""
         from openamrobot_build1_scene.planning_scene import object_pose_topic
         return self.get(object_pose_topic(self.object_pose_source, name))
 
-    def object_position(self, name):
-        p = self.object_pose(name).pose.position
-        return p.x, p.y, p.z
+    def object_in_base(self, name):
+        """((x, y, z), yaw) of object `name` in base_footprint from the declared object_pose_source: the estimate as
+        published, or Gazebo's world pose moved into base_footprint with the ground truth base pose. The grasp targets."""
+        from openamrobot_build1_scene.perception_validation import yaw_of as quaternion_yaw
+        from openamrobot_build1_scene.planning_scene import ESTIMATE_FRAME, ESTIMATE_SOURCE, pose_fields
+        frame, position, quaternion = pose_fields(self.object_pose(name))
+        yaw = quaternion_yaw(quaternion)
+        if self.object_pose_source == ESTIMATE_SOURCE:
+            if frame != ESTIMATE_FRAME:
+                raise ScenarioFailed(f"the {name} estimate is in {frame!r}, not {ESTIMATE_FRAME}")
+            return tuple(position), yaw
+        x, y, base_yaw = self.truth()
+        dx, dy = position[0] - x, position[1] - y
+        c, s = math.cos(-base_yaw), math.sin(-base_yaw)
+        return (c * dx - s * dy, s * dx + c * dy, position[2]), angle_diff(yaw, base_yaw)
+
+    def object_truth_position(self, name):
+        """Gazebo's world position of object `name`: for measuring a scenario's outcome and an estimate only, never a
+        target (planning_scene.object_truth_topic)."""
+        from openamrobot_build1_scene.planning_scene import object_truth_topic, pose_fields
+        return pose_fields(self.get(object_truth_topic(name)))[1]
+
+    def wait_object_estimates(self, names, sim_s=60.0, count=2):
+        """Under object_pose_source estimate: wait until each of `names` has `count` estimates. ScenarioFailed otherwise."""
+        from openamrobot_build1_scene.planning_scene import ESTIMATE_SOURCE, object_pose_topic
+        if self.object_pose_source != ESTIMATE_SOURCE:
+            return
+        for name in names:
+            topic = object_pose_topic(ESTIMATE_SOURCE, name)
+            if not self.wait(lambda: self.count(topic) >= count, sim_s, f"{name} estimate", step=0.2):
+                raise ScenarioFailed(f"no {name} estimate on {topic} after {sim_s} s of Gazebo time "
+                                     f"({self.count(topic)} messages): object_pose_source estimate has no target")
+
+    def record_estimate_error(self, log, names, when):
+        """Under object_pose_source estimate: the estimate minus ground truth of each of `names` in base_footprint, as
+        recorded quantities without a limit. Ground truth is read for this measurement only."""
+        from openamrobot_build1_scene import perception_validation as pv
+        from openamrobot_build1_scene.planning_scene import ESTIMATE_SOURCE, object_truth_topic, pose_fields
+        if self.object_pose_source != ESTIMATE_SOURCE:
+            return
+        odom = self.get("/build1/ground_truth/odom").pose.pose
+        base = ((odom.position.x, odom.position.y, odom.position.z),
+                (odom.orientation.x, odom.orientation.y, odom.orientation.z, odom.orientation.w))
+        for name in names:
+            estimate = self.object_pose(name)
+            _frame, position, quaternion = pose_fields(estimate)
+            _tframe, t_position, t_quaternion = pose_fields(self.get(object_truth_topic(name)))
+            truth_position, truth_yaw = pv.truth_in_base(*base, t_position, t_quaternion)
+            measured = pv.error(name, position, pv.yaw_of(quaternion), truth_position, truth_yaw, list(estimate.pose.covariance))
+            note = f"estimate minus ground truth in base_footprint, {when}. Recorded, no limit: ground truth only measures"
+            for key, unit in (("dx", "m"), ("dy", "m"), ("dz", "m"), ("position", "m"), ("yaw", "rad"), ("nees_xy", "1")):
+                log.quantity(f"{name}_estimate_error_{key}", measured.get(key), unit, note=note)
 
     def transform(self, target, source):
         """Translation and yaw of `source` in `target` from /tf, or None."""
@@ -632,6 +685,8 @@ def run(scenario_name, function, needs_devices=False, uses_base=False, **ready):
                           "not be commanded. What failed after that: " + reason)
         except Exception:  # noqa: BLE001 - the verdict above stands
             pass
+        if rig.get(VALIDATION) is not None:
+            log.data["perception_validation"] = rig.get(VALIDATION)
         path = log.write(result, reason=reason)
         rig.close()
     return result, reason, path

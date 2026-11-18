@@ -62,7 +62,7 @@ class Trace:
         rig = self.rig
         truth, odom, speed = self._read(rig.truth), self._read(rig.odom), self._read(rig.truth_speed)
         amcl = self._read(lambda: map_pose(rig))
-        item = self._read(lambda: rig.object_position("item"))
+        item = self._read(lambda: rig.object_truth_position("item"))
         return {"sim": rig.sim_time(), "wall": time.time(), "phase": self.tracker.current,
                 "x": truth[0] if truth else None, "y": truth[1] if truth else None, "yaw": truth[2] if truth else None,
                 "v": speed[0] if speed else None, "w": speed[1] if speed else None,
