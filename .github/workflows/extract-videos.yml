@@ -1,5 +1,4 @@
-# Scratch workflow (not for merge): extracts the recorded videos from finished Baseline 1 runs, converts them to
-# browser-playable H.264 MP4 and publishes them as a GitHub pre-release. It re-runs no simulation.
+# Scratch workflow (not for merge): extracts the recorded video of a finished grocery demo run and publishes it.
 name: extract-videos
 on:
   push:
@@ -12,57 +11,43 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Install ffmpeg (static build from PyPI, avoids the slow apt mirror)
+      - name: Install ffmpeg (static build from PyPI)
         run: |
           python3 -m venv /tmp/ff && /tmp/ff/bin/pip install -q imageio-ffmpeg==0.5.1
           FF=$(/tmp/ff/bin/python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())")
           mkdir -p "$HOME/bin" && ln -sf "$FF" "$HOME/bin/ffmpeg" && echo "$HOME/bin" >> "$GITHUB_PATH"
-          "$FF" -version | head -1
-      - name: Download artifacts of the three 8/8 runs
+      - name: Download the grocery run artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
-          mkdir -p art
-          for run in 44309791416 44309804809 44309817813; do
-            gh run download "$run" -R "$GITHUB_REPOSITORY" -D "art/$run" || echo "download failed for $run"
-          done
-          find art -type f | sed 's/^/FILE /' | head -400
-      - name: Probe every video
+          mkdir -p art && gh run download 44299879412 -R "$GITHUB_REPOSITORY" -D art || true
+          find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.srt' -o -iname '*.vtt' -o -iname '*.png' -o -iname '*report*.json' \) -printf 'FILE %s %p\n' | head -80
+      - name: Probe and convert
         run: |
-          find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' -o -iname '*.ogv' \) | while read -r f; do
-            echo "== $f ($(stat -c %s "$f") bytes)"
-            ffmpeg -hide_banner -i "$f" 2>&1 | grep -E "Duration|Stream" || true
-          done
-          echo "== image sequences:"; find art -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); if [ "$n" -gt 20 ]; then echo "$d $n png"; fi; done; true
-      - name: Convert to browser H.264 MP4
-        run: |
-          set -e
           mkdir -p out
-          for run in 44309791416 44309804809 44309817813; do
-            f=$(find "art/$run" -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' \) -printf '%s %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
-            if [ -n "$f" ]; then
-              cp "$f" "out/baseline1_${run}_original.mp4"
-              ffmpeg -v error -y -i "$f" -vf "scale=960:540:flags=lanczos" -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -movflags +faststart -an "out/baseline1_${run}.mp4"
-            else
-              d=$(find "art/$run" -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); echo "$n $d"; done | sort -rn | head -1 | cut -d' ' -f2-)
-              [ -n "$d" ] && ffmpeg -v error -y -framerate 10 -pattern_type glob -i "$d/*.png" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -movflags +faststart "out/baseline1_${run}.mp4" || true
-            fi
-            if [ -f "out/baseline1_${run}.mp4" ]; then ffmpeg -hide_banner -i "out/baseline1_${run}.mp4" 2>&1 | grep -E "Duration|Stream" | sed "s/^/OUT $run /" || true; fi
+          find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' \) | while read -r f; do
+            echo "== $f ($(stat -c %s "$f") bytes)"; ffmpeg -hide_banner -i "$f" 2>&1 | grep -E "Duration|Stream" || true
           done
+          f=$(find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' \) -printf '%s %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
+          s=$(find art -type f \( -iname '*.srt' \) | head -1)
+          if [ -n "$s" ]; then
+            ffmpeg -v error -y -i "$f" -vf "subtitles=$s" -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -movflags +faststart -an out/grocery_demo_44299879412.mp4 || cp "$f" out/grocery_demo_44299879412.mp4
+          else
+            ffmpeg -v error -y -i "$f" -c:v libx264 -preset veryfast -crf 21 -pix_fmt yuv420p -movflags +faststart -an out/grocery_demo_44299879412.mp4
+          fi
+          cp "$f" "out/grocery_demo_44299879412_original.${f##*.}"
+          ffmpeg -hide_banner -i out/grocery_demo_44299879412.mp4 2>&1 | grep -E "Duration|Stream" | sed 's/^/OUT /' || true
           ls -la out
-      - name: Publish pre-release and output branch
+      - name: Publish pre-release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
-          ls out/*.mp4 >/dev/null
           cat > notes.md <<'N'
-          Recordings extracted unchanged from three Baseline 1 acceptance runs on 18 Nov 2026 that passed 8/8 (observer camera, 480x270 at 8 fps as recorded; *_original.mp4 is the file unchanged, the other file is a 2x upscale, H.264, for easier viewing; no simulation re-run).
-          Pinned: openamr-upperbody-sw integration/baseline1 d63e9ed, openamr-platform-sw integration/baseline1 931e631 (station alignment #167 at c4666a1).
-          Simulation-oracle profile: planning scene and object poses from Gazebo ground truth (pose_source: ground_truth, object_pose_source: ground_truth), simulation-only base camera. Gazebo Harmonic with DART, the real ROS 2 Jazzy stack (Nav2, MoveIt 2, ros2_control), emulated lift controller and arm motors over virtual CAN. Simulation evidence only: not hardware, perception or safety validation.
-          Runs: https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309791416 https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309804809 https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309817813
+          Recording extracted from grocery dark store demonstrator run 44299879412 (18 Nov 2026), openamr-upperbody-sw demo/grocery-dark-store 6170e6a (draft PR #86). No simulation re-run.
+          Result: 10 of 12 phase checks passed. Failed checks: shelf station position 0.0497 m against the 0.04 m limit (the known station offset; station alignment was off), and the odometry guard on the drive to the packing station (0.907 m against 0.56 m, caused by Gazebo wheel collision slip in turns). The pick, transport, placement into the tote and return to parking completed.
+          Simulation-oracle profile: planning scene and object poses from Gazebo ground truth (planning_pose_source: ground_truth, object_pose_source: ground_truth). Gazebo Harmonic with DART, the real ROS 2 Jazzy stack (Nav2, MoveIt 2, ros2_control), emulated lift controller and arm motors over virtual CAN. Simulation evidence only: not hardware, perception or safety validation.
+          Run: https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44299879412
           N
-          gh release create sim-baseline1-2026-11-18 out/*.mp4 -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
-            --title "Digital twin recordings: Baseline 1 missions, 18 Nov 2026 (simulation)" --notes-file notes.md
-          gh release view sim-baseline1-2026-11-18 -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "ASSET \(.name) \(.size) \(.url)"'
+          gh release create sim-grocery-demo-2026-11-18 out/* -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Digital twin recording: grocery dark store mission, 18 Nov 2026 (simulation, 10 of 12 checks)" --notes-file notes.md
+          gh release view sim-grocery-demo-2026-11-18 -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "ASSET \(.name) \(.size) \(.url)"'
