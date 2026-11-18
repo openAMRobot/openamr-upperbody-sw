@@ -20,7 +20,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       # station_approach 1 (#164 station tree). station_alignment 0 or absent (input added at 29adcb8).
       RUNS: >-
-        44110449067 44128368373 44196259900
+        44110449067 44128368373 44196259900 44194540813
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,5 +35,6 @@ jobs:
             gh run download "$r" -R "$GITHUB_REPOSITORY" -n baseline1-acceptance-attempt1 -D "art/$r" >/dev/null 2>&1 \
               || echo "PARKING_JSON {\"dir\": \"$r\", \"error\": \"download failed\"}"
             /tmp/v/bin/python tools/parking_diag/parking_analysis.py "art/$r"
+            [ "$r" = "44194540813" ] && PARKING_FORCE_ODOM_TOPIC=1 /tmp/v/bin/python tools/parking_diag/parking_analysis.py "art/$r"
             rm -rf "art/$r"
           done

@@ -148,8 +148,15 @@ def analyse(run_dir):
     tf, static, s, amcl_cov, plans, scans = load(bags[0])
     base = "base_footprint"
 
+    odom_tf = any(k[0] == "odom" for k in tf)
+    out["map_pose_source"] = "tf" if odom_tf and not os.environ.get("PARKING_FORCE_ODOM_TOPIC") else "map>odom with /odom"
+
     def mpose(t):
-        return lookup(tf, static, "map", base, t)
+        if out["map_pose_source"] == "tf":
+            return lookup(tf, static, "map", base, t)
+        # Some bags hold no odom > base_footprint on /tf: compose AMCL's map > odom with the /odom pose.
+        mo, od = tf[("map", "odom")].at(t) if ("map", "odom") in tf else None, s["odom"].at(t)
+        return compose(mo, od) if mo and od else None
 
     def err(p, q):
         along, left = station_frame(p[0] - q[0], p[1] - q[1])
