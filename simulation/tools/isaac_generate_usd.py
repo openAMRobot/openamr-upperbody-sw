@@ -62,8 +62,13 @@ def main():
         if not status:
             raise RuntimeError("URDFParseAndImportFile failed")
         log["articulation_root"] = str(prim_path)
+        log["importer_deviations"] = job.get("importer_deviations", [])
         # Drives, armature and the physics scene: written into the root layer of the imported USD, from the job only.
         stage = Usd.Stage.Open(str(usd_path))
+        roots = [str(p.GetPath()) for p in stage.Traverse() if p.HasAPI(UsdPhysics.ArticulationRootAPI)]
+        log["articulation_roots"] = roots
+        if len(roots) != 1:
+            raise RuntimeError(f"expected one articulation, the importer wrote {len(roots)}: {roots}")
         joints = {p.GetName(): p for p in stage.Traverse() if p.IsA(UsdPhysics.Joint)}
         for name, spec in job["drives"].items():
             prim = joints[name]
