@@ -5,6 +5,17 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (18 Nov 2026; object perception milestone 1, Proposed; simulation only)
+
+- **`object_pose_source: estimate`.** New package `openamrobot_object_perception`: the tote and the item from the head camera's
+  depth image (RANSAC face line and known box sizes, `box_fit.py`, no ROS import), published as PoseWithCovarianceStamped in
+  `base_footprint` on `/perception/objects/<name>/pose` (Proposed topic). The planning scene loader and scn04's grasp target read
+  it through `object_pose_topic`; scn04's outcome checks read Gazebo's pose through `object_truth_topic`, unchanged limits.
+  `object_pose_validation.py` records estimate minus ground truth per object (`/build1/perception/validation`, scenario JSON
+  `perception_validation`, scn04 quantities `<name>_estimate_error_*`, recorded without a limit). New scenario test
+  `test_scn04_grasp_estimate` (grasp job) and static test `test_object_perception`. `ground_truth` stays the default.
+  Design: `docs/architecture/object_perception.md`.
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,

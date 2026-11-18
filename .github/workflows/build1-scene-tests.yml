@@ -35,11 +35,11 @@ jobs:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
           - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|arm_frames|lift_plant|diagnostics|station_marker|canfd_vcan|replay_vcan)$"
+            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|arm_frames|lift_plant|diagnostics|station_marker|object_perception|canfd_vcan|replay_vcan)$"
           - name: firmware_sil drive, lift, cancel
             tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
           - name: firmware_sil arms, grasp, single writer
-            tests: "^test_scn(03_arms_reach|04_grasp|09_single_writer)$"
+            tests: "^test_scn(03_arms_reach|04_grasp|04_grasp_estimate|09_single_writer)$"
           - name: faults
             tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
           - name: profiles fast and fine

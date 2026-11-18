@@ -400,7 +400,7 @@ def _reach(rig, log, stop, level, side, targets, scale):
                   f"(base_footprint, from the driver's joint states)")
     for name in ("tote", "item", "payload"):
         try:
-            log.event(f"{label} {name} at {[round(v, 4) for v in rig.object_position(name)]} (world, ground truth)")
+            log.event(f"{label} {name} at {[round(v, 4) for v in rig.object_truth_position(name)]} (world, ground truth)")
         except Exception as error:  # noqa: BLE001  a trace line only: a missing pose is reported, not raised
             log.event(f"{label} {name}: no ground truth pose ({error})")
     if ok and found is not None:
@@ -454,16 +454,20 @@ def grasp(rig, log):
     log.event("Gripper states as corrected in openamr-upperbody-sw #66: open is the far joint limit, closed is 0.")
     side, link = "left", "openarm_left_ee_base_link"
     finger = "openarm_left_finger_joint1"
-    item0 = rig.object_position("item")
+    # The outcome is measured on Gazebo's item pose (item0 and later reads); the target comes from the declared
+    # object_pose_source. Under ground_truth both are the same pose. Under estimate the target is the estimator's pose in
+    # base_footprint, and its error against ground truth is recorded without a limit (planning_scene.py).
+    item0 = rig.object_truth_position("item")
     log.quantity("item_start_height", item0[2], "m")
+    rig.wait_object_estimates(("item", "tote"))
+    item, item_yaw = rig.object_in_base("item")
+    rig.record_estimate_error(log, ("item", "tote"), "when the grasp target is read")
     # The fingers point square at the item's face, not along the base heading: a base that stops a few degrees off
     # (the station approach allows 0.05 rad) otherwise sweeps the fingers into the item and the tote wall (Baseline 1
     # run 44100120091: base 0.073 rad off, item pushed 51 mm, not lifted). 0 when the base stands square to the item.
-    from openamrobot_build1_scene.rig import yaw_of
-    yaw = face_yaw(rig.truth()[2], yaw_of(rig.object_pose("item").pose.orientation))
+    yaw = face_yaw(0.0, item_yaw)
     log.quantity("grasp_face_yaw", yaw, "rad", note="the side grasp turned about z of base_footprint to the item's face")
     quaternion = side_grasp(yaw)
-    item = _in_base(rig, item0)
     grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M  # the hand body and the fingers clear the tote wall (arm_frames.py)
     # D9 step 2: the item goes to the model's TCP, openarm_left_grasp_frame (0.138 m along the fingers, from the URDF
     # through /tf), not to an estimated depth. The estimate of 0.105 m put the item against the finger roots: it was
@@ -516,7 +520,7 @@ def grasp(rig, log):
             _mark(rig, "grasp_reach_end")
             if not reached:
                 return
-            log.quantity("item_pushed_before_closing", math.dist(rig.object_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
+            log.quantity("item_pushed_before_closing", math.dist(rig.object_truth_position("item")[:2], item0[:2]), "m", low=0.0, high=0.05)
 
             closing = True
             closed = rig.gripper(side, CLOSED, sim_s=30.0)
@@ -543,7 +547,7 @@ def grasp(rig, log):
             tcp_at_grasp = rig.transform("base_footprint", TCP_FRAME[side])
             if not log.require(at_grasp is not None and tcp_at_grasp is not None, "no /tf of the hand and the TCP after the close"):
                 return
-            item_closed = rig.object_position("item")
+            item_closed = rig.object_truth_position("item")
             rotation = at_grasp[1]
             lifted, lift_orientation = straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)
             _mark(rig, "lift_start")
@@ -553,7 +557,7 @@ def grasp(rig, log):
             _mark(rig, "lift_end")
             _mark(rig, "grasp_lift_end")
             rig.sleep_sim(3.0)
-            item1 = rig.object_position("item")
+            item1 = rig.object_truth_position("item")
             log.quantity("item_height_gain_after_lift", item1[2] - item0[2], "m", low=0.04, high=0.12)
             tcp_lifted = rig.transform("base_footprint", TCP_FRAME[side])
             if tcp_lifted is not None:
@@ -562,7 +566,7 @@ def grasp(rig, log):
                 log.quantity("grasp_lift_item_rise_minus_tcp_rise", (item1[2] - item_closed[2]) - tcp_rise, "m",
                              note="recorded, no limit: below 0 the item slid down in the fingers")
             rig.sleep_sim(3.0)
-            item2 = rig.object_position("item")
+            item2 = rig.object_truth_position("item")
             _mark(rig, "hold_end")
             log.quantity("item_height_drift_while_held", item2[2] - item1[2], "m", low=-0.01, high=0.01, note="over 3 s of Gazebo time")
             rig.gripper(side, OPEN)
@@ -579,7 +583,7 @@ def grasp(rig, log):
                 rig.set_parameters("/gravity_feedforward", {"payload_mass_kg": 0.0})
                 log.event("gravity feed-forward payload cleared")
     rig.sleep_sim(2.0)
-    log.quantity("item_height_after_release", rig.object_position("item")[2] - item0[2], "m", note="recorded, no limit: it falls back")
+    log.quantity("item_height_after_release", rig.object_truth_position("item")[2] - item0[2], "m", note="recorded, no limit: it falls back")
 
 
 def _withdraw(rig, log, side, link):

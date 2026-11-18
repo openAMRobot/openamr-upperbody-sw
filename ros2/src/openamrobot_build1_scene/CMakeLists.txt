@@ -17,6 +17,7 @@ install(PROGRAMS
   scripts/generate_world.py
   scripts/inject_stale_sensors.py
   scripts/planning_scene_loader.py
+  scripts/object_pose_validation.py
   scripts/rtf_monitor.py
   scripts/run_scenario.py
   scripts/setup_vcan_all.sh
@@ -31,7 +32,7 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   # Static tests: no simulator, no virtual CAN. They run on any machine.
-  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker)
+  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker object_perception)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
 
@@ -49,6 +50,7 @@ if(BUILD_TESTING)
       scn02_lift_permit:1500
       scn03_arms_reach:2400
       scn04_grasp:2400
+      scn04_grasp_estimate:2400
       scn05_bus_loss:2400
       scn06_stale_sensors:1800
       scn07_cancel_resume:1800

@@ -180,6 +180,10 @@ def launch_setup(context):
     if nav2 and not sensors:
         return [LogInfo(msg="nav2:=true needs sensors:=true: Nav2 has no scan without the rendered LiDAR"),
                 Shutdown(reason="nav2 without sensors")]
+    if value("object_pose_source") == planning_scene.ESTIMATE_SOURCE and not (sensors and flag("extra_sensors")):
+        return [LogInfo(msg="object_pose_source:=estimate needs sensors:=true and extra_sensors:=true: the estimator reads "
+                            "the head camera's depth image"),
+                Shutdown(reason="estimate without the head camera")]
     replays = support.parse_replays({bus: value(arg) for arg, bus in REPLAY_ARGS.items()}) if devices else {}
     actions, temp_files = [], []
 
@@ -274,6 +278,10 @@ def launch_setup(context):
     actions.append(LogInfo(msg=planning_scene.declaration(pose_source)))
     object_source = value("object_pose_source")
     info["object_pose_source"] = object_source
+    if object_source == planning_scene.ESTIMATE_SOURCE:
+        info["object_pose_estimator"] = {"package": "openamrobot_object_perception", "camera": "head_camera depth (rgbd)",
+                                         "objects": list(planning_scene.ESTIMATED_OBJECTS), "frame": planning_scene.ESTIMATE_FRAME,
+                                         "validation": "/build1/perception/validation", "status": "Proposed"}
     actions.append(LogInfo(msg=planning_scene.object_declaration(object_source)))
     info["model_sha256"] = hashlib.sha256(sim_urdf.encode()).hexdigest()
     info["finger_joint2_owner"] = "finger_mimic_follower.py" if follower else "mimic constraint of the engine"
@@ -427,6 +435,24 @@ def launch_setup(context):
                                          "object_pose_source": object_source}]))
         rviz_parameters += [config.robot_description, config.robot_description_semantic, config.robot_description_kinematics,
                             config.planning_pipelines, config.joint_limits]
+    # 7b. Object perception (Proposed, docs/architecture/object_perception.md), with object_pose_source estimate only:
+    # the estimator (openamrobot_object_perception) on the head camera's depth image, and the validation recorder that
+    # measures its error against Gazebo's poses. Known to the estimator: the object sizes and the tote's shelf level.
+    if object_source == planning_scene.ESTIMATE_SOURCE:
+        bodies = scene_model.movable_objects(scene)
+        actions.append(Node(package="openamrobot_object_perception", executable="object_pose_estimator.py",
+                            name="object_pose_estimator", output="screen",
+                            parameters=[{"use_sim_time": True, "target_frame": planning_scene.ESTIMATE_FRAME,
+                                         "depth_topic": "/head_camera/rgbd/depth_image",
+                                         "camera_info_topic": "/head_camera/rgbd/camera_info",
+                                         "camera_frame": "head_camera_optical_frame",
+                                         "objects": list(planning_scene.ESTIMATED_OBJECTS),
+                                         "support_z": float(bodies["tote"]["pose"][2]),
+                                         "tote_size": [float(v) for v in bodies["tote"]["size"]],
+                                         "tote_wall": float(bodies["tote"]["wall"]),
+                                         "item_size": [float(v) for v in bodies["item"]["size"]]}]))
+        actions.append(Node(package=PACKAGE, executable="object_pose_validation.py", name="object_pose_validation",
+                            output="screen", parameters=[{"use_sim_time": True}]))
     if flag("rviz"):
         actions.append(Node(package="rviz2", executable="rviz2", output="log", arguments=["-d", os.path.join(share, "rviz", "build1.rviz")],
                             parameters=rviz_parameters))
@@ -497,7 +523,9 @@ def generate_launch_description():
                               choices=list(planning_scene.OBJECT_POSE_SOURCES),
                               description="Where the tote, item and payload poses and the grasp targets come from: "
                                           "ground_truth (Gazebo, a perception stand-in; no run with it counts as the "
-                                          "perception profile). Declared in /build1/run_info. Proposed"),
+                                          "perception profile) or estimate (the head camera depth estimator, tote and item "
+                                          "in base_footprint, ground truth only measures it; needs sensors and "
+                                          "extra_sensors). Declared in /build1/run_info. Proposed"),
         DeclareLaunchArgument("gravity_feedforward", default_value="true", choices=boolean,
                               description="With devices: send the arms' gravity torque through the driver's effort interface"),
         DeclareLaunchArgument("sim_state_rate", default_value="100",

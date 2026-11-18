@@ -9,14 +9,16 @@ again. This node is the one writer of /planning_scene besides move_group itself.
 
 The robot's pose for that comes from its own estimate by default (pose_source map, planning_scene.py); pose_source
 ground_truth (a simulation oracle) takes /build1/ground_truth/odom instead and must be asked for explicitly. The tote,
-the item and the payload follow their observed poses from the declared object_pose_source in both cases. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
+the item and the payload follow their observed poses from the declared object_pose_source in both cases. A pose in
+base_footprint (object_pose_source estimate) is placed as it is, without the base pose; an estimated object that has
+not been estimated yet is left out, not put at its scene.yaml pose. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
 before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
 side; the tote, the item and the payload get none. Simulation only.
 """
 import math
 
 import rclpy
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovarianceStamped
 from moveit_msgs.msg import CollisionObject, PlanningScene
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -28,8 +30,10 @@ from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
 from openamrobot_build1_scene.planning_scene import (DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, MOVABLE_OBJECTS,
-                                                     DEFAULT_OBJECT_POSE_SOURCE, choose_base_pose, declaration, object_box_in_base,
-                                                     object_declaration, object_moved, object_pose_topic, padded)
+                                                     DEFAULT_OBJECT_POSE_SOURCE, ESTIMATE_FRAME, ESTIMATE_SOURCE,
+                                                     ESTIMATED_OBJECTS, choose_base_pose, declaration, object_box_in_base,
+                                                     object_declaration, object_moved, object_pose_topic, object_pose_type,
+                                                     padded, pose_fields)
 
 
 def yaw_of(q):
@@ -55,11 +59,15 @@ class PlanningSceneLoader(Node):
         movable = scene_model.movable_objects(self.scene)
         self.object_offset = {name: (movable[name]["size"][2] / 2.0 if movable[name]["kind"] == "tote" else 0.0)
                               for name in MOVABLE_OBJECTS if name in movable}
-        self.object_pose, self.object_sent = {}, {}
+        self.object_pose, self.object_frame, self.object_sent = {}, {}, {}
         self.object_pose_source = self.declare_parameter("object_pose_source", DEFAULT_OBJECT_POSE_SOURCE).value
         self.get_logger().info(object_declaration(self.object_pose_source))
+        # Under estimate, an object the estimator publishes is out of the scene until its first estimate.
+        self.unseen_left_out = set(ESTIMATED_OBJECTS) if self.object_pose_source == ESTIMATE_SOURCE else set()
+        kind = {"PoseStamped": PoseStamped, "PoseWithCovarianceStamped": PoseWithCovarianceStamped}[
+            object_pose_type(self.object_pose_source)]
         for name in self.object_offset:
-            self.create_subscription(PoseStamped, object_pose_topic(self.object_pose_source, name),
+            self.create_subscription(kind, object_pose_topic(self.object_pose_source, name),
                                      lambda m, n=name: self.on_object(n, m), 10)
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
@@ -76,8 +84,9 @@ class PlanningSceneLoader(Node):
         self.last_pose = None      # send again
 
     def on_object(self, name, msg):
-        p, q = msg.pose.position, msg.pose.orientation
-        self.object_pose[name] = ((p.x, p.y, p.z), (q.x, q.y, q.z, q.w))
+        frame, position, quaternion = pose_fields(msg)
+        self.object_frame[name] = frame
+        self.object_pose[name] = (position, quaternion)
 
     def on_truth(self, msg):
         p, q = msg.pose.pose.position, msg.pose.pose.orientation
@@ -124,13 +133,16 @@ class PlanningSceneLoader(Node):
         c, s = math.cos(-pose[2]), math.sin(-pose[2])
         names = set()
         for name, size, centre, yaw in self.boxes:
-            if name in self.excluded:
+            if name in self.excluded or (name in self.unseen_left_out and name not in self.object_pose):
                 continue
             dx, dy = centre[0] - pose[0], centre[1] - pose[1]
             box_pose = Pose()
             if name in self.object_pose:
                 position, quaternion = self.object_pose[name]
-                centre_b, q_b = object_box_in_base(pose, position, quaternion, self.object_offset[name])
+                # In base_footprint already (the estimator's frame): no base pose; in the world: the same base pose as
+                # the fixed boxes, from the declared planning_pose_source.
+                base = (0.0, 0.0, 0.0) if self.object_frame.get(name) == ESTIMATE_FRAME else pose
+                centre_b, q_b = object_box_in_base(base, position, quaternion, self.object_offset[name])
                 box_pose.position.x, box_pose.position.y, box_pose.position.z = centre_b
                 box_pose.orientation.x, box_pose.orientation.y, box_pose.orientation.z, box_pose.orientation.w = q_b
             else:
