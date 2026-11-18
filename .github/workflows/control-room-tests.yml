@@ -107,17 +107,31 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           export ROS_DOMAIN_ID=77 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
-          ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true use_sim_time:=false \
-            > ../launch.log 2>&1 &
+          # A background job of a non-interactive shell ignores SIGINT, so the launch is bounded by timeout and
+          # stopped with SIGTERM; every ros2 command is bounded too.
+          timeout -s TERM 120 ros2 launch "$PACKAGE" control_room.launch.py rviz:=false foxglove:=true vcan:=true \
+            use_sim_time:=false > ../launch.log 2>&1 &
           pid=$!
           sleep 20
-          ros2 node list | tee ../graph.txt
+          timeout 20 ros2 node list | tee ../graph.txt
           for node in /control_room_monitor /control_room_vcan_monitor /control_room_foxglove_bridge; do
             echo "== $node" | tee -a ../graph.txt
-            ros2 node info "$node" | tee -a ../graph.txt
+            timeout 20 ros2 node info "$node" | tee -a ../graph.txt
           done
-          ros2 topic echo --once /control_room/can/summary | head -40 | tee -a ../graph.txt
-          kill -INT $pid; wait $pid || true
+          # What the bridge offers a viewer, as a viewer sees it.
+          timeout 20 python3 - <<'PY' 2>&1 | tee -a ../summary.txt || true
+          import asyncio, json, websockets
+          async def main():
+              async with websockets.connect("ws://127.0.0.1:8765", subprotocols=["foxglove.websocket.v1", "foxglove.sdk.v1"]) as ws:
+                  info = json.loads(await asyncio.wait_for(ws.recv(), 10))
+                  print("foxglove subprotocol", ws.subprotocol, "capabilities", info.get("capabilities"))
+          asyncio.run(main())
+          PY
+          echo "== /control_room/can/summary (one message, not a node)" >> ../summary.txt
+          timeout 15 ros2 topic echo --once /control_room/can/summary 2>&1 | head -40 | tee -a ../summary.txt || true
+          kill -TERM $pid 2>/dev/null || true
+          for p in control_room_monitor.py vcan_monitor.py foxglove_bridge; do pkill -TERM -f "$p" || true; done
+          wait $pid || true
           cat ../launch.log
           python3 - ../graph.txt <<'EOF'
           import re, sys
@@ -179,6 +193,7 @@ jobs:
             test_result.txt
             test_counts.txt
             graph.txt
+            summary.txt
             launch.log
             versions.txt
             ws/build/openamrobot_control_room/test_results/
