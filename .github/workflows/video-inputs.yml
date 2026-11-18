@@ -1,0 +1,32 @@
+# Scratch workflow (not for merge): stages recorded run artifacts for offline video rendering.
+name: video-inputs
+on:
+  push:
+    branches: [diag/video-inputs]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Download recorded artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p b1 gd out
+          gh run download 44309791416 -R "$GITHUB_REPOSITORY" -n baseline1-acceptance-attempt1 -D b1
+          gh run download 44299879412 -R "$GITHUB_REPOSITORY" -n grocery-demo-attempt1 -D gd
+          find b1 gd -type f -printf 'FILE %s %p\n'
+          tar -C b1 -czf out/inputs_baseline1_44309791416.tgz .
+          tar -C gd -czf out/inputs_grocery_44299879412.tgz .
+          ls -la out
+      - name: Publish scratch pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create scratch-video-inputs-2026-11-19 out/* -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Scratch: recorded run artifacts staged for video rendering (to be deleted)" \
+            --notes "Scratch staging of recorded artifacts of runs 44309791416 and 44299879412 for offline video rendering. Simulation data only. Will be deleted after sim-videos-2026-11-19 is published."
+          gh release view scratch-video-inputs-2026-11-19 -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "ASSET \(.name) \(.size) \(.url)"'
