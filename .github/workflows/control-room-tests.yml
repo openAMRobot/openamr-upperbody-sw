@@ -117,7 +117,13 @@ jobs:
           timeout 30 ros2 node list --no-daemon | tee ../graph.txt
           for node in /control_room_monitor /control_room_vcan_monitor /control_room_foxglove_bridge; do
             echo "== $node" | tee -a ../graph.txt
-            timeout 30 ros2 node info "$node" 2>&1 | tee -a ../graph.txt
+            # Discovery through a freshly started daemon can lag: ask again until the node is there (at most 10 times).
+            for attempt in 1 2 3 4 5 6 7 8 9 10; do
+              timeout 30 ros2 node info "$node" > ../node.txt 2>&1 || true
+              grep -q "Publishers:" ../node.txt && break
+              sleep 3
+            done
+            tee -a ../graph.txt < ../node.txt
           done
           # What the bridge offers a viewer, as a viewer sees it.
           timeout 20 python3 - <<'PY' 2>&1 | tee -a ../summary.txt || true
