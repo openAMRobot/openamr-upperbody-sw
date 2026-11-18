@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT
+# Diagnostics only (do not merge): the odometry chain of finished grocery demo runs.
+# Downloads the artifacts of the listed runs and analyses their bags (tools/odom_freeze_diag/analyse.py). It runs no
+# mission, no Gazebo, no hardware and uses no secret beyond the job's read-only token.
+name: diag odom freeze
+
+on:
+  push:
+    branches: [diag/odom-freeze]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  analyse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # run:artifact. 44242589231 attempts 1 and 2 (/odom frozen), 44278919387 and 44299879412 (not frozen).
+      RUNS: >-
+        44242589231:grocery-demo-attempt1 44242589231:grocery-demo-attempt2
+        44299879412:grocery-demo-attempt1 44278919387:grocery-demo-attempt1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reader
+        run: python3 -m venv /tmp/v && /tmp/v/bin/pip install mcap==1.6.0 mcap-ros2-support==0.6.0
+      - name: Download and analyse
+        run: |
+          set +e
+          for item in $RUNS; do
+            r="${item%%:*}"; name="${item#*:}"
+            d="art/$r-$name"; mkdir -p "$d"
+            if gh run download "$r" -R "$GITHUB_REPOSITORY" -n "$name" -D "$d" >/dev/null 2>&1; then
+              echo "ODOMDIAG {\"tag\": \"download\", \"run\": \"$r\", \"artifact\": \"$name\", \"ok\": true}"
+              find "$d" -maxdepth 3 -type f -printf '%s %p\n' | sort -k2 | head -60
+              /tmp/v/bin/python -I tools/odom_freeze_diag/analyse.py "$d"
+            else
+              echo "ODOMDIAG {\"tag\": \"download\", \"run\": \"$r\", \"artifact\": \"$name\", \"ok\": false}"
+            fi
+            rm -rf "$d"
+          done
