@@ -32,7 +32,7 @@ The mission (`openamrobot_build1_scene/grocery_demo.py`), twelve phases in one r
 | 6 | grasp | gripper closes on the product | scn04 checks and limits, unchanged |
 | 7 | lift_object | hand rises 0.08 m and holds 3 s; the product is not released | item rise 0.04 to 0.12 m, drift 0.01 m (scn04) |
 | 8 | retreat_with_item | Nav2 backup 0.30 m with the product held | Baseline 1 backup checks; item rise 0.04 m; product to TCP 0.05 m |
-| 9 | nav_to_packing | Nav2 with the station tree out of aisle 1 to an approach pose 0.60 m in front of the packing station, facing the bench, then straight in to the station | Nav2 SUCCEEDED (both goals) and tolerance; item rise 0.04 m; product to TCP 0.05 m |
+| 9 | nav_to_packing | Nav2 with the station tree out of aisle 1 to an approach pose 0.60 m in front of the packing station, facing the bench, then Nav2 drive_on_heading straight in (distance from the AMCL pose) | Nav2 SUCCEEDED (both) and Nav2 tolerance; item rise 0.04 m; product to TCP 0.05 m |
 | 10 | place | lowers the product into the order tote, opens, withdraws 0.10 m | Cartesian fraction 0.999 and MoveIt success; product centre inside the tote's inner walls; height above the tote floor; speed 0.01 m/s after 1 s; gripper open (scn04 window) |
 | 11 | retreat | both arms to park, Nav2 backup 0.30 m | Baseline 1 retreat, unchanged |
 | 12 | return_to_parking | Nav2 with the station tree back to the parking bay | Nav2 SUCCEEDED and tolerance; odometry |
@@ -137,7 +137,8 @@ The job log prints the phase table, an evidence summary and the trace summary pe
   estimated). Not hardware, physical acceptance, perception or safety evidence.
 - sim-oracle profile: the planning scene and the grasp target come from the simulator's ground truth.
 - With the product held, the arm reaches 0.79 m ahead of the base and the Nav2 footprint follows it: the robot turns
-  0.60 m before the packing station and drives straight in (a turn at the station sweeps the bench legs).
+  0.60 m before the packing station and drives straight in with drive_on_heading (a turn at the station sweeps the
+  bench legs, and the station tree's final stage turns in place to correct a lateral offset of a few cm).
 - The product is not in the MoveIt planning scene while it is carried and placed (it is not attached to the hand
   either); the arm does not move while the base drives, and the place lowers the hand straight down.
 - One product, one order tote, one run. The packing station's 0.10 m gap is chosen so that the arm does not move

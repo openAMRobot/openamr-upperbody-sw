@@ -153,6 +153,13 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None,
         log.quantity(f"nav_{name}_yaw_error", abs(angle_diff(yaw, gyaw)), "rad", note="recorded, no limit")
         return status
     log.quantity("nav_status", status, "GoalStatus", low=b1.SUCCEEDED, high=b1.SUCCEEDED, note="4 SUCCEEDED, 6 ABORTED, None: no result in time")
+    station_checks(rig, log, demo, (gx, gy, gyaw), start, travelled0, amcl, count0, reach_budget)
+    return status
+
+
+def station_checks(rig, log, demo, goal, start, travelled0, amcl, count0, reach_budget):
+    """The checks of Baseline 1's nav_to_station after a goal at `goal` (x, y, yaw) ended."""
+    gx, gy, gyaw = goal
     log.quantity("nav_time", rig.sim_time() - start, "s of Gazebo time")
     log.quantity("nav_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
     x, y, yaw = rig.truth()
@@ -183,7 +190,6 @@ def navigate(rig, log, scene, name, demo, events, reach_budget=False, pose=None,
                      note="the arm-reach budget of Baseline 1, derived")
     if rig.devices:
         log.quantity("nav_host_client_drive_thread_alive", rig.drive_host_alive(), "bool", low=True, high=True)
-    return status
 
 
 class OdomProbe:
@@ -430,8 +436,40 @@ def nav_to_packing(rig, log, scene, demo, events):
     first = navigate(rig, log, scene, "packing_approach", demo, events, pose=approach_pose(scene, PACK_STATION), checks=False)
     if first != b1.SUCCEEDED:
         return
-    navigate(rig, log, scene, PACK_STATION, demo, events)
+    drive_in(rig, log, scene, demo, events)
     held_checks(rig, log, demo, "at_packing")
+
+
+def drive_in(rig, log, scene, demo, events):
+    """The last APPROACH_M straight in with Nav2's drive_on_heading behavior (collision-checked, through the velocity
+    smoother and the collision monitor like every Nav2 command), the distance from the robot's own map pose (AMCL).
+    Not the station tree: its StationApproach stage turns the robot in place to correct a lateral offset of a few cm,
+    which with the product held sweeps the arm over the bench (run 44278919387: 0.85 rad turns, Nav2 ABORTED after
+    'Failed to make progress', base 0.083 m from the station). The order tote leaves 0.17 m and more around the product,
+    so the station is held to Nav2's own goal tolerance and the place checks decide."""
+    from nav2_msgs.action import DriveOnHeading
+    from openamrobot_build1_scene import scenarios as s
+    gx, gy, gyaw = station(scene, PACK_STATION)
+    amcl = b1.AmclListener(rig)
+    rig.sleep_sim(0.5)
+    count0 = amcl.count
+    here = b1.map_pose(rig)
+    if not log.require(here is not None, "no map > base_footprint transform before the drive in"):
+        return
+    along = (gx - here[0]) * math.cos(gyaw) + (gy - here[1]) * math.sin(gyaw)
+    distance = min(max(along, 0.0), APPROACH_M + 0.30)
+    log.quantity("nav_drive_in_distance", distance, "m", note=f"along the station heading from the AMCL pose ({along:.3f} m before clamping)")
+    goal = DriveOnHeading.Goal()
+    goal.target.x, goal.speed, goal.time_allowance = float(distance), 0.10, s._duration(60.0)
+    events(f"drive in {distance:.3f} m to the packing station (drive_on_heading)")
+    start, travelled0 = rig.sim_time(), demo["travelled"]
+    handle = rig.send_goal("/drive_on_heading", "nav2_msgs.action", "DriveOnHeading", goal)
+    if not log.require(handle is not None, "Nav2 drive_on_heading did not accept the goal"):
+        return
+    status, _ = rig.wait_result(handle, 120.0, "drive in to the packing station")
+    events(f"drive in result: status {status}")
+    log.quantity("nav_status", status, "GoalStatus", low=b1.SUCCEEDED, high=b1.SUCCEEDED, note="drive_on_heading: 4 SUCCEEDED")
+    station_checks(rig, log, demo, (gx, gy, gyaw), start, travelled0, amcl, count0, reach_budget=False)
 
 
 def _lower_and_open(rig, log, scene, tote, events):
