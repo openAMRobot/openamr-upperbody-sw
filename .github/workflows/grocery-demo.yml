@@ -1,0 +1,207 @@
+# SPDX-License-Identifier: MIT
+# Grocery dark store demo (simulation/scenes/grocery, docs/demo): MuJoCo scene around the generated robot MJCF, the grasp-and-lift
+# contact experiment, the recording (mp4 artifact), and the Isaac Sim stage checked with usd-core.
+#   mujoco: hosted runner, CPU rendering (Mesa EGL). Generates bp000 with the locked expansion exactly as simulators.yml does.
+#   isaac-render: needs Isaac Sim 5.1 on an NVIDIA GPU (repository variable ISAAC_GPU_RUNNER). Without one it is BLOCKED and fails.
+# Results are MuJoCo experiment and demo evidence only: not ROS, firmware, hardware, physical acceptance or safety evidence.
+# No secrets, no hardware, read-only token.
+name: Grocery demo
+
+on:
+  pull_request:
+    paths:
+      - "simulation/**"
+      - "docs/demo/**"
+      - ".github/workflows/grocery-demo.yml"
+      - "ros2/src/openamrobot_upperbody_description/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PINS_FILE: src/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml
+  LOCK_FILE: src/openamr-upperbody-sw/simulation/expansion_lock.yaml
+
+jobs:
+  mujoco:
+    name: grocery mujoco (scene, experiment, recording)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    concurrency:
+      group: grocery-mujoco-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    defaults:
+      run:
+        working-directory: ws
+    steps:
+      - run: mkdir -p ws
+        working-directory: .
+
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import os, re, yaml
+          pins = yaml.safe_load(open(os.environ["PINS_FILE"]))["pins"]
+          lock = yaml.safe_load(open(os.environ["LOCK_FILE"]))
+          for key, value in (("platform", pins["openamr_platform_sw"]), ("openarm_description", pins["openarm_description"])):
+              assert re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          xacro = {e["inputs"]["xacro_package_version"] for e in lock["entries"]}
+          assert len(xacro) == 1, xacro
+          print(f"xacro={xacro.pop()}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      # Same xacro build as the lock (see simulators.yml); ffmpeg and Mesa EGL for CPU rendering of the recording.
+      - name: xacro at the locked version, Python packages at their pins, ffmpeg and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "ros-jazzy-xacro=${{ steps.pins.outputs.xacro }}" \
+            || sudo apt-get install -y --no-install-recommends ros-jazzy-xacro
+          sudo apt-get install -y --no-install-recommends ffmpeg libegl1 libegl-mesa0 libgl1-mesa-dri libgles2
+          dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-xacro ffmpeg libegl-mesa0 | tee versions.txt
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --quiet -r src/openamr-upperbody-sw/simulation/requirements.txt
+          .venv/bin/pip freeze | grep -i -E '^(mujoco|usd-core|numpy|pyyaml|pytest)==' | tee -a versions.txt
+          { echo '### Versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate bp000 (MJCF and the Isaac import job) with the lock check
+        run: |
+          set -o pipefail
+          source /opt/ros/jazzy/setup.bash
+          .venv/bin/python src/openamr-upperbody-sw/simulation/tools/generate.py --isaac --config bp000 \
+            --platform-sw src/openamr-platform-sw --openarm-description src/upstream/openarm_description --out build/sim \
+            | tee generate.jsonl
+
+      - name: Compose the MuJoCo grocery scene
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          .venv/bin/python src/openamr-upperbody-sw/simulation/scenes/grocery/compose_mujoco.py \
+            --robot build/sim/bp000/openamrobot_bp000.xml --out build/grocery/mujoco
+
+      - name: Grocery tests
+        env:
+          GROCERY_ROBOT_MJCF: ${{ github.workspace }}/ws/build/sim/bp000/openamrobot_bp000.xml
+          GROCERY_ISAAC_JOB: ${{ github.workspace }}/ws/build/sim/bp000/isaac/isaac_job.json
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set +e
+          .venv/bin/python -m pytest -p no:cacheprovider -rfE --junitxml=grocery-tests.xml src/openamr-upperbody-sw/simulation/scenes/grocery/tests
+          echo "TESTS_RC=$?" >> "$GITHUB_ENV"
+
+      - name: Test counts
+        if: always()
+        run: |
+          python3 - "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse("grocery-tests.xml").getroot()
+          t = {k: sum(int(s.get(k, 0)) for s in root.iter("testsuite")) for k in ("tests", "failures", "errors", "skipped")}
+          blocked = sum(1 for c in root.iter("testcase") for f in list(c.findall("failure")) + list(c.findall("error"))
+                        if "BLOCKED" in (f.get("message") or "") + (f.text or ""))
+          line = (f"discovered {t['tests']}, skipped {t['skipped']}, executed {t['tests'] - t['skipped']}, "
+                  f"failed {t['failures'] + t['errors']} (of which BLOCKED {blocked})")
+          print(line)
+          with open(sys.argv[1], "a") as out:
+              out.write(f"### Grocery tests\n\n{line}\n\n")
+          if t["tests"] - t["skipped"] == 0:
+              sys.exit("no test executed")
+          EOF
+
+      - name: Grasp and lift sweep (MuJoCo experiment, not ROS or firmware integrated)
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          .venv/bin/python src/openamr-upperbody-sw/simulation/scenes/grocery/grasp_experiment.py \
+            --scene build/grocery/mujoco/grocery_scene.xml --out build/grocery/experiment
+          cat build/grocery/experiment/results.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Recording (CPU rendering)
+        env:
+          MUJOCO_GL: egl
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          .venv/bin/python src/openamr-upperbody-sw/simulation/scenes/grocery/record_mujoco.py \
+            --scene build/grocery/mujoco/grocery_scene.xml --out build/grocery/video
+          sha256sum build/grocery/video/* | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Isaac stage (usd-core, store only; the robot USD needs a GPU)
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set +e
+          .venv/bin/python src/openamr-upperbody-sw/simulation/scenes/grocery/compose_isaac.py \
+            --robot-usd build/sim/bp000/isaac/openamrobot_bp000.usd --job build/sim/bp000/isaac/isaac_job.json \
+            --out build/grocery/isaac/grocery_store.usda
+          echo "compose_isaac exit status: $? (3 = BLOCKED: no robot USD without a GPU)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: grocery-demo
+          path: |
+            ws/build/grocery/
+            ws/grocery-tests.xml
+            ws/generate.jsonl
+            ws/versions.txt
+          if-no-files-found: warn
+
+      - name: Result
+        run: |
+          echo "pytest exit status: $TESTS_RC"
+          exit "$TESTS_RC"
+
+  isaac-render:
+    name: grocery isaac render (needs a GPU)
+    runs-on: ${{ vars.ISAAC_GPU_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 90
+    steps:
+      - name: GPU
+        id: gpu
+        run: |
+          if command -v nvidia-smi >/dev/null && nvidia-smi -L; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: BLOCKED without a GPU
+        if: steps.gpu.outputs.present != 'true'
+        run: |
+          {
+            echo '### Isaac Sim grocery render: BLOCKED'
+            echo
+            echo 'No GPU on this runner: Isaac Sim 5.1 can neither import the robot USD nor render the stage. BLOCKED is not PASS.'
+            echo 'The commands for a GPU machine are in docs/demo/grocery_scene.md, section Isaac Sim.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "BLOCKED: no GPU on this runner; the Isaac Sim grocery render was not run"
+          exit 1
+
+      - name: GPU runner
+        if: steps.gpu.outputs.present == 'true'
+        run: |
+          echo "A GPU runner must provide the generator inputs and the Isaac Sim 5.1.0 image; docs/demo/grocery_scene.md lists the commands."
+          echo "This step has never run: no GPU runner exists yet."
+          exit 1

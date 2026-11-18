@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: MIT
+# Grocery dark store demo scene: the single source of the MuJoCo scene (compose_mujoco.py) and the Isaac Sim stage
+# (compose_isaac.py). Demo input only: nothing here is a measurement of a site, a product or a built robot.
+#
+# Every number has a status, as in the Build 1 Gazebo scene:
+#   copied     the same value as the Build 1 Gazebo scene; `source` names the key
+#   estimated  chosen for this demo; no document states it
+# BUILD1 is ros2/src/openamrobot_build1_scene/config/scene.yaml of openamr-upperbody-sw pull request 73 at head
+# 1a8406688432760c8f5dbe0253c9bbe8cde66027 (Build 1 arm path), read on 18 Nov 2026. The values are copied, not imported: that file is
+# not on this branch. If BUILD1 changes, test_store.py does not notice; re-read it and update the copied values.
+schema_version: 1
+name: grocery_dark_store
+
+sources:
+  BUILD1: "openamr-upperbody-sw PR 73 head 1a84066, ros2/src/openamrobot_build1_scene/config/scene.yaml"
+  LIFT: "openAMRobot/.github decisions.yaml entry LIFT: DOLD Hexalift V4, 18 mm/s"
+  CAMERAS: "openAMRobot/.github decisions.yaml entry CAMERAS: base camera Gemini 336L at base_camera_link"
+
+# World frame: z up, floor at z = 0. The robot's base_footprint stands at the pick station, the origin, facing +x.
+# Aisle 1 runs along y between shelf row R1 (in front of the robot, faces -x) and row R0 (behind it, faces +x).
+# Row R2 stands back to back with R1 and faces +x into aisle 2, closed by row R3.
+robot:
+  configuration: bp000
+  pick_station: {pose: [0.0, 0.0, 0.0], status: estimated, note: "base_footprint x, y, yaw at the pick"}
+  parking_spot: {pose: [-0.15, -3.2, 1.5707963267948966], status: estimated, note: "start of the recording, end of aisle 1"}
+
+shelf:
+  unit_length: {value: 1.20, unit: m, status: copied, source: "BUILD1 shelf.unit_length"}
+  depth: {value: 0.40, unit: m, status: copied, source: "BUILD1 shelf.depth"}
+  board_thickness: {value: 0.02, unit: m, status: copied, source: "BUILD1 shelf.board_thickness"}
+  post: {value: 0.04, unit: m, status: copied, source: "BUILD1 shelf.post"}
+  # BUILD1 has the two sourced work levels only. The bottom and top boards are demo dressing.
+  levels:
+    - {value: 0.15, unit: m, status: estimated, source: "demo dressing, bottom board"}
+    - {value: 0.82, unit: m, status: copied, source: "BUILD1 shelf.levels[0] (UC1 site heights table, 82 cm surface)"}
+    - {value: 1.09, unit: m, status: copied, source: "BUILD1 shelf.levels[1] (UC1 site heights table, 109 cm surface)"}
+    - {value: 1.42, unit: m, status: estimated, source: "demo dressing, top board"}
+  units_per_row: 3
+
+aisle:
+  width: {value: 1.50, unit: m, status: copied, source: "BUILD1 aisle.width"}
+  parking_gap: {value: 0.30, unit: m, status: copied, source: "BUILD1 work_shelf.parking_gap (footprint front to shelf front)"}
+  footprint_front_x: {value: 0.415, unit: m, status: copied, source: "BUILD1 scene.py FOOTPRINT_FRONT_X (platform-sw nav2 octagon)"}
+
+# The pick: the tote stands on R1 level 0.82 m in front of the robot, the target product in it on the robot's left.
+tote:
+  size: {value: [0.40, 0.30, 0.06], unit: m, status: copied, source: "BUILD1 tote.size"}
+  wall: {value: 0.005, unit: m, status: copied, source: "BUILD1 tote.wall"}
+  mass: {value: 0.6, unit: kg, status: copied, source: "BUILD1 tote.mass"}
+  level: 1
+  offset: [0.0, 0.0]      # BUILD1 tote.offset: along the row from the pick station, inward from the shelf front
+  friction: {value: 0.8, unit: "1", status: copied, source: "BUILD1 scene.py movable_objects tote friction"}
+
+product:
+  name: target_product
+  size: {value: [0.035, 0.035, 0.14], unit: m, status: copied, source: "BUILD1 item.size"}
+  mass: {value: 0.15, unit: kg, status: copied, source: "BUILD1 item.mass"}
+  friction: {value: 1.0, unit: "1", status: copied, source: "BUILD1 item.friction (not measured)"}
+  offset: [0.16, 0.035]   # BUILD1 item.offset (-0.16 along the shelf = +0.16 on the robot's left), inward from the tote front wall
+  rgba: [0.85, 0.12, 0.10, 1.0]
+
+packing_tote:
+  pose: [-0.55, 2.55, 0.0]   # x, y, yaw on the packing table
+  size: {value: [0.60, 0.40, 0.25], unit: m, status: estimated, source: "demo dressing"}
+  wall: {value: 0.008, unit: m, status: estimated, source: "demo dressing"}
+  table: {size: [1.20, 0.70, 0.72], pose: [-0.55, 2.55, 0.0], status: estimated}
+
+# Filler products: static boxes and cylinders on the boards (no free joint, they collide but never move).
+# Sizes are rough classes of grocery packs, estimated. The generator is deterministic (seeded).
+fillers:
+  seed: 20261118
+  classes:
+    - {kind: box, size: [0.07, 0.07, 0.20], name: cereal}
+    - {kind: box, size: [0.06, 0.09, 0.12], name: pack}
+    - {kind: cylinder, radius: 0.033, height: 0.12, name: can}
+    - {kind: cylinder, radius: 0.045, height: 0.26, name: bottle}
+    - {kind: box, size: [0.09, 0.09, 0.09], name: carton}
+  pitch: {value: 0.11, unit: m, status: estimated}
+  keep_clear: {centre: [0.75, 0.0], half: [0.35, 0.40], note: "R1 level 0.82 around the tote stays free"}
+
+markings:
+  colour: [0.95, 0.75, 0.10, 1.0]
+  width: 0.05
+
+lights:
+  - {pos: [0.0, -1.2, 3.2], dir: [0, 0, -1]}
+  - {pos: [0.0, 1.2, 3.2], dir: [0, 0, -1]}
+  - {pos: [2.3, 0.0, 3.2], dir: [0, 0, -1]}
+
+# The grasp and lift sequence of the MuJoCo experiment and recording. The lift speed is the decided value; the generated model
+# does not enforce it (audits PR 89, P07), so the scripts ramp the lift setpoint at this speed.
+pick:
+  arm: left
+  grasp_height_above_product_centre: {value: 0.025, unit: m, status: estimated, note: "fingers clear the tote wall top"}
+  approach_distance: {value: 0.08, unit: m, status: estimated}
+  lift_travel: {value: 0.06, unit: m, status: estimated}
+  lift_speed: {value: 0.018, unit: m/s, status: copied, source: "LIFT, 18 mm/s"}
