@@ -158,6 +158,10 @@ def analyse(run_dir):
     T, M = s["truth"].at(t_end), mpose(t_end)
     if T is None or M is None:
         out["error"] = f"truth {T is not None}, map pose {M is not None} at {t_end}"
+        out["tf_edges"] = {f"{k[0]}>{k[1]}": [len(v.t), round(v.t[0], 2), round(v.t[-1], 2)] for k, v in tf.items()
+                           if k[1] in ("odom", "base_footprint", "base_link") or k[0] in ("map", "odom")}
+        out["tf_static_edges"] = [f"{k[0]}>{k[1]}" for k in static if k[1] in ("base_footprint", "base_link")]
+        out["bag_truth_span"] = [round(s["truth"].t[0], 2), round(s["truth"].t[-1], 2)] if s["truth"].t else None
         return out
     tot, navr, loc = err(T, GOAL), err(M, GOAL), err(T, M)
     out.update({"t0": round(t0, 2), "t_end": round(t_end, 2),
