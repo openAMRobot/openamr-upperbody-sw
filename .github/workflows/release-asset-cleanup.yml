@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: MIT
+# One-off: delete the doubled-caption video asset from release sim-grocery-demo-2026-11-18 (grocery demonstrator,
+# PR #86). Keeps grocery_demo_44299879412_original.mp4. Runs only on a push to this scratch branch. No other change.
+name: Release asset cleanup (one-off)
+
+on:
+  push:
+    branches: [scratch/release-asset-cleanup]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Delete grocery_demo_44299879412.mp4, keep the _original.mp4 asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: sim-grocery-demo-2026-11-18
+          DELETE_NAME: grocery_demo_44299879412.mp4
+          KEEP_NAME: grocery_demo_44299879412_original.mp4
+        run: |
+          set -eu
+          echo "before:"; gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | "\(.id) \(.name) \(.size)"'
+          id=$(gh api "repos/$REPO/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$DELETE_NAME\") | .id")
+          if [ -n "$id" ]; then gh api -X DELETE "repos/$REPO/releases/assets/$id"; echo "deleted asset $id ($DELETE_NAME)"; else echo "$DELETE_NAME not present"; fi
+          echo "after:"; gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | "\(.id) \(.name) \(.size)"'
+          gh api "repos/$REPO/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$KEEP_NAME\") | .name" | grep -qx "$KEEP_NAME"
+          ! gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[].name' | grep -qx "$DELETE_NAME"
