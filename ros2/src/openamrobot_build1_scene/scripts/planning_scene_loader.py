@@ -8,14 +8,15 @@ when Nav2 localises, else the spawn pose with odom -> base_footprint). When the 
 again. This node is the one writer of /planning_scene besides move_group itself.
 
 The robot's pose for that comes from its own estimate by default (pose_source map, planning_scene.py); pose_source
-ground_truth (a simulation oracle) takes /build1/ground_truth/odom instead and must be asked for explicitly. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
+ground_truth (a simulation oracle) takes /build1/ground_truth/odom instead and must be asked for explicitly. The tote,
+the item and the payload follow their observed poses (/build1/ground_truth/<name>/pose) in both cases. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
 before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
 side; the tote, the item and the payload get none. Simulation only.
 """
 import math
 
 import rclpy
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, PoseStamped
 from moveit_msgs.msg import CollisionObject, PlanningScene
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -26,7 +27,8 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
-from openamrobot_build1_scene.planning_scene import DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, choose_base_pose, declaration, padded
+from openamrobot_build1_scene.planning_scene import (DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, MOVABLE_OBJECTS, OBJECTS_DECLARATION,
+                                                     choose_base_pose, declaration, object_box_in_base, object_moved, padded)
 
 
 def yaw_of(q):
@@ -48,6 +50,15 @@ class PlanningSceneLoader(Node):
         self.get_logger().info(declaration(self.pose_source))
         self.truth = None
         self.create_subscription(Odometry, "/build1/ground_truth/odom", self.on_truth, 10)
+        # Movable objects follow their observed poses (planning_scene.MOVABLE_OBJECTS); until one is seen, its start pose.
+        movable = scene_model.movable_objects(self.scene)
+        self.object_offset = {name: (movable[name]["size"][2] / 2.0 if movable[name]["kind"] == "tote" else 0.0)
+                              for name in MOVABLE_OBJECTS if name in movable}
+        self.object_pose, self.object_sent = {}, {}
+        for name in self.object_offset:
+            self.create_subscription(PoseStamped, f"/build1/ground_truth/{name}/pose",
+                                     lambda m, n=name: self.on_object(n, m), 10)
+        self.get_logger().info(OBJECTS_DECLARATION)
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
         self.publisher = self.create_publisher(PlanningScene, "/planning_scene", 10)
@@ -61,6 +72,10 @@ class PlanningSceneLoader(Node):
     def on_exclude(self, msg):
         self.excluded = {name.strip() for name in msg.data.split(",") if name.strip()}
         self.last_pose = None      # send again
+
+    def on_object(self, name, msg):
+        p, q = msg.pose.position, msg.pose.orientation
+        self.object_pose[name] = ((p.x, p.y, p.z), (q.x, q.y, q.z, q.w))
 
     def on_truth(self, msg):
         p, q = msg.pose.pose.position, msg.pose.pose.orientation
@@ -97,6 +112,8 @@ class PlanningSceneLoader(Node):
         # Sent when the base has moved or the list changed. At start it is sent three times, 5 s apart, so that a
         # move_group that came up late has it. Not sent periodically after that: every update makes MoveIt check its
         # running plan again.
+        moved = moved or any(object_moved(self.object_sent.get(name), pose_now)
+                             for name, pose_now in self.object_pose.items())
         if not moved and self.last_sent is not None:
             if self.startup_sends >= 3 or (now - self.last_sent).nanoseconds < 5e9:
                 return
@@ -109,9 +126,15 @@ class PlanningSceneLoader(Node):
                 continue
             dx, dy = centre[0] - pose[0], centre[1] - pose[1]
             box_pose = Pose()
-            box_pose.position.x, box_pose.position.y, box_pose.position.z = c * dx - s * dy, s * dx + c * dy, centre[2]
-            relative = yaw - pose[2]
-            box_pose.orientation.z, box_pose.orientation.w = math.sin(relative / 2.0), math.cos(relative / 2.0)
+            if name in self.object_pose:
+                position, quaternion = self.object_pose[name]
+                centre_b, q_b = object_box_in_base(pose, position, quaternion, self.object_offset[name])
+                box_pose.position.x, box_pose.position.y, box_pose.position.z = centre_b
+                box_pose.orientation.x, box_pose.orientation.y, box_pose.orientation.z, box_pose.orientation.w = q_b
+            else:
+                box_pose.position.x, box_pose.position.y, box_pose.position.z = c * dx - s * dy, s * dx + c * dy, centre[2]
+                relative = yaw - pose[2]
+                box_pose.orientation.z, box_pose.orientation.w = math.sin(relative / 2.0), math.cos(relative / 2.0)
             collision = CollisionObject(id=name, operation=CollisionObject.ADD)
             collision.header.frame_id = "base_footprint"
             collision.primitives = [SolidPrimitive(type=SolidPrimitive.BOX, dimensions=[float(v) for v in size])]
@@ -128,6 +151,7 @@ class PlanningSceneLoader(Node):
             self.get_logger().info(f"{len(names)} collision objects in base_footprint, base at "
                                    f"({pose[0]:.2f}, {pose[1]:.2f}, {pose[2]:.2f}) from {source}")
         self.sent_names, self.last_pose, self.last_sent = names, pose, now
+        self.object_sent = dict(self.object_pose)
 
 
 def main():

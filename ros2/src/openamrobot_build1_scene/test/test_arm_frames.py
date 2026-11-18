@@ -274,3 +274,74 @@ def test_the_item_sits_in_the_fingers_short_of_the_palm():
     assert 0.008 <= af.ITEM_DEPTH_BEHIND_TCP_M <= af.TCP_ALONG_FINGERS_M - af.PALM_ALONG_FINGERS_M - 0.0175
     body = _grasp_body()
     assert "tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)" in body
+
+
+def _yaw_quaternion(yaw):
+    return (0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0))
+
+
+def test_a_movable_object_is_placed_where_it_was_observed_in_the_base_frame(scene):
+    """At its start pose the observed placement equals the old static one; a yawed base and a tipped box are placed
+    with their full orientation; the tote's box centre sits half its height up its own z axis."""
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import object_box_in_base
+    base = (0.0, -2.08, -1.57)
+    c, s = math.cos(-base[2]), math.sin(-base[2])
+    movable = scene_model.movable_objects(scene)
+    for name, size, centre, yaw in scene_model.collision_boxes(scene):
+        if name not in movable:
+            continue
+        body = movable[name]
+        offset = body["size"][2] / 2.0 if body["kind"] == "tote" else 0.0
+        position, q = object_box_in_base(base, body["pose"][:3], _yaw_quaternion(body["pose"][3]), offset)
+        dx, dy = centre[0] - base[0], centre[1] - base[1]
+        assert np.allclose(position, (c * dx - s * dy, s * dx + c * dy, centre[2]), atol=1e-9), name
+        assert np.allclose(matrix(*q), matrix(*_yaw_quaternion(yaw - base[2])), atol=1e-9), name
+    assert np.allclose(object_box_in_base((1.0, 2.0, math.pi / 2), (1.0, 3.0, 0.5), _yaw_quaternion(math.pi / 2))[0],
+                       (1.0, 0.0, 0.5), atol=1e-9)
+    tipped = (math.sin(math.pi / 4), 0.0, 0.0, math.cos(math.pi / 4))   # 90 deg about x: its z axis along -y
+    position, q = object_box_in_base((0.0, 0.0, 0.0), (0.0, 0.0, 0.8), tipped, 0.1)
+    assert np.allclose(position, (0.0, -0.1, 0.8), atol=1e-9)
+    assert np.allclose(matrix(*q) @ np.array([0.0, 0.0, 1.0]), (0.0, -1.0, 0.0), atol=1e-9)
+
+
+def test_the_knocked_over_item_of_scn03_leaves_its_start_box(scene):
+    """CI job 134653118730: the L0_left reach knocked the item over (ground truth [0.0694, -2.8438, 0.8425], 0.14 m
+    tall box lying down) and MoveIt, which still had it standing at its start pose, refused the return to park as a
+    start state in collision. The placed box now follows the item."""
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import object_box_in_base
+    base = (0.0, -2.08, -1.57)
+    start = scene_model.movable_objects(scene)["item"]["pose"]
+    lying = (math.sin(math.pi / 4), 0.0, 0.0, math.cos(math.pi / 4))
+    stale, _ = object_box_in_base(base, start[:3], _yaw_quaternion(start[3]))
+    observed, q = object_box_in_base(base, (0.0694, -2.8438, 0.8425), lying)
+    assert math.dist(stale, observed) > 0.08
+    assert abs((matrix(*q) @ np.array([0.0, 0.0, 1.0]))[2]) < 1e-9, "the box lies down as the item does"
+
+
+def test_the_scene_is_sent_again_when_an_object_moves_or_turns():
+    from openamrobot_build1_scene.planning_scene import OBJECT_MOVED_M, OBJECT_TURNED_RAD, object_moved
+    here = ((0.1, -2.8, 0.87), (0.0, 0.0, 0.0, 1.0))
+    assert object_moved(None, here)
+    assert not object_moved(here, here)
+    assert not object_moved(here, ((0.1 + OBJECT_MOVED_M / 2, -2.8, 0.87), here[1]))
+    assert object_moved(here, ((0.1 + 2 * OBJECT_MOVED_M, -2.8, 0.87), here[1]))
+    turn = 2 * OBJECT_TURNED_RAD
+    assert object_moved(here, (here[0], (math.sin(turn / 2), 0.0, 0.0, math.cos(turn / 2))))
+    half = OBJECT_TURNED_RAD / 2
+    assert not object_moved(here, (here[0], (0.0, 0.0, -math.sin(half / 2), -math.cos(half / 2))))  # q and -q agree
+
+
+def test_the_loader_places_the_movable_objects_from_their_observed_poses_in_both_pose_sources():
+    from openamrobot_build1_scene.planning_scene import MOVABLE_OBJECTS, OBJECTS_DECLARATION
+    assert set(MOVABLE_OBJECTS) == {"tote", "item", "payload"} and "observed" in OBJECTS_DECLARATION
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert 'f"/build1/ground_truth/{name}/pose"' in loader
+    assert "object_box_in_base(pose, position, quaternion, self.object_offset[name])" in loader
+    assert "object_moved(self.object_sent.get(name), pose_now)" in loader
+    assert "self.object_sent = dict(self.object_pose)" in loader
+    assert "self.get_logger().info(OBJECTS_DECLARATION)" in loader
+    # The same base pose for objects and fixtures: the declared source, never a separate truth path for the objects.
+    assert loader.count("object_box_in_base(") == 1

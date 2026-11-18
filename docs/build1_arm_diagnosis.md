@@ -292,6 +292,21 @@ with mu 0.5 and a safety factor of 2. The contact forces balance 0.14 to 0.26 N 
 less than the emulator reports (5 to 7 times before the fix). Mass, mu and pad friction are estimates; nothing here is
 a gripper measurement.
 
+## Cycle 7: scn03 return refused against a stale item box (18 Nov)
+
+Job 134653118730 (integration/baseline1 `cc0e9e5`, `planning_pose_source: map`). The base belief was exact (spawn
+pose and odom, base at (0.00, -2.08, -1.57)). The L0_left reach ended with the hand base at [0.6751, 0.1556, 0.9894]
+(base_footprint) for the target [0.6645, 0.16, 0.98], 0.015 m above the item's top; the arm touched the item and
+knocked it over: ground truth [0.0694, -2.8438, 0.8425], about 0.09 m from its start and lying down. The loader still
+placed the item box at its scene.yaml start pose, standing under the hand, so every return plan was refused with
+`CheckStartStateCollision: item - openarm_left_ee_base_link` (error -10, three attempts) and the arm stayed off park.
+The map default did not cause it: the loader never moved the movable boxes in either pose source.
+
+Fix: the tote, the item and the payload are placed from their observed poses (`/build1/ground_truth/<name>/pose`,
+the perception stand-in the scenarios already take their targets from), with full orientation, relative to the
+declared base pose; the start pose is used only until the first observation. The scene is sent again when one moves
+more than 0.01 m or turns more than 0.05 rad. The touch at the left level-0 target (remaining risk 6) is unchanged.
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the

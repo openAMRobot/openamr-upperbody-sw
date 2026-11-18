@@ -5,6 +5,13 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (18 Nov 2026; scn03 return to park; simulation only)
+
+- **Movable objects follow their observed poses in the planning scene.** The loader kept the tote, the item and the payload at
+  their scene.yaml start poses. When the scn03 level-0 reach knocked the item over (job 134653118730), MoveIt still had it standing
+  under the hand and refused the return to park as a start state in collision (item - openarm_left_ee_base_link). They are now
+  placed from `/build1/ground_truth/<name>/pose` relative to the declared base pose, and the scene is resent when one moves.
+
 ### Fixed (17 Nov 2026; scn04 in the Baseline 1 mission; simulation only)
 
 - **Approach square to the item's face.** In the mission the base stands up to 0.067 m and 0.08 rad off the station, and the approach
