@@ -1,0 +1,63 @@
+# Scratch workflow (not for merge): extracts the recorded videos from finished Baseline 1 runs, converts them to
+# browser-playable H.264 MP4 and publishes them as a GitHub pre-release. It re-runs no simulation.
+name: extract-videos
+on:
+  push:
+    branches: [diag/extract-videos]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+      - name: Download artifacts of the three 8/8 runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          mkdir -p art
+          for run in 44309791416 44309804809 44309817813; do
+            gh run download "$run" -R "$GITHUB_REPOSITORY" -D "art/$run" || echo "download failed for $run"
+          done
+          find art -type f | sed 's/^/FILE /' | head -400
+      - name: Probe every video
+        run: |
+          find art -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' -o -iname '*.ogv' \) | while read -r f; do
+            echo "== $f ($(stat -c %s "$f") bytes)"
+            ffprobe -v error -show_entries format=duration,format_name:stream=codec_name,width,height,r_frame_rate,pix_fmt -of compact "$f" || true
+          done
+          echo "== image sequences:"; find art -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); [ "$n" -gt 20 ] && echo "$d $n png"; done; true
+      - name: Convert to browser H.264 MP4
+        run: |
+          set -e
+          mkdir -p out
+          for run in 44309791416 44309804809 44309817813; do
+            f=$(find "art/$run" -type f \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.webm' -o -iname '*.avi' \) -printf '%s %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            if [ -n "$f" ]; then
+              ffmpeg -v error -y -i "$f" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -movflags +faststart -an "out/baseline1_${run}.mp4"
+            else
+              d=$(find "art/$run" -type d | while read -r d; do n=$(find "$d" -maxdepth 1 -iname '*.png' | wc -l); echo "$n $d"; done | sort -rn | head -1 | cut -d' ' -f2-)
+              [ -n "$d" ] && ffmpeg -v error -y -framerate 10 -pattern_type glob -i "$d/*.png" -c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -movflags +faststart "out/baseline1_${run}.mp4" || true
+            fi
+            [ -f "out/baseline1_${run}.mp4" ] && ffprobe -v error -show_entries format=duration:stream=codec_name,width,height -of compact "out/baseline1_${run}.mp4" | sed "s/^/OUT $run /"
+          done
+          ls -la out
+      - name: Publish pre-release and output branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          ls out/*.mp4 >/dev/null
+          cat > notes.md <<'N'
+          Recordings extracted unchanged from three Baseline 1 acceptance runs on 18 Nov 2026 that passed 8/8 (re-encoded to H.264 MP4 for browser playback; no simulation re-run).
+          Pinned: openamr-upperbody-sw integration/baseline1 d63e9ed, openamr-platform-sw integration/baseline1 931e631 (station alignment #167 at c4666a1).
+          Simulation-oracle profile: planning scene and object poses from Gazebo ground truth (pose_source: ground_truth, object_pose_source: ground_truth), simulation-only base camera. Gazebo Harmonic with DART, the real ROS 2 Jazzy stack (Nav2, MoveIt 2, ros2_control), emulated lift controller and arm motors over virtual CAN. Simulation evidence only: not hardware, perception or safety validation.
+          Runs: https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309791416 https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309804809 https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309817813
+          N
+          gh release create sim-baseline1-2026-11-18 out/*.mp4 -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Digital twin recordings: Baseline 1 missions, 18 Nov 2026 (simulation)" --notes-file notes.md
+          gh release view sim-baseline1-2026-11-18 -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "ASSET \(.name) \(.size) \(.url)"'
