@@ -18,6 +18,8 @@
 name: DDS benchmark
 
 on:
+  push:
+    branches: [diag/dds-benchmark-run-unchanged]
   workflow_dispatch:
     inputs:
       station_alignment:
@@ -80,8 +82,8 @@ jobs:
           /tmp/t/bin/python -m pytest -q -p no:cacheprovider tools/tests/test_dds_benchmark.py
       - id: m
         env:
-          SETTINGS: ${{ github.event.inputs.settings }}
-          REPEATS: ${{ github.event.inputs.repeats }}
+          SETTINGS: ${{ github.event.inputs.settings || 'fastdds_default' }}
+          REPEATS: ${{ github.event.inputs.repeats || '2' }}
         run: |
           python3 - >> "$GITHUB_OUTPUT" <<'EOF'
           import json, os
