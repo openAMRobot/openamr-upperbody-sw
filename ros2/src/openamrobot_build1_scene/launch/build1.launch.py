@@ -87,6 +87,7 @@ from openamrobot_build1_scene import diagnostics
 from openamrobot_build1_scene import launch_support as support
 from openamrobot_build1_scene import planning_scene
 from openamrobot_build1_scene import scene as scene_model
+from openamrobot_build1_scene import spin_variants
 
 PACKAGE = "openamrobot_build1_scene"
 EMULATOR = "openamrobot_openarm_emulator"
@@ -269,6 +270,21 @@ def launch_setup(context):
         with open(model_copy, "w", encoding="utf-8") as f:
             f.write(sim_urdf)
         actions.append(LogInfo(msg=f"diagnostics: plant model with contact sensors written to {model_copy}"))
+    # EXPERIMENT (diag/spin-test scratch branch only): a drive wheel / castor contact variant of the plant, and one gz
+    # contact sensor on the floor. Without BUILD1_SPIN_VARIANT nothing here runs. No description package is edited.
+    spin_variant = os.environ.get(spin_variants.ENV, "")
+    if spin_variant:
+        sim_urdf, spin_notes = spin_variants.apply(sim_urdf, spin_variant)
+        if not devices:
+            root_urdf = sim_urdf
+        with open(world_file, "w", encoding="utf-8") as f:
+            f.write(diagnostics.world_with_contact_system(world_text, models=("floor",)))
+        info.update(spin_variant=spin_variant, spin_variant_edits=spin_notes)
+        model_copy = os.path.join(os.environ.get("BUILD1_LOG_DIR", work_dir), f"spin_plant_model_{spin_variant}.urdf")
+        os.makedirs(os.path.dirname(model_copy), exist_ok=True)
+        with open(model_copy, "w", encoding="utf-8") as f:
+            f.write(sim_urdf)
+        actions.append(LogInfo(msg=f"EXPERIMENT spin variant {spin_variant}: {spin_notes}; plant model written to {model_copy}"))
     pose_source = value("planning_pose_source")
     info["planning_pose_source"] = pose_source
     actions.append(LogInfo(msg=planning_scene.declaration(pose_source)))
@@ -306,6 +322,11 @@ def launch_setup(context):
         temp_files.append(contact_bridge_file)
         actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_contact_bridge", output="screen",
                             parameters=[{"config_file": contact_bridge_file}]))
+    if spin_variant:
+        spin_bridge_file = temp_yaml("build1_spin_contact_bridge_", diagnostics.contact_bridge([diagnostics.world_contact_link("floor")]))
+        temp_files.append(spin_bridge_file)
+        actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_spin_contact_bridge", output="screen",
+                            parameters=[{"config_file": spin_bridge_file}]))
     if sensors:
         sensor_bridge_file = temp_yaml("build1_sensor_bridge_", support.sensor_bridge(flag("extra_sensors"), station_camera=alignment))
         temp_files.append(sensor_bridge_file)

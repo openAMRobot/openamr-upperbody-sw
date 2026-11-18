@@ -24,6 +24,7 @@ install(PROGRAMS
   scripts/wheel_command_adapter.py
   scripts/count_build1_tests.py
   scripts/diag_table.py
+  scripts/spin_report.py
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -31,7 +32,7 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   # Static tests: no simulator, no virtual CAN. They run on any machine.
-  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker)
+  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker spin_variants)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
 
@@ -74,6 +75,9 @@ if(BUILD_TESTING)
     set_tests_properties(test_baseline1_mission PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
     # Arm diagnostics (.github/workflows/build1-arm-diagnostics.yml): scn03 and scn04 with contact sensors and a recorder.
     # They need BUILD1_CONTACT_SENSORS=1 in the environment; the scene workflow does not select them.
+    # EXPERIMENT (diag/spin-test scratch branch): turn-slip experiment, one model variant per run (BUILD1_SPIN_VARIANT).
+    add_launch_test(test/test_spin_test.py TARGET test_spin_test TIMEOUT 4800)
+    set_tests_properties(test_spin_test PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
     foreach(name diag_grasp diag_reach_return)
       add_launch_test(test/test_${name}.py TARGET test_${name} TIMEOUT 2400)
       set_tests_properties(test_${name} PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
