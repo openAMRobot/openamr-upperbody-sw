@@ -46,19 +46,29 @@ def padded(boxes, fixed_names, margin):
     return out
 
 
-# Where the planning scene puts the objects, relative to the robot. The scenarios place the grasp and the reach targets
-# from the ground truth base pose (a stand-in for perceiving them from the robot), so the obstacles next to those
-# targets must come from the same pose. From the localization (AMCL) they were 0.023 to 0.064 m and up to 0.024 rad out
-# of place in the Baseline 1 missions of 17 Nov (runs 44155397328 to 44155485209): the straight lift and reach were
-# then cut short against a board or tote that was not there (Cartesian fractions 0.9375 and 0.185).
-POSE_SOURCES = ("ground_truth", "localization")
-DEFAULT_POSE_SOURCE = "ground_truth"
+# Where the planning scene puts the objects, relative to the robot (launch argument planning_pose_source, Proposed).
+# map (default): the robot's own estimate, map -> base_footprint from AMCL, or the spawn pose and odom before a map is up.
+# ground_truth: Gazebo's pose of the base, a simulation oracle. It must be asked for, and every run that uses it says so
+# in /build1/run_info, in each scenario's JSON (run.planning_pose_source) and in its log.
+# Why the oracle exists: the scenarios place their grasp targets from the ground truth base pose (a stand-in for
+# perceiving the item from the robot). With map the obstacles were 0.023 to 0.064 m and up to 0.024 rad away from that
+# frame in the Baseline 1 missions of 17 Nov, and a straight reach was cut short (Cartesian fraction 0.185, 44155471421).
+POSE_SOURCES = ("map", "ground_truth")
+DEFAULT_POSE_SOURCE = "map"
+ORACLE_POSE_SOURCE = "ground_truth"
 
 
 def choose_base_pose(source, ground_truth, localization):
-    """(pose, label) for the planning scene: (x, y, yaw) of base_footprint in the scene frame, or (None, None)."""
+    """(pose, label) for the planning scene: (x, y, yaw) of base_footprint in the scene frame, or (None, None).
+    `localization` is the (pose, label) of the robot's own estimate; there is no fall-back between the two sources."""
     if source not in POSE_SOURCES:
         raise ValueError(f"pose_source must be one of {POSE_SOURCES}, got {source!r}")
-    if source == "ground_truth":
-        return (ground_truth, "ground truth") if ground_truth is not None else (None, None)
+    if source == ORACLE_POSE_SOURCE:
+        return (ground_truth, "ground truth (simulation oracle)") if ground_truth is not None else (None, None)
     return localization
+
+
+def declaration(source):
+    """The line every run prints about where its planning scene comes from."""
+    oracle = " (SIMULATION ORACLE: obstacles from Gazebo's ground truth, not from the robot's estimate)" if source == ORACLE_POSE_SOURCE else ""
+    return f"planning_pose_source: {source}{oracle}"

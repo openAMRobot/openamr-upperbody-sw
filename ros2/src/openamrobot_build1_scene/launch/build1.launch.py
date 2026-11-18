@@ -87,6 +87,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 from openamrobot_build1_scene import diagnostics
 from openamrobot_build1_scene import launch_support as support
+from openamrobot_build1_scene import planning_scene
 from openamrobot_build1_scene import scene as scene_model
 
 PACKAGE = "openamrobot_build1_scene"
@@ -272,6 +273,9 @@ def launch_setup(context):
         with open(model_copy, "w", encoding="utf-8") as f:
             f.write(sim_urdf)
         actions.append(LogInfo(msg=f"diagnostics: plant model with contact sensors written to {model_copy}"))
+    pose_source = value("planning_pose_source")
+    info["planning_pose_source"] = pose_source
+    actions.append(LogInfo(msg=planning_scene.declaration(pose_source)))
     info["model_sha256"] = hashlib.sha256(sim_urdf.encode()).hexdigest()
     info["finger_joint2_owner"] = "finger_mimic_follower.py" if follower else "mimic constraint of the engine"
     actions.append(LogInfo(msg="Build 1 scene: " + json.dumps(info, sort_keys=True)))
@@ -420,7 +424,7 @@ def launch_setup(context):
                                                           **({"epsilon": support.DAMIAO_POSITION_RESOLUTION} if devices else {})}]))
         actions.append(Node(package=PACKAGE, executable="planning_scene_loader.py", name="planning_scene_loader", output="screen",
                             parameters=[{"use_sim_time": True, "scene_file": scene_file,
-                                         "spawn_pose": [float(v) for v in spawn]}]))
+                                         "spawn_pose": [float(v) for v in spawn], "pose_source": pose_source}]))
         rviz_parameters += [config.robot_description, config.robot_description_semantic, config.robot_description_kinematics,
                             config.planning_pipelines, config.joint_limits]
     if flag("rviz"):
@@ -488,6 +492,10 @@ def generate_launch_description():
         DeclareLaunchArgument("rviz", default_value="false", choices=boolean, description="Start RViz with rviz/build1.rviz"),
         DeclareLaunchArgument("headless", default_value="false", choices=boolean, description="gz sim -s: server only, no window"),
         DeclareLaunchArgument("driver_rate", default_value="auto", description="auto | Hz of the real driver's controller manager"),
+        DeclareLaunchArgument("planning_pose_source", default_value=planning_scene.DEFAULT_POSE_SOURCE,
+                              choices=list(planning_scene.POSE_SOURCES),
+                              description="Where the MoveIt planning scene's objects are placed from: map (the robot's own "
+                                          "estimate) or ground_truth (a simulation oracle, declared in /build1/run_info). Proposed"),
         DeclareLaunchArgument("gravity_feedforward", default_value="true", choices=boolean,
                               description="With devices: send the arms' gravity torque through the driver's effort interface"),
         DeclareLaunchArgument("sim_state_rate", default_value="100",
