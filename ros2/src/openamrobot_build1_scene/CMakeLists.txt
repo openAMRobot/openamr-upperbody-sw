@@ -24,6 +24,9 @@ install(PROGRAMS
   scripts/wheel_command_adapter.py
   scripts/count_build1_tests.py
   scripts/diag_table.py
+  scripts/grocery_demo_report.py
+  scripts/grocery_video.py
+  scripts/grocery_map.py
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -31,7 +34,7 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   # Static tests: no simulator, no virtual CAN. They run on any machine.
-  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker)
+  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker grocery_scene)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
 
@@ -72,6 +75,9 @@ if(BUILD_TESTING)
     # Integrated Digital Twin Baseline 1: the whole-robot mission, run by .github/workflows/baseline1-acceptance.yml.
     add_launch_test(test/test_baseline1_mission.py TARGET test_baseline1_mission TIMEOUT 5400)
     set_tests_properties(test_baseline1_mission PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
+    # Grocery dark store demonstrator (.github/workflows/grocery-demo.yml, docs/demo/grocery_dark_store.md).
+    add_launch_test(test/test_grocery_demo_mission.py TARGET test_grocery_demo_mission TIMEOUT 7200)
+    set_tests_properties(test_grocery_demo_mission PROPERTIES RESOURCE_LOCK build1_vcan RUN_SERIAL TRUE)
     # Arm diagnostics (.github/workflows/build1-arm-diagnostics.yml): scn03 and scn04 with contact sensors and a recorder.
     # They need BUILD1_CONTACT_SENSORS=1 in the environment; the scene workflow does not select them.
     foreach(name diag_grasp diag_reach_return)

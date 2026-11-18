@@ -1,0 +1,290 @@
+# SPDX-License-Identifier: MIT
+# Grocery dark store demonstrator: one whole-robot pick-and-place mission in the grocery scene, recorded for humans.
+#
+# One launch (firmware_sil: every device on virtual CAN, Nav2 with the station tree of openamr-platform-sw #164,
+# MoveIt 2, Gazebo on simulation time) with scene:=grocery_scene.yaml, and one mission in twelve phases
+# (ros2/src/openamrobot_build1_scene/openamrobot_build1_scene/grocery_demo.py): park, aisle shelf, stop and authorize,
+# lift, approach, grasp, lift the product, back up with it, packing bench, place it in the order tote, retreat, back to
+# parking. Profile sim-oracle: the planning scene comes from the ground truth (pose_source: ground_truth, read from
+# planning_scene_loader at run time and printed below). Same pinned dependencies as baseline1-acceptance.yml.
+#
+# Recorded and uploaded (30 days): ROS bag of the key topics, candump of every virtual CAN bus, controller and firmware
+# states per phase, contact events per phase (BUILD1_CONTACT_SENSORS=1), object poses, the trace (Gazebo time and
+# real-time factor), the mission log and report JSON, and an offscreen video of the store with a moving camera.
+# The job fails unless all twelve phases pass in this run. Simulation evidence only: never hardware, physical
+# acceptance, perception or safety evidence. No secrets, no hardware.
+name: Grocery dark store demo
+
+on:
+  pull_request:
+    branches: [main, integration/baseline1]
+    paths:
+      - '.github/workflows/grocery-demo.yml'
+      - 'ros2/src/openamrobot_build1_scene/config/grocery_scene.yaml'
+      - 'ros2/src/openamrobot_build1_scene/config/maps/**'
+      - 'ros2/src/openamrobot_build1_scene/openamrobot_build1_scene/grocery_*.py'
+      - 'ros2/src/openamrobot_build1_scene/scripts/grocery_*.py'
+      - 'ros2/src/openamrobot_build1_scene/test/test_grocery_*.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  # As baseline1-acceptance.yml: openamr-platform-sw integration/baseline1 (#164 station tree, #162 firmware-SIL lift on
+  # the simulation clock, #166 clock contract). Description, Nav2, perception, docking and openamrobot_sil come from it.
+  PLATFORM_SW_SHA: fe28d19c2cf41de474b7bed610fb19e8396a930e
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+  # Nav2 goals with the station tree; no marker alignment (#167 is an opt-in extension of Baseline 1, not used here).
+  BASELINE1_STATION_APPROACH: '1'
+  BASELINE1_STATION_ALIGNMENT: '0'
+  # Contact sensors on the arm links and on the item, tote and fixtures: observers only (diagnostics.py).
+  BUILD1_CONTACT_SENSORS: '1'
+  GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
+  GZ_TOOLS_VENDOR: 0.0.8-1noble.20261025.230735
+  SDFORMAT_VENDOR: 0.0.14-1noble.20261031.120928
+  GZ_SIM_VERSION: 8.15.0
+  SDFORMAT_VERSION: 14.9.0
+  BASELINE1_SEED: '20261117'
+  PYTHONHASHSEED: '20261117'
+
+jobs:
+  grocery-demo:
+    name: Grocery dark store demonstrator (sim-oracle)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    concurrency:
+      group: grocery-demo-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'pr' }}
+      cancel-in-progress: false
+    steps:
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ffmpeg
+          sudo rosdep init || echo "rosdep init: already initialized"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ env.PLATFORM_SW_SHA }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout and pins
+        working-directory: ws
+        run: |
+          # openamrobot_sil is the platform integration branch's (clock contract, #162 lift path, #166 launch API),
+          # no longer the #145 pin.
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+          echo "wheel_radius in the built openamrobot_sil:"; grep -n wheel_radius src/openamr-platform-sw/ros2/src/openamrobot_sil/config/sil.yaml || true
+          echo "wheel_radius in the integration description:"; grep -rn 'wheel_radius' src/openamr-platform-sw/ros2/src/openamrobot_description/urdf/*.xacro | head -5 || true
+          { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "ENV/INFRA: virtual CAN"
+        run: |
+          uname -r
+          sudo apt-get update
+          sudo apt-get install -y iproute2 can-utils
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed"
+          sudo modprobe can_raw || echo "modprobe can_raw failed"
+          set +e
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh" 2>&1 | tee vcan.txt
+          rc=${PIPESTATUS[0]}
+          echo "VCAN_RC=$rc" >> "$GITHUB_ENV"
+          ip -details link show type vcan | tee -a vcan.txt
+          [ "$rc" = "0" ] || echo "ENV_REASON=setup_vcan_all.sh exit $rc: virtual CAN unavailable on this runner" >> "$GITHUB_ENV"
+
+      - name: "ENV/INFRA: pinned Gazebo vendor builds (as openamr-platform-sw #152)"
+        id: gazebo
+        run: |
+          sudo apt-get install -y --allow-downgrades \
+            ros-jazzy-gz-sim-vendor=${GZ_SIM_VENDOR} \
+            ros-jazzy-gz-tools-vendor=${GZ_TOOLS_VENDOR} \
+            ros-jazzy-sdformat-vendor=${SDFORMAT_VENDOR}
+          sudo apt-mark hold ros-jazzy-gz-sim-vendor ros-jazzy-gz-tools-vendor ros-jazzy-sdformat-vendor
+
+      - name: "ENV/INFRA: rosdep and the stack"
+        id: deps
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+
+      - name: "ENV/INFRA: check the pinned versions"
+        id: versions
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sim=$(gz sim --versions); sdf=$(gz sdf --versions)
+          echo "gz sim ${sim}, gz sdf ${sdf}"
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|ros-gz|gz-|ros2-control|controller-manager|hardware-interface|joint-trajectory-controller|xacro|moveit|navigation2|nav2-bringup)|python3-can)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          test "${sim}" = "${GZ_SIM_VERSION}" || { echo "ENV/INFRA: expected gz-sim ${GZ_SIM_VERSION}, found ${sim}"; exit 1; }
+          test "${sdf}" = "${SDFORMAT_VERSION}" || { echo "ENV/INFRA: expected sdformat ${SDFORMAT_VERSION}, found ${sdf}"; exit 1; }
+
+      - name: "BUILD: colcon build"
+        id: build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: "Static: grocery scene, map, phases and report (no simulator)"
+        id: static
+        if: steps.build.outcome == 'success'
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_grocery_scene$'
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: "Mission: twelve phases in one launch"
+        id: mission
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && env.VCAN_RC == '0' }}
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/build1_logs"
+          mkdir -p "$BUILD1_LOG_DIR"
+          echo "nproc $(nproc)"
+          echo "profile sim-oracle; station approach ${BASELINE1_STATION_APPROACH}; station alignment ${BASELINE1_STATION_ALIGNMENT}; contact sensors ${BUILD1_CONTACT_SENSORS}"
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_grocery_demo_mission$'
+          echo "MISSION_RC=$?" >> "$GITHUB_ENV"
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: Phase table and evidence summary
+        if: always()
+        run: |
+          set +e
+          env_ok=1
+          reason="${ENV_REASON:-}"
+          [ "${VCAN_RC:-1}" = "0" ] || env_ok=0
+          deps="gazebo pin ${{ steps.gazebo.outcome }}, rosdep ${{ steps.deps.outcome }}, version check ${{ steps.versions.outcome }}"
+          for s in "${{ steps.gazebo.outcome }}" "${{ steps.deps.outcome }}" "${{ steps.versions.outcome }}"; do
+            [ "$s" = "success" ] || { env_ok=0; reason="${reason:+$reason; }a pinned dependency step did not succeed ($deps)"; }
+          done
+          build_ok=1
+          [ "${{ steps.build.outcome }}" = "success" ] || build_ok=0
+          [ "$env_ok" = "1" ] || build_ok=1     # an environment failure is reported as ENV/INFRA, not BUILD
+          mkdir -p ws/build1_logs
+          python3 "$PACKAGE_DIR/scripts/grocery_demo_report.py" ws/build1_logs --build-ok "$build_ok" --env-ok "$env_ok" \
+            --env-reason "$reason" --summary "$GITHUB_STEP_SUMMARY"
+          echo "REPORT_RC=$?" >> "$GITHUB_ENV"
+          echo "virtual CAN exit status:  ${VCAN_RC:-not run}"
+          echo "colcon build outcome:     ${{ steps.build.outcome }}"
+          echo "static tests outcome:     ${{ steps.static.outcome }}"
+          echo "mission colcon test rc:   ${MISSION_RC:-not run}"
+
+      - name: Recordings (video, bag, CAN, states) summarized to this log
+        if: always()
+        run: |
+          set +e
+          logs=ws/build1_logs
+          python3 "$PACKAGE_DIR/scripts/grocery_video.py" "$logs" --fps 10
+          ls -la "$logs"/*.mp4 "$logs"/*.png "$logs"/*.srt 2>/dev/null
+          source /opt/ros/jazzy/setup.bash
+          echo "### ROS bag"; ros2 bag info "$logs/bag" 2>&1 | tee "$logs/bag_info.txt" | head -120
+          echo "### CAN (candump -L per virtual bus): frames, then the 8 most frequent IDs"
+          for f in "$logs"/record_candump_*.log; do
+            [ -f "$f" ] || continue
+            echo "$(basename "$f"): $(grep -c '#' "$f") frames"
+            awk '{print $3}' "$f" | cut -d'#' -f1 | sort | uniq -c | sort -rn | head -8
+          done | tee "$logs/can_summary.txt"
+          for f in "$logs"/record_*.log; do echo "== $f"; grep -v '#' "$f" | tail -5; done
+          echo "### Controller and firmware states at the end of each phase"
+          python3 - "$logs/grocery_states.json" <<'EOF'
+          import json, sys
+          try:
+              states = json.load(open(sys.argv[1]))
+          except OSError:
+              sys.exit("no grocery_states.json")
+          for s in states:
+              lift = s.get("/sil/lift/status") or {}
+              drive = s.get("/sil/drive/status") or {}
+              print(f"{s['phase']:<18} sim {s['sim']:8.1f} | controllers {s.get('controllers')} | lift stop "
+                    f"{lift.get('active_stop')} state {lift.get('state')} | drive configured {drive.get('configured')}")
+          EOF
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: grocery-demo-attempt${{ github.run_attempt }}
+          retention-days: 30
+          path: |
+            ws/build1_logs/
+            ws/build/openamrobot_build1_scene/test_results/
+            ws/log/latest_test/
+            vcan.txt
+            versions.txt
+            pins.txt
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          echo "Grocery demonstrator report exit status: ${REPORT_RC:-not run} (0: all twelve phases passed in this run)"
+          echo "Static tests: ${{ steps.static.outcome }}"
+          [ "${REPORT_RC:-1}" = "0" ] && [ "${{ steps.static.outcome }}" = "success" ]
