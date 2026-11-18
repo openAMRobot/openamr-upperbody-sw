@@ -149,9 +149,12 @@ class Rig:
                                  (FINGERS, JointState, 10),
                                  ("/scan", LaserScan, sensor_qos), ("/scan_filtered", LaserScan, 10)):
             self.node.create_subscription(kind, topic, lambda m, t=topic: self._store(t, m), qos)
+        from openamrobot_build1_scene.planning_scene import OBJECT_POSE_SOURCES, object_pose_topic
+        self.object_pose_source = None   # set from /build1/run_info in wait_ready; object reads are refused until then
         for name in ("item", "tote", "payload"):
-            topic = f"/build1/ground_truth/{name}/pose"
-            self.node.create_subscription(PoseStamped, topic, lambda m, t=topic: self._store(t, m), 10)
+            for source in OBJECT_POSE_SOURCES:
+                topic = object_pose_topic(source, name)
+                self.node.create_subscription(PoseStamped, topic, lambda m, t=topic: self._store(t, m), 10)
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self.node.create_subscription(String, "/build1/planning_scene/objects",
                                       lambda m: self._store("/build1/planning_scene/objects", m.data), latched)
@@ -273,8 +276,13 @@ class Rig:
         return max(abs(self.joint(f"openarm_{side}_finger_joint2", FINGERS) - self.joint(f"openarm_{side}_finger_joint1", FINGERS))
                    for side in ("left", "right"))
 
+    def object_pose(self, name):
+        """The latest PoseStamped of object `name` from the run's declared object_pose_source (ValueError without one)."""
+        from openamrobot_build1_scene.planning_scene import object_pose_topic
+        return self.get(object_pose_topic(self.object_pose_source, name))
+
     def object_position(self, name):
-        p = self.get(f"/build1/ground_truth/{name}/pose").pose.position
+        p = self.object_pose(name).pose.position
         return p.x, p.y, p.z
 
     def transform(self, target, source):
@@ -298,8 +306,13 @@ class Rig:
         self.devices = bool(info.get("devices"))
         self.physics = "/sim/joint_states" if self.devices else "/arm/joint_states"
         self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)
-        from openamrobot_build1_scene.planning_scene import declaration
+        from openamrobot_build1_scene.planning_scene import declaration, object_declaration
         self.log.event(declaration(info.get("planning_pose_source", "not declared by the launch")))
+        if "object_pose_source" not in info:
+            raise ScenarioFailed("/build1/run_info does not declare object_pose_source: object poses and grasp targets "
+                                 "are not read without the declaration")
+        self.object_pose_source = info["object_pose_source"]
+        self.log.event(object_declaration(self.object_pose_source))
         log.event(f"run profile {info.get('profile')}, step {info.get('physics_step')}, engine {info.get('physics_engine')}, "
                   f"model sha256 {info.get('model_sha256')}")
         checks = {"odometry": lambda: self.get("/odom") is not None}
