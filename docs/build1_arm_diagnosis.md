@@ -306,6 +306,16 @@ Fix: the tote, the item and the payload are placed from their observed poses (`/
 the perception stand-in the scenarios already take their targets from), with full orientation, relative to the
 declared base pose; the start pose is used only until the first observation. The scene is sent again when one moves
 more than 0.01 m or turns more than 0.05 rad. The touch at the left level-0 target (remaining risk 6) is unchanged.
+Verification run 44279328325 (c7af6a2): both scn03 returns succeeded (left 0.031 rad, right 0.023 rad from park);
+scn03 was then BLOCKED at the lift move by the real-time factor (0.40).
+
+**Object pose source.** Where the object poses come from is declared on its own: launch argument
+`object_pose_source` (Proposed), separate from `planning_pose_source`, for both the planning scene loader and the
+scenarios' grasp targets. Its only value today is `ground_truth`, Gazebo's pose of each object, a perception
+stand-in. It is recorded in `/build1/run_info`, in every scenario JSON (`run.object_pose_source`) and in the launch,
+loader and scenario logs; a scenario whose run_info lacks it is refused, and every reader takes the topic through
+the declared source. With `object_pose_source: ground_truth` no run counts as the perception profile, whatever its
+`planning_pose_source`, until an object detector replaces it.
 
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 

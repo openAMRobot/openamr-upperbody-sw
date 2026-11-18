@@ -334,14 +334,64 @@ def test_the_scene_is_sent_again_when_an_object_moves_or_turns():
 
 
 def test_the_loader_places_the_movable_objects_from_their_observed_poses_in_both_pose_sources():
-    from openamrobot_build1_scene.planning_scene import MOVABLE_OBJECTS, OBJECTS_DECLARATION
-    assert set(MOVABLE_OBJECTS) == {"tote", "item", "payload"} and "observed" in OBJECTS_DECLARATION
+    from openamrobot_build1_scene.planning_scene import MOVABLE_OBJECTS
+    assert set(MOVABLE_OBJECTS) == {"tote", "item", "payload"}
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
-    assert 'f"/build1/ground_truth/{name}/pose"' in loader
+    assert "object_pose_topic(self.object_pose_source, name)" in loader
     assert "object_box_in_base(pose, position, quaternion, self.object_offset[name])" in loader
     assert "object_moved(self.object_sent.get(name), pose_now)" in loader
     assert "self.object_sent = dict(self.object_pose)" in loader
-    assert "self.get_logger().info(OBJECTS_DECLARATION)" in loader
     # The same base pose for objects and fixtures: the declared source, never a separate truth path for the objects.
     assert loader.count("object_box_in_base(") == 1
+
+
+def test_object_poses_come_from_ground_truth_only_under_a_declared_object_pose_source():
+    """Alex, 18 Nov: ground truth only through an explicit, declared simulation-oracle profile, never silent. The object
+    poses and grasp targets are ground truth today (a perception stand-in): every reader goes through
+    object_pose_topic, which refuses an undeclared source, and no reader names a ground-truth object topic itself."""
+    from openamrobot_build1_scene import planning_scene as ps
+    assert ps.OBJECT_POSE_SOURCES == ("ground_truth",) and ps.DEFAULT_OBJECT_POSE_SOURCE == "ground_truth"
+    assert ps.object_pose_topic("ground_truth", "item") == "/build1/ground_truth/item/pose"
+    for undeclared in (None, "", "map", "detector"):
+        with pytest.raises(ValueError):
+            ps.object_pose_topic(undeclared, "item")
+    line = ps.object_declaration("ground_truth")
+    assert line.startswith("object_pose_source: ground_truth (PERCEPTION STAND-IN")
+    assert "no run with it counts as the perception profile until an object detector replaces it" in line
+    for path in (("scripts", "planning_scene_loader.py"), ("openamrobot_build1_scene", "rig.py"),
+                 ("openamrobot_build1_scene", "scenarios.py")):
+        with open(os.path.join(HERE, "..", *path), encoding="utf-8") as f:
+            text = f.read()
+        for literal in ("ground_truth/{name}/pose", "ground_truth/item/pose", "ground_truth/tote/pose", "ground_truth/payload/pose"):
+            assert literal not in text, f"{path[-1]} reads {literal} without the declared object_pose_source"
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    assert "return self.get(object_pose_topic(self.object_pose_source, name))" in rig
+    assert "p = self.object_pose(name).pose.position" in rig
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert 'declare_parameter("object_pose_source", DEFAULT_OBJECT_POSE_SOURCE)' in loader
+    assert "self.get_logger().info(object_declaration(self.object_pose_source))" in loader
+
+
+def test_every_run_declares_its_object_pose_source_and_a_run_without_it_is_refused():
+    """In /build1/run_info (and so in every scenario JSON, run.object_pose_source), in the launch log, in each scenario
+    log, and as the loader's parameter. The rig refuses to start a scenario when run_info lacks it."""
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'DeclareLaunchArgument("object_pose_source", default_value=planning_scene.DEFAULT_OBJECT_POSE_SOURCE' in launch
+    assert 'info["object_pose_source"] = object_source' in launch
+    assert "LogInfo(msg=planning_scene.object_declaration(object_source))" in launch
+    assert launch.index('info["object_pose_source"] = object_source') < launch.index('"run_info": json.dumps(info, sort_keys=True)')
+    assert '"object_pose_source": object_source' in launch
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    refuse = 'if "object_pose_source" not in info:\n            raise ScenarioFailed('
+    assert refuse in rig
+    assert rig.index('self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)') < rig.index(refuse)
+    assert 'self.object_pose_source = info["object_pose_source"]' in rig
+    assert "self.log.event(object_declaration(self.object_pose_source))" in rig
+    assert "self.object_pose_source = None" in rig
+    with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
+        assert 'arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])' in f.read()

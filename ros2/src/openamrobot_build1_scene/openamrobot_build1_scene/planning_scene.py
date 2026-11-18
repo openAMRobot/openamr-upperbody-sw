@@ -75,15 +75,36 @@ def declaration(source):
     return f"planning_pose_source: {source}{oracle}"
 
 
-# The movable objects (tote, item, payload) are placed from their observed poses, /build1/ground_truth/<name>/pose: the
-# scene's stand-in for perceiving them, the same input the scenarios take their grasp targets from, in both pose
-# sources. Before 18 Nov they stayed at their scene.yaml start poses: when the scn03 reach knocked the item over (it lay
+# The movable objects (tote, item, payload) are placed from their observed poses, the same input the scenarios take
+# their grasp targets from. Where those poses come from is its own declared source, object_pose_source (launch argument,
+# Proposed), independent of planning_pose_source. Its only implementation today is ground_truth, Gazebo's pose of each
+# object (/build1/ground_truth/<name>/pose), a stand-in for perception. It is recorded in /build1/run_info, every
+# scenario's JSON (run.object_pose_source) and the logs; a reader without the declaration is refused. With
+# object_pose_source ground_truth no run counts as the perception profile until an object detector replaces it. Before 18 Nov they stayed at their scene.yaml start poses: when the scn03 reach knocked the item over (it lay
 # at z 0.8425, 0.09 m from its start), MoveIt still had it standing under the hand and refused every return move as a
 # start state in collision (item - openarm_left_ee_base_link, job 134653118730), and the arm stayed off park.
 MOVABLE_OBJECTS = ("tote", "item", "payload")
 OBJECT_MOVED_M = 0.01
 OBJECT_TURNED_RAD = 0.05
-OBJECTS_DECLARATION = "movable objects: from their observed poses (/build1/ground_truth/<name>/pose, the perception stand-in)"
+OBJECT_POSE_SOURCES = ("ground_truth",)
+DEFAULT_OBJECT_POSE_SOURCE = "ground_truth"
+
+
+def object_pose_topic(source, name):
+    """The topic of object `name`'s pose under the declared `source`. Refuses an undeclared or unknown source, so no
+    reader takes Gazebo's object poses without the run saying so."""
+    if source not in OBJECT_POSE_SOURCES:
+        raise ValueError(f"object_pose_source must be declared as one of {OBJECT_POSE_SOURCES}, got {source!r}")
+    return f"/build1/ground_truth/{name}/pose"
+
+
+def object_declaration(source):
+    """The line every run prints about where its object poses and grasp targets come from."""
+    if source == "ground_truth":
+        return ("object_pose_source: ground_truth (PERCEPTION STAND-IN: tote, item and payload poses and the grasp targets "
+                "come from Gazebo's ground truth; no run with it counts as the perception profile until an object detector "
+                "replaces it)")
+    return f"object_pose_source: {source}"
 
 
 def _quat_multiply(a, b):

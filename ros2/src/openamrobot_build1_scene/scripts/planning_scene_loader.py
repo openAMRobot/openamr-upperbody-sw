@@ -9,7 +9,7 @@ again. This node is the one writer of /planning_scene besides move_group itself.
 
 The robot's pose for that comes from its own estimate by default (pose_source map, planning_scene.py); pose_source
 ground_truth (a simulation oracle) takes /build1/ground_truth/odom instead and must be asked for explicitly. The tote,
-the item and the payload follow their observed poses (/build1/ground_truth/<name>/pose) in both cases. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
+the item and the payload follow their observed poses from the declared object_pose_source in both cases. Topic /build1/planning_scene/exclude (std_msgs/String, comma separated names) removes objects, for example the item
 before a grasp. The fixed boxes get the planning clearance fixture_padding_m (planning_scene.FIXTURE_PADDING_M) on every
 side; the tote, the item and the payload get none. Simulation only.
 """
@@ -27,8 +27,9 @@ from std_msgs.msg import String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from openamrobot_build1_scene import scene as scene_model
-from openamrobot_build1_scene.planning_scene import (DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, MOVABLE_OBJECTS, OBJECTS_DECLARATION,
-                                                     choose_base_pose, declaration, object_box_in_base, object_moved, padded)
+from openamrobot_build1_scene.planning_scene import (DEFAULT_POSE_SOURCE, FIXTURE_PADDING_M, MOVABLE_OBJECTS,
+                                                     DEFAULT_OBJECT_POSE_SOURCE, choose_base_pose, declaration, object_box_in_base,
+                                                     object_declaration, object_moved, object_pose_topic, padded)
 
 
 def yaw_of(q):
@@ -55,10 +56,11 @@ class PlanningSceneLoader(Node):
         self.object_offset = {name: (movable[name]["size"][2] / 2.0 if movable[name]["kind"] == "tote" else 0.0)
                               for name in MOVABLE_OBJECTS if name in movable}
         self.object_pose, self.object_sent = {}, {}
+        self.object_pose_source = self.declare_parameter("object_pose_source", DEFAULT_OBJECT_POSE_SOURCE).value
+        self.get_logger().info(object_declaration(self.object_pose_source))
         for name in self.object_offset:
-            self.create_subscription(PoseStamped, f"/build1/ground_truth/{name}/pose",
+            self.create_subscription(PoseStamped, object_pose_topic(self.object_pose_source, name),
                                      lambda m, n=name: self.on_object(n, m), 10)
-        self.get_logger().info(OBJECTS_DECLARATION)
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
         self.publisher = self.create_publisher(PlanningScene, "/planning_scene", 10)
