@@ -74,7 +74,9 @@ def load(bag):
                 if topic == "/tf_static":
                     static[key] = pose
                 else:
-                    tf.setdefault(key, Series()).add(st, pose)
+                    # Ordered by when the transform was available (bag receive time), not by its header stamp:
+                    # AMCL future-dates map > odom by transform_tolerance (1.0 s).
+                    tf.setdefault(key, Series()).add(t, pose)
         elif topic == "/amcl_pose":
             st = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
             p = msg.pose.pose
