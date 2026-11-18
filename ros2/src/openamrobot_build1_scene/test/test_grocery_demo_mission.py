@@ -24,8 +24,9 @@ random.seed(int(os.environ.get("BASELINE1_SEED", "20261117")))
 
 @pytest.mark.launch_test
 def generate_test_description():
+    # Profile sim-oracle, declared explicitly: the planning scene is placed from the simulator's ground truth.
     return build1_harness.description(profile="firmware_sil", station="origin", nav2="true", moveit="true",
-                                      station_alignment="false", scene="grocery_scene.yaml")
+                                      station_alignment="false", scene="grocery_scene.yaml", planning_pose_source="ground_truth")
 
 
 class TestGroceryDemoMission(unittest.TestCase):

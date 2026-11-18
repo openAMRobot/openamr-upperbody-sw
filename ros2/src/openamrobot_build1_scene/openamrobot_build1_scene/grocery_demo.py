@@ -108,6 +108,7 @@ def spawn(rig, log, scene, demo):
     # The profile: sim-oracle needs the planning scene placed from the ground truth. Read, not assumed.
     source = get_parameter(rig, "/planning_scene_loader", "pose_source")
     demo["pose_source"] = source
+    demo["launch_planning_pose_source"] = (rig.get("/build1/run_info") or {}).get("planning_pose_source")
     log.event(f"profile {phases.PROFILE}; planning_scene_loader pose_source: {source}")
     log.quantity("profile_pose_source_ground_truth", source == phases.POSE_SOURCE, "bool", low=True, high=True,
                  note="the sim-oracle profile declares pose_source: ground_truth (docs/integration/baseline1.md)")

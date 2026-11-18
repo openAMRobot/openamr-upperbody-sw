@@ -40,6 +40,10 @@ env:
   # Nav2 goals with the station tree; no marker alignment (#167 is an opt-in extension of Baseline 1, not used here).
   BASELINE1_STATION_APPROACH: '1'
   BASELINE1_STATION_ALIGNMENT: '0'
+  # Acceptance profile sim-oracle (docs/integration/baseline1.md): the planning scene from simulator ground truth,
+  # declared. The launch test also passes planning_pose_source:=ground_truth explicitly. Never a perception result.
+  BASELINE1_PROFILE: sim-oracle
+  BUILD1_PLANNING_POSE_SOURCE: ground_truth
   # Contact sensors on the arm links and on the item, tote and fixtures: observers only (diagnostics.py).
   BUILD1_CONTACT_SENSORS: '1'
   GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
@@ -208,7 +212,9 @@ jobs:
           export BUILD1_LOG_DIR="$PWD/build1_logs"
           mkdir -p "$BUILD1_LOG_DIR"
           echo "nproc $(nproc)"
-          echo "profile sim-oracle; station approach ${BASELINE1_STATION_APPROACH}; station alignment ${BASELINE1_STATION_ALIGNMENT}; contact sensors ${BUILD1_CONTACT_SENSORS}"
+          echo "acceptance profile ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE} (SIMULATION ORACLE: integration evidence, not autonomous perception)"
+          echo "### Acceptance profile: ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "station approach ${BASELINE1_STATION_APPROACH}; station alignment ${BASELINE1_STATION_ALIGNMENT}; contact sensors ${BUILD1_CONTACT_SENSORS}"
           set +e
           colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
             --ctest-args -R '^test_grocery_demo_mission$'
