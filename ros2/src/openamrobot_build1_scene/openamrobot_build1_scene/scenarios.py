@@ -460,7 +460,7 @@ def grasp(rig, log):
     # (the station approach allows 0.05 rad) otherwise sweeps the fingers into the item and the tote wall (Baseline 1
     # run 44100120091: base 0.073 rad off, item pushed 51 mm, not lifted). 0 when the base stands square to the item.
     from openamrobot_build1_scene.rig import yaw_of
-    yaw = face_yaw(rig.truth()[2], yaw_of(rig.get("/build1/ground_truth/item/pose").pose.orientation))
+    yaw = face_yaw(rig.truth()[2], yaw_of(rig.object_pose("item").pose.orientation))
     log.quantity("grasp_face_yaw", yaw, "rad", note="the side grasp turned about z of base_footprint to the item's face")
     quaternion = side_grasp(yaw)
     item = _in_base(rig, item0)

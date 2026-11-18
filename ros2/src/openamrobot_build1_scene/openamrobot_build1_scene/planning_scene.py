@@ -3,6 +3,7 @@
 that step. No ROS import: the caller passes its publish and sleep functions and the std_msgs/String type.
 Simulation only.
 """
+import math
 from contextlib import contextmanager
 
 SETTLE_S = 2.0      # Gazebo seconds for planning_scene_loader.py and move_group to take the change
@@ -72,3 +73,72 @@ def declaration(source):
     """The line every run prints about where its planning scene comes from."""
     oracle = " (SIMULATION ORACLE: obstacles from Gazebo's ground truth, not from the robot's estimate)" if source == ORACLE_POSE_SOURCE else ""
     return f"planning_pose_source: {source}{oracle}"
+
+
+# The movable objects (tote, item, payload) are placed from their observed poses, the same input the scenarios take
+# their grasp targets from. Where those poses come from is its own declared source, object_pose_source (launch argument,
+# Proposed), independent of planning_pose_source. Its only implementation today is ground_truth, Gazebo's pose of each
+# object (/build1/ground_truth/<name>/pose), a stand-in for perception. It is recorded in /build1/run_info, every
+# scenario's JSON (run.object_pose_source) and the logs; a reader without the declaration is refused. With
+# object_pose_source ground_truth no run counts as the perception profile until an object detector replaces it. Before 18 Nov they stayed at their scene.yaml start poses: when the scn03 reach knocked the item over (it lay
+# at z 0.8425, 0.09 m from its start), MoveIt still had it standing under the hand and refused every return move as a
+# start state in collision (item - openarm_left_ee_base_link, job 134653118730), and the arm stayed off park.
+MOVABLE_OBJECTS = ("tote", "item", "payload")
+OBJECT_MOVED_M = 0.01
+OBJECT_TURNED_RAD = 0.05
+OBJECT_POSE_SOURCES = ("ground_truth",)
+DEFAULT_OBJECT_POSE_SOURCE = "ground_truth"
+
+
+def object_pose_topic(source, name):
+    """The topic of object `name`'s pose under the declared `source`. Refuses an undeclared or unknown source, so no
+    reader takes Gazebo's object poses without the run saying so."""
+    if source not in OBJECT_POSE_SOURCES:
+        raise ValueError(f"object_pose_source must be declared as one of {OBJECT_POSE_SOURCES}, got {source!r}")
+    return f"/build1/ground_truth/{name}/pose"
+
+
+def object_declaration(source):
+    """The line every run prints about where its object poses and grasp targets come from."""
+    if source == "ground_truth":
+        return ("object_pose_source: ground_truth (PERCEPTION STAND-IN: tote, item and payload poses and the grasp targets "
+                "come from Gazebo's ground truth; no run with it counts as the perception profile until an object detector "
+                "replaces it)")
+    return f"object_pose_source: {source}"
+
+
+def _quat_multiply(a, b):
+    ax, ay, az, aw = a
+    bx, by, bz, bw = b
+    return (aw * bx + ax * bw + ay * bz - az * by, aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw, aw * bw - ax * bx - ay * by - az * bz)
+
+
+def _rotate(q, v):
+    x, y, z, w = q
+    vx, vy, vz = v
+    # v' = v + 2 w (q x v) + 2 q x (q x v)
+    cx, cy, cz = y * vz - z * vy, z * vx - x * vz, x * vy - y * vx
+    ccx, ccy, ccz = y * cz - z * cy, z * cx - x * cz, x * cy - y * cx
+    return (vx + 2 * (w * cx + ccx), vy + 2 * (w * cy + ccy), vz + 2 * (w * cz + ccz))
+
+
+def object_box_in_base(base_pose, position, quaternion, centre_offset_z=0.0):
+    """Centre and orientation (x, y, z, w) in base_footprint of an object's collision box. `base_pose` (x, y, yaw) of
+    base_footprint in the scene frame; `position`, `quaternion` the object's pose in the scene frame; the box centre is
+    `centre_offset_z` along the object's own z from that pose (the tote's pose is its bottom)."""
+    bx, by, byaw = base_pose
+    offset = _rotate(quaternion, (0.0, 0.0, centre_offset_z))
+    wx, wy, wz = position[0] + offset[0] - bx, position[1] + offset[1] - by, position[2] + offset[2]
+    c, s = math.cos(-byaw), math.sin(-byaw)
+    turn = (0.0, 0.0, math.sin(-byaw / 2.0), math.cos(-byaw / 2.0))
+    return (c * wx - s * wy, s * wx + c * wy, wz), _quat_multiply(turn, quaternion)
+
+
+def object_moved(last, now, moved_m=OBJECT_MOVED_M, turned_rad=OBJECT_TURNED_RAD):
+    """True when an object's pose (position, quaternion) changed enough since the last send to send the scene again."""
+    if last is None:
+        return now is not None
+    (p0, q0), (p1, q1) = last, now
+    dot = abs(sum(a * b for a, b in zip(q0, q1)))
+    return math.dist(p0, p1) > moved_m or 2.0 * math.acos(min(1.0, dot)) > turned_rad

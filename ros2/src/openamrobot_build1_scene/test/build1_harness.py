@@ -29,6 +29,8 @@ def description(**arguments):
     # simulation oracle. An explicit argument of the test wins.
     if os.environ.get("BUILD1_PLANNING_POSE_SOURCE"):
         arguments.setdefault("planning_pose_source", os.environ["BUILD1_PLANNING_POSE_SOURCE"])
+    if os.environ.get("BUILD1_OBJECT_POSE_SOURCE"):
+        arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])
     if arguments["profile"] in DEVICE_PROFILES:
         from vcan_support import blocked_reason
         STATE["blocked"] = blocked_reason()

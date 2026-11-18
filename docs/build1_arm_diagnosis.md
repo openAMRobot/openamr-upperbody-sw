@@ -292,6 +292,31 @@ with mu 0.5 and a safety factor of 2. The contact forces balance 0.14 to 0.26 N 
 less than the emulator reports (5 to 7 times before the fix). Mass, mu and pad friction are estimates; nothing here is
 a gripper measurement.
 
+## Cycle 7: scn03 return refused against a stale item box (18 Nov)
+
+Job 134653118730 (integration/baseline1 `cc0e9e5`, `planning_pose_source: map`). The base belief was exact (spawn
+pose and odom, base at (0.00, -2.08, -1.57)). The L0_left reach ended with the hand base at [0.6751, 0.1556, 0.9894]
+(base_footprint) for the target [0.6645, 0.16, 0.98], 0.015 m above the item's top; the arm touched the item and
+knocked it over: ground truth [0.0694, -2.8438, 0.8425], about 0.09 m from its start and lying down. The loader still
+placed the item box at its scene.yaml start pose, standing under the hand, so every return plan was refused with
+`CheckStartStateCollision: item - openarm_left_ee_base_link` (error -10, three attempts) and the arm stayed off park.
+The map default did not cause it: the loader never moved the movable boxes in either pose source.
+
+Fix: the tote, the item and the payload are placed from their observed poses (`/build1/ground_truth/<name>/pose`,
+the perception stand-in the scenarios already take their targets from), with full orientation, relative to the
+declared base pose; the start pose is used only until the first observation. The scene is sent again when one moves
+more than 0.01 m or turns more than 0.05 rad. The touch at the left level-0 target (remaining risk 6) is unchanged.
+Verification run 44279328325 (c7af6a2): both scn03 returns succeeded (left 0.031 rad, right 0.023 rad from park);
+scn03 was then BLOCKED at the lift move by the real-time factor (0.40).
+
+**Object pose source.** Where the object poses come from is declared on its own: launch argument
+`object_pose_source` (Proposed), separate from `planning_pose_source`, for both the planning scene loader and the
+scenarios' grasp targets. Its only value today is `ground_truth`, Gazebo's pose of each object, a perception
+stand-in. It is recorded in `/build1/run_info`, in every scenario JSON (`run.object_pose_source`) and in the launch,
+loader and scenario logs; a scenario whose run_info lacks it is refused, and every reader takes the topic through
+the declared source. With `object_pose_source: ground_truth` no run counts as the perception profile, whatever its
+`planning_pose_source`, until an object detector replaces it.
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the
