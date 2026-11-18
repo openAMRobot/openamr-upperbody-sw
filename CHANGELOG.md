@@ -5,6 +5,135 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (18 Nov 2026; scn03 return to park; simulation only)
+
+- **Movable objects follow their observed poses in the planning scene.** The loader kept the tote, the item and the payload at
+  their scene.yaml start poses. When the scn03 level-0 reach knocked the item over (job 134653118730), MoveIt still had it standing
+  under the hand and refused the return to park as a start state in collision (item - openarm_left_ee_base_link). They are now
+  placed from `/build1/ground_truth/<name>/pose` relative to the declared base pose, and the scene is resent when one moves.
+- **Declared object pose source.** New launch argument `object_pose_source` (only value and default `ground_truth`, a perception
+  stand-in; Proposed) for the planning scene's objects and the scenarios' grasp targets, recorded in `/build1/run_info`, each
+  scenario JSON and the logs. A scenario whose run_info lacks it is refused. With `ground_truth` no run counts as the perception
+  profile until an object detector replaces it. Behaviour is unchanged.
+
+### Fixed (17 Nov 2026; scn04 in the Baseline 1 mission; simulation only)
+
+- **Approach square to the item's face.** In the mission the base stands up to 0.067 m and 0.08 rad off the station, and the approach
+  (0.12 rad per axis) ended 0.025 to 0.075 rad off the face; the fingers closed at 0.069 to 0.107 rad, the grip torque (kp times that
+  angle) fell to 0.18 to 0.33 N m and the item was not lifted in 4 of 7 grasps. The tolerance about the vertical is now 0.02 rad
+  (`arm_frames.approach_tolerances`); 0.12 rad about the other axes.
+- **Item 9 mm into the fingers.** The grip torque is the gripper servo's kp times the angle at which the fingers meet the item. With the
+  item centre on the TCP (near the fingertips) they met it at 0.065 to 0.12 rad in the missions (0.18 to 0.41 N m); 0.008 to 0.013 m
+  deeper (the fixed-pose runs) at 0.137 to 0.158 rad, and those lifted 10 of 10. The reach now puts the TCP 0.009 m beyond the item
+  centre along the fingers (`arm_frames.tcp_for_item`); the palm leaves 0.0099 m.
+- **No padding under the fixed boxes.** The 0.08 m lift left 0.004 m under the padded board above with the hand level; tilted held
+  orientations cut it short (fractions 0.9375 in run 44155397328, 0.941 in diagnostics run 44168251650). Undersides are no longer padded.
+- **Planning scene pose source (Proposed, reviewer Mohamed).** Launch argument `planning_pose_source`: `map` (default, the robot's own
+  estimate: AMCL map, or spawn pose and odom before it) or `ground_truth` (a simulation oracle, set explicitly). The value is in
+  `/build1/run_info`, in every scenario JSON as `run.planning_pose_source` and in the log (`planning_scene.declaration`).
+  `BUILD1_PLANNING_POSE_SOURCE` sets it for the scenario tests. With `map` the obstacles were 0.023 to 0.064 m off the frame of the
+  ground-truth grasp targets in the missions of 17 Nov (a reach cut short at fraction 0.185). Tests: `test_arm_frames.py`.
+
+### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
+
+- **Straight reach and lift.** The scn04 reach and lift were pose goals with 0.3 rad per axis: the hand turned 8 to 31 degrees
+  between approach, grasp and lift. The fingers swept the item 24 to 55 mm before closing, and the TCP (0.138 m from the hand base)
+  rose 21 to 49 mm while the hand base rose 64 to 91 mm (Baseline 1 runs 44114692549, 44114738411, 44100053272 and diagnostics run
+  44131608383, FK of the driver's joint readings). Both are now straight lines of the hand with the orientation the approach ended
+  with, from MoveIt's `/compute_cartesian_path`, executed with `/execute_trajectory` (`arm_frames.grasp_line`, `straight_lift`).
+  The 40 mm requirement, friction, mass and gripper values are unchanged.
+- **Planning clearance to the shelf.** MoveIt planned with zero padding. In the diagnostics runs a finger hit `work_shelf_board_0` in
+  most scn03 reaches and returns and Baseline 1 retreats (9.8 to 370 N); a wedged finger made MoveIt refuse the next start state (-10),
+  left the arm 0.92 to 1.57 rad off park and drove joint 6 onto its limit (the 46 N m case). `planning_scene_loader.py` adds
+  `FIXTURE_PADDING_M` = 0.015 m on every side of each fixed box in the planning scene only (parameter `fixture_padding_m`, Proposed):
+  the executed hand base leaves its plan by at most 0.009 m without contact, 0.013 m at the fingertips. 0.04 m was tried and made the
+  lift and the level-0 reaches infeasible. Gazebo's boxes, the tote, the item and the payload are unchanged.
+- **Planning scene, release and payload after the grasp.** The item and the tote were taken out of the planning scene for the reach and
+  never put back, so later moves planned through them (a retreat drove a finger into the tote walls at 104 to 208 N). Only the item
+  leaves the scene now (`planning_scene.excluded_from_planning`), the tote stays (a finger touched its front wall during a reach). On
+  every path out of the grasp the gripper opens, the hand withdraws 0.10 m along the fingers, the payload leaves the gravity
+  feed-forward, and then the item comes back. The straight reach runs 0.02 m above the grasp height and the hand comes down onto it last, and the approach's
+  orientation tolerance is 0.12 rad per axis (was 0.3): the gripper's collision meshes reach 0.0305 m below the TCP and 0.11 m along
+  the fingers, over the tote's front wall, and a tilted hand caught the wall once (8.8 N, item pushed 45 mm). Closing higher on the
+  item instead (0.05 m) left the lifted hand no room under the board above (lift refused, 696458d). Tests: `test_arm_frames.py`, `test_gravity.py`.
+
+### Added (17 Nov 2026; Build 1 arm diagnostics; simulation only)
+
+- **Arm diagnostics workflow** `build1-arm-diagnostics.yml`: scn04 grasp-and-lift with the Baseline 1 retreat (`diag_grasp`) and the
+  scn03 level-0 reach and return (`diag_reach_return`), five runs in DART. With `BUILD1_CONTACT_SENSORS=1` the launch adds gz contact
+  sensors to the 18 arm links (`diagnostics.py`; links, joints and physics unchanged) and gz-sim's Contact system to the world.
+  `diagnostics_live.py` records per-finger contact force (normal, tangential, points), finger positions, limit flags and efforts, the
+  item against the TCP (slip and onset), hand and item heights, joint torques and limit flags on the return moves, MoveIt's planned
+  against executed path, and arm contacts with the world; `scripts/diag_table.py` prints a per-run table. Trace JSON and a bag excerpt
+  are uploaded. Default off; no scenario check or limit changed. Test dependencies: `ros_gz_interfaces`, `rosbag2_py`.
+
+### Fixed (17 Nov 2026; Build 1 arm path, stacked on #70 `77bbf18`; simulation only)
+
+Diagnosis of the two arm failures of 16 Nov in `docs/build1_arm_diagnosis.md` (D9 order: FK, frames, commanded against actual,
+gripper path). Xacro (pinocchio) and MJCF (MuJoCo) FK agree to 5e-13 mm. Neither failure was a joint-order, side, sign or wrap error.
+- **Gravity feed-forward (Proposed).** The real driver's MIT tau was always 0, so the arms settled below every pose (0.145 rad on joint 1,
+  74 mm at the hand for the grasp pose). New `gravity.py` and `scripts/gravity_feedforward.py`, one `JointGroupEffortController` per arm on
+  the driver's effort interfaces, launch argument `gravity_feedforward` (default `true` with devices). Single-writer map: the effort claim
+  and the two command topics. Dependencies: `effort_controllers`, `python3-numpy`.
+- **Start-state resolution with devices.** `joint_state_clamp` allows one step of the Damiao position field (3.8148e-4 rad) when the joint
+  states cross the codec; the -1.39639 rad reading that stopped the right arm's return move is inside it.
+- **Commanded against actual.** scn03 and scn04 log the trajectory end point against the driver's reading per joint, with
+  `*_servo_torque_max` (driver kp times the error) limited to 0.5 N m for required moves. Tests: `test_gravity.py`, `test_command_map.py`.
+
+### Changed (15 Nov 2026, 23:59 Kyiv; WS0 repin of the Build 1 scene)
+
+Main `37b93f5` (with #66 in its merged form) merged into this branch. Pins moved: openamr-platform-sw main `0741778` to `69847ab`
+(adds #138 sensor profiles and #139 `openamrobot_sil`; Nav2, description and docking unchanged), the `openamrobot_sil` input from
+#141 `8bc5d1a` to #145 `8c5bd52` (provisional; contains #141, the #144 fix for the late SDO reply and main), #65 read-only head to
+`d1515b1`. `test_docs_and_pins.py` checks the new hashes. The scenario results below were taken on the old pins and must be rerun.
+
+### Added (15 Nov 2026; Build 1 scene: the whole robot in one Gazebo world on five virtual CAN buses)
+
+Base: main `b15bcb6`, with the head `6fe5e9c` of the open pull request #66 merged in by an explicit merge commit. Other inputs, not
+merged: openamr-platform-sw main `0741778`, the package `openamrobot_sil` of its open #141 (`8bc5d1a`, contains #139 `4a44f7d`), the form of
+one sensor block of its open #105 (`acc427d`), audits `audit/2026-09-28` at `be17653`. Simulation only: no hardware, no safety function.
+
+- **New package `openamrobot_build1_scene`.** One launch, `build1.launch.py`, for the full combined model in one Gazebo Harmonic world:
+  floor, an aisle with shelves, a work shelf, the AprilTag dock at a fixed pose, a tote, an item, a payload and obstacles. The world, the
+  Nav2 map and the MoveIt collision objects come from one file, `config/scene.yaml`, where every number is sourced, derived or estimated.
+  The Use Case 1 baseline gives the shelf heights, the work span and the parking distance. It gives no aisle, shelf or tote size and no floor
+  friction: those are estimated.
+- **Run profiles of the phase 1 baseline.** `firmware_sil` (default) and `faults`: ZLAC8015D, Daly BMS and CTL-017 emulators of
+  `openamrobot_sil` on `vcan_drive`, `vcan_bms` and `vcan_aux`, the arm motor emulators and the unmodified upstream driver on `vcan_arm_l`
+  and `vcan_arm_r` (CAN FD), with the host test client or `stm32:=renode_readonly`. `fast` and `fine`: no device, position controllers
+  and the base DiffDrive plugin. `geometry` is refused: it has no physics. Physics steps 1 ms and 1/1500 s.
+- **One dynamics owner and one command path per joint and per profile.** Gazebo owns the dynamics. The map is `config/command_map.yaml`
+  and the package README. `single_writer_check.py` checks the running system: `/tf` frames, `/odom`, `/joint_states`, every command
+  topic, action servers, claimed command interfaces and the Gazebo command topics.
+- **Conflicts of the phase 1 single-writer map, inside this scene.** SW-01: the docking nodes are not started, `collision_monitor` is the
+  one writer of `/cmd_vel`. SW-03: in the device profiles the DiffDrive plugin is taken out of the plant model and
+  `wheel_command_adapter.py` applies the drive emulator's demand per wheel. SW-06: the lift leaves `ros2_control` in the device profiles and
+  moves through CTL-017 only. SW-08: `base_state_adapter.py` writes `/odom`, `odom` to `base_footprint` and the base and lift joint
+  states from what came over the buses. SW-09: `finger_joint2` is owned by the engine's mimic constraint or by
+  `finger_mimic_follower.py`, never both. SW-10: one frame chain, the model's. Each has a test. Nothing in openamr-platform-sw is edited.
+- **Sensors.** The wrapper `urdf/build1_robot.urdf.xacro` adds Gazebo sensors on frames the description already has: base and head
+  RGB-D, two wrist cameras, all with optical frames. Their parameters are unverified. No link, joint, limit or mass is changed.
+- **Nav2 and MoveIt 2.** The platform's Nav2 launch files and parameters, a footprint that follows the floor projection of the arms
+  (`footprint_publisher.py`), MoveIt for both arms with the scene objects (`planning_scene_loader.py`), one RViz configuration and a checklist.
+- **Scenarios.** Fifteen headless launch tests with a quantitative log each: drive 2 m and turn 90 degrees against ground truth, lift at
+  three heights with and without permit, both arms to a shelf pose at two lift heights, grasp of a tote item, bus loss on each bus, stale
+  sensors, cancel and resume, arm power cut while holding, the single-writer check, and real-time factor, controller rates and missed
+  updates per profile. Fault cases record what the stack does today next to a simulation-only reference, labelled expected behaviour and
+  not certified safety behaviour. Limits are in Gazebo time. A slow machine gives BLOCKED where a host-clock device rule cannot hold.
+- **CAN FD.** `setup_vcan_all.sh` sets MTU 72 on the arm buses or says BLOCKED. `test_canfd_vcan.py` checks FD frames on the wire.
+- **Replay hook.** `replay_<bus>:=<candump file>` plays a trace into a bus in place of its emulator (`can_replay.py`).
+  `test_replay_vcan.py` uses two short synthetic traces.
+- **CI.** `.github/workflows/build1-scene-tests.yml`, ubuntu-24.04, Jazzy, vcan by modprobe. BLOCKED is counted apart and fails the job.
+- **Finding.** With the pinned models DART drives the base correctly and its grippers do not move in `fast` and `fine`. Bullet Featherstone
+  moves the grippers and the base does not turn. DART is the default of the scene. `docs/build1_scene.md` has the numbers.
+- **Changed in `openamrobot_openarm_emulator`.** Its `sil.launch.py` passes `sim_dynamics:=off`. With the joint dynamics of #66 and
+  Bullet Featherstone its arms were not held before activation and `test_sil_launch` failed in CI. The launch keeps the plant it was
+  verified with on main.
+- **First results, CI runner.** Drive, cancel and resume, arm power cut and the single-writer check pass in the device profiles. The
+  arm reach and the grasp fail there. Every lift move over CAN3 is BLOCKED: the runner is slower than the CTL-017 model needs.
+  `docs/build1_scene.md` has the numbers and the list of what does not work today.
+- **Docs.** `docs/build1_scene.md`: what is modelled, assumed and not modelled.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,
@@ -97,6 +226,52 @@ no safety logic, no firmware, no change to a joint limit, origin, axis, mass or 
   expanded combined URDF. Registered in `CMakeLists.txt` as `actuator_ledger`, so `colcon test` runs it.
 - **Hub motor values from the selected B2 V1.01 drawing** (platform-hw `8ed2b06`, `datasheets/ZLTech/wheel_ZLLG80ASM250`): part and revision, direct
   drive, 5.5 / 16 N*m, 200 / 260 rpm, 6.5 / 19 A, 24 V. Rotor inertia, damping and friction stay unknown.
+
+### Added (14 Nov 2026; simulator dynamics for the OpenArm 2.0 joints, simulation only)
+
+Base: main `895ce34`. Inputs: audits `audit/2026-09-28` (`digital-twin/openarm/`, gaps 3, 6, 9 and 10 of `findings.md`). Simulation only:
+no safety logic, no firmware, no change to a joint limit, origin, axis, mass or inertia. The real-hardware profile expands to the same text as before.
+
+- **Simulator dynamics profile, kept apart from the kinematics** (`config/sim_dynamics/openarm_v2.yaml`, schema `sim_dynamics.schema.json`).
+  Per joint and gripper: damping, friction, armature, and a copy of the URDF effort and velocity limits, each with its source, the place in
+  that source and a status. The values are upstream's own simulator values, from its MuJoCo model of OpenArm 2.0 (`openarm_mujoco` `1daab06`,
+  `v2/openarm_bimanual.xml`): joints 1 and 2 damping 1.0 N*m*s/rad, friction 0.2 N*m, armature 0.016 kg*m^2; joints 3 and 4 0.9, 0.1, 0.030;
+  joints 5 to 7 0.9, 0.04, 0.002; fingers 0.6, 0, 0.002. `openarm_description` gives none: its `friction.yaml` is empty at the pin `14ff67b`
+  and at main `38c64af`. The Isaac Lab asset (`cb7ff75`) is the 1.0 hand and has no joint friction or armature. Nothing is estimated except
+  two cross-checks that are not applied (the rotor inertia each armature implies, and a fingertip force), each with its method.
+  None of it is a measurement of a delivered arm.
+- **Applied through xacro to the simulated outputs only.** New `urdf/sim_dynamics.xacro` and xacro arg `sim_dynamics` (`auto`, `on`, `off`).
+  `hardware_profile:=gazebo` now has `<dynamics damping friction>` on the sixteen controlled arm and gripper joints and on the two finger mimic
+  followers. `sim_dynamics:=on` gives the same for a MuJoCo-facing URDF. `hardware_profile:=real` has none, and `sim_dynamics:=on` with `real`
+  stops the expansion. `mock` has none by default. The upstream macros take no dynamics argument, so the file redefines the one upstream macro
+  that emits every joint's `<limit>`, with the same `<limit>` and the `<dynamics>` after it; with the eighteen lines removed the expansion
+  equals the one without them. Armature is not applied: URDF has no element for it and no link inertia is changed.
+- **Controller rate in the simulation: 750 Hz, upstream's rate for the real driver** (`openarm_ros2` `4e837e1`,
+  `openarm_bringup/config/controllers/openarm_bimanual_controllers.yaml`). New `openamrobot_upperbody_control/config/sim_overlay.yaml`, handed to
+  `gz_ros2_control` after `arm_controllers.yaml` through the new xacro arg `controllers_overlay_file` (a second `<parameters>`).
+  `arm_controllers.yaml` is unchanged: mock and real stay at 100 Hz. `gz_ros2_control` updates on whole physics steps, so
+  `openamrobot_upperbody_gazebo/worlds/empty.sdf` now steps at 1/1500 s (was 1 ms). Measured: 499.5 Hz with 1 ms steps, 743.6 Hz with the new
+  step (most common interval between updates 1.333 ms). The simulation runs slower for it. A world with 1 ms steps runs the arm controllers at 500 Hz.
+- **Gripper grip limit from the motor data**: 3.0 N*m, the rated torque of the gripper motor (rated current 2.5 A), in the profile and as
+  `max_effort` of both gripper controllers in the simulation overlay. It is carried on the command path and not enforced: the position
+  command interface ignores `max_effort` and the URDF effort limit (7 N*m, the motor's peak) is unchanged.
+- **Tests, registered in CMake**: `test_sim_dynamics_profile.py` (schema, a source and locator for every value, a method for every estimate,
+  full commit hashes, the pins equal `upstream_pins.yaml`, the joint list equals the model's, the limit copies equal the URDF's),
+  `test_sim_dynamics_urdf.py` (`<dynamics>` on all 16 arm and gripper joints in `gazebo`, none in `real`, nothing else moved),
+  `test_sim_overlay_yaml.py` (the overlay equals the profile and adds no controller), `test_sim_control_rate.py` (the world step gives 750 Hz).
+
+### Fixed (14 Nov 2026; gripper `open` and `closed` were swapped in the SRDF)
+
+- **`open` is now the far end of each hand's range (+0.7854 left, -0.7854 right) and `closed` is 0.** They were the other way round, so a
+  `closed` command opened the hand. Audit finding 6 holds. Evidence: upstream docs ("the closed position is used as zero by default"), the
+  upstream driver (`openarm_can`: "0=closed, 1=open"), the upstream MuJoCo model (ratio 0 closed, 1 fully open at the range end away from 0),
+  and this model's geometry: the fingertip collision meshes are 0.1 mm apart at 0 and 139 mm apart at the far end.
+- **M05 now ties the names to the geometry.** It asserted the swapped convention and so passed with the defect. It now measures the fingertip
+  gap on the expanded URDF (under 1 mm at `closed`, over 100 mm at `open`), fails the swapped names, and still fails the single-number
+  version in both directions. `named_poses.open_value` is the per-hand far limit; `closed_value` is 0.
+- **Test sequences keep the same motion under the right names**: the gripper sequence of M01, M02 and M06 is `open` then `closed` (was `closed`
+  then `open`): to the far end and back to 0, as before. Text that said "close" for moving the fingers now says "move" or "reach the goal".
+  Not changed: the joint limits, the sign per hand, the controllers. The motor sign per hand on the real gripper is still undocumented upstream.
 
 ### Changed (14 Nov 2026; platform pin to platform-sw main 8e7a454)
 
