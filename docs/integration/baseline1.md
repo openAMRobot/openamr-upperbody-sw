@@ -140,3 +140,16 @@ Pinned: this branch `4a67ee7`, openamr-platform-sw integration branch `e75e16e` 
 | [44247710475](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247710475) | off | 6/8 | 0.0654 m | station tree only; reach fraction 0.603 |
 
 Baseline 1 status unchanged: not complete. The strict consecutive sequence waits for a correction that passes this check.
+
+## #167 verification runs, 18 Nov 2026, second check (extension)
+
+Pinned: this branch `d63e9ed`, openamr-platform-sw integration branch `931e631` (#167 at `c4666a1`), profile `sim-oracle` (`pose_source: ground_truth`, `object_pose_source: ground_truth`, perception stand-in). Criterion: marker detected in all 3 runs, each station error at most 0.030 m. Result: met, 3 of 3, each run 8/8.
+
+| Run | Alignment | Phases | Station error | Yaw |
+|---|---|---|---|---|
+| [44309791416](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309791416) | on | 8/8 | 0.0028 m | 0.031 rad |
+| [44309804809](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309804809) | on | 8/8 | 0.0217 m | 0.015 rad |
+| [44309817813](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309817813) | on | 8/8 | 0.0026 m | 0.038 rad |
+| [44309784398](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309784398) | off | 7/8 | 0.0639 m | 0.009 rad |
+
+These are three passes in parallel, not a strict consecutive sequence, and the alignment is not adopted into Baseline 1. They used #167 before the review fixes (aa8fd11). Simulation-oracle evidence only, not perception.
