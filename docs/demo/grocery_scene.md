@@ -2,7 +2,7 @@
 
 A small grocery dark store (two short aisles, four shelf rows, filler products, a tote with the target product, a packing tote, a
 parking spot) around the authoritative robot model, for MuJoCo and for Isaac Sim. Code in `simulation/scenes/grocery/`, CI in
-`.github/workflows/grocery-demo.yml`. Capability matrix of all simulators: [simulators.md](simulators.md).
+`.github/workflows/grocery-mujoco-isaac.yml`. Capability matrix of all simulators: [simulators.md](simulators.md).
 
 **MuJoCo experiment and demo only: not ROS, not ros2_control, not MoveIt, not Nav2, not firmware integrated.** Nothing here is
 hardware, physical acceptance or safety evidence.
@@ -17,7 +17,8 @@ hardware, physical acceptance or safety evidence.
 - Target product, as in the Build 1 Gazebo demo: box 0.035 x 0.035 x 0.14 m, 0.15 kg, friction 1.0, in a 0.40 x 0.30 x 0.06 m
   tote (0.6 kg) on the 0.82 m shelf level, 0.16 m to the robot's left. Shelves 1.20 m units, 0.40 m deep, aisle 1.50 m, robot
   footprint front 0.30 m from the shelf front. All of these are estimates in Build 1 too, except the shelf heights (Use_Case_1
-  site heights).
+  site heights). The Gazebo grocery dark store of #86 (head `d9a5480`, `grocery_scene.yaml`) keeps the same product, tote and
+  work-shelf geometry; its store layout differs (2.20 m aisles, four-unit rows), so the two stores are not the same map.
 
 ## MuJoCo
 
@@ -118,7 +119,7 @@ robot MJCF was generated there without the lock check, expansion SHA-256 `5d9a1b
   - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_5_held.png
   - https://raw.githubusercontent.com/openAMRobot/openamr-upperbody-sw/6125afa50359bfeaa462d61668142ee6ab20944f/grocery/still_6_overview.png
 
-The CI job uploads the same files as the artifact `grocery-demo`.
+The CI job uploads the same files as the artifact `grocery-mujoco-isaac`.
 
 ## Isaac Sim
 

@@ -25,7 +25,7 @@ Cell values: **yes** (runs, with evidence), **partial** (runs with a stated gap)
 | Contact | partial: DART; robot-link contact sensors do not report, finger forces come from the item's sensor [G2] | yes: soft contact, elliptic cone, convex hulls of the meshes; grasp-and-lift sweep [D1] | BLOCKED: PhysX, never run | no | no |
 | Nav2 | yes [G1] [G2] | **no** | **no** | no | yes (display) |
 | MoveIt | yes: scn03 and scn04 plan with MoveIt [G2] | **no** (the pick uses a script IK) | **no** | no | yes (display, planning plugin) [V1] |
-| CI | Build 1 scene workflow on #70 and #73 [G2] | `Simulators` (generation, parity, physics) [M1]; `Grocery demo` (this branch) [D1] | `isaac` jobs BLOCKED without a GPU runner [I1] [D1] | proposals' own workflows [R1] [R2] | none |
+| CI | Build 1 scene workflow on #70 and #73 [G2] | `Simulators` (generation, parity, physics) [M1]; `Grocery MuJoCo and Isaac` (this branch) [D1] | `isaac` jobs BLOCKED without a GPU runner [I1] [D1] | proposals' own workflows [R1] [R2] | none |
 
 ## What the grocery demo adds (this branch)
 
@@ -67,4 +67,4 @@ Cell values: **yes** (runs, with evidence), **partial** (runs with a stated gap)
   [#144](https://github.com/openAMRobot/openamr-platform-sw/pull/144) (firmware in Renode on the drive bus, micro-ROS; proposals).
 - [V1] RViz captures in `evidence/p25/rviz/` and `evidence/p28/rviz/`; `docs/v01_visual_check.md`.
 - [A1] Digital-twin parity audit (internal), checks P07, P12 and P13.
-- [D1] This branch: [grocery_scene.md](grocery_scene.md), workflow `.github/workflows/grocery-demo.yml`.
+- [D1] This branch: [grocery_scene.md](grocery_scene.md), workflow `.github/workflows/grocery-mujoco-isaac.yml`.

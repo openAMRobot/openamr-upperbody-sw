@@ -5,14 +5,14 @@
 #   isaac-render: needs Isaac Sim 5.1 on an NVIDIA GPU (repository variable ISAAC_GPU_RUNNER). Without one it is BLOCKED and fails.
 # Results are MuJoCo experiment and demo evidence only: not ROS, firmware, hardware, physical acceptance or safety evidence.
 # No secrets, no hardware, read-only token.
-name: Grocery demo
+name: Grocery MuJoCo and Isaac
 
 on:
   pull_request:
     paths:
       - "simulation/**"
       - "docs/demo/**"
-      - ".github/workflows/grocery-demo.yml"
+      - ".github/workflows/grocery-mujoco-isaac.yml"
       - "ros2/src/openamrobot_upperbody_description/**"
   workflow_dispatch:
 
@@ -164,7 +164,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: grocery-demo
+          name: grocery-mujoco-isaac
           path: |
             ws/build/grocery/
             ws/grocery-tests.xml
