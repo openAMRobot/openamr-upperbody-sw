@@ -16,6 +16,12 @@ from a datasheet:
   `ros2/src/openamrobot_control_room/test/fixtures/runs` and decoded by `openamrobot_control_room/can_decode.py`
   (`test/test_can_decode.py` checks the decode against the runs' own status topics).
 
+Frame-level fidelity (classic CAN or CAN FD per bus, bit rates in the firmware, vcan MTU, what Renode does and does
+not model) is recorded in openamr-platform-sw `docs/architecture/sil_fidelity.md` (PR #168, draft, 876a518) and is
+not repeated here. Its CAN ID rows agree with the code and with the recorded frames: base buses classic only (no FD
+frame in either recording), arm buses CAN FD with BRS, Daly IDs `0x18 DD 01 40` and `0x18 DD 40 01` with DD the data
+ID (the host stand-in polls 90h, 93h and 98h). This page adds the path of each signal through the stack.
+
 Nothing on these buses is a real device. `stm32: host` means the STM32 base controller is the host test stand-in
 `stm32_host_client` (openamrobot_sil stm32_host.py), not firmware, and not firmware in Renode. Simulation evidence
 only: never hardware, physical acceptance or safety evidence.

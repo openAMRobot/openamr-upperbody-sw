@@ -8,6 +8,13 @@ uses the same topic names) and writes an offline HTML report of a recorded run. 
 publishes nothing outside `/control_room/`, sends no action goal, calls no service and writes no parameter. Everything
 it shows is simulation data: never hardware, physical acceptance or safety evidence.
 
+One demonstration, three views of the same run: **live** next to the running mission (`control_room.launch.py`),
+**REPLAY** of that run's recording on its own simulation time (`replay.launch.py`), and the **offline report** of the
+same recording (`mission_report.py`). All three read the same topics and the same mission JSON; none adds a component
+to the stack. What each part of the run is (Gazebo physics, emulator, host stand-in, unmodified driver, virtual CAN,
+Proposed topic) is shown in the status field `provenance`, the report's components table and
+[can_signal_paths.md](can_signal_paths.md).
+
 ## What it shows and where it comes from
 
 | Display | Source topics | Where |
