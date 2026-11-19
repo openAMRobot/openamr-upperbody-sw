@@ -132,6 +132,7 @@ jobs:
 
   slice:
     name: Cut the 5 s test fixture of run 44448676604
+    if: false  # cut in run 44587791069
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -181,4 +182,106 @@ jobs:
         with:
           name: baseline1-slice-${{ env.RUN_ID }}
           path: out/
+          retention-days: 30
+
+  reference:
+    name: Reference dataset of run 44448676604, converted twice and verified
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      # openAMRobot/openamrobot-embodied-ai ai/capture-timestamp-rule (draft PR #8), Proposed reference_integrity
+      EMBODIED_AI_SHA: cf7f2835e204107fbb461af8be2f9254a33b9f0b
+      C9_SHA: 87ab8a936c97ab55ee74b8988ca3d7659160ea6a
+      C9_COMPONENTS_SHA: 43ec67747b1087163f3b220fbcf3ee44eb31c2e5
+      PROFILE: configs/capture_profiles/proposed/openamrobot-baseline1-gazebo-sim-oracle-v1.json
+      RECORDING_JOB: '135306975778'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-embodied-ai
+          ref: ${{ env.EMBODIED_AI_SHA }}
+          path: eai
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-interfaces
+          ref: ${{ env.C9_SHA }}
+          path: eai/external/openamrobot-interfaces
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-interfaces
+          ref: ${{ env.C9_COMPONENTS_SHA }}
+          path: eai/external/openamrobot-interfaces-c9-components
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.ARTIFACT }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+          path: run-artifact
+      - name: Recording run log (the model hash source)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out
+          gh api "repos/${{ github.repository }}/actions/jobs/${RECORDING_JOB}/logs" > out/recording-job-${RECORDING_JOB}.log
+          sha256sum out/recording-job-${RECORDING_JOB}.log
+          grep -c '"model_sha256": "e1a3c33d59f6c5628f1329c42fe04b67e11d1720db4a2f65e1dfae211885a2e2"' out/recording-job-${RECORDING_JOB}.log
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install the converter at the pinned head with its own pins (LeRobot 0.6.1, rosbags 0.11.9)
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e 'eai/python[conversion,native,training]'
+          python -c 'import importlib.metadata as m; [print(p, m.version(p)) for p in ("lerobot", "rosbags", "torch", "av", "pyarrow", "numpy")]'
+          sha256sum run-artifact/ws/build1_logs/bag/*
+      - name: Convert twice, independently
+        working-directory: eai
+        run: |
+          set -o pipefail
+          for name in a b; do
+            oa-convert-bag ../run-artifact/ws/build1_logs/bag --profile "$PROFILE" \
+              --sidecar-template external/openamrobot-interfaces/schemas/yaml/c9-lerobot-dataset-valid.yaml \
+              --output ../out/dataset-$name \
+              --enable-proposed proposed_capture_profile \
+              --enable-proposed episode_origin \
+              --enable-proposed controller_reference \
+              --enable-proposed command_semantics \
+              --enable-proposed vector_segments \
+              --enable-proposed stop_index \
+              --enable-proposed range_tolerance \
+              --enable-proposed held_command \
+              --enable-proposed lift_positioning_from_command \
+              --enable-proposed lift_phase_report \
+              --enable-proposed reference_integrity 2>&1 | grep -v libx264 | tee ../out/convert-$name.log
+          done
+      - name: Verify both from the bag and the run log
+        working-directory: eai
+        run: |
+          set -o pipefail
+          for name in a b; do
+            oa-verify-reference ../out/dataset-$name --bag ../run-artifact/ws/build1_logs/bag \
+              --run-log ../out/recording-job-${RECORDING_JOB}.log --require-clean-converter \
+              --json ../out/verify-$name.json 2>&1 | grep -v libx264 | tail -n 60 | tee ../out/verify-$name.log
+          done
+      - name: Determinism (byte comparison) and manifest summary
+        run: |
+          set -o pipefail
+          diff -r out/dataset-a out/dataset-b && echo "DETERMINISM: dataset-a and dataset-b are byte-identical"
+          (cd out/dataset-a && find . -type f | sort | xargs sha256sum) | tee out/dataset-a.sha256
+          (cd out/dataset-b && find . -type f | sort | xargs sha256sum) > out/dataset-b.sha256
+          cmp out/dataset-a.sha256 out/dataset-b.sha256 && echo "DETERMINISM: per-file sha256 identical"
+          python3 tools/scratch/reference_summary.py out/dataset-a out/verify-a.json out/verify-b.json | tee out/summary.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: baseline1-reference-dataset-${{ env.RUN_ID }}
+          path: out/
+          include-hidden-files: true
           retention-days: 30
