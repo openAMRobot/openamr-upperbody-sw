@@ -55,3 +55,13 @@ cans = sorted(glob.glob(root + "/**/record_candump_vcan_arm_l*.log", recursive=T
 print(label, "candump", cans)
 if cans:
     os.system(f"python3 -P {os.path.join(os.path.dirname(__file__), 'can_hold.py')} {cans[0]} {j1_end}")
+# The trajectories the left arm controller received during arm_approach (approach, reach, ...), first and last point.
+tr = bag_messages(root, ["/left_arm_controller/joint_trajectory", "/left_arm_controller/controller_state"])
+for t, m in tr["/left_arm_controller/joint_trajectory"]:
+    if not (start - 1 <= t <= phase["arm_approach"]["sim_end"] + 1):
+        continue
+    first, last = m.points[0], m.points[-1]
+    d = last.time_from_start.sec + last.time_from_start.nanosec * 1e-9
+    print(label, "TRAJ at %.3f, %d points, %.3f s" % (t, len(m.points), d), list(m.joint_names))
+    print(label, "TRAJ first", ",".join("%.5f" % v for v in first.positions))
+    print(label, "TRAJ last", ",".join("%.5f" % v for v in last.positions))
