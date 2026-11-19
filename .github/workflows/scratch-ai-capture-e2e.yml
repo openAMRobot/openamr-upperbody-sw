@@ -19,6 +19,7 @@ env:
 jobs:
   measure:
     name: Excerpts of run 44448676604
+    if: false  # excerpts taken in run 44518288461
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -50,16 +51,16 @@ jobs:
           retention-days: 30
 
   convert:
-    if: false
-    name: Convert run 44448676604 with the embodied-ai converter branch
+    name: Full conversion of run 44448676604 with the Proposed rules enabled
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     env:
-      # openAMRobot/openamrobot-embodied-ai ai/capture-timestamp-rule (draft into satya/capture-conversion-benchmark)
-      EMBODIED_AI_SHA: fddbfe1fd0a58fc3dfabb31fc871e84b0a566a77
-      # C9 assets the converter pins, and the Proposed C9 component profile (interfaces #39 head)
+      # openAMRobot/openamrobot-embodied-ai ai/capture-timestamp-rule (draft PR #8 into satya/capture-conversion-benchmark)
+      EMBODIED_AI_SHA: 0acccb7984fbf710ce75ff6232f580cf59a777b1
+      # C9 assets the converter pins, and the Proposed C9 component profile the capture profile binds (interfaces #39 head)
       C9_SHA: 87ab8a936c97ab55ee74b8988ca3d7659160ea6a
       C9_COMPONENTS_SHA: 43ec67747b1087163f3b220fbcf3ee44eb31c2e5
+      PROFILE: configs/capture_profiles/proposed/openamrobot-baseline1-gazebo-sim-oracle-v1.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -68,19 +69,19 @@ jobs:
         with:
           repository: openAMRobot/openamrobot-embodied-ai
           ref: ${{ env.EMBODIED_AI_SHA }}
-          path: external/openamrobot-embodied-ai
+          path: eai
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openAMRobot/openamrobot-interfaces
           ref: ${{ env.C9_SHA }}
-          path: external/openamrobot-embodied-ai/external/openamrobot-interfaces
+          path: eai/external/openamrobot-interfaces
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openAMRobot/openamrobot-interfaces
           ref: ${{ env.C9_COMPONENTS_SHA }}
-          path: external/c9-components
+          path: eai/external/openamrobot-interfaces-c9-components
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -95,29 +96,35 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
           python -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install -e 'external/openamrobot-embodied-ai/python[conversion,native,training]'
-          python - <<'PY'
-          import importlib.metadata as m
-          for p in ("lerobot", "rosbags", "torch", "pyarrow", "av", "opencv-python-headless"):
-              try:
-                  print(p, m.version(p))
-              except m.PackageNotFoundError:
-                  print(p, "not installed")
-          PY
-      - name: Convert and load
+          python -m pip install -e 'eai/python[conversion,native,training]'
+          python -c 'import importlib.metadata as m; [print(p, m.version(p)) for p in ("lerobot", "rosbags", "torch", "av")]'
+      - name: Convert with every Proposed rule enabled by name
+        working-directory: eai
         run: |
           set -o pipefail
-          mkdir -p out
-          python3 tools/scratch/e2e_convert.py --bag run-artifact/ws/build1_logs/bag \
-            --profile external/openamrobot-embodied-ai/configs/capture_profiles/proposed/openamrobot-baseline1-gazebo-sim-oracle-v1.json \
-            --contract external/c9-components/profiles/c9/mobile-lift-qpos-v1-proposed.json \
-            --template external/openamrobot-embodied-ai/external/openamrobot-interfaces/schemas/yaml/c9-lerobot-dataset-valid.yaml \
-            --out out 2>&1 | tee out/e2e.log
+          mkdir -p ../out
+          oa-convert-bag ../run-artifact/ws/build1_logs/bag --profile "$PROFILE" \
+            --sidecar-template external/openamrobot-interfaces/schemas/yaml/c9-lerobot-dataset-valid.yaml \
+            --output ../out/dataset \
+            --enable-proposed proposed_capture_profile \
+            --enable-proposed episode_origin \
+            --enable-proposed controller_reference \
+            --enable-proposed command_semantics \
+            --enable-proposed vector_segments \
+            --enable-proposed stop_index \
+            --enable-proposed range_tolerance \
+            --enable-proposed held_command \
+            --enable-proposed lift_positioning_from_command \
+            --enable-proposed lift_phase_report 2>&1 | tee ../out/convert.log
+      - name: Reopen with LeRobotDataset, C9 and C10
+        working-directory: eai
+        run: |
+          set -o pipefail
+          python ../tools/scratch/validate_dataset.py --dataset ../out/dataset --profile "$PROFILE" --out ../out/report 2>&1 | tee ../out/validate.log
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: e2e-${{ env.RUN_ID }}
-          path: |
-            out/*.json
-            out/e2e.log
+          name: baseline1-lerobot-dataset-${{ env.RUN_ID }}-proposed-rules
+          path: out/
+          include-hidden-files: true
           retention-days: 30
