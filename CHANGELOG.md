@@ -5,6 +5,18 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (19 Nov 2026; scn04 reach, palm on the item; simulation only)
+
+- **The reach comes down short of the item and moves in along the fingers last.** In control room run 44476577635 the
+  palm (`openarm_left_ee_base_link`) caught the top edge of the item's robot-side face on the way down onto the grasp
+  height and held joint 1 0.016 rad short of its end point for about 1 s: `grasp_reach_servo_torque_max` 1.018 N m against
+  0.5. A grasp-only reproduction from the run's logged approach state with contact sensors on recorded the palm on the item
+  (about 1.5 N, 0.35 mm deep) while joint 1 stood still 0.0166 rad short. The item is out of the planning scene for the
+  reach, and the palm's collision mesh was planned 1.5 mm from that face, inside the 0.009 m path deviation of the
+  executed hand. `arm_frames.reach_waypoints` brings the hand down `DESCENT_STANDOFF_M` (0.009 m) farther back and ends with a
+  straight move of that length along the fingers onto the unchanged end point. Limits, thresholds and collision checks
+  are unchanged. Tests: `test_arm_frames.py` (palm against the item along the reach of runs 44476577635 and 44470870769 leg 1).
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,

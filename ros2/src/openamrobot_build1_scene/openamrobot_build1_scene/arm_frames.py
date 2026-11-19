@@ -112,6 +112,35 @@ def grasp_line(tcp_point, tcp_offset, hand_quaternion, standoff=REACH_STANDOFF_M
     return tuple(grasp[i] - standoff * fingers[i] for i in range(3)), grasp
 
 
+# The descent onto the grasp height sweeps the palm (ee_base_link) down past the top edge of the item's face on the robot
+# side, and the item is out of the planning scene for the reach (scenarios.grasp). With the item ITEM_DEPTH_BEHIND_TCP_M
+# into the fingers the palm's collision mesh is planned 1.5 mm (run 44476577635) and 4.4 mm (run 44470870769, leg 1) from
+# that face at the end point; the executed hand leaves its plan by up to REACH_PATH_DEVIATION_M (diagnostics run of d139f76).
+# In run 44476577635 and its grasp-only reproduction from the logged approach state the palm caught the item's top edge on
+# the way down (contact ee_base_link with the item, about 1.5 N, 0.35 mm deep) and held joint 1 0.016 rad short of its end
+# point for about 1 s with zero velocity: grasp_reach_servo_torque_max 1.018 N m at the 1 s reading. So the hand comes down
+# DESCENT_STANDOFF_M farther back along the fingers and the reach ends with a straight move of that length along the fingers
+# onto the unchanged end point: the item sits as deep in the fingers as before, and the palm closes on the face head-on.
+REACH_PATH_DEVIATION_M = 0.009
+DESCENT_STANDOFF_M = REACH_PATH_DEVIATION_M
+
+
+def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None):
+    """The hand base waypoints of scn04's reach with the orientation `hand_quaternion` held: REACH_STANDOFF_M back along
+    the fingers and REACH_CLEARANCE_M up, in along the fingers to `standoff` short of the end, down onto the grasp height,
+    and in along the fingers onto the end point (the TCP on `tcp_point`). A standoff of 0 is the reach without the last
+    move: [pre_grasp, above, grasp]."""
+    standoff = DESCENT_STANDOFF_M if standoff is None else standoff
+    raised = (tcp_point[0], tcp_point[1], tcp_point[2] + REACH_CLEARANCE_M)
+    pre_grasp, above = grasp_line(raised, tcp_offset, hand_quaternion)
+    _, grasp = grasp_line(tcp_point, tcp_offset, hand_quaternion)
+    if standoff <= 0.0:
+        return [pre_grasp, above, grasp]
+    fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
+    back = tuple(standoff * f for f in fingers)
+    return [pre_grasp, tuple(above[i] - back[i] for i in range(3)), tuple(grasp[i] - back[i] for i in range(3)), grasp]
+
+
 def straight_lift(hand_xyz, hand_quaternion, rise):
     """The hand base goal that raises the TCP and the held item by `rise` straight up: the hand translated along z of
     base_footprint with the orientation it has on the item. A translation moves every point of the hand by the same vector."""
