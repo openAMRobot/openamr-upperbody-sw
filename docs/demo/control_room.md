@@ -100,18 +100,36 @@ the simulation. For a picture of the scene it uses camera topics instead.
 ```bash
 ros2 run openamrobot_control_room mission_report.py --bag $BUILD1_LOG_DIR/bag \
   --mission $BUILD1_LOG_DIR/baseline1_mission.json --candump "$BUILD1_LOG_DIR/record_candump_*.log" \
+  [--control-room-log status.jsonl can.jsonl] [--time-base-json time_base.json] \
   -o $BUILD1_LOG_DIR/control_room_report.html
 ```
 
 One static HTML file, no external resources: phase timeline and phase table from the mission JSON, station error,
 localization error, left and right arm joint states, lift position (joint states and Gazebo physics), item height,
-real-time factor, CAN frame rate (candump wall time), the decoded CAN signals (drive wheel targets and actuals in
-m/s, lift position and velocity, left arm MIT command and feedback positions, BMS SOC and voltage, and the first raw
-frame of every bus and ID with its decode, all on candump wall time), the components of the run from its
+real-time factor, CAN frame rate, the decoded CAN signals (drive wheel targets and actuals in m/s, lift position and
+velocity, left arm MIT command and feedback positions, BMS SOC and voltage, and the first raw frame of every bus and
+ID with its decode), a Time base section, the components of the run from its
 `/build1/run_info`, the mission status messages, and contact force (when contact sensors were recorded), on the
 Gazebo time base with the phases as shaded bands. The station pose comes from `config/scene.yaml` of
 `openamrobot_build1_scene` (`--station X Y YAW` or `--scene PATH` to override). The verdicts are the mission's; the
 page computes none.
+
+### One time base
+
+The bag (recorded with `--use-sim-time`), the mission JSON (`sim_start`, `sim_end`) and REPLAY are on Gazebo time.
+candump stamps frames with host wall time; `timebase.py` maps it to Gazebo time with pairs the run recorded:
+
+- the control room's own status lines (`status_log`, `can_log`): `host_time` next to `sim_time` (the last `/clock`,
+  1000 Hz of Gazebo time), late by the executor's queue only. Used when there are at least 20.
+- otherwise CTL-017 TPDO1 counters: the frame with counter c on `vcan_aux` and the first `/sil/lift/status` with
+  counter c (its `sim_clock.now`). That status is published on a 0.05 s timer, so these pairs are 0 to 50 ms late.
+
+The map is linear between pairs and undefined outside them (frames there are not plotted on Gazebo time). Matching
+stops at the first gap in the candump or the bag (after a gap a counter is ambiguous by 25.6 s), and the map is used
+only with 20 pairs, 90 % of the candump covered and a leave-one-out p95 under 50 ms; otherwise the CAN plots stay on
+host time and say so. The Time base section lists the measured skews: leave-one-out residuals of each pair set, the
+TPDO1 map against the control room pairs, and `/baseline1/mission_status` (Proposed) receive times against the
+mission JSON phase begins. `control-room-e2e.yml` prints them (`time base: ...`).
 
 `--synthetic DIR` writes a small synthetic bag and mission JSON first and reports them; `--synthetic-plain` renders
 the same fixture without ROS. The CI job `control-room-tests.yml` writes the synthetic report on every run and, when
@@ -156,6 +174,17 @@ action topics) are never replayed and are listed in the status. Lichtblick can o
   launch file starts only the four monitoring components, and that no source calls a client, goal or parameter API.
 - The CI job also starts the launch file and fails if any node it started publishes outside `/control_room/` or has
   a service or action client, and compares the installed package with its source tree (`tools/check_installed.py`).
+- Installed package: with the package's source tree moved away, the job checks that the prefix and the Python module
+  are in the install space, the four entry points, the launch, config and rviz files under `share/`, that both launch
+  files resolve, and runs `mission_report.py` from `lib/`. Then `tools/session_cycles.py` starts and stops the control
+  room and its REPLAY three times (SIGINT, SIGTERM, SIGINT): a cycle fails on a component that never published its
+  status, a process left behind (every process started carries a marker in its environment), a new ROS 2 daemon or
+  a vcan interface left. A negative control (a launch with no monitor) must fail.
+- Unknown is not zero: without a contact sensor topic the status has `max_force_n: null` and
+  `/control_room/contacts/max_force` is not published; one item pose gives no speed (`test_state.py`,
+  `test_monitor_graph.py`, `test_report.py`).
+- `tools/check_recording.py` fails the end-to-end job when the control room's bag holds fewer than 10
+  `/control_room/status` messages or no CAN topic (run 44445938978 recorded none and passed before).
 - `test_topic_audit.py` checks every topic the monitor reads against the topic lists of two recorded runs
   (`test/fixtures/runs`); a topic no run has must be labelled absent with its reason. `test_can_decode.py` decodes
   frames recorded in those runs and checks them against the same runs' status topics and the driver's gains.
@@ -180,13 +209,17 @@ action topics) are never replayed and are listed in the status. Lichtblick can o
   them.
 - The CAN decode follows the emulators' and the host stand-in's frame layouts (can_signal_paths.md). They are not
   confirmed device protocols: the CTL-017 dictionary is a proposal, the Daly protocol is unconfirmed.
-- The CAN plots of the report use candump wall time, not Gazebo time.
+- The CAN plots of the report are on Gazebo time only when the time base passes its checks; a run without the
+  control room log and with a gap in the candump stays on host time.
 - The replay has no map (the recorders do not record `/map`) and no MoveIt displays.
-- With `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (the Build 1 tests' isolation), a control room and a recorder that
-  join a running stack late found the stack but not each other in run 44445938978: the recorder's bag has no
-  `/control_room/` topic. Run 44458551182 shows the monitor publishing at 2 Hz with `use_sim_time:=true` and the same
-  recorder command recording it when few processes run. The cause is not verified; `status_log` and `can_log` record
-  the live view without discovery.
+- Discovery: with `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (the Build 1 tests' isolation) and Fast DDS, a
+  participant announces itself only to participant indices 0 to 31 (`maxInitialPeersRange` 32 in rmw_fastrtps);
+  two late participants at index 32 or above never match (docs/integration/dds_benchmark.md, #89, measured in run
+  44316085344). The control room and its recorder join the mission's 40 or so processes 20 s and 40 s late: in run
+  44445938978 the recorder matched `/baseline1/mission_status` (the test process, index near 0) and none of the
+  monitor's topics; alone (run 44458551182) the same commands recorded all 16. `control-room-e2e.yml` runs CycloneDDS
+  with `MaxAutoParticipantIndex` 120, as `baseline1-acceptance.yml`: run 44476577635 recorded 16 `/control_room/`
+  topics (1339 status messages). `status_log` and `can_log` record the live view without discovery.
 - Lichtblick draws the robot without meshes (no `assets` capability).
 - The foxglove_bridge node keeps its own ROS parameter services (a ROS 2 node default). They are reachable from the
   ROS graph, not from the browser; the bridge's settings are read at start.

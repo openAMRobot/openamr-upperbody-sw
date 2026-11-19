@@ -263,6 +263,11 @@ jobs:
               out="../cr/graph_${at}s.txt"
               {
                 echo "### graph at ${at} s after the domain appeared"
+                # Participant index of every process: discovery port 7400 + 250 * domain + 10 + 2 * index (#89).
+                echo "== participants (ss -u -a -n -p, discovery unicast ports of domain $domain)"
+                ss -u -a -n -p 2>/dev/null | awk -v lo=$((7400 + 250 * domain + 10)) -v hi=$((7400 + 250 * domain + 10 + 2 * 120)) \
+                  '{n = split($4, a, ":"); p = a[n] + 0; if (p >= lo && p <= hi && (p - lo) % 2 == 0) print "index", (p - lo) / 2, $NF}' \
+                  | sort -n -k2 -u
                 timeout 60 ros2 topic list -t --no-daemon
                 for t in /cmd_vel /cmd_vel_nav /cmd_vel_smoothed /sil/drive/status /sil/drive/emulator_state /sil/lift/status \
                          /sil/lift/emulator_state /sil/fw/status /baseline1/mission_status /navigation/status /safety/stop_lock \
@@ -318,6 +323,12 @@ jobs:
           echo "=================== control room launch log (tail)"; tail -60 ../cr/control_room.log
           echo "=================== rosbridge_readonly log (tail)"; tail -40 ../cr/rosbridge.log
           echo "=================== control room bag"; ros2 bag info ../cr/control_room_bag 2>&1 | tee ../cr/control_room_bag_info.txt
+          # The recording must hold what the control room published (run 44445938978 recorded no /control_room/ topic
+          # and this step passed). A FAIL here fails the job in the Result step.
+          python3 -P src/openamr-upperbody-sw/ros2/src/openamrobot_control_room/tools/check_recording.py ../cr/control_room_bag \
+            --status-jsonl ../cr/status.jsonl --require /control_room/can/decoded /control_room/can/summary \
+            2>&1 | tee ../cr/check_recording.txt
+          echo "CR_RECORDING_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
           echo "=================== control room JSON lines: $(wc -l < ../cr/status.jsonl 2>/dev/null) status, $(wc -l < ../cr/can.jsonl 2>/dev/null) CAN"
           python3 -P - ../cr/status.jsonl ../cr/can.jsonl <<'PY' 2>&1 | tee ../cr/control_room_jsonl_summary.txt
           import json, sys
@@ -334,10 +345,11 @@ jobs:
                   for name, value in sorted(values.items())[:30]:
                       print("  ", name, json.dumps(value, sort_keys=True)[:300])
           PY
+          # The installed package (install/setup.bash), not the source tree.
           python3 -P - ../cr/control_room_bag <<'PY' 2>&1 | tee ../cr/control_room_summary.txt
           import collections, json, sys
-          sys.path.insert(0, "src/openamr-upperbody-sw/ros2/src/openamrobot_control_room")
           from openamrobot_control_room import bag
+          print("openamrobot_control_room from", bag.__file__)
           statuses, decoded, mission = [], [], []
           for topic, msg, t_ns in bag.read(sys.argv[1]):
               if topic == "/control_room/status":
@@ -347,11 +359,11 @@ jobs:
               elif topic == "/baseline1/mission_status":
                   mission.append((t_ns * 1e-9, json.loads(msg.data)))
           print(f"/control_room/status messages: {len(statuses)}, /control_room/can/decoded: {len(decoded)}, "
-                f"/baseline1/mission_status: {len(mission)}")
+                f"/baseline1/mission_status (Proposed, #82): {len(mission)}")
           sims = [s["sim_time"] for s in statuses if s.get("sim_time") is not None]
           print("status sim_time span:", (min(sims), max(sims)) if sims else "none")
           print("mission sources seen:", sorted({s["mission"]["source"] for s in statuses}))
-          print("phases seen on /baseline1/mission_status:", [(round(t, 2), m["phase"], m["state"]) for t, m in mission])
+          print("phases seen on /baseline1/mission_status (Proposed, #82):", [(round(t, 2), m["phase"], m["state"]) for t, m in mission])
           for key in ("provenance", "drive", "lift", "bms", "firmware", "station", "localization", "scene"):
               print(f"last status {key}:", json.dumps(statuses[-1].get(key), sort_keys=True)[:1500] if statuses else "none")
           keys = collections.Counter(k for d in decoded for bus in d["decoded"].values() for k in bus)
@@ -372,8 +384,11 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           mkdir -p ../report
+          # Time base: candump host time to Gazebo time through the control room's own (host_time, sim_time) pairs and
+          # the CTL-017 TPDO1 counters; the measured skews are printed ("time base: ...") and kept in time_base.json.
           ros2 run openamrobot_control_room mission_report.py --bag build1_logs/bag --mission build1_logs/baseline1_mission.json \
             --candump 'build1_logs/record_candump_*.log' --title "Baseline 1 mission report (run ${{ github.run_id }})" \
+            --control-room-log ../cr/status.jsonl ../cr/can.jsonl --time-base-json ../report/time_base.json \
             -o ../report/control_room_report.html
           echo "REPORT_HTML_RC=$?" >> "$GITHUB_ENV"
           ls -la ../report
@@ -424,4 +439,5 @@ jobs:
         run: |
           echo "Baseline 1 mission verdict (baseline1_report.py exit): ${REPORT_RC:-not run} (0: all eight phases passed)"
           echo "control room report: exit ${REPORT_HTML_RC:-not run}"
-          [ "${REPORT_HTML_RC:-1}" = "0" ]
+          echo "control room recording check: exit ${CR_RECORDING_RC:-not run} (0: /control_room/ topics recorded)"
+          [ "${REPORT_HTML_RC:-1}" = "0" ] && [ "${CR_RECORDING_RC:-1}" = "0" ]

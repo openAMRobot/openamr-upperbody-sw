@@ -231,6 +231,7 @@
    "showFullMessageForDiff": false
   },
   "RawMessages!mission": {
+   "foxglovePanelTitle": "Mission status (Proposed topic, openamr-upperbody-sw#82)",
    "topicPath": "/baseline1/mission_status.data",
    "diffEnabled": false,
    "diffMethod": "custom",

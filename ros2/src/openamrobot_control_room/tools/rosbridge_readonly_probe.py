@@ -14,7 +14,7 @@ import json
 import sys
 
 SUBSCRIBE = (("/navigation/status", "openamr_nav_msgs/msg/NavigationStatus"),
-             ("/baseline1/mission_status", "std_msgs/msg/String"),
+             ("/baseline1/mission_status", "std_msgs/msg/String"),      # Proposed (#82)
              ("/sil/bms/battery_state", "sensor_msgs/msg/BatteryState"),
              ("/diagnostics", "diagnostic_msgs/msg/DiagnosticArray"),
              ("/safety/stop_lock", "std_msgs/msg/Bool"),
