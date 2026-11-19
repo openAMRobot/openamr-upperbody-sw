@@ -55,13 +55,29 @@ cans = sorted(glob.glob(root + "/**/record_candump_vcan_arm_l*.log", recursive=T
 print(label, "candump", cans)
 if cans:
     os.system(f"python3 -P {os.path.join(os.path.dirname(__file__), 'can_hold.py')} {cans[0]} {j1_end}")
-# The trajectories the left arm controller received during arm_approach (approach, reach, ...), first and last point.
-tr = bag_messages(root, ["/left_arm_controller/joint_trajectory", "/left_arm_controller/controller_state"])
-for t, m in tr["/left_arm_controller/joint_trajectory"]:
-    if not (start - 1 <= t <= phase["arm_approach"]["sim_end"] + 1):
-        continue
-    first, last = m.points[0], m.points[-1]
-    d = last.time_from_start.sec + last.time_from_start.nanosec * 1e-9
-    print(label, "TRAJ at %.3f, %d points, %.3f s" % (t, len(m.points), d), list(m.joint_names))
-    print(label, "TRAJ first", ",".join("%.5f" % v for v in first.positions))
-    print(label, "TRAJ last", ",".join("%.5f" % v for v in last.positions))
+# The approach end: the last still stretch of the left arm reference (0.5 s or longer) before the reach reaches its end.
+cs = bag_messages(root, ["/left_arm_controller/controller_state"])["/left_arm_controller/controller_state"]
+cs = [(t, m) for t, m in cs if start <= t <= phase["arm_approach"]["sim_end"]]
+names = list(cs[0][1].joint_names)
+i1 = names.index("openarm_left_joint1")
+end_t = next(t for t, m in cs if abs(m.reference.positions[i1] - float(j1_end)) < 1e-5 and abs(m.reference.velocities[i1]) < 1e-6)
+still, run0 = [], None
+for t, m in cs:
+    if t >= end_t:
+        break
+    moving = any(abs(v) > 1e-6 for v in m.reference.velocities)
+    if not moving and run0 is None:
+        run0 = (t, m)
+    if moving and run0 is not None:
+        if t - run0[0] >= 0.5:
+            still.append((run0[0], t, run0[1], prev))
+        run0 = None
+    prev = m
+for t0, t1, m0, m1 in still[-3:]:
+    print(label, "STILL %.3f to %.3f" % (t0, t1), names)
+    print(label, "STILL ref", ",".join("%.5f" % v for v in m1.reference.positions))
+    print(label, "STILL fb", ",".join("%.5f" % v for v in m1.feedback.positions))
+out = os.environ.get("GITHUB_OUTPUT")
+if out and still:
+    with open(out, "a") as f:
+        f.write(f"{label}_approach=" + ",".join("%.5f" % v for v in still[-1][3].reference.positions) + "\n")

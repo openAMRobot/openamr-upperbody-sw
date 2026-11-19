@@ -33,6 +33,8 @@ jobs:
     outputs:
       fail_pose: ${{ steps.p.outputs.fail_pose }}
       pass_pose: ${{ steps.p.outputs.pass_pose }}
+      fail_approach: ${{ steps.p.outputs.fail_approach }}
+      pass_approach: ${{ steps.p.outputs.pass_approach }}
       legs: ${{ steps.legs.outputs.legs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
