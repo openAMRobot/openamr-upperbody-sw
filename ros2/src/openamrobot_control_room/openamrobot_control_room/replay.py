@@ -208,7 +208,8 @@ def main(args=None):
     if known.mission:
         with open(known.mission, encoding="utf-8") as f:
             mission = json.load(f)
-    rclpy.init(args=ros_args)
+    from openamrobot_control_room.monitor import init_ros
+    init_ros(ros_args)
     node = make_node("control_room_replay")
     replay = Replay(node, known.bag, mission, known.rate, known.start, known.end)
     node.create_timer(0.5, replay.publish_status, clock=Clock(clock_type=ClockType.STEADY_TIME))

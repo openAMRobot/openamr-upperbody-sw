@@ -116,6 +116,9 @@ jobs:
           python3 -P "$RUNNER_TEMP/cr_tools/session_cycles.py" "$RUNNER_TEMP/cr_tools/sessions/control_room.yaml" \
             --log-dir ../sessions/cycles --summary ../sessions/summary.json
           cycles=$?
+          if [ "$cycles" != 0 ]; then
+            for f in ../sessions/cycles/*.log; do grep -q "Traceback\|process has died" "$f" && { echo "=== $f"; grep -B2 -A25 "Traceback" "$f" | head -80; grep "process has died" "$f"; }; done
+          fi
           check "three sessions of the control room and its REPLAY" '[ "$cycles" = 0 ]'
           # Negative control: the same check on a launch that starts no monitor must fail ("never became ready").
           python3 -P "$RUNNER_TEMP/cr_tools/session_cycles.py" "$RUNNER_TEMP/cr_tools/sessions/control_room_nothing_running.yaml" \

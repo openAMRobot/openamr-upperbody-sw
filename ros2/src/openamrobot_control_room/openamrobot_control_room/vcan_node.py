@@ -94,7 +94,8 @@ def main(args=None):
     import rclpy
     from rclpy.executors import ExternalShutdownException
     from openamrobot_control_room.monitor import make_node
-    rclpy.init(args=args)
+    from openamrobot_control_room.monitor import init_ros
+    init_ros(args)
     node = make_node("control_room_vcan_monitor")
     monitor = VcanMonitorNode(node)
     try:

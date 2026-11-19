@@ -301,13 +301,30 @@ def _r(value, digits=4):
     return None if value is None else round(float(value), digits)
 
 
+def init_ros(args=None):
+    """rclpy.init with SIGINT handled here, once. Ctrl-C reaches a launched node twice (the terminal signals the
+    whole process group and ros2 launch forwards its own SIGINT). With rclpy's handler the second one raised
+    KeyboardInterrupt inside destroy_node or a thread join: the node died with a traceback and exit -2 (session runs
+    44590676440 and 44596058839). Here the first SIGINT sets SIGINT to ignored and then raises KeyboardInterrupt, so
+    the cleanup runs once. SIGTERM is a clean stop the same way; SIGKILL remains the launch's last resort."""
+    import signal
+    import rclpy
+    from rclpy.signals import SignalHandlerOptions
+
+    def once(signum, frame):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        raise KeyboardInterrupt
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    signal.signal(signal.SIGINT, once)
+    signal.signal(signal.SIGTERM, once)      # rclpy's handler, now off, also took SIGTERM as a clean stop
+
+
 def ignore_further_interrupts():
-    """Called once the node stops. Ctrl-C reaches a launched node twice (the terminal signals the whole process group
-    and ros2 launch forwards its own SIGINT); the second one used to raise KeyboardInterrupt inside destroy_node or a
-    thread join, so the node died with a traceback and exit -2 (session run 44590676440). The launch still escalates
-    to SIGTERM and SIGKILL if the cleanup hangs."""
+    """Belt and braces in the mains' finally: SIGINT and SIGTERM stay ignored for the rest of the cleanup."""
     import signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 
 def make_node(name="control_room_monitor", **kwargs):
@@ -319,7 +336,7 @@ def make_node(name="control_room_monitor", **kwargs):
 def main(args=None):
     import rclpy
     from rclpy.executors import ExternalShutdownException
-    rclpy.init(args=args)
+    init_ros(args)
     node = make_node()
     ControlRoomMonitor(node)
     try:
