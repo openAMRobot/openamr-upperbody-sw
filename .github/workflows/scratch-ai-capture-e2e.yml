@@ -56,7 +56,7 @@ jobs:
     timeout-minutes: 120
     env:
       # openAMRobot/openamrobot-embodied-ai ai/capture-timestamp-rule (draft PR #8 into satya/capture-conversion-benchmark)
-      EMBODIED_AI_SHA: 0acccb7984fbf710ce75ff6232f580cf59a777b1
+      EMBODIED_AI_SHA: 8d012ea9feb9c54156912d61940f1d43f2ace3b7
       # C9 assets the converter pins, and the Proposed C9 component profile the capture profile binds (interfaces #39 head)
       C9_SHA: 87ab8a936c97ab55ee74b8988ca3d7659160ea6a
       C9_COMPONENTS_SHA: 43ec67747b1087163f3b220fbcf3ee44eb31c2e5
