@@ -82,3 +82,44 @@ def test_no_command_when_the_permit_never_becomes_fresh():
     rig.lift_permit = lambda on: setattr(rig, "pending", [False] * 100 if on else [])
     assert Rig.lift_move(rig, 1, 60.0) is False
     assert rig.commands == [] and any("did not become fresh" in e for e in rig.log.events)
+
+
+def test_a_stale_fresh_state_already_on_its_way_at_the_grant_is_not_taken():
+    """The first state after the call can be one the emulator published before the grant, while it still held the old
+    permit (review of #94). Taking it would command the lift on a permit that is withdrawn a moment later; the wait
+    needs the second state. revert of the +2 rule to +1 or to the cached state: the command goes out invalid."""
+    rig = RecordedOrder()
+    rig.lift_permit = lambda on: setattr(rig, "pending", [True, False, False, True, True] if on else [])
+    original_publish = rig._publish
+
+    def publish():
+        stale = rig.pending[:1] == [True] and rig.counts[EMULATOR] == 10
+        original_publish()
+        if stale:
+            rig.valid = False              # in flight from before the withdrawal: the emulator holds no valid permit
+    rig._publish = publish
+    Rig.lift_move(rig, 1, 60.0)
+    assert rig.commands == [(1, True)]
+
+
+def test_the_permit_is_withdrawn_when_the_move_ends_raises_or_fails():
+    """Cancellation and recovery: lift_move gives the permit back in every outcome, so no later step runs on it."""
+    for outcome in ("arrived", "refused", "raised"):
+        rig = RecordedOrder()
+        grants = []
+        rig.lift_permit = lambda on, rig=rig, grants=grants: (grants.append(on), setattr(
+            rig, "pending", [False, True, True, True] if on else []))
+
+        def lift_go(stop, sim_s, rig=rig, outcome=outcome):
+            rig.commands.append((stop, rig.valid))
+            if outcome == "raised":
+                raise RuntimeError("cancelled")
+            return outcome == "arrived"
+        rig.lift_go = lift_go
+        try:
+            result = Rig.lift_move(rig, 1, 60.0)
+        except RuntimeError:
+            result = "raised"
+        assert grants == [True, False], (outcome, grants)
+        assert rig.commands == [(1, True)], outcome
+        assert result == {"arrived": True, "refused": False, "raised": "raised"}[outcome]
