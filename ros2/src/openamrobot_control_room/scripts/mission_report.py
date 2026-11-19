@@ -88,8 +88,9 @@ def main(argv=None):
         print(f"no bag at {args.bag}", file=sys.stderr)
         return 2
     series = report.extract(bag.read(args.bag), station=station)
+    decoded = report.candump_decoded(can_lines) if can_lines and not args.synthetic else None
     page = report.render(series, mission, report.candump_rates(can_lines) if can_lines else None, title=args.title,
-                         source=f"bag {args.bag}, mission {args.mission or '-'}")
+                         source=f"bag {args.bag}, mission {args.mission or '-'}", decoded=decoded)
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(page)

@@ -1,0 +1,355 @@
+{
+ "bag": {
+  "bag_topics": [
+   "/amcl_pose",
+   "/arm/joint_states",
+   "/build1/ground_truth/finger_joint_states",
+   "/build1/ground_truth/item/pose",
+   "/build1/ground_truth/odom",
+   "/build1/ground_truth/tote/pose",
+   "/build1/rtf_stats",
+   "/build1/run_info",
+   "/clock",
+   "/cmd_vel",
+   "/cmd_vel_nav",
+   "/cmd_vel_smoothed",
+   "/collision_monitor_state",
+   "/joint_states",
+   "/left_arm_controller/controller_state",
+   "/left_arm_gravity_controller/commands",
+   "/local_plan",
+   "/odom",
+   "/plan",
+   "/right_arm_controller/controller_state",
+   "/right_arm_gravity_controller/commands",
+   "/scan_filtered",
+   "/sil/bms/emulator_state",
+   "/sil/gz/joint_states",
+   "/sil/lift/command",
+   "/sil/lift/permit",
+   "/sim/joint_states",
+   "/tf",
+   "/tf_static"
+  ],
+  "kept_topics": {
+   "/build1/rtf_stats": 509,
+   "/build1/run_info": 1,
+   "/joint_states": 5508,
+   "/odom": 5508,
+   "/sil/bms/emulator_state": 551,
+   "/sil/lift/command": 3,
+   "/sil/lift/permit": 21
+  }
+ },
+ "buses": {
+  "vcan_arm_l": {
+   "frames_in_recording": 1731832,
+   "frames_kept": 420,
+   "id_counts": {
+    "001": 54120,
+    "002": 54120,
+    "003": 54120,
+    "004": 54120,
+    "005": 54120,
+    "006": 54120,
+    "007": 54120,
+    "008": 54120,
+    "011": 108240,
+    "012": 108239,
+    "013": 108239,
+    "014": 108239,
+    "015": 108239,
+    "016": 108239,
+    "017": 108239,
+    "018": 108238,
+    "7FF": 432960
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      1731772,
+      1731832
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      432958,
+      433038
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      865916,
+      865996
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      1298874,
+      1298954
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      0,
+      60
+     ],
+     "reason": "first 0x7FF frame"
+    }
+   ]
+  },
+  "vcan_arm_r": {
+   "frames_in_recording": 1731840,
+   "frames_kept": 420,
+   "id_counts": {
+    "001": 54120,
+    "002": 54120,
+    "003": 54120,
+    "004": 54120,
+    "005": 54120,
+    "006": 54120,
+    "007": 54120,
+    "008": 54120,
+    "011": 108240,
+    "012": 108240,
+    "013": 108240,
+    "014": 108240,
+    "015": 108240,
+    "016": 108240,
+    "017": 108240,
+    "018": 108240,
+    "7FF": 432960
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      1731780,
+      1731840
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      432960,
+      433040
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      865920,
+      866000
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      1298880,
+      1298960
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      0,
+      60
+     ],
+     "reason": "first 0x7FF frame"
+    }
+   ]
+  },
+  "vcan_aux": {
+   "frames_in_recording": 8507,
+   "frames_kept": 850,
+   "id_counts": {
+    "190": 2576,
+    "210": 707,
+    "290": 1106,
+    "410": 1990,
+    "701": 1034,
+    "710": 1094
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      8447,
+      8507
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      2126,
+      2206
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      4253,
+      4333
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      6380,
+      6460
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      1978,
+      2158
+     ],
+     "reason": "lift command seq 0x01"
+    },
+    {
+     "lines": [
+      2128,
+      2308
+     ],
+     "reason": "lift command seq 0x02"
+    },
+    {
+     "lines": [
+      3583,
+      3763
+     ],
+     "reason": "lift command seq 0x03"
+    }
+   ]
+  },
+  "vcan_bms": {
+   "frames_in_recording": 3324,
+   "frames_kept": 420,
+   "id_counts": {
+    "18900140": 554,
+    "18904001": 554,
+    "18930140": 554,
+    "18934001": 554,
+    "18980140": 554,
+    "18984001": 554
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      3264,
+      3324
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      831,
+      911
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      1662,
+      1742
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      2493,
+      2573
+     ],
+     "reason": "window at 3/4 of the recording"
+    }
+   ]
+  },
+  "vcan_drive": {
+   "frames_in_recording": 53634,
+   "frames_kept": 640,
+   "id_counts": {
+    "581": 24324,
+    "601": 24324,
+    "701": 4986
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      53574,
+      53634
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      13408,
+      13488
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      26817,
+      26897
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      40225,
+      40305
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      673,
+      893
+     ],
+     "reason": "first nonzero 60FFh target"
+    }
+   ]
+  }
+ },
+ "label": "baseline1_44309817813",
+ "mission_file": "baseline1_mission.json",
+ "mission_trace_samples": 220
+}

@@ -6,6 +6,7 @@ import json
 import os
 import re
 
+import pytest
 import yaml
 
 from conftest import PACKAGE_DIR, REPOSITORY, package_path, read
@@ -144,6 +145,58 @@ def test_no_em_dash_and_licence_headers():
 def test_no_compiled_file_is_tracked():
     import subprocess
     done = subprocess.run(["git", "-C", PACKAGE_DIR, "ls-files", "."], capture_output=True, text=True)
-    if done.returncode != 0:
-        return       # not a git checkout (an installed copy): nothing tracked to check
+    if done.returncode != 0:      # a check that finds nothing must not pass (openamr-upperbody-sw#88)
+        pytest.skip(f"BLOCKED: {PACKAGE_DIR} is not a git checkout; tracked in openamr-upperbody-sw#83")  # tracking: openamr-upperbody-sw#83
     assert not [f for f in done.stdout.split() if f.endswith(".pyc") or "__pycache__" in f]
+
+
+def test_replay_rviz_is_read_only_and_shows_only_the_replay():
+    text = read("rviz", "control_room_replay.rviz")
+    assert readonly.rviz_violations(text) == []
+    config = yaml.safe_load(text)
+    topics = []
+
+    def walk(displays):
+        for display in displays or []:
+            for key in ("Topic", "Description Topic"):
+                if isinstance(display.get(key), dict):
+                    topics.append(display[key]["Value"])
+            walk(display.get("Displays"))
+    walk(config["Visualization Manager"]["Displays"])
+    assert topics and all(t.startswith("/control_room/replay/") for t in topics), topics
+    assert all(d["Name"].startswith("REPLAY") for d in config["Visualization Manager"]["Displays"])
+
+
+def test_replay_launch_starts_the_replay_and_a_remapped_rviz_only():
+    tree = ast.parse(read("launch", "replay.launch.py"))
+    started = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") in ("Node", "ExecuteProcess"):
+            kw = {k.arg: k.value for k in node.keywords}
+            assert getattr(node.func, "id") == "Node"
+            package = kw["package"].value if isinstance(kw["package"], ast.Constant) else "openamrobot_control_room"
+            started.add((package, kw["executable"].value))
+    assert started == {("openamrobot_control_room", "control_room_replay.py"), ("rviz2", "rviz2")}
+    source = read("launch", "replay.launch.py")
+    for name in ("/tf", "/tf_static", "/clock"):
+        assert f'("{name}", "/control_room/replay{name}")' in source, name
+
+
+def test_replay_never_replays_a_command_topic():
+    from openamrobot_control_room import replay
+    for topic in ("/cmd_vel", "/cmd_vel_nav", "/cmd_vel_smoothed", "/sil/lift/command", "/sil/lift/permit",
+                  "/left_arm_gravity_controller/commands", "/navigate_to_pose/_action/status", "/clock"):
+        assert not replay.replayable(topic), topic
+    for topic in ("/tf", "/joint_states", "/amcl_pose", "/sil/lift/status", "/build1/ground_truth/odom"):
+        assert replay.replayable(topic) and readonly.guard_publisher_topic(replay.replay_topic(topic))
+
+
+def test_replay_phase_lookup_on_recorded_mission():
+    import json
+    from openamrobot_control_room import replay
+    with open(package_path("test", "fixtures", "runs", "baseline1_44309817813", "mission.json"), encoding="utf-8") as f:
+        phases = replay.Phases(json.load(f))
+    assert phases.at(20.0) == ("nav_to_station", "PASS")
+    assert phases.at(50.0) == ("lift_to_target", "PASS")
+    assert phases.at(1.0) == (None, None) and phases.at(500.0) == (None, None)
+    assert [row["phase"] for row in phases.table()][0] == "spawn"

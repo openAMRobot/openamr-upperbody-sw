@@ -1,0 +1,392 @@
+{
+ "bag": {
+  "bag_topics": [
+   "/amcl_pose",
+   "/arm/joint_states",
+   "/build1/contacts/openarm_left_ee_base_link",
+   "/build1/contacts/openarm_left_ee_link1",
+   "/build1/contacts/openarm_left_ee_link2",
+   "/build1/contacts/openarm_left_link1",
+   "/build1/contacts/openarm_left_link2",
+   "/build1/contacts/openarm_left_link3",
+   "/build1/contacts/openarm_left_link4",
+   "/build1/contacts/openarm_left_link5",
+   "/build1/contacts/openarm_left_link6",
+   "/build1/contacts/openarm_right_ee_base_link",
+   "/build1/contacts/openarm_right_ee_link1",
+   "/build1/contacts/openarm_right_ee_link2",
+   "/build1/contacts/openarm_right_link1",
+   "/build1/contacts/openarm_right_link2",
+   "/build1/contacts/openarm_right_link3",
+   "/build1/contacts/openarm_right_link4",
+   "/build1/contacts/openarm_right_link5",
+   "/build1/contacts/openarm_right_link6",
+   "/build1/contacts/world_fixtures",
+   "/build1/contacts/world_item",
+   "/build1/contacts/world_tote",
+   "/build1/ground_truth/finger_joint_states",
+   "/build1/ground_truth/item/pose",
+   "/build1/ground_truth/odom",
+   "/build1/ground_truth/payload/pose",
+   "/build1/ground_truth/tote/pose",
+   "/build1/planning_scene/exclude",
+   "/build1/rtf_stats",
+   "/build1/run_info",
+   "/clock",
+   "/cmd_vel",
+   "/cmd_vel_nav",
+   "/cmd_vel_smoothed",
+   "/collision_monitor_state",
+   "/grocery_demo/events",
+   "/grocery_demo/phase",
+   "/joint_states",
+   "/left_arm_controller/controller_state",
+   "/left_arm_gravity_controller/commands",
+   "/local_costmap/published_footprint",
+   "/local_plan",
+   "/plan",
+   "/right_arm_controller/controller_state",
+   "/right_arm_gravity_controller/commands",
+   "/rosout",
+   "/scan_filtered",
+   "/sil/base/odom",
+   "/sil/bms/emulator_state",
+   "/sil/bms/status",
+   "/sil/drive/status",
+   "/sil/gz/joint_states",
+   "/sil/lift/command",
+   "/sil/lift/emulator_state",
+   "/sil/lift/permit",
+   "/sil/lift/status",
+   "/sim/joint_states",
+   "/tf",
+   "/tf_static"
+  ],
+  "kept_topics": {
+   "/build1/rtf_stats": 2134,
+   "/build1/run_info": 1,
+   "/grocery_demo/events": 26,
+   "/grocery_demo/phase": 9,
+   "/joint_states": 11555,
+   "/sil/base/odom": 11555,
+   "/sil/bms/emulator_state": 1155,
+   "/sil/bms/status": 4622,
+   "/sil/drive/status": 4622,
+   "/sil/lift/command": 3,
+   "/sil/lift/emulator_state": 4622,
+   "/sil/lift/permit": 21,
+   "/sil/lift/status": 4622
+  }
+ },
+ "buses": {
+  "vcan_arm_l": {
+   "frames_in_recording": 3624160,
+   "frames_kept": 420,
+   "id_counts": {
+    "001": 113255,
+    "002": 113255,
+    "003": 113255,
+    "004": 113255,
+    "005": 113255,
+    "006": 113255,
+    "007": 113255,
+    "008": 113255,
+    "011": 226510,
+    "012": 226510,
+    "013": 226510,
+    "014": 226510,
+    "015": 226510,
+    "016": 226510,
+    "017": 226510,
+    "018": 226510,
+    "7FF": 906040
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      3624100,
+      3624160
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      906040,
+      906120
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      1812080,
+      1812160
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      2718120,
+      2718200
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      0,
+      60
+     ],
+     "reason": "first 0x7FF frame"
+    }
+   ]
+  },
+  "vcan_arm_r": {
+   "frames_in_recording": 3624160,
+   "frames_kept": 420,
+   "id_counts": {
+    "001": 113255,
+    "002": 113255,
+    "003": 113255,
+    "004": 113255,
+    "005": 113255,
+    "006": 113255,
+    "007": 113255,
+    "008": 113255,
+    "011": 226510,
+    "012": 226510,
+    "013": 226510,
+    "014": 226510,
+    "015": 226510,
+    "016": 226510,
+    "017": 226510,
+    "018": 226510,
+    "7FF": 906040
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      3624100,
+      3624160
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      906040,
+      906120
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      1812080,
+      1812160
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      2718120,
+      2718200
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      0,
+      60
+     ],
+     "reason": "first 0x7FF frame"
+    }
+   ]
+  },
+  "vcan_aux": {
+   "frames_in_recording": 16519,
+   "frames_kept": 929,
+   "id_counts": {
+    "190": 3793,
+    "210": 1802,
+    "290": 2315,
+    "410": 4171,
+    "701": 2146,
+    "710": 2292
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      16459,
+      16519
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      4129,
+      4209
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      8259,
+      8339
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      12389,
+      12469
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      2083,
+      2263
+     ],
+     "reason": "lift command seq 0x01"
+    },
+    {
+     "lines": [
+      2232,
+      2412
+     ],
+     "reason": "lift command seq 0x02"
+    },
+    {
+     "lines": [
+      3682,
+      3862
+     ],
+     "reason": "lift command seq 0x03"
+    }
+   ]
+  },
+  "vcan_bms": {
+   "frames_in_recording": 6948,
+   "frames_kept": 420,
+   "id_counts": {
+    "18900140": 1158,
+    "18904001": 1158,
+    "18930140": 1158,
+    "18934001": 1158,
+    "18980140": 1158,
+    "18984001": 1158
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      6888,
+      6948
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      1737,
+      1817
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      3474,
+      3554
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      5211,
+      5291
+     ],
+     "reason": "window at 3/4 of the recording"
+    }
+   ]
+  },
+  "vcan_drive": {
+   "frames_in_recording": 122634,
+   "frames_kept": 640,
+   "id_counts": {
+    "581": 50947,
+    "601": 50947,
+    "701": 20740
+   },
+   "windows": [
+    {
+     "lines": [
+      0,
+      120
+     ],
+     "reason": "first frames"
+    },
+    {
+     "lines": [
+      122574,
+      122634
+     ],
+     "reason": "last frames"
+    },
+    {
+     "lines": [
+      30658,
+      30738
+     ],
+     "reason": "window at 1/4 of the recording"
+    },
+    {
+     "lines": [
+      61317,
+      61397
+     ],
+     "reason": "window at 2/4 of the recording"
+    },
+    {
+     "lines": [
+      91975,
+      92055
+     ],
+     "reason": "window at 3/4 of the recording"
+    },
+    {
+     "lines": [
+      755,
+      975
+     ],
+     "reason": "first nonzero 60FFh target"
+    }
+   ]
+  }
+ },
+ "label": "grocery_44299879412",
+ "mission_file": "grocery_demo_mission.json",
+ "mission_trace_samples": 463
+}

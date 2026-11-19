@@ -3,8 +3,8 @@
 
 Frames are counted and classified, never answered and never sent. The bus object is wrapped in ReceiveOnlyBus, which
 has no send method, so a send cannot happen through this module. The CANopen function code is the generic CiA 301
-split of an 11-bit identifier (NMT, SYNC, EMCY, TPDO, RPDO, SDO, heartbeat); no device payload is decoded, the device
-models own their protocols. Simulation only.
+split of an 11-bit identifier (NMT, SYNC, EMCY, TPDO, RPDO, SDO, heartbeat). Payloads are decoded into engineering
+values by can_decode.py through the optional `on_frame` hook (vcan_node.py uses it). Simulation only.
 """
 import collections
 import threading
@@ -100,9 +100,11 @@ def open_socketcan(channel):
 class Monitor:
     """One receive thread per bus. `opener(name)` returns a ReceiveOnlyBus or raises OSError (bus absent)."""
 
-    def __init__(self, buses=BUSES, canopen=CANOPEN_BUSES, opener=open_socketcan, window_s=1.0, clock=time.monotonic):
+    def __init__(self, buses=BUSES, canopen=CANOPEN_BUSES, opener=open_socketcan, window_s=1.0, clock=time.monotonic,
+                 on_frame=None):
         self.stats = {b: BusStats(b, b in canopen, window_s, clock) for b in buses}
         self.opener, self.running, self.threads, self.buses = opener, False, [], {}
+        self.on_frame = on_frame      # on_frame(bus, python-can Message), called in the bus's receive thread
 
     def start(self):
         self.running = True
@@ -130,6 +132,8 @@ class Monitor:
                     msg = bus.recv(0.2)
                     if msg is not None:
                         stats.add(msg.arbitration_id, bool(msg.is_extended_id), bool(msg.is_error_frame), bool(msg.is_fd))
+                        if self.on_frame is not None and not msg.is_error_frame:
+                            self.on_frame(name, msg)
             except Exception as error:  # noqa: BLE001 - the interface went away: reopen
                 stats.state, stats.error = "absent", str(error)[:200]
             finally:

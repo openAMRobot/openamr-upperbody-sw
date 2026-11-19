@@ -61,9 +61,11 @@ def test_graph_is_read_only_and_status_reports(ros):
             assert action_graph.get_action_client_names_and_types_by_node(observer, name, "/") == [], name
             assert action_graph.get_action_server_names_and_types_by_node(observer, name, "/") == [], name
         monitor_graph = ros_support.graph(observer, "control_room_monitor")
-        for topic in ("/amcl_pose", "/build1/ground_truth/odom", "/navigate_to_pose/_action/status", "/sil/lift/status",
-                      "/baseline1/mission_status", "/joint_states"):
-            assert topic in monitor_graph["subscriptions"], topic
+        # Exactly the registry the topic audit checks against the recorded runs, plus the action status topics.
+        from openamrobot_control_room import state as state_model
+        expected = set(state_model.MONITOR_TOPICS) | set(state_model.ACTION_STATUS_TOPICS)
+        subscribed = set(monitor_graph["subscriptions"]) - {"/parameter_events"}
+        assert subscribed == expected, (sorted(subscribed - expected), sorted(expected - subscribed))
 
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         truth_pub = observer.create_publisher(Odometry, "/build1/ground_truth/odom", 10)
@@ -101,6 +103,106 @@ def test_graph_is_read_only_and_status_reports(ros):
         vcan.stop()
         for node in (monitor_node, vcan_node, observer):
             node.destroy_node()
+
+
+def _recorded(topic, index=0, run="grocery_44299879412"):
+    """One message of a recorded run (test/fixtures/runs), as the JSON string the topic carried."""
+    from conftest import package_path
+    with open(package_path("test", "fixtures", "runs", run, "messages.json"), encoding="utf-8") as f:
+        value = json.load(f)[topic]["samples"][index]["value"]
+    return value if isinstance(value, str) else json.dumps(value)
+
+
+def test_recorded_payloads_reach_the_status(ros):
+    """Messages recorded in grocery run 44299879412 on the real topics, published unchanged: the status must carry them,
+    label the components from the recorded /build1/run_info and see who writes /cmd_vel on the graph."""
+    from geometry_msgs.msg import Twist
+    from rclpy.qos import DurabilityPolicy, QoSProfile
+    from std_msgs.msg import String
+    monitor_node, monitor, vcan_node, vcan = _nodes(ros)
+    observer = ros.create_node("control_room_test_recorded")
+    try:
+        latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        pubs = {t: observer.create_publisher(String, t, latched if t == "/build1/run_info" else 10)
+                for t in ("/sil/lift/status", "/sil/drive/status", "/sil/bms/status", "/build1/run_info", "/grocery_demo/phase")}
+        observer.create_publisher(Twist, "/cmd_vel", 10)      # a writer on the graph; nothing is published on it
+        status = []
+        observer.create_subscription(String, "/control_room/status", lambda m: status.append(json.loads(m.data)), 10)
+        phase = _recorded("/grocery_demo/phase", 1)       # std_msgs/String with a plain phase name
+
+        def publish():
+            pubs["/sil/lift/status"].publish(String(data=_recorded("/sil/lift/status", 1)))
+            pubs["/sil/drive/status"].publish(String(data=_recorded("/sil/drive/status", 1)))
+            pubs["/sil/bms/status"].publish(String(data=_recorded("/sil/bms/status", 1)))
+            pubs["/build1/run_info"].publish(String(data=_recorded("/build1/run_info")))
+            pubs["/grocery_demo/phase"].publish(String(data=phase))
+            return False
+
+        def ready():
+            if not status:
+                return False
+            last = status[-1]
+            return (last["lift"]["ctl017_status"] and last["drive"]["status"] and last["mission"]["grocery_phase"]
+                    and isinstance(last["provenance"].get("components"), dict)
+                    and "/control_room_test_recorded" in (last["provenance"]["writers"].get("/cmd_vel") or []))
+        assert ros_support.spin_until([monitor_node, vcan_node, observer], lambda: publish() or ready(), timeout=20.0), \
+            status[-1:] or "no status"
+        last = status[-1]
+        lift = json.loads(_recorded("/sil/lift/status", 1))
+        assert last["lift"]["ctl017_status"]["position_mm"] == lift["position_mm"] == 5.0
+        assert last["drive"]["status"]["statusword"] == 55 and last["drive"]["status"]["configured"] is True
+        assert last["bms"]["status"]["soc_percent"] == 80.0
+        assert last["mission"]["grocery_phase"]["phase"] == phase == "stop_authorize"
+        assert last["mission"]["source"].startswith("/grocery_demo/phase")
+        components = last["provenance"]["components"]
+        assert components["base_controller"].startswith("host test stand-in")
+        assert "emulator" in components["lift"] and "unmodified openarm_ros2 driver" in components["arms"]
+        assert "/control_room_test_recorded" in last["provenance"]["warning"]
+        assert last["scene"]["warning"] and "grocery_scene.yaml" in last["scene"]["warning"]
+        assert last["firmware"].startswith("no /sil/fw/status")
+    finally:
+        vcan.stop()
+        for node in (monitor_node, vcan_node, observer):
+            node.destroy_node()
+
+
+def test_vcan_node_decodes_recorded_frames(ros):
+    """Recorded vcan_aux frames of grocery run 44299879412 through a python-can virtual bus into the vcan monitor node:
+    /control_room/can/decoded must carry the CTL-017 values of the last frames."""
+    from conftest import package_path
+    from openamrobot_control_room import can_decode
+    from openamrobot_control_room.monitor import make_node
+    from openamrobot_control_room.vcan_node import VcanMonitorNode
+    from std_msgs.msg import String
+    node = make_node("control_room_vcan_decode", parameter_overrides=[ros.parameter.Parameter("buses", value=["vcan_aux"])])
+    vcan = VcanMonitorNode(node, opener=lambda name: can.Bus(interface="virtual", channel="cr_decode"))
+    observer = ros.create_node("control_room_test_decode")
+    sender = can.Bus(interface="virtual", channel="cr_decode")
+    try:
+        decoded = []
+        observer.create_subscription(String, "/control_room/can/decoded", lambda m: decoded.append(json.loads(m.data)), 10)
+        with open(package_path("test", "fixtures", "runs", "grocery_44299879412", "candump_vcan_aux.log"), encoding="utf-8") as f:
+            frames = [can_decode.parse_candump(line) for line in f][:120]
+        time_ok = ros_support.spin_until([node, observer], lambda: vcan.monitor.stats["vcan_aux"].state == "open", timeout=5.0)
+        assert time_ok
+        for _t, _bus, can_id, data, ext, _fd in frames:
+            sender.send(can.Message(arbitration_id=can_id, data=data, is_extended_id=ext))
+        expected = {}
+        for _t, bus, can_id, data, ext, _fd in frames:
+            record = can_decode.decode("vcan_aux", can_id, data, ext)
+            if record["kind"] == "TPDO1 status":
+                expected = record
+        assert ros_support.spin_until([node, observer], lambda: decoded and "vcan_aux" in decoded[-1]["decoded"]
+                                      and decoded[-1]["decoded"]["vcan_aux"].get("TPDO1 status", {}).get("counter")
+                                      == expected["counter"], timeout=10.0), decoded[-1:] or "nothing decoded"
+        tpdo1 = decoded[-1]["decoded"]["vcan_aux"]["TPDO1 status"]
+        assert (tpdo1["state"], tpdo1["position_mm"], tpdo1["flags"]) == ("IDLE", 5.0, ["position valid", "at stop", "motor power"])
+        assert vcan.monitor.stats["vcan_aux"].total == len(frames)
+    finally:
+        vcan.stop()
+        sender.shutdown()
+        node.destroy_node()
+        observer.destroy_node()
 
 
 def test_guard_refuses_a_command_publisher(ros):

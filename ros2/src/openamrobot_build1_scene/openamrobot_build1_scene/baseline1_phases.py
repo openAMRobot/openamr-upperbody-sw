@@ -75,10 +75,14 @@ def classify(text):
 
 
 class Tracker:
-    """Tags every quantity and failed check of a rig.Log with the running phase. `clock` gives Gazebo seconds."""
+    """Tags every quantity and failed check of a rig.Log with the running phase. `clock` gives Gazebo seconds.
 
-    def __init__(self, log, clock=time.monotonic):
-        self.log, self.clock = log, clock
+    `on_status`, optional: called with status() at every phase begin and end (Proposed, openamr-upperbody-sw#82:
+    the mission publishes it latched on /baseline1/mission_status). It reports; it never changes a phase or a check,
+    and an error inside it is swallowed."""
+
+    def __init__(self, log, clock=time.monotonic, on_status=None):
+        self.log, self.clock, self.on_status = log, clock, on_status
         self.records = {name: {"phase": name, "ran": False, "failures": [], "quantities": [], "exception": None,
                                "sim_start": None, "sim_end": None, "note": ""} for name in PHASE_NAMES}
         self.current = None
@@ -116,6 +120,28 @@ class Tracker:
         record = self.records[phase]
         record.update(ran=True, sim_start=self.clock())
         self.current = phase
+        self.notify()
+
+    def status(self, state="running"):
+        """{"phase", "state", "sim", "phases": [{"phase", "verdict"}]}: the payload of #82. The running phase is RUNNING,
+        every other phase has its verdict() so far (NOT RUN until it starts)."""
+        return {"phase": self.current, "state": state, "sim": self.clock(),
+                "phases": [{"phase": name, "verdict": "RUNNING" if name == self.current else verdict(record)}
+                           for name, record in self.records.items()]}
+
+    def final_state(self):
+        verdicts = [verdict(record) for record in self.records.values()]
+        if "BLOCKED" in verdicts:
+            return "blocked"
+        return "passed" if all(v == "PASS" for v in verdicts) else "failed"
+
+    def notify(self, state="running"):
+        if self.on_status is None:
+            return
+        try:
+            self.on_status(self.status(state))
+        except Exception:  # noqa: BLE001 - a status report is never part of the mission
+            pass
 
     def run(self, phase, function, then=()):
         """Run `function` as `phase`; `then` names the later phases it also covers (opened by SPLIT).
@@ -139,6 +165,7 @@ class Tracker:
                     self.records[later]["note"] = f"not reached: {phase} stopped before it"
             self._split = ()
             self.current = None
+            self.notify()
 
     def blocked(self):
         return [r for r in self.records.values() if r["exception"] and r["exception"]["type"] == "Blocked"]

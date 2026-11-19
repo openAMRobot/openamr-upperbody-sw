@@ -144,3 +144,109 @@ def scalars(value, limit=24):
         if len(out) >= limit:
             break
     return out
+
+
+def mission_view(status, grocery_phase, grocery_events, observed):
+    """Where the mission phase comes from, in this order: the Proposed latched /baseline1/mission_status (#82), the
+    grocery mission's volatile /grocery_demo/phase, or only the activity inferred from action status topics."""
+    if status:
+        source = MISSION_STATUS_TOPIC + " (Proposed, openamr-upperbody-sw#82)"
+    elif grocery_phase:
+        source = "/grocery_demo/phase (grocery mission, volatile: phases before the monitor started are not seen)"
+    else:
+        source = ("none: no mission status topic seen; observed activity below is inferred from action status topics")
+    return {"source": source, "status": status, "grocery_phase": grocery_phase, "grocery_events": grocery_events or None,
+            "observed_activity": observed}
+
+
+# What each component of a firmware_sil run is, from the code that launches it (openamrobot_build1_scene
+# build1.launch.py and openamrobot_sil sil.launch.py can_nodes at openamr-platform-sw 931e631). The run's own
+# /build1/run_info picks the entries; nothing is labelled before it arrives.
+BASE_CONTROLLER = {
+    "host": "host test stand-in (openamrobot_sil stm32_host_client), not firmware",
+    "renode": "platform-fw telemetry image in Renode on vcan_drive, reads only; nobody commands the drive",
+    "renode_readonly": "platform-fw telemetry image in Renode plus the host stand-in sending drive receive PDOs",
+}
+DEVICE_COMPONENTS = {
+    "drive": "ZLAC8015D emulator (openamrobot_sil zlac8015d_emulator, host process) on vcan_drive; wheels: Gazebo physics",
+    "lift": "CTL-017 emulator (openamrobot_sil ctl017_emulator, host process, CTL-017 v1 proposal) on vcan_aux; "
+            "lift joint: Gazebo physics",
+    "bms": "Daly BMS emulator (openamrobot_sil daly_bms_emulator, host process, protocol unconfirmed) on vcan_bms",
+    "arms": "unmodified openarm_ros2 driver (real ROS 2 driver, openarm_can) on vcan_arm_l and vcan_arm_r, to emulated "
+            "Damiao motors (openamrobot_openarm_emulator, a ros2_control controller in the simulator); joints: Gazebo physics",
+    "can": "Linux virtual CAN (vcan): no bitrate, no arbitration delay of a physical bus, no electrical layer",
+}
+
+
+def provenance(run_info, writers, json_topics):
+    """Labels of the run's components from /build1/run_info, and the command topic writers read from the graph."""
+    out = {"hardware": "none: simulation only"}
+    if not isinstance(run_info, dict):
+        out["components"] = "unknown until /build1/run_info arrives"
+    elif run_info.get("devices"):
+        stm32 = run_info.get("stm32")
+        out["components"] = dict(DEVICE_COMPONENTS, base_controller=BASE_CONTROLLER.get(stm32, f"unknown stm32 value {stm32!r}"))
+        out["clocks"] = {"gazebo": "/clock (simulation time)", "arm_driver": run_info.get("driver_clock"),
+                         "arm_driver_rate_hz": run_info.get("driver_rate_hz"), "emulators": "Gazebo time (use_sim_time)",
+                         "candump_stamps": "host wall clock"}
+    else:
+        out["components"] = {"devices": "none: Gazebo ros2_control directly, no CAN devices (profile %s)" % run_info.get("profile")}
+    if isinstance(run_info, dict):
+        out["run"] = {k: run_info.get(k) for k in ("profile", "stm32", "physics_engine", "planning_pose_source", "scene",
+                                                    "station_alignment") if k in run_info}
+    cmd = writers.get("/cmd_vel")
+    out["command_arbiter"] = "none launched by build1.launch.py"
+    out["writers"] = dict(writers)
+    if cmd is not None and cmd != ["/collision_monitor"]:
+        out["warning"] = f"/cmd_vel has writers {cmd}, not only /collision_monitor"
+    return out
+
+
+def scene_warning(scene_file, run_info):
+    """A text when the station pose comes from another scene file than the one the run uses, else None."""
+    run_scene = (run_info or {}).get("scene") if isinstance(run_info, dict) else None
+    used = (scene_file or "").rsplit("/", 1)[-1] or "scene.yaml"
+    if run_scene and run_scene.rsplit("/", 1)[-1] != used:
+        return f"the station error uses {used}, the run uses {run_scene}: restart the control room with scene:={run_scene}"
+    return None
+
+
+# Every topic the monitor node reads, with its producer in a firmware_sil run (build1.launch.py, openamrobot_sil at
+# openamr-platform-sw 931e631). test/test_topic_audit.py checks this against the topic lists of two recorded runs and
+# test_monitor_graph.py checks that the live node subscribes to exactly these (plus the action status topics).
+MONITOR_TOPICS = {
+    "/clock": "Gazebo (ros_gz_bridge): simulation time",
+    "/tf": "robot_state_publisher, base_state_adapter (odom), AMCL (map)",
+    "/tf_static": "robot_state_publisher",
+    "/build1/ground_truth/odom": "Gazebo pose of the base (ros_gz_bridge): simulator ground truth",
+    "/amcl_pose": "Nav2 AMCL",
+    "/plan": "Nav2 planner",
+    "/joint_states": "joint_state_publisher of the real-side states: base and lift from base_state_adapter (CAN-derived), "
+                     "arms from the openarm_ros2 driver",
+    "/sil/gz/joint_states": "Gazebo joint states (ros_gz_bridge): the physics plant",
+    "/build1/ground_truth/finger_joint_states": "Gazebo finger joints: simulator ground truth",
+    "/build1/ground_truth/item/pose": "Gazebo pose of the item: simulator ground truth",
+    "/sil/lift/permit": "the mission (Baseline 1 stop_authorize) to the host stand-in",
+    "/sil/drive/status": "host stand-in stm32_host_client: its decode of the ZLAC8015D SDO replies",
+    "/sil/drive/emulator_state": "ZLAC8015D emulator node",
+    "/sil/lift/status": "host stand-in stm32_host_client: its decode of CTL-017 TPDO1 and TPDO2",
+    "/sil/lift/emulator_state": "CTL-017 emulator node",
+    "/sil/bms/status": "host stand-in stm32_host_client: its decode of the Daly replies",
+    "/sil/bms/emulator_state": "Daly BMS emulator node",
+    "/sil/fw/status": "Renode firmware node (stm32:=renode or renode_readonly only)",
+    "/build1/rtf_stats": "rtf_monitor.py",
+    "/build1/run_info": "rtf_monitor.py (latched): the launch's own description of the run",
+    MISSION_STATUS_TOPIC: "the Baseline 1 mission (Proposed, #82)",
+    "/grocery_demo/phase": "the grocery mission (demo/grocery-dark-store)",
+    "/grocery_demo/events": "the grocery mission (demo/grocery-dark-store)",
+    "/scan_filtered": "openamrobot_perception scan_body_filter",
+}
+# Topics of MONITOR_TOPICS that neither recorded run has, and why. Labelled as absent, never shown as data.
+NOT_IN_RECORDED_RUNS = {
+    "/sil/fw/status": "both runs use stm32: host; only the Renode firmware node publishes it",
+    "/sil/drive/emulator_state": "not in either bag although the ZLAC8015D node ran and the recorder asked for it; "
+                                 "cause not found in the code (checked live by the control-room end-to-end run)",
+    MISSION_STATUS_TOPIC: "Proposed (#82); the mission publishes it from this branch on, after both runs",
+}
+# Hidden topics: the recorders run without --include-hidden-topics, so no bag has them; they exist live.
+ACTION_STATUS_TOPICS = tuple(f"{a}/_action/status" for a in ACTIONS)

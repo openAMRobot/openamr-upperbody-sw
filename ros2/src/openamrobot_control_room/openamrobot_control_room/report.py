@@ -42,7 +42,7 @@ def extract(messages, station=None):
     """Series from bag messages. `station`: (x, y, yaw) for the station error, or None."""
     out = {"station_error": [], "station_along": [], "station_left": [], "loc_error": [], "loc_yaw_error": [],
            "lift_js": [], "lift_physics": [], "rtf": [], "contacts": {}, "joints": {j: [] for j in ARM_JOINTS},
-           "item_z": [], "topics": {}, "sim_span": None}
+           "item_z": [], "topics": {}, "sim_span": None, "run_info": None, "mission_status": []}
     clock = None
     truth = None
     first_sim = last_sim = None
@@ -87,6 +87,13 @@ def extract(messages, station=None):
                 out["rtf"].append((t, float(value)))
         elif topic == "/build1/ground_truth/item/pose":
             out["item_z"].append((t, msg.pose.position.z))
+        elif topic == "/build1/run_info" and out["run_info"] is None:
+            try:
+                out["run_info"] = json.loads(msg.data)
+            except (ValueError, AttributeError):
+                pass
+        elif topic in ("/baseline1/mission_status", "/grocery_demo/phase"):
+            out["mission_status"].append((t, topic, getattr(msg, "data", "")[:300]))
         elif topic.startswith("/build1/contacts/") or topic == "/control_room/contacts/max_force":
             if hasattr(msg, "contacts"):
                 force = 0.0
@@ -128,6 +135,48 @@ def candump_rates(lines_by_bus, bin_s=1.0):
         else:
             rates[bus] = []
     return rates
+
+
+def candump_decoded(lines_by_bus, arm_every=25):
+    """Engineering series from candump -L lines (can_decode.py), on candump's host wall time since the first frame of
+    any bus. Arm buses: every `arm_every`th frame of each ID (they carry about 2000 frames per simulated second).
+    Returns {"series": {name: [(t, value)]}, "commands": [lift command rows], "raw": [first frame of each bus and ID]}."""
+    from openamrobot_control_room import can_decode as cd
+    parsed = {bus: [p for p in (cd.parse_candump(line) for line in lines) if p] for bus, lines in lines_by_bus.items()}
+    start = min((p[0][0] for p in parsed.values() if p), default=None)
+    series, commands, raw, seen, counter = {}, [], [], set(), {}
+
+    def add(name, t, value):
+        if value is not None:
+            series.setdefault(name, []).append((t - start, value))
+    for bus, frames in sorted(parsed.items()):
+        for t, _bus, can_id, data, ext, _fd in frames:
+            if bus in cd.ARM_SIDE:
+                counter[(bus, can_id)] = counter.get((bus, can_id), 0) + 1
+                if (counter[(bus, can_id)] - 1) % arm_every:
+                    continue
+            r = cd.decode(bus, can_id, data, ext)
+            if (bus, can_id) not in seen:
+                seen.add((bus, can_id))
+                raw.append({"bus": bus, "id": f"{can_id:X}", "data": data.hex().upper(), "t": round(t - start, 3),
+                            "decoded": {k: v for k, v in r.items() if k not in ("device",)}})
+            kind = r.get("kind")
+            if bus == "vcan_drive" and kind in ("SDO write", "SDO read reply") and r.get("index") in ("60FFh", "606Ch"):
+                what = "target (60FFh write)" if r["index"] == "60FFh" else "actual (606Ch read)"
+                add(f"drive {r['wheel']} {what}", t, r["wheel_m_s"])
+            elif bus == "vcan_aux" and kind == "TPDO1 status":
+                add("lift TPDO1 position", t, r["position_mm"])
+                add("lift TPDO1 state", t, cd.LIFT_STATES.index(r["state"]) if r["state"] in cd.LIFT_STATES else None)
+            elif bus == "vcan_aux" and kind == "TPDO2 inputs and drive":
+                add("lift TPDO2 velocity", t, r["velocity_mm_s"])
+            elif bus == "vcan_aux" and kind == "RPDO1 command" and (not commands or commands[-1]["seq"] != r["seq"]):
+                commands.append({"t": round(t - start, 3), "seq": r["seq"], "op": r["op"], "stop": r["stop"]})
+            elif bus == "vcan_bms" and r.get("data_id") == "90h" and "soc_percent" in r:
+                add("BMS SOC", t, r["soc_percent"])
+                add("BMS pack voltage", t, r["pack_voltage_v"])
+            elif bus in cd.ARM_SIDE and kind in ("MIT command", "state feedback") and r["motor"] <= 7:
+                add(f"{r['joint']} {'command' if kind == 'MIT command' else 'feedback'}", t, r["q_rad"])
+    return {"series": series, "commands": commands, "raw": raw}
 
 
 def _thin(points, limit=MAX_POINTS):
@@ -318,7 +367,49 @@ document.querySelectorAll('.plot').forEach(function(plot){
 """
 
 
-def render(series, mission, can_rates=None, title="Baseline 1 mission report", source=""):
+def provenance_table(run_info):
+    from openamrobot_control_room import state
+    view = state.provenance(run_info, {}, [])
+    rows = view.get("components")
+    if not isinstance(rows, dict):
+        return f'<p class="empty">{html.escape(str(rows))}</p>'
+    body = "".join(f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>" for k, v in sorted(rows.items()))
+    run = html.escape(json.dumps(view.get("run", {}), sort_keys=True))
+    return (f"<table><thead><tr><th>Component</th><th>What it is in this run</th></tr></thead><tbody>{body}"
+            f"<tr><td>command arbiter</td><td>{html.escape(view['command_arbiter'])}</td></tr>"
+            f"<tr><td>hardware</td><td>{html.escape(view['hardware'])}</td></tr></tbody></table><p class=note>Run: {run}</p>")
+
+
+def decoded_sections(decoded, section):
+    if not decoded:
+        section("Decoded CAN signals", '<p class="empty">No candump logs were given (--candump).</p>')
+        return
+    s = decoded["series"]
+    wall = "host wall s since the first frame (candump time, not Gazebo time)"
+    pick = lambda *names: [(n, s[n]) for n in names if n in s]  # noqa: E731
+    section("Drive (vcan_drive, ZLAC8015D emulator): wheel speed", svg_chart(
+        "can_drive", pick("drive left target (60FFh write)", "drive right target (60FFh write)",
+                          "drive left actual (606Ch read)", "drive right actual (606Ch read)"), wall, "wheel rim m/s"),
+        "SDO 60FFh writes (r/min) and 606Ch read replies (0.1 r/min) of the host stand-in, times 2 pi / 60 times "
+        "the wheel radius 0.098 m of openamrobot_sil sil.yaml.")
+    section("Lift (vcan_aux, CTL-017 emulator): position and velocity", svg_chart(
+        "can_lift", pick("lift TPDO1 position", "lift TPDO2 velocity"), wall, "mm, mm/s"),
+        "TPDO1 position (0.1 mm) and TPDO2 velocity (0.1 mm/s). Commands (RPDO1): " + (", ".join(
+            f"t={c['t']} s seq {c['seq']} {c['op']} {c['stop'] or ''}" for c in decoded["commands"]) or "none"))
+    arm = [n for n in sorted(s) if n.startswith("openarm_left_joint") and n.split()[0][-1] in "1247"]
+    section("Left arm (vcan_arm_l, emulated Damiao motors): MIT command and feedback position", svg_chart(
+        "can_arm", [(n, s[n]) for n in arm], wall, "rad"),
+        "MIT command q of the unmodified openarm_ros2 driver and the motors' state feedback q, joints 1, 2, 4 and 7, "
+        "every 25th frame of each ID.")
+    section("BMS (vcan_bms, Daly emulator)", svg_chart("can_bms", pick("BMS SOC", "BMS pack voltage"), wall, "%, V"),
+            "Data ID 90h replies. The Daly protocol is unconfirmed for the delivered unit.")
+    rows = "".join(f"<tr><td>{html.escape(r['bus'])}</td><td>{html.escape(r['id'])}</td><td><code>{html.escape(r['data'])}"
+                   f"</code></td><td>{html.escape(json.dumps(r['decoded'], sort_keys=True))}</td></tr>" for r in decoded["raw"])
+    section("Selected raw frames: the first frame of each bus and ID", "<table><thead><tr><th>Bus</th><th>ID</th><th>Data"
+            f"</th><th>Decoded</th></tr></thead><tbody>{rows}</tbody></table>")
+
+
+def render(series, mission, can_rates=None, title="Baseline 1 mission report", source="", decoded=None):
     mission = mission or {}
     bands = phase_bands(mission)
     sim = "Gazebo time, s"
@@ -328,6 +419,13 @@ def render(series, mission, can_rates=None, title="Baseline 1 mission report", s
         sections.append(f"<section><h2>{html.escape(heading)}</h2>{f'<p class=note>{html.escape(note)}</p>' if note else ''}{body}</section>")
     section("Phase timeline", timeline(mission), "From the mission JSON (phases, sim_start, sim_end). The verdicts are the mission's.")
     section("Phase table", phase_table(mission))
+    section("What ran: components of this run", provenance_table(series.get("run_info")),
+            "From the run's /build1/run_info and the launch code (state.provenance). Emulators and stand-ins are not devices.")
+    status_rows = "".join(f"<tr><td>{_fmt(t)}</td><td>{html.escape(topic)}</td><td>{html.escape(text)}</td></tr>"
+                          for t, topic, text in series.get("mission_status", []))
+    if status_rows:
+        section("Mission status topic", "<table><thead><tr><th>Gazebo s</th><th>Topic</th><th>Message</th></tr></thead>"
+                f"<tbody>{status_rows}</tbody></table>", "/baseline1/mission_status is Proposed (#82).")
     section("Station error", svg_chart("station", [("distance", series["station_error"]), ("along heading", series["station_along"]),
                                                    ("left of heading", series["station_left"])], sim, "m", bands),
             "Ground truth odometry against the work-shelf station pose. Shaded bands are the phases.")
@@ -348,6 +446,7 @@ def render(series, mission, can_rates=None, title="Baseline 1 mission report", s
                                         "wall s since the first frame", "frames per s"),
             "candump -L logs of the virtual buses (wall time, not Gazebo time)." if rates else
             "No candump logs were given (--candump).")
+    decoded_sections(decoded, section)
     contacts = series["contacts"]
     top = sorted(contacts, key=lambda k: -max((f for _, f in contacts[k]), default=0.0))[:8]
     section("Contact force", svg_chart("contacts", [(k, contacts[k]) for k in top], sim, "N", bands),

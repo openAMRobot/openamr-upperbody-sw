@@ -51,7 +51,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ros-jazzy-ament-cmake-pytest \
             ros-jazzy-nav2-msgs ros-jazzy-ros-gz-interfaces ros-jazzy-rosbag2-py ros-jazzy-rosbag2-storage-mcap \
-            ros-jazzy-foxglove-bridge python3-can python3-websockets python3-yaml iproute2 can-utils
+            ros-jazzy-foxglove-bridge ros-jazzy-visualization-msgs ros-jazzy-tf2-msgs python3-can python3-websockets python3-yaml iproute2 can-utils
           dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-foxglove-bridge ros-jazzy-rosbag2-py python3-can python3-websockets \
             | tee versions.txt
 
@@ -72,6 +72,10 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           colcon build --packages-select "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: "BUILD: the installed package against its source tree (#88)"
+        working-directory: ws
+        run: python3 -P "src/openamr-upperbody-sw/ros2/src/$PACKAGE/tools/check_installed.py" "install/$PACKAGE" "src/openamr-upperbody-sw/ros2/src/$PACKAGE"
 
       - name: Tests
         working-directory: ws

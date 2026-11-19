@@ -2,7 +2,7 @@
 """Digital Twin Control Room: monitoring components only, next to a running Build 1, Baseline 1 or grocery launch.
 
     ros2 launch openamrobot_control_room control_room.launch.py [rviz:=true] [foxglove:=false] [vcan:=true]
-        [monitor:=true] [use_sim_time:=true] [station:=work_shelf] [foxglove_port:=8765]
+        [monitor:=true] [use_sim_time:=true] [station:=work_shelf] [scene:=scene.yaml] [foxglove_port:=8765]
 
 Starts, each optional:
   control_room_monitor  read-only summaries on /control_room/ (openamrobot_control_room/monitor.py)
@@ -27,12 +27,21 @@ from launch_ros.actions import Node
 PACKAGE = "openamrobot_control_room"
 
 
-def station_pose(name):
-    """(x, y, yaw) of a Build 1 station from openamrobot_build1_scene's scene.yaml, or NaNs without that package."""
+def station_pose(name, scene="scene.yaml"):
+    """(x, y, yaw) of a station from a scene file of openamrobot_build1_scene (scene.yaml for Baseline 1,
+    grocery_scene.yaml for the grocery dark store, whose `packing` station only grocery_scene.station knows), or NaNs
+    without that package or station."""
     try:
         from openamrobot_build1_scene import scene as scene_model
-        path = os.path.join(get_package_share_directory("openamrobot_build1_scene"), "config", "scene.yaml")
-        return [float(v) for v in scene_model.station(scene_model.load(path), name)]
+        path = scene if os.path.isabs(scene) else os.path.join(
+            get_package_share_directory("openamrobot_build1_scene"), "config", scene)
+        loaded = scene_model.load(path)
+        try:
+            from openamrobot_build1_scene import grocery_scene
+            lookup = grocery_scene.station if "grocery" in loaded else scene_model.station
+        except ImportError:
+            lookup = scene_model.station
+        return [float(v) for v in lookup(loaded, name)]
     except Exception:  # noqa: BLE001 - the monitor then reports no station error
         return [float("nan")] * 3
 
@@ -41,11 +50,12 @@ def nodes(context):
     share = get_package_share_directory(PACKAGE)
     sim = LaunchConfiguration("use_sim_time").perform(context) == "true"
     name = LaunchConfiguration("station").perform(context)
-    pose = station_pose(name)
-    actions = [LogInfo(msg=f"control room: station {name} at {pose} (NaN: no station error)")]
+    scene = LaunchConfiguration("scene").perform(context)
+    pose = station_pose(name, scene)
+    actions = [LogInfo(msg=f"control room: station {name} of {scene} at {pose} (NaN: no station error)")]
     actions.append(Node(package=PACKAGE, executable="control_room_monitor.py", name="control_room_monitor", output="screen",
                         condition=IfCondition(LaunchConfiguration("monitor")),
-                        parameters=[{"use_sim_time": sim, "station": pose, "station_name": name}]))
+                        parameters=[{"use_sim_time": sim, "station": pose, "station_name": name, "scene": scene}]))
     actions.append(Node(package=PACKAGE, executable="vcan_monitor.py", name="control_room_vcan_monitor", output="screen",
                         condition=IfCondition(LaunchConfiguration("vcan")), parameters=[{"use_sim_time": sim}]))
     actions.append(Node(package="rviz2", executable="rviz2", name="control_room_rviz", output="screen",
@@ -71,6 +81,9 @@ def generate_launch_description():
         DeclareLaunchArgument("monitor", default_value="true", description="read-only control room monitor node"),
         DeclareLaunchArgument("use_sim_time", default_value="true"),
         DeclareLaunchArgument("station", default_value="work_shelf",
-                              description="Build 1 station for the station error (scene.yaml stations)"),
+                              description="station for the station error (stations of the scene file)"),
+        DeclareLaunchArgument("scene", default_value="scene.yaml",
+                              description="scene file of openamrobot_build1_scene: scene.yaml (Baseline 1) or "
+                                          "grocery_scene.yaml (grocery dark store)"),
         OpaqueFunction(function=nodes),
     ])

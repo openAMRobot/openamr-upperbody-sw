@@ -25,6 +25,11 @@ from openamrobot_control_room import readonly, state
 SIL_JSON_TOPICS = ("/sil/drive/status", "/sil/drive/emulator_state", "/sil/lift/status", "/sil/lift/emulator_state",
                    "/sil/bms/status", "/sil/bms/emulator_state", "/sil/fw/status", "/build1/rtf_stats", "/build1/run_info")
 CONTACT_PREFIX = "/build1/contacts/"
+# The grocery dark store mission (demo/grocery-dark-store, grocery_demo.py) publishes its phase name and its events.
+# Both are volatile (depth 10): a phase published before the monitor started is not seen.
+GROCERY_PHASE_TOPIC, GROCERY_EVENTS_TOPIC = "/grocery_demo/phase", "/grocery_demo/events"
+# Topics that carry a command to the base; their writers are read from the ROS graph (no service call).
+WRITER_TOPICS = ("/cmd_vel", "/cmd_vel_nav", "/cmd_vel_smoothed", "/sil/lift/command", "/sil/lift/permit")
 
 
 class ControlRoomMonitor:
@@ -50,7 +55,7 @@ class ControlRoomMonitor:
         self.map_frame = node.declare_parameter("map_frame", "map").value
         self.data = {"sim_time": None, "truth": None, "amcl": None, "tf_error": None, "goal": None,
                      "lift_m": None, "lift_physics_m": None, "joint_names": 0, "fingers": None, "mission": None,
-                     "permit": None, "json": {}, "scan": None}
+                     "permit": None, "json": {}, "scan": None, "grocery_phase": None, "grocery_events": []}
         self.actions = state.ActionWatch()
         self.item = state.Motion()
         self.contacts = state.Contacts()
@@ -84,6 +89,10 @@ class ControlRoomMonitor:
             qos = latched if topic == "/build1/run_info" else 10
             sub(String, topic, lambda m, t=topic: self.on_json(t, m), qos)
         sub(String, state.MISSION_STATUS_TOPIC, self.on_mission, latched)
+        sub(String, GROCERY_PHASE_TOPIC, self.on_grocery_phase, 10)
+        sub(String, GROCERY_EVENTS_TOPIC, self.on_grocery_event, 10)
+        self.scene_file = node.declare_parameter("scene", "").value
+        self.writers = {}
         for action in state.ACTIONS:
             sub(GoalStatusArray, f"{action}/_action/status", lambda m, a=action: self.on_status(a, m), 10)
         # No subscription to an _action/feedback topic: the ROS graph reports a node that has one as an action client
@@ -98,6 +107,7 @@ class ControlRoomMonitor:
         steady = Clock(clock_type=ClockType.STEADY_TIME)
         node.create_timer(0.5, self.tick, clock=steady)
         node.create_timer(2.0, self.discover_contacts, clock=steady)
+        node.create_timer(2.0, self.read_writers, clock=steady)
 
     # ---------------------------------------------------------------- callbacks (read only)
     def on_clock(self, msg):
@@ -165,6 +175,21 @@ class ControlRoomMonitor:
         except ValueError:
             self.data["mission"] = {"unparsed": msg.data[:200]}
 
+    def on_grocery_phase(self, msg):
+        self.data["grocery_phase"] = {"phase": msg.data, "sim_time": self.data["sim_time"]}
+
+    def on_grocery_event(self, msg):
+        self.data["grocery_events"] = (self.data["grocery_events"] + [msg.data[:200]])[-5:]
+
+    def read_writers(self):
+        """Node names that publish each command topic, from the ROS graph (read only, no service call)."""
+        for topic in WRITER_TOPICS:
+            try:
+                infos = self.node.get_publishers_info_by_topic(topic)
+            except Exception:  # noqa: BLE001 - graph not ready
+                continue
+            self.writers[topic] = sorted(f"{i.node_namespace.rstrip('/')}/{i.node_name}" for i in infos)
+
     def on_status(self, action, msg):
         self.actions.update(action, [(bytes(s.goal_info.goal_id.uuid).hex(), s.status) for s in msg.status_list])
 
@@ -215,9 +240,10 @@ class ControlRoomMonitor:
             "sim_time": d["sim_time"],
             "rtf": state.scalars(js.get("/build1/rtf_stats")),
             "run_info": state.scalars(js.get("/build1/run_info")),
-            "mission": {"source": state.MISSION_STATUS_TOPIC + " (Proposed)" if mission else "none: the mission publishes no "
-                        "status topic yet; observed activity below is inferred from action status topics",
-                        "status": mission, "observed_activity": self.actions.active()},
+            "mission": state.mission_view(mission, d["grocery_phase"], d["grocery_events"], self.actions.active()),
+            "provenance": state.provenance(js.get("/build1/run_info"), self.writers, sorted(js)),
+            "scene": {"station_from": self.scene_file or "launch parameter", "run_scene": (js.get("/build1/run_info") or {}).get("scene"),
+                      "warning": state.scene_warning(self.scene_file, js.get("/build1/run_info"))},
             "actions": self.actions.summary(),
             "nav": {"goal_from_plan": d["goal"],
                     "ground_truth_to_goal": {k: _r(v) for k, v in (state.station_error(d["truth"], d["goal"]) or {}).items()} or None},
@@ -233,7 +259,8 @@ class ControlRoomMonitor:
             "drive": {"status": state.scalars(js.get("/sil/drive/status")),
                       "emulator": state.scalars(js.get("/sil/drive/emulator_state"))},
             "bms": {"status": state.scalars(js.get("/sil/bms/status")), "emulator": state.scalars(js.get("/sil/bms/emulator_state"))},
-            "firmware": state.scalars(js.get("/sil/fw/status")),
+            "firmware": state.scalars(js.get("/sil/fw/status")) if "/sil/fw/status" in js else
+                        "no /sil/fw/status: published only by the Renode firmware node (stm32:=renode or renode_readonly)",
             "grasp": {"fingers": d["fingers"], "left_gripper": self.actions.last_terminal.get("/left_gripper_controller/gripper_cmd"),
                       "right_gripper": self.actions.last_terminal.get("/right_gripper_controller/gripper_cmd")},
             "item": self.item.summary(),

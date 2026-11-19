@@ -72,3 +72,36 @@ def test_synthetic_run_without_ros():
     assert min(v for _, v in series["station_error"]) < 0.02          # the base reaches the station
     assert max(v for _, v in series["lift_physics"]) == 0.175
     assert len(series["rtf"]) == 81 and len(series["loc_error"]) == 161
+
+
+def test_decoded_can_and_components_from_a_recorded_run():
+    """The decoded CAN sections and the components table from grocery run 44299879412's recorded frames, run_info and
+    mission JSON (test/fixtures/runs): every chart has a plotted line, the lift commands of the run are listed."""
+    import glob
+    import json
+    import os
+    from conftest import package_path
+    base = package_path("test", "fixtures", "runs", "grocery_44299879412")
+    lines = {os.path.basename(p)[len("candump_"):-len(".log")]: open(p, encoding="utf-8").readlines()
+             for p in glob.glob(os.path.join(base, "candump_*.log"))}
+    decoded = report.candump_decoded(lines)
+    assert [(c["seq"], c["op"], c["stop"]) for c in decoded["commands"]] == [
+        (1, "MOVE_TO_STOP", "L1175"), (2, "MOVE_TO_STOP", "L1175"), (3, "MOVE_TO_STOP", "L1000")]
+    series = report.extract(messages(), station=(2.0, 0.0, 0.0))
+    with open(os.path.join(base, "messages.json"), encoding="utf-8") as f:
+        series["run_info"] = json.load(f)["/build1/run_info"]["samples"][0]["value"]
+    with open(os.path.join(base, "mission.json"), encoding="utf-8") as f:
+        mission = json.load(f)
+    page = report.render(series, mission, decoded=decoded)
+    for chart in ("can_drive", "can_lift", "can_arm", "can_bms"):
+        match = re.search(rf'<svg id="{chart}" class="chart".*?</svg>', page, re.S)
+        assert match and "<polyline" in match.group(0), f"{chart} has no plotted line"
+    assert "host test stand-in (openamrobot_sil stm32_host_client), not firmware" in page
+    assert "none launched by build1.launch.py" in page and "seq 3 MOVE_TO_STOP L1000" in page
+    assert page.count("<tr><td>vcan_") == len(decoded["raw"]) and "<td>190</td>" in page
+    assert EM_DASH not in page
+
+
+def test_report_without_candump_says_so():
+    page = report.render(report.extract(messages()), None)
+    assert "No candump logs were given" in page
