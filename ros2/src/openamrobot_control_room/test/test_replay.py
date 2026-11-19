@@ -81,8 +81,12 @@ def test_replay_publishes_only_under_the_replay_prefix(ros, tmp_path):
     observer.create_subscription(String, "/control_room/replay/mission_phase", lambda m: got["phase"].append(m.data), 10)
     observer.create_subscription(Odometry, "/control_room/replay/build1/ground_truth/odom",
                                  lambda m: got["odom"].append(m.pose.pose.position.x), 10)
-    # Discovery first: spin_until uses an executor of its own and takes the node out of it at the end.
-    ros_support.spin_until([observer, node], lambda: False, timeout=1.5)
+    # Discovery first (#92): spin_until uses an executor of its own and takes the node out of it at the end. Wait until
+    # the observer's subscriptions and the replay's publishers have matched, not a fixed time; fail if they never do.
+    matched = ros_support.spin_until([observer, node], lambda: all(
+        observer.count_publishers(t) > 0 and node.count_subscribers(t) > 0
+        for t in ("/control_room/replay/clock", "/control_room/replay/status")), timeout=15.0)
+    assert matched, "the observer and the replay node never discovered each other"
     executor = ros.executors.SingleThreadedExecutor()
     executor.add_node(node)
     executor.add_node(observer)
