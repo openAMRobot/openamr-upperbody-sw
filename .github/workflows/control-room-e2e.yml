@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Control room end to end: one Baseline 1 mission (the steps of baseline1-acceptance.yml, profile sim-oracle, station
-# approach 1, no station alignment) with the Digital Twin Control Room running next to it in the mission's own ROS
+# approach 1, station alignment 1) with the Digital Twin Control Room running next to it in the mission's own ROS
 # domain: the read-only monitor and the receive-only vcan monitor, their /control_room/ outputs recorded to a second
 # bag, graph snapshots of the live stack, then the offline HTML report from the mission's bag, mission JSON and
 # candump logs, and a headless REPLAY of the recording in RViz2 (Xvfb) with screenshots.
@@ -33,7 +33,10 @@ env:
   # unauthenticated GitHub API, which returned no tag on 17 Nov 2026 (rate limit) and made the download 404.
   ROS_APT_SOURCE_VERSION: '1.3.0'
   BASELINE1_STATION_APPROACH: '1'
-  BASELINE1_STATION_ALIGNMENT: '0'
+  # Station alignment on, as in the acceptance runs that passed (44309791416, 44309804809, 44309817813, 44448676604).
+  # Without it run 44445938978 stopped 0.0449 m from the station and the straight reach ended with the elbow straight
+  # (grasp_reach_cartesian_fraction 0.6508; test_reach_margin.py).
+  BASELINE1_STATION_ALIGNMENT: '1'
   # Acceptance profile (Alex, 18 Nov 2026). sim-oracle sets the planning scene from simulator ground truth and every run
   # declares it; perception uses the robot's own estimate. A sim-oracle pass is never a perception result.
   BASELINE1_PROFILE: sim-oracle

@@ -34,6 +34,16 @@ python3 tools/build1_diagnosis/reach_probe.py <expanded.urdf> axes
 python3 tools/build1_diagnosis/reach_probe.py <expanded.urdf> circle 0.04 0.08 16
 ```
 
+## Straight reach (19 Nov 2026)
+
+The probe above checks pose goals. The binding move is the straight reach of scn04 (0.10 m along the fingers, then
+0.02 m down, item 9 mm into the fingers), which MoveIt follows in 5 mm steps with no position tolerance.
+`ros2/src/openamrobot_build1_scene/test/test_reach_margin.py` walks it on the expanded URDF: it completes down to
+-0.0485 m along the heading at 0 rad, -0.0404 m with run 44445938978's 0.051 rad and 6 mm to the right, and -0.0353 m
+at 0.08 rad; beyond that `openarm_left_joint4` is at its lower limit 0 rad (elbow straight). Run 44445938978 (station
+alignment off, base 0.0444 m back) gave grasp_reach_cartesian_fraction 0.6508, the value the test reproduces. The
+budget below is not changed here; with 0.08 rad it leaves 5 mm too little along the heading.
+
 ## Tolerances
 
 - Reach budget (true base pose against the station): 0.04 m and 0.08 rad. The mission checks it from Gazebo ground
