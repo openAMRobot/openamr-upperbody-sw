@@ -15,7 +15,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: pip mcap readers (pass 2: joint snapshots)
+      - name: "pip mcap readers, pass 2 joint snapshots"
         run: python3 -m pip install --user mcap==1.2.2 mcap-ros2-support==0.5.5
       - name: control room run 44476577635 (grasp_reach servo torque 1.018 N m)
         run: |
