@@ -35,7 +35,7 @@ CAMERAS = {"/left_wrist_camera/image": ("left_wrist_camera_optical_frame", 5), "
            "/base_camera/rgbd/image": ("base_camera_color_optical_frame", 6)}
 
 
-def write_bag(path, finger_peak=0.6, lift_peak=0.175, capture=False, duplicate_cmd_vel=False):
+def write_bag(path, finger_peak=0.6, lift_peak=0.175, capture=False, duplicate_cmd_vel=False, run_info=True):
     from rosbags.rosbag2 import StoragePlugin, Writer
     from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
@@ -60,7 +60,8 @@ def write_bag(path, finger_peak=0.6, lift_peak=0.175, capture=False, duplicate_c
             c["/sim/left_arm_emulator/status"] = w.add_connection("/sim/left_arm_emulator/status",
                                                                   "diagnostic_msgs/msg/DiagnosticArray", typestore=ts)
         import numpy as np
-        w.write(c["/build1/run_info"], 7_000_000_000, ts.serialize_cdr(T["std_msgs/msg/String"](data=json.dumps(RUN_INFO)), "std_msgs/msg/String"))
+        if run_info:
+            w.write(c["/build1/run_info"], 7_000_000_000, ts.serialize_cdr(T["std_msgs/msg/String"](data=json.dumps(RUN_INFO)), "std_msgs/msg/String"))
         w.write(c["/sil/lift/command"], 7_500_000_000, ts.serialize_cdr(T["std_msgs/msg/Int8"](data=1), "std_msgs/msg/Int8"))
         for k in range(21):
             ns = 8_000_000_000 + k * 100_000_000
@@ -216,6 +217,7 @@ def test_duplicate_receipt_stamps_of_a_headerless_topic_are_counted(tmp_path):
     report, _ = run(tmp_path, duplicate_cmd_vel=True)
     st = report["timestamps"]["/cmd_vel"]
     assert st["has_header"] is False and st["receipt_nonincreasing"] == 5 and st["strictly_increasing_as_read"] is False
+    assert st["receipt_equal"] == 5 and st["receipt_decreasing"] == 0
     assert report["timestamps"]["/arm/joint_states"]["strictly_increasing_as_read"] is True
 
 
@@ -232,8 +234,24 @@ def test_acceptance_profile_is_read_from_a_timestamped_coloured_job_log(tmp_path
         "2026-11-18T14:53:33.5745371Z acceptance profile: sim-oracle, pose_source: ground_truth (SIMULATION ORACLE)\n")
     assert tool.acceptance_from_log(log.read_text()) == ("sim-oracle", "ground_truth")
     report, cand = run(tmp_path, extra=("--run-log", str(log)))
-    assert report["acceptance"] == {"profile": "sim-oracle", "pose_source_from_log": "ground_truth"}
+    assert report["acceptance"]["profile"] == "sim-oracle" and report["acceptance"]["pose_source_from_log"] == "ground_truth"
     assert cand["provenance"]["acceptance_profile"] == "sim-oracle"
+    assert cand["provenance"]["declarations_from"] == "/build1/run_info"   # the fixture bag has /build1/run_info
+
+
+def test_without_run_info_in_the_bag_the_declarations_come_from_the_run_log(tmp_path):
+    log = tmp_path / "run.log"
+    log.write_text("2026-11-19T03:20:00.1Z acceptance profile: sim-oracle, pose_source: ground_truth (SIMULATION ORACLE)\n"
+                   "2026-11-19T03:20:01.1Z 35: [INFO] [launch.user]: object_pose_source: ground_truth (PERCEPTION STAND-IN)\n")
+    assert tool.object_pose_source_from_log(log.read_text()) == "ground_truth"
+    bag = tmp_path / "bag"
+    write_bag(bag, run_info=False)
+    prof = tmp_path / "profile.json"
+    prof.write_text(json.dumps(PROFILE))
+    assert tool.main(["--bag", str(bag), "--component-profile", str(prof), "--out", str(tmp_path / "o"), "--run-log", str(log)]) == 0
+    prov = json.loads((tmp_path / "o" / "capture_profile_candidate.json").read_text())["provenance"]
+    assert prov["declarations_from"].startswith("run log") and prov["object_pose_source"] == "ground_truth"
+    assert prov["pose_source"] == "ground_truth"
 
 
 def test_a_log_without_the_line_is_not_turned_into_a_profile(tmp_path):

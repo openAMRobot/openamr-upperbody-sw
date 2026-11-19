@@ -10,6 +10,7 @@ With BASELINE1_AI_CAPTURE=1 (opt-in, Proposed; default off) the bag also gets wh
 AI_CAPTURE_TOPICS below and docs/ai/capture_profile_proposal.md. It changes what is recorded, never a check.
 """
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -59,10 +60,19 @@ def ai_capture_enabled(environ=None):
     return (os.environ if environ is None else environ).get(AI_CAPTURE_ENV, "0") == "1"
 
 
+def capture_regex():
+    """One regex for the AI capture: every listed topic, anchored, or BAG_REGEX.
+
+    rosbag2 (Jazzy) stops topic discovery as soon as it holds as many subscriptions as `--topics` names, counting the
+    subscriptions BAG_REGEX added. In run 44448676604 (48 topics named, 48 subscribed) that stopped discovery before
+    /build1/run_info and /build1/rtf_stats appeared. With no `--topics`, discovery runs for the whole recording."""
+    return "^(" + "|".join(re.escape(t) for t in BAG_TOPICS + AI_CAPTURE_TOPICS) + ")$|" + BAG_REGEX
+
+
 def bag_command(bag, capture):
-    topics = BAG_TOPICS + (AI_CAPTURE_TOPICS if capture else ())
-    return ["ros2", "bag", "record", "--use-sim-time", "-o", bag, *(["--include-hidden-topics"] if capture else []),
-            "--topics", *topics, "--regex", BAG_REGEX]
+    if capture:
+        return ["ros2", "bag", "record", "--use-sim-time", "-o", bag, "--include-hidden-topics", "--regex", capture_regex()]
+    return ["ros2", "bag", "record", "--use-sim-time", "-o", bag, "--topics", *BAG_TOPICS, "--regex", BAG_REGEX]
 
 
 def discovery_port(domain, index):

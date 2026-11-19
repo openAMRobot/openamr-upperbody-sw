@@ -48,14 +48,24 @@ def test_ai_capture_is_off_by_default_and_the_default_recording_is_unchanged(tmp
 def test_ai_capture_records_the_four_robot_cameras_their_info_and_the_gripper_command():
     from openamrobot_build1_scene import launch_support
     command = record.bag_command("/tmp/bag", record.ai_capture_enabled({record.AI_CAPTURE_ENV: "1"}))
-    topics = command[command.index("--topics") + 1:command.index("--regex")]
+    pattern = re.compile(command[command.index("--regex") + 1])
     bridged = set(launch_support.bridge_topics(launch_support.sensor_bridge(True), "GZ_TO_ROS"))
     for camera in record.CAMERA_TOPICS:
-        assert camera in topics and camera in bridged, camera    # a topic the sensor bridge really publishes
+        assert pattern.search(camera) and camera in bridged, camera    # a topic the sensor bridge really publishes
     assert len([t for t in record.CAMERA_TOPICS if not t.endswith("camera_info")]) == 4
-    assert record.GRIPPER_COMMAND_TOPIC in topics and "/odom" in topics
-    assert set(record.EMULATOR_STATUS_TOPICS) <= set(topics) and "--include-hidden-topics" in command
-    assert len(topics) == len(set(topics))
+    for topic in (record.GRIPPER_COMMAND_TOPIC, "/odom", "/build1/run_info", *record.EMULATOR_STATUS_TOPICS,
+                  "/left_arm_controller/controller_state", "/left_gripper_controller/gripper_cmd/_action/status"):
+        assert pattern.search(topic), topic
+    for topic in ("/scan", "/odom_extra", "/x/odom", "/head_camera/rgbd/depth_image"):
+        assert not pattern.search(topic), topic
+    assert "--include-hidden-topics" in command
+
+
+def test_ai_capture_names_no_topics_list_so_rosbag2_never_stops_discovery_early():
+    # rosbag2 Jazzy stops discovery once its subscriptions equal the --topics count (regex matches included):
+    # run 44448676604 named 48, subscribed 48 and never subscribed /build1/run_info or /build1/rtf_stats.
+    command = record.bag_command("/tmp/bag", True)
+    assert "--topics" not in command and command.count("--regex") == 1
 
 
 def test_the_camera_topics_are_the_sensors_of_the_scene_robot():

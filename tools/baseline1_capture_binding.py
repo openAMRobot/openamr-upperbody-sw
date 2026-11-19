@@ -44,6 +44,7 @@ GRIPPER_COMMAND_TOPIC = "/build1/capture/gripper_command"
 EMULATOR_STATUS_TOPICS = ("/sim/left_arm_emulator/status", "/sim/right_arm_emulator/status")
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 ACCEPTANCE_LINE = re.compile(r"acceptance profile: ([a-z-]+), pose_source: ([a-z_]+)")
+OBJECT_POSE_LINE = re.compile(r"\]: object_pose_source: ([a-z_]+)")
 # Upper end of the pinned driver's parallel_link (prismatic) finger range, metres (openarm_ros2 4e837e1).
 PARALLEL_LINK_MAX_M = 0.044
 RANGE_TOL = 1e-3
@@ -68,6 +69,15 @@ def stamp_ns(msg):
     return int(header.stamp.sec) * 1_000_000_000 + int(header.stamp.nanosec)
 
 
+def object_pose_source_from_log(text):
+    """object_pose_source as the launch logs it ('[launch.user]: object_pose_source: ground_truth (...)'), or None."""
+    for line in text.splitlines():
+        m = OBJECT_POSE_LINE.search(ANSI.sub("", line))
+        if m:
+            return m.group(1)
+    return None
+
+
 def acceptance_from_log(text):
     """(acceptance profile, pose_source) from the echo line of baseline1-acceptance.yml, or (None, None).
 
@@ -84,13 +94,14 @@ class Stamps:
     """Timestamps of one topic as the converter's read_bag orders them: header stamp, else bag receipt time."""
 
     def __init__(self):
-        self.header = {"last": None, "nonincreasing": 0}
-        self.receipt = {"last": None, "nonincreasing": 0}
+        self.header = {"last": None, "nonincreasing": 0, "equal": 0, "decreasing": 0}
+        self.receipt = {"last": None, "nonincreasing": 0, "equal": 0, "decreasing": 0}
 
     @staticmethod
     def _add(slot, t):
         if slot["last"] is not None and t <= slot["last"]:
             slot["nonincreasing"] += 1
+            slot["equal" if t == slot["last"] else "decreasing"] += 1
         slot["last"] = t if slot["last"] is None else max(slot["last"], t)
 
     def add(self, receipt, header_t):
@@ -100,7 +111,10 @@ class Stamps:
 
     def summary(self, has_header):
         return {"has_header": has_header, "receipt_nonincreasing": self.receipt["nonincreasing"],
+                "receipt_equal": self.receipt["equal"], "receipt_decreasing": self.receipt["decreasing"],
                 "header_nonincreasing": self.header["nonincreasing"] if has_header else None,
+                "header_equal": self.header["equal"] if has_header else None,
+                "header_decreasing": self.header["decreasing"] if has_header else None,
                 "strictly_increasing_as_read": (self.header if has_header else self.receipt)["nonincreasing"] == 0}
 
 
@@ -426,9 +440,11 @@ def main(argv=None):
     p.add_argument("--max-skew-ns", type=int, default=None, help="candidate tolerance (default: half the slowest camera "
                                                                  "period, else 50 ms; not an approved value)")
     args = p.parse_args(argv)
-    pose_source_from_log = None
+    pose_source_from_log = object_pose_from_log = None
     if args.run_log and Path(args.run_log).is_file():
-        profile_from_log, pose_source_from_log = acceptance_from_log(Path(args.run_log).read_text(errors="replace"))
+        log_text = Path(args.run_log).read_text(errors="replace")
+        profile_from_log, pose_source_from_log = acceptance_from_log(log_text)
+        object_pose_from_log = object_pose_source_from_log(log_text)
         if not args.acceptance_profile:
             args.acceptance_profile = profile_from_log
     if not args.acceptance_profile:
@@ -463,7 +479,8 @@ def main(argv=None):
                 "simulation_time": sim_time,
                 "files_sha256": {f.name: sha256_file(f) for f in sorted(Path(args.bag).iterdir()) if f.is_file()},
                 "size": size, "topics": data["topics"]},
-        "acceptance": {"profile": args.acceptance_profile, "pose_source_from_log": pose_source_from_log},
+        "acceptance": {"profile": args.acceptance_profile, "pose_source_from_log": pose_source_from_log,
+                       "object_pose_source_from_log": object_pose_from_log},
         "timestamps": data["stamps"],
         "run_info": data["run_info"],
         "channels": rows,
@@ -475,6 +492,12 @@ def main(argv=None):
     }
     (out / "binding.json").write_text(json.dumps(report, indent=1) + "\n")
     cand = candidate_profile(args, data, rows, profile_path, component_profile, cams)
+    prov = cand["provenance"]
+    if data["run_info"] is None:   # /build1/run_info not recorded: take the run log's declarations and say so
+        prov["pose_source"], prov["object_pose_source"] = pose_source_from_log, object_pose_from_log
+        prov["declarations_from"] = "run log (no /build1/run_info in the bag)"
+    else:
+        prov["declarations_from"] = "/build1/run_info"
     (out / "capture_profile_candidate.json").write_text(json.dumps(cand, indent=1) + "\n")
     lines = [f"# Bag binding: run {args.run_id}", "",
              f"Simulation time: {sim_time}; duration {report['bag']['duration_s']} s; "
@@ -495,12 +518,13 @@ def main(argv=None):
     lines += [f"| {k} | {v.get('topic', 'UNBOUND: ' + v.get('unbound', ''))} | {v.get('rate_hz', '')} | "
               f"{v.get('frame_id', '')} | {v.get('camera_info_topic', '')} |" for k, v in cams["bound"].items()]
     used = [s["topic"] for s in cand["streams"]]
-    lines += ["", "| candidate stream | timestamp source | strictly increasing as read_bag reads it | non-increasing |",
-              "|---|---|---|---|"]
+    lines += ["", "| candidate stream | timestamp source | strictly increasing as read_bag reads it | equal | decreasing |",
+              "|---|---|---|---|---|"]
     for s_ in cand["streams"]:
         st = data["stamps"].get(s_["topic"], {})
-        bad = st.get("header_nonincreasing") if s_["timestamp_source"] == "header" else st.get("receipt_nonincreasing")
-        lines.append(f"| {s_['topic']} | {s_['timestamp_source']} | {st.get('strictly_increasing_as_read')} | {bad} |")
+        key = "header" if s_["timestamp_source"] == "header" else "receipt"
+        lines.append(f"| {s_['topic']} | {s_['timestamp_source']} | {st.get('strictly_increasing_as_read')} | "
+                     f"{st.get(key + '_equal')} | {st.get(key + '_decreasing')} |")
     lines += ["", f"Streams in the candidate: {len(used)}"]
     lines += ["", "Gripper unit: " + json.dumps(report["gripper_unit"])]
     (out / "summary.md").write_text("\n".join(lines) + "\n")
