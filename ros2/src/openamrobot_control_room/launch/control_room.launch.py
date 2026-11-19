@@ -55,9 +55,11 @@ def nodes(context):
     actions = [LogInfo(msg=f"control room: station {name} of {scene} at {pose} (NaN: no station error)")]
     actions.append(Node(package=PACKAGE, executable="control_room_monitor.py", name="control_room_monitor", output="screen",
                         condition=IfCondition(LaunchConfiguration("monitor")),
-                        parameters=[{"use_sim_time": sim, "station": pose, "station_name": name, "scene": scene}]))
+                        parameters=[{"use_sim_time": sim, "station": pose, "station_name": name, "scene": scene,
+                                     "status_log": LaunchConfiguration("status_log").perform(context)}]))
     actions.append(Node(package=PACKAGE, executable="vcan_monitor.py", name="control_room_vcan_monitor", output="screen",
-                        condition=IfCondition(LaunchConfiguration("vcan")), parameters=[{"use_sim_time": sim}]))
+                        condition=IfCondition(LaunchConfiguration("vcan")),
+                        parameters=[{"use_sim_time": sim, "log": LaunchConfiguration("can_log").perform(context)}]))
     actions.append(Node(package="rviz2", executable="rviz2", name="control_room_rviz", output="screen",
                         condition=IfCondition(LaunchConfiguration("rviz")),
                         arguments=["-d", os.path.join(share, "rviz", "control_room.rviz")],
@@ -85,5 +87,7 @@ def generate_launch_description():
         DeclareLaunchArgument("scene", default_value="scene.yaml",
                               description="scene file of openamrobot_build1_scene: scene.yaml (Baseline 1) or "
                                           "grocery_scene.yaml (grocery dark store)"),
+        DeclareLaunchArgument("status_log", default_value="", description="file: every status as one JSON line"),
+        DeclareLaunchArgument("can_log", default_value="", description="file: CAN summary and decoded values, one JSON line a second"),
         OpaqueFunction(function=nodes),
     ])

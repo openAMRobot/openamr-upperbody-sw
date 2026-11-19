@@ -145,7 +145,7 @@ class Replay:
         x, y = (self.truth or (0.0, 0.0))[:2]
         marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = x, y, 1.9
         marker.pose.orientation.w = 1.0
-        marker.scale.z = 0.25
+        marker.scale.z = 0.15
         marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 0.55, 0.0, 1.0
         t = "-" if self.sim_time is None else f"{self.sim_time:.1f} s"
         marker.text = f"REPLAY  {status['phase'] or '-'}  {status['verdict'] or ''}  t={t}"

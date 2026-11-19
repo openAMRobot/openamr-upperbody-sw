@@ -92,6 +92,8 @@ class ControlRoomMonitor:
         sub(String, GROCERY_PHASE_TOPIC, self.on_grocery_phase, 10)
         sub(String, GROCERY_EVENTS_TOPIC, self.on_grocery_event, 10)
         self.scene_file = node.declare_parameter("scene", "").value
+        # Optional: every status also appended as one JSON line to this file (a record that needs no DDS discovery).
+        self.status_log = node.declare_parameter("status_log", "").value
         self.writers = {}
         for action in state.ACTIONS:
             sub(GoalStatusArray, f"{action}/_action/status", lambda m, a=action: self.on_status(a, m), 10)
@@ -272,7 +274,11 @@ class ControlRoomMonitor:
 
     def tick(self):
         snap = self.snapshot()
-        self.pub["status"].publish(self.String(data=json.dumps(snap, sort_keys=True, default=str)))
+        text = json.dumps(snap, sort_keys=True, default=str)
+        self.pub["status"].publish(self.String(data=text))
+        if self.status_log:
+            with open(self.status_log, "a", encoding="utf-8") as f:
+                f.write(text + "\n")
         loc = snap["localization"]["tf_map_minus_truth_m"]
         if loc is not None:
             self.pub["loc_tf"].publish(self.Float64(data=float(loc)))

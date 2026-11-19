@@ -5,7 +5,8 @@
 # bag, graph snapshots of the live stack, then the offline HTML report from the mission's bag, mission JSON and
 # candump logs, and a headless REPLAY of the recording in RViz2 (Xvfb) with screenshots.
 #
-# Runs on a push of this file to demo/control-room only (workflow_dispatch needs the file on the default branch).
+# Runs on a push that changes .github/control-room-e2e.trigger on demo/control-room (workflow_dispatch needs the file
+# on the default branch). Editing this workflow alone starts nothing: each run is about 1.5 h of runner time.
 # The control room holds no command authority: it publishes only under /control_room/. The Baseline 1 verdict is the
 # mission's; this job does not change it and reports it as it is. Simulation evidence only: never hardware, physical
 # acceptance or safety evidence. No secrets, no hardware.
@@ -15,7 +16,7 @@ on:
   push:
     branches: [demo/control-room]
     paths:
-      - '.github/workflows/control-room-e2e.yml'
+      - '.github/control-room-e2e.trigger'
 
 permissions:
   contents: read
@@ -231,7 +232,8 @@ jobs:
             # SIGINT is ignored by background jobs of a non-interactive shell; restore it so the recorders stop cleanly.
             dfl() { python3 -c 'import os,signal,sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' "$@"; }
             dfl ros2 launch openamrobot_control_room control_room.launch.py rviz:=false foxglove:=false vcan:=true \
-              use_sim_time:=true station:=work_shelf scene:=scene.yaml > ../cr/control_room.log 2>&1 &
+              use_sim_time:=true station:=work_shelf scene:=scene.yaml status_log:="$PWD/../cr/status.jsonl" \
+              can_log:="$PWD/../cr/can.jsonl" > ../cr/control_room.log 2>&1 &
             echo $! > ../cr/launch.pid
             sleep 20
             dfl ros2 bag record --use-sim-time -s mcap -o ../cr/control_room_bag --regex '/control_room/.*' \
@@ -240,8 +242,9 @@ jobs:
             dfl ros2 run rosbridge_server rosbridge_websocket --ros-args -r __node:=rosbridge_readonly \
               --params-file ../cr/rosbridge_readonly.yaml > ../cr/rosbridge.log 2>&1 &
             echo $! > ../cr/rosbridge.pid
-            # Graph snapshots of the live stack: 10, 40 and 70 minutes after the domain appeared.
-            for at in 600 2400 4200; do
+            # Graph snapshots of the live stack, 2, 5 and 8 minutes after the domain appeared (run 44445938978: the
+            # whole mission took 8 minutes at a real-time factor of about 0.2).
+            for at in 120 300 480; do
               sleep $(( at - ${prev:-0} )); prev=$at
               out="../cr/graph_${at}s.txt"
               {
@@ -256,7 +259,7 @@ jobs:
                 echo "== /control_room/status (one message)"; timeout 30 ros2 topic echo --once --full-length /control_room/status 2>&1 | head -c 20000
                 echo; echo "== /control_room/can/decoded (one message)"; timeout 30 ros2 topic echo --once --full-length /control_room/can/decoded 2>&1 | head -c 30000
                 echo; echo "== /sil/drive/emulator_state (one message, 20 s)"; timeout 20 ros2 topic echo --once /sil/drive/emulator_state 2>&1 | head -c 3000
-                if [ "$at" = "2400" ]; then
+                if [ "$at" = "300" ]; then
                   echo; echo "== read-only rosbridge probe (ws://127.0.0.1:9091, 40 s of subscriptions, then write attempts)"
                   timeout 120 python3 -P src/openamr-upperbody-sw/ros2/src/openamrobot_control_room/tools/rosbridge_readonly_probe.py ws://127.0.0.1:9091 40
                   echo "== after the probe: publishers of /control_room/rosbridge_probe (must be none)"
@@ -301,6 +304,22 @@ jobs:
           echo "=================== control room launch log (tail)"; tail -60 ../cr/control_room.log
           echo "=================== rosbridge_readonly log (tail)"; tail -40 ../cr/rosbridge.log
           echo "=================== control room bag"; ros2 bag info ../cr/control_room_bag 2>&1 | tee ../cr/control_room_bag_info.txt
+          echo "=================== control room JSON lines: $(wc -l < ../cr/status.jsonl 2>/dev/null) status, $(wc -l < ../cr/can.jsonl 2>/dev/null) CAN"
+          python3 -P - ../cr/status.jsonl ../cr/can.jsonl <<'PY' 2>&1 | tee ../cr/control_room_jsonl_summary.txt
+          import json, sys
+          rows = [json.loads(l) for l in open(sys.argv[1])] if __import__("os").path.exists(sys.argv[1]) else []
+          can = [json.loads(l) for l in open(sys.argv[2])] if __import__("os").path.exists(sys.argv[2]) else []
+          print("status lines", len(rows), "sim_time", rows[0].get("sim_time") if rows else None, "to", rows[-1].get("sim_time") if rows else None)
+          print("mission sources", sorted({r["mission"]["source"] for r in rows}))
+          for key in ("provenance", "mission", "drive", "lift", "bms", "firmware", "station", "localization", "scene"):
+              print("last", key, json.dumps(rows[-1].get(key), sort_keys=True)[:1500] if rows else None)
+          if can:
+              print("last CAN summary", json.dumps(can[-1]["summary"], sort_keys=True)[:2000])
+              for bus, values in sorted(can[-1]["decoded"]["decoded"].items()):
+                  print("==", bus, len(values), "signals")
+                  for name, value in sorted(values.items())[:30]:
+                      print("  ", name, json.dumps(value, sort_keys=True)[:300])
+          PY
           python3 -P - ../cr/control_room_bag <<'PY' 2>&1 | tee ../cr/control_room_summary.txt
           import collections, json, sys
           sys.path.insert(0, "src/openamr-upperbody-sw/ros2/src/openamrobot_control_room")
@@ -365,7 +384,7 @@ jobs:
           for shot in 45 90 150; do
             sleep $(( shot - ${last:-0} )); last=$shot
             import -window root "../report/replay_${shot}s.png" && echo "screenshot replay_${shot}s.png"
-            timeout 10 ros2 topic echo --once /control_room/replay/status 2>&1 | head -c 2000 > "../report/replay_status_${shot}s.txt"
+            timeout 10 ros2 topic echo --once --full-length /control_room/replay/status 2>&1 | head -c 2000 > "../report/replay_status_${shot}s.txt"
             head -c 600 "../report/replay_status_${shot}s.txt"; echo
           done
           kill -INT $pid 2>/dev/null; sleep 5; kill -TERM $pid 2>/dev/null

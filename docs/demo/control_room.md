@@ -70,6 +70,8 @@ For the grocery dark store, start its launch in terminal 1 and the control room 
 
 Launch arguments: `rviz` (true), `foxglove` (false), `foxglove_port` (8765), `foxglove_address` (127.0.0.1),
 `vcan` (true), `monitor` (true), `use_sim_time` (true), `station` (work_shelf), `scene` (scene.yaml).
+`status_log` and `can_log` (empty): files that get every status and every CAN summary with its decoded values as
+one JSON line, a record of the live view that needs no second ROS participant.
 
 ### In a browser (Lichtblick)
 
@@ -180,6 +182,11 @@ action topics) are never replayed and are listed in the status. Lichtblick can o
   confirmed device protocols: the CTL-017 dictionary is a proposal, the Daly protocol is unconfirmed.
 - The CAN plots of the report use candump wall time, not Gazebo time.
 - The replay has no map (the recorders do not record `/map`) and no MoveIt displays.
+- With `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` (the Build 1 tests' isolation), a control room and a recorder that
+  join a running stack late found the stack but not each other in run 44445938978: the recorder's bag has no
+  `/control_room/` topic. Run 44458551182 shows the monitor publishing at 2 Hz with `use_sim_time:=true` and the same
+  recorder command recording it when few processes run. The cause is not verified; `status_log` and `can_log` record
+  the live view without discovery.
 - Lichtblick draws the robot without meshes (no `assets` capability).
 - The foxglove_bridge node keeps its own ROS parameter services (a ROS 2 node default). They are reachable from the
   ROS graph, not from the browser; the bridge's settings are read at start.

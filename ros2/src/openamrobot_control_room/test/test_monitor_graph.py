@@ -205,6 +205,20 @@ def test_vcan_node_decodes_recorded_frames(ros):
         observer.destroy_node()
 
 
+def test_status_log_file(ros, tmp_path):
+    """status_log: every status also lands in a JSON lines file (the e2e record that needs no DDS discovery)."""
+    from openamrobot_control_room.monitor import ControlRoomMonitor, make_node
+    path = tmp_path / "status.jsonl"
+    node = make_node("control_room_log_probe", parameter_overrides=[ros.parameter.Parameter("status_log", value=str(path))])
+    ControlRoomMonitor(node)
+    try:
+        assert ros_support.spin_until([node], lambda: path.exists() and len(path.read_text().splitlines()) >= 2, timeout=10.0)
+        lines = [json.loads(line) for line in path.read_text().splitlines()]
+        assert all("provenance" in line and "mission" in line for line in lines)
+    finally:
+        node.destroy_node()
+
+
 def test_guard_refuses_a_command_publisher(ros):
     from openamrobot_control_room.monitor import make_node
     from geometry_msgs.msg import Twist

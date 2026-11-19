@@ -27,6 +27,7 @@ class VcanMonitorNode:
         self.node, self.String, self.Float64 = node, String, Float64
         buses = list(node.declare_parameter("buses", list(can_monitor.BUSES)).value)
         canopen = list(node.declare_parameter("canopen_buses", list(can_monitor.CANOPEN_BUSES)).value)
+        self.log = node.declare_parameter("log", "").value     # optional JSON lines file of summary and decoded values
         self.latest = can_decode.Latest()
         self.lock = threading.Lock()
         self.decode_errors = 0
@@ -77,6 +78,9 @@ class VcanMonitorNode:
                        note="decoded by openamrobot_control_room can_decode.py from emulated devices on vcan; "
                             "frame times t are host time")
         self.decoded_pub.publish(self.String(data=json.dumps(decoded, sort_keys=True)))
+        if self.log:
+            with open(self.log, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"summary": summary, "decoded": decoded}, sort_keys=True) + "\n")
         for bus, record in summary.items():
             self.rate_pub[bus].publish(self.Float64(data=float(record["rate_hz"])))
 
