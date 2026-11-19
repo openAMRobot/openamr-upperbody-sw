@@ -19,6 +19,7 @@ env:
 jobs:
   measure:
     name: Timestamps of run 44448676604
+    if: false  # done in runs 44465407013 and 44467503715
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -57,7 +58,7 @@ jobs:
     timeout-minutes: 90
     env:
       # openAMRobot/openamrobot-embodied-ai ai/capture-timestamp-rule (draft into satya/capture-conversion-benchmark)
-      EMBODIED_AI_SHA: 113888290a0c3f61815f9acbda342e43acfb32cd
+      EMBODIED_AI_SHA: de2032ee133b16b2e94b467b6262519e7dc45e00
       # C9 assets the converter pins, and the Proposed C9 component profile (interfaces #39 head)
       C9_SHA: 87ab8a936c97ab55ee74b8988ca3d7659160ea6a
       C9_COMPONENTS_SHA: 43ec67747b1087163f3b220fbcf3ee44eb31c2e5

@@ -61,6 +61,29 @@ def census(bag, profile, out):
                 sub["streams"] = [s for s in profile["streams"] if s["id"] == stream]
                 stage(results, f"validate_source_samples {kind} {stream}", lambda sub=sub: validate_source_samples(data, sub))
         stage(results, "align", lambda: align(data, profile))
+        from oa_embodied_ai.recording.bag import extract
+        ranges = {}
+        for kind in ("state", "action"):
+            for c in profile[kind + "_channels"]:
+                vals = []
+                for smp in data[c["stream"]]:
+                    try:
+                        vals.append(extract(smp, c))
+                    except Exception as exc:
+                        ranges[f"{kind}.{c['name']}"] = {"extract_error": str(exc)}
+                        break
+                if vals:
+                    lim = c.get("range")
+                    out = [v for v in vals if lim and not lim[0] <= v <= lim[1]]
+                    ranges[f"{kind}.{c['name']}"] = {"stream": c["stream"], "n": len(vals), "min": min(vals), "max": max(vals),
+                                                      "range": lim, "outside": len(out),
+                                                      "worst": (min(out, key=lambda v: min(abs(v - lim[0]), abs(v - lim[1])) * -1) if out else None)}
+        frames = {}
+        for st in profile["streams"]:
+            hdr = [getattr(getattr(x.message, "header", None), "frame_id", None) for x in data[st["id"]][:50]]
+            frames[st["id"]] = sorted({str(h) for h in hdr})
+        results.append({"stage": "value ranges per channel (source samples)", "ranges": ranges})
+        results.append({"stage": "recorded header frame_id per stream (first 50)", "frames": frames})
     for kind in ("state", "action"):
         sources = sorted({c["stream"] for c in profile[kind + "_channels"]})
         results.append({"stage": f"sidecar single acquisition source ({kind})",
