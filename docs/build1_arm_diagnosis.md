@@ -264,6 +264,59 @@ before. Still open on that head: the withdraw after the release was refused in 3
 one), and in one of those the retreat then hit the tote (888 N peak, joint 6 on its limit for a moment) before it
 reached park; the scn03 left target sits 0.015 m above the item's top and the hand base touches it (0.3 to 6.7 N).
 
+## Cycle 6: the mission grasp, the planning pose source, palm contact and grip force (18 Nov)
+
+Mission diagnostics (branch `diag/worker-g-mission`, not for merge): runs 44163167306, 44168271147, 44186974661.
+Standalone: 44168251650, 44186975009.
+
+**Item depth.** The gripper is a position servo to closed, so its grip torque is the emulator's MIT kp (4.884) times
+the finger angle at contact. With the item centre 2 to 5 mm behind the TCP (mission, before) the fingers met it at
+0.065 to 0.12 rad (0.11 to 0.41 N m, 0.58 to 2.6 N per finger) and 3 of 6 grasps failed the 40 mm; 9 mm deeper
+(`ITEM_DEPTH_BEHIND_TCP_M`) they met it at 0.134 to 0.162 rad and the mission lifted 5 of 5 (0.0767 to 0.0812 m)
+at station errors 0.020 to 0.036 m and heading errors 0.023 to 0.142 rad.
+
+**Planning pose source.** Default `map` (the robot's estimate); `ground_truth` is a simulation oracle that must be set
+and is declared in run info, JSON and log. With `map` the obstacles are as far from the targets' frame as AMCL is from
+the truth (0.023 to 0.064 m measured); the targets themselves still come from the ground truth.
+
+**Palm contact.** Achieved depth at the close: 12.0 to 13.8 mm in the mission (no palm contact in 5 of 5 reaches,
+reach servo torque 0.16 to 0.26 N m), 15.2 to 17.9 mm at the fixed station (palm on the item in 5 of 5 reaches at
+0.38 to 2.6 N; one reach servo torque 1.38 N m, item pushed 3 mm, still lifted 0.079 m). Contact starts between 13.8
+and 15.2 mm of achieved depth. The 3 to 9 mm beyond the commanded 9 mm come from the execution, more at the fixed
+station. The depth is kept: reducing it trades grip angle (about 0.005 rad per mm) for palm clearance.
+
+**Grip force after the fix (10 grasps).** Finger angle 0.134 to 0.172 rad; emulator torque 0.66 to 0.81 N m
+(= 4.884 x angle); normal force 2.62 to 3.56 N (finger 1) and 2.80 to 4.74 N (finger 2); slip 2.7 to 8.9 mm;
+TCP acceleration up to 3.26 m/s^2. Need per finger m g / (2 mu): 0.736 N at the estimated 0.15 kg and mu 1.0, 2.94 N
+with mu 0.5 and a safety factor of 2. The contact forces balance 0.14 to 0.26 N m at the 0.055 m lever, 3 to 5 times
+less than the emulator reports (5 to 7 times before the fix). Mass, mu and pad friction are estimates; nothing here is
+a gripper measurement.
+
+## Cycle 7: scn03 return refused against a stale item box (18 Nov)
+
+Job 134653118730 (integration/baseline1 `cc0e9e5`, `planning_pose_source: map`). The base belief was exact (spawn
+pose and odom, base at (0.00, -2.08, -1.57)). The L0_left reach ended with the hand base at [0.6751, 0.1556, 0.9894]
+(base_footprint) for the target [0.6645, 0.16, 0.98], 0.015 m above the item's top; the arm touched the item and
+knocked it over: ground truth [0.0694, -2.8438, 0.8425], about 0.09 m from its start and lying down. The loader still
+placed the item box at its scene.yaml start pose, standing under the hand, so every return plan was refused with
+`CheckStartStateCollision: item - openarm_left_ee_base_link` (error -10, three attempts) and the arm stayed off park.
+The map default did not cause it: the loader never moved the movable boxes in either pose source.
+
+Fix: the tote, the item and the payload are placed from their observed poses (`/build1/ground_truth/<name>/pose`,
+the perception stand-in the scenarios already take their targets from), with full orientation, relative to the
+declared base pose; the start pose is used only until the first observation. The scene is sent again when one moves
+more than 0.01 m or turns more than 0.05 rad. The touch at the left level-0 target (remaining risk 6) is unchanged.
+Verification run 44279328325 (c7af6a2): both scn03 returns succeeded (left 0.031 rad, right 0.023 rad from park);
+scn03 was then BLOCKED at the lift move by the real-time factor (0.40).
+
+**Object pose source.** Where the object poses come from is declared on its own: launch argument
+`object_pose_source` (Proposed), separate from `planning_pose_source`, for both the planning scene loader and the
+scenarios' grasp targets. Its only value today is `ground_truth`, Gazebo's pose of each object, a perception
+stand-in. It is recorded in `/build1/run_info`, in every scenario JSON (`run.object_pose_source`) and in the launch,
+loader and scenario logs; a scenario whose run_info lacks it is refused, and every reader takes the topic through
+the declared source. With `object_pose_source: ground_truth` no run counts as the perception profile, whatever its
+`planning_pose_source`, until an object detector replaces it.
+
 ## Grippers in the Gazebo video run (run 43978020109, branch viz/scene-video)
 
 Both grippers read 0.000 after the close commands. By the convention of #66 (0 = closed, far limit = open) that is the

@@ -25,6 +25,12 @@ def description(**arguments):
     domain = str(random.randint(101, 200))
     os.environ.update(ROS_DOMAIN_ID=domain, ROS_AUTOMATIC_DISCOVERY_RANGE="LOCALHOST", GZ_PARTITION=f"build1_{domain}_{os.getpid()}")
     arguments = {"profile": "firmware_sil", "headless": "true", **arguments}
+    # The planning scene's pose source of a whole test run (planning_scene.py): map unless the environment asks for the
+    # simulation oracle. An explicit argument of the test wins.
+    if os.environ.get("BUILD1_PLANNING_POSE_SOURCE"):
+        arguments.setdefault("planning_pose_source", os.environ["BUILD1_PLANNING_POSE_SOURCE"])
+    if os.environ.get("BUILD1_OBJECT_POSE_SOURCE"):
+        arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])
     if arguments["profile"] in DEVICE_PROFILES:
         from vcan_support import blocked_reason
         STATE["blocked"] = blocked_reason()

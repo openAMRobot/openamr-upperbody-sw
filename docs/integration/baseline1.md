@@ -96,8 +96,10 @@ Two profiles. A run states its profile in its run information and log, and a res
 | `sim-oracle` (simulation-oracle integration) | simulator ground truth, declared as `pose_source: ground_truth` | station tree of platform-sw #164 | integration of the ROS 2 stack, firmware-SIL path, controllers and contact physics. Not proof of autonomous perception |
 | `perception` (perception-integrated, future) | the robot's own estimate, never ground truth | station tree plus station-relative alignment once adopted (platform-sw #167, extension today) | autonomous perception and positioning in simulation |
 
+Mechanism: `baseline1-acceptance.yml` input `profile` (`sim-oracle` default for this simulation acceptance workflow, `perception`) sets `BUILD1_PLANNING_POSE_SOURCE` (`ground_truth` or `map`), which the launch passes as `planning_pose_source` to the planning scene loader (#73 `1a84066`). The launch file and loader default to `map`. The profile and pose source are printed in the log and the job summary, and the run info and every scenario JSON record `planning_pose_source`. In the `perception` profile the grasp target still comes from ground truth today; a production path takes it from the robot's estimate or perception.
+
 Rules:
-- Ground truth is never a default. A run uses it only through the `sim-oracle` profile and declares `pose_source: ground_truth`.
+- Ground truth is never a default of the launch or the loader. A run uses it only through the `sim-oracle` profile and declares `pose_source: ground_truth`.
 - A `sim-oracle` pass is never reported as a perception result.
 - The acceptance checks against ground truth (station position 0.04 m, yaw 0.08 rad, item rise 0.04 m) are measurements of the outcome in both profiles, not inputs to the robot, and stay unchanged.
 - Partial trajectories fail; no failure is suppressed.
@@ -125,3 +127,29 @@ Limitations:
 - Nothing here is bench, physical robot, perception or safety evidence.
 
 Next: a verified parking correction, then the strict sequence: two acceptance runs one after the other on one pinned commit, each in a declared profile.
+
+## #167 verification runs, 18 Nov 2026 (extension, not Baseline 1)
+
+Pinned: this branch `4a67ee7`, openamr-platform-sw integration branch `e75e16e` (#167 at `3e6e203`), profile `sim-oracle` (`pose_source: ground_truth`). Criterion from the parking analysis (#85): marker detected in all 3 runs and each station error at most 0.030 m. Result: not met, 1 of 3.
+
+| Run | Alignment | Phases | Station error | Outcome |
+|---|---|---|---|---|
+| [44247712314](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247712314) | on | 8/8 | 0.0035 m | aligned |
+| [44247720886](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247720886) | on | 6/8 | 0.0754 m | measured, then aborted: odom to base_footprint transform not found (unconnected TF trees); reach fraction 0.587 |
+| [44247729473](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247729473) | on | 7/8 | 0.0557 m | marker not seen, 0 poses received |
+| [44247710475](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44247710475) | off | 6/8 | 0.0654 m | station tree only; reach fraction 0.603 |
+
+Baseline 1 status unchanged: not complete. The strict consecutive sequence waits for a correction that passes this check.
+
+## #167 verification runs, 18 Nov 2026, second check (extension)
+
+Pinned: this branch `d63e9ed`, openamr-platform-sw integration branch `931e631` (#167 at `c4666a1`), profile `sim-oracle` (`pose_source: ground_truth`, `object_pose_source: ground_truth`, perception stand-in). Criterion: marker detected in all 3 runs, each station error at most 0.030 m. Result: met, 3 of 3, each run 8/8.
+
+| Run | Alignment | Phases | Station error | Yaw |
+|---|---|---|---|---|
+| [44309791416](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309791416) | on | 8/8 | 0.0028 m | 0.031 rad |
+| [44309804809](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309804809) | on | 8/8 | 0.0217 m | 0.015 rad |
+| [44309817813](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309817813) | on | 8/8 | 0.0026 m | 0.038 rad |
+| [44309784398](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309784398) | off | 7/8 | 0.0639 m | 0.009 rad |
+
+These are three passes in parallel, not a strict consecutive sequence, and the alignment is not adopted into Baseline 1. They used #167 before the review fixes (aa8fd11). Simulation-oracle evidence only, not perception.

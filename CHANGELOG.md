@@ -24,6 +24,17 @@ All notable changes to this repository. Evidence for the description is static a
 - **New scenarios.** `scn16_lift_fast` (stops 2, 0, 1, 2, 0, success without arrival fails) and `scn17_base_yaw_fast` (ground truth
   yaw against r * (wR - wL) / track and `/odom`, castors present, track read and not changed). New CI job "fast lift stops and
   base yaw".
+### Fixed (18 Nov 2026; scn03 return to park; simulation only)
+
+- **Movable objects follow their observed poses in the planning scene.** The loader kept the tote, the item and the payload at
+  their scene.yaml start poses. When the scn03 level-0 reach knocked the item over (job 134653118730), MoveIt still had it standing
+  under the hand and refused the return to park as a start state in collision (item - openarm_left_ee_base_link). They are now
+  placed from `/build1/ground_truth/<name>/pose` relative to the declared base pose, and the scene is resent when one moves.
+- **Declared object pose source.** New launch argument `object_pose_source` (only value and default `ground_truth`, a perception
+  stand-in; Proposed) for the planning scene's objects and the scenarios' grasp targets, recorded in `/build1/run_info`, each
+  scenario JSON and the logs. A scenario whose run_info lacks it is refused. With `ground_truth` no run counts as the perception
+  profile until an object detector replaces it. Behaviour is unchanged.
+
 ### Fixed (17 Nov 2026; scn04 in the Baseline 1 mission; simulation only)
 
 - **Approach square to the item's face.** In the mission the base stands up to 0.067 m and 0.08 rad off the station, and the approach
@@ -36,10 +47,11 @@ All notable changes to this repository. Evidence for the description is static a
   centre along the fingers (`arm_frames.tcp_for_item`); the palm leaves 0.0099 m.
 - **No padding under the fixed boxes.** The 0.08 m lift left 0.004 m under the padded board above with the hand level; tilted held
   orientations cut it short (fractions 0.9375 in run 44155397328, 0.941 in diagnostics run 44168251650). Undersides are no longer padded.
-- **Planning scene in the frame of the targets.** `planning_scene_loader.py` placed the objects from AMCL (0.023 to 0.064 m and up to
-  0.024 rad off the ground truth in the mission), while the grasp targets come from the ground truth: the straight lift and reach were
-  cut short (Cartesian fractions 0.9375 and 0.185). New parameter `pose_source` (default `ground_truth`, Proposed). Tests:
-  `test_arm_frames.py`.
+- **Planning scene pose source (Proposed, reviewer Mohamed).** Launch argument `planning_pose_source`: `map` (default, the robot's own
+  estimate: AMCL map, or spawn pose and odom before it) or `ground_truth` (a simulation oracle, set explicitly). The value is in
+  `/build1/run_info`, in every scenario JSON as `run.planning_pose_source` and in the log (`planning_scene.declaration`).
+  `BUILD1_PLANNING_POSE_SOURCE` sets it for the scenario tests. With `map` the obstacles were 0.023 to 0.064 m off the frame of the
+  ground-truth grasp targets in the missions of 17 Nov (a reach cut short at fraction 0.185). Tests: `test_arm_frames.py`.
 
 ### Fixed (17 Nov 2026; scn04 grasp path; simulation only)
 

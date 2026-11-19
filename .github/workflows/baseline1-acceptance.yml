@@ -26,6 +26,11 @@ on:
         default: '1'
         type: choice
         options: ['1', '0']
+      profile:
+        description: "Acceptance profile (docs/integration/baseline1.md). sim-oracle: planning scene placed from simulator ground truth, declared pose_source ground_truth; integration evidence, not perception. perception: the robot's own estimate (planning_pose_source map); future autonomy profile"
+        default: 'sim-oracle'
+        type: choice
+        options: ['sim-oracle', 'perception']
       station_alignment:
         description: "0 (Baseline 1): straight to Nav2 with the station tree. 1: opt-in extension run through openamr-platform-sw #167's marker alignment (Proposed, not adopted into Baseline 1; simulation-only station camera)"
         default: '0'
@@ -42,12 +47,16 @@ env:
   # approach, AMCL 0.05 m / 0.05 rad, bt_navigator 30000 ms server wait, NOTICE at 194e208), #167 (station marker
   # alignment, Proposed), #162 (lift firmware-SIL path on the simulation clock) and #166 (#141 reconciled with the clock contract)
   # merged (docs/integration/baseline1.md). Description, Nav2, perception, docking and openamrobot_sil come from it.
-  PLATFORM_SW_SHA: fe28d19c2cf41de474b7bed610fb19e8396a930e
+  PLATFORM_SW_SHA: 931e631db661b16d1057dfd1ab1d13ea606482e2
   # ros-infrastructure/ros-apt-source release, pinned: ros-tooling/setup-ros looks the latest tag up through the
   # unauthenticated GitHub API, which returned no tag on 17 Nov 2026 (rate limit) and made the download 404.
   ROS_APT_SOURCE_VERSION: '1.3.0'
   BASELINE1_STATION_APPROACH: ${{ github.event.inputs.station_approach || '1' }}
   BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '0' }}
+  # Acceptance profile (Alex, 18 Nov 2026). sim-oracle sets the planning scene from simulator ground truth and every run
+  # declares it; perception uses the robot's own estimate. A sim-oracle pass is never a perception result.
+  BASELINE1_PROFILE: ${{ github.event.inputs.profile || 'sim-oracle' }}
+  BUILD1_PLANNING_POSE_SOURCE: ${{ (github.event.inputs.profile || 'sim-oracle') == 'sim-oracle' && 'ground_truth' || 'map' }}
   # The scene's launch calls sil.launch.py's can_nodes(config, stm32, gazebo, renode) and default_renode_args() (#141);
   # #166 carries that API on the clock contract, so the #145 pin (config/pins.yaml platform_sw_pr145) is not built here.
   # #144/#145 (transmit audit, pty relay) are not in the platform integration branch.
@@ -214,6 +223,8 @@ jobs:
           mkdir -p "$BUILD1_LOG_DIR"
           echo "nproc $(nproc)"
           echo "station approach: BASELINE1_STATION_APPROACH=${BASELINE1_STATION_APPROACH}"
+          echo "acceptance profile: ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE}$( [ "${BUILD1_PLANNING_POSE_SOURCE}" = ground_truth ] && echo ' (SIMULATION ORACLE: integration evidence, not autonomous perception)')"
+          echo "### Acceptance profile: ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE}" >> "$GITHUB_STEP_SUMMARY"
           echo "station alignment: BASELINE1_STATION_ALIGNMENT=${BASELINE1_STATION_ALIGNMENT} (camera: simulation-only test sensor of openamr-platform-sw #167, pending the description's base camera)"
           set +e
           colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \

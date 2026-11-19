@@ -209,22 +209,45 @@ def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene
     assert "self.boxes = padded(scene_model.collision_boxes(self.scene), fixed, padding)" in loader
 
 
-def test_the_planning_scene_sits_in_the_frame_of_the_grasp_targets():
-    """The grasp and reach targets come from the ground truth base pose, so the obstacles must too. With the
-    localization they were 0.023 to 0.064 m out of place in the Baseline 1 missions and the straight lines were cut short."""
+def test_the_planning_scene_defaults_to_the_robots_own_estimate_and_the_oracle_must_be_asked_for():
+    """Production-oriented runs must not plan against Gazebo's ground truth: the default is map, ground_truth is a
+    simulation oracle that is set explicitly. No silent fall-back between the two."""
     from openamrobot_build1_scene import planning_scene as ps
     truth, belief = (0.01, -2.10, -1.60), ((0.03, -2.12, -1.61), "map")
-    assert ps.DEFAULT_POSE_SOURCE == "ground_truth"
-    assert ps.choose_base_pose(ps.DEFAULT_POSE_SOURCE, truth, belief) == (truth, "ground truth")
-    assert ps.choose_base_pose("ground_truth", None, belief) == (None, None), "no silent fall-back to the localization"
-    assert ps.choose_base_pose("localization", truth, belief) == belief
+    assert ps.DEFAULT_POSE_SOURCE == "map" and ps.DEFAULT_POSE_SOURCE != ps.ORACLE_POSE_SOURCE
+    assert ps.choose_base_pose(ps.DEFAULT_POSE_SOURCE, truth, belief) == belief
+    assert ps.choose_base_pose("ground_truth", truth, belief) == (truth, "ground truth (simulation oracle)")
+    assert ps.choose_base_pose("ground_truth", None, belief) == (None, None)
     with pytest.raises(ValueError):
-        ps.choose_base_pose("amcl", truth, belief)
+        ps.choose_base_pose("localization", truth, belief)
     with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
         loader = f.read()
     assert 'declare_parameter("pose_source", DEFAULT_POSE_SOURCE)' in loader
     assert "return choose_base_pose(self.pose_source, self.truth, self.localization_pose())" in loader
-    assert '"/build1/ground_truth/odom", self.on_truth' in loader
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'DeclareLaunchArgument("planning_pose_source", default_value=planning_scene.DEFAULT_POSE_SOURCE' in launch
+    assert '"pose_source": pose_source' in launch
+
+
+def test_every_run_declares_its_planning_pose_source():
+    """The launch puts the source into /build1/run_info and logs it; the rig copies run_info into every scenario JSON
+    (run.planning_pose_source) and logs the declaration; the oracle is spelled out as one."""
+    from openamrobot_build1_scene import planning_scene as ps
+    assert ps.declaration("map") == "planning_pose_source: map"
+    assert ps.declaration("ground_truth").startswith("planning_pose_source: ground_truth (SIMULATION ORACLE")
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'info["planning_pose_source"] = pose_source' in launch and "LogInfo(msg=planning_scene.declaration(pose_source))" in launch
+    assert launch.index('info["planning_pose_source"] = pose_source') < launch.index('"run_info": json.dumps(info, sort_keys=True)')
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    assert 'self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)' in rig
+    assert 'self.log.event(declaration(info.get("planning_pose_source", "not declared by the launch")))' in rig
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        assert "self.get_logger().info(declaration(self.pose_source))" in f.read()
+    with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
+        assert 'arguments.setdefault("planning_pose_source", os.environ["BUILD1_PLANNING_POSE_SOURCE"])' in f.read()
 
 
 @pytest.mark.parametrize("yaw", [0.0, -0.08, 0.05])
@@ -251,3 +274,124 @@ def test_the_item_sits_in_the_fingers_short_of_the_palm():
     assert 0.008 <= af.ITEM_DEPTH_BEHIND_TCP_M <= af.TCP_ALONG_FINGERS_M - af.PALM_ALONG_FINGERS_M - 0.0175
     body = _grasp_body()
     assert "tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)" in body
+
+
+def _yaw_quaternion(yaw):
+    return (0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0))
+
+
+def test_a_movable_object_is_placed_where_it_was_observed_in_the_base_frame(scene):
+    """At its start pose the observed placement equals the old static one; a yawed base and a tipped box are placed
+    with their full orientation; the tote's box centre sits half its height up its own z axis."""
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import object_box_in_base
+    base = (0.0, -2.08, -1.57)
+    c, s = math.cos(-base[2]), math.sin(-base[2])
+    movable = scene_model.movable_objects(scene)
+    for name, size, centre, yaw in scene_model.collision_boxes(scene):
+        if name not in movable:
+            continue
+        body = movable[name]
+        offset = body["size"][2] / 2.0 if body["kind"] == "tote" else 0.0
+        position, q = object_box_in_base(base, body["pose"][:3], _yaw_quaternion(body["pose"][3]), offset)
+        dx, dy = centre[0] - base[0], centre[1] - base[1]
+        assert np.allclose(position, (c * dx - s * dy, s * dx + c * dy, centre[2]), atol=1e-9), name
+        assert np.allclose(matrix(*q), matrix(*_yaw_quaternion(yaw - base[2])), atol=1e-9), name
+    assert np.allclose(object_box_in_base((1.0, 2.0, math.pi / 2), (1.0, 3.0, 0.5), _yaw_quaternion(math.pi / 2))[0],
+                       (1.0, 0.0, 0.5), atol=1e-9)
+    tipped = (math.sin(math.pi / 4), 0.0, 0.0, math.cos(math.pi / 4))   # 90 deg about x: its z axis along -y
+    position, q = object_box_in_base((0.0, 0.0, 0.0), (0.0, 0.0, 0.8), tipped, 0.1)
+    assert np.allclose(position, (0.0, -0.1, 0.8), atol=1e-9)
+    assert np.allclose(matrix(*q) @ np.array([0.0, 0.0, 1.0]), (0.0, -1.0, 0.0), atol=1e-9)
+
+
+def test_the_knocked_over_item_of_scn03_leaves_its_start_box(scene):
+    """CI job 134653118730: the L0_left reach knocked the item over (ground truth [0.0694, -2.8438, 0.8425], 0.14 m
+    tall box lying down) and MoveIt, which still had it standing at its start pose, refused the return to park as a
+    start state in collision. The placed box now follows the item."""
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.planning_scene import object_box_in_base
+    base = (0.0, -2.08, -1.57)
+    start = scene_model.movable_objects(scene)["item"]["pose"]
+    lying = (math.sin(math.pi / 4), 0.0, 0.0, math.cos(math.pi / 4))
+    stale, _ = object_box_in_base(base, start[:3], _yaw_quaternion(start[3]))
+    observed, q = object_box_in_base(base, (0.0694, -2.8438, 0.8425), lying)
+    assert math.dist(stale, observed) > 0.08
+    assert abs((matrix(*q) @ np.array([0.0, 0.0, 1.0]))[2]) < 1e-9, "the box lies down as the item does"
+
+
+def test_the_scene_is_sent_again_when_an_object_moves_or_turns():
+    from openamrobot_build1_scene.planning_scene import OBJECT_MOVED_M, OBJECT_TURNED_RAD, object_moved
+    here = ((0.1, -2.8, 0.87), (0.0, 0.0, 0.0, 1.0))
+    assert object_moved(None, here)
+    assert not object_moved(here, here)
+    assert not object_moved(here, ((0.1 + OBJECT_MOVED_M / 2, -2.8, 0.87), here[1]))
+    assert object_moved(here, ((0.1 + 2 * OBJECT_MOVED_M, -2.8, 0.87), here[1]))
+    turn = 2 * OBJECT_TURNED_RAD
+    assert object_moved(here, (here[0], (math.sin(turn / 2), 0.0, 0.0, math.cos(turn / 2))))
+    half = OBJECT_TURNED_RAD / 2
+    assert not object_moved(here, (here[0], (0.0, 0.0, -math.sin(half / 2), -math.cos(half / 2))))  # q and -q agree
+
+
+def test_the_loader_places_the_movable_objects_from_their_observed_poses_in_both_pose_sources():
+    from openamrobot_build1_scene.planning_scene import MOVABLE_OBJECTS
+    assert set(MOVABLE_OBJECTS) == {"tote", "item", "payload"}
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert "object_pose_topic(self.object_pose_source, name)" in loader
+    assert "object_box_in_base(pose, position, quaternion, self.object_offset[name])" in loader
+    assert "object_moved(self.object_sent.get(name), pose_now)" in loader
+    assert "self.object_sent = dict(self.object_pose)" in loader
+    # The same base pose for objects and fixtures: the declared source, never a separate truth path for the objects.
+    assert loader.count("object_box_in_base(") == 1
+
+
+def test_object_poses_come_from_ground_truth_only_under_a_declared_object_pose_source():
+    """Alex, 18 Nov: ground truth only through an explicit, declared simulation-oracle profile, never silent. The object
+    poses and grasp targets are ground truth today (a perception stand-in): every reader goes through
+    object_pose_topic, which refuses an undeclared source, and no reader names a ground-truth object topic itself."""
+    from openamrobot_build1_scene import planning_scene as ps
+    assert ps.OBJECT_POSE_SOURCES == ("ground_truth",) and ps.DEFAULT_OBJECT_POSE_SOURCE == "ground_truth"
+    assert ps.object_pose_topic("ground_truth", "item") == "/build1/ground_truth/item/pose"
+    for undeclared in (None, "", "map", "detector"):
+        with pytest.raises(ValueError):
+            ps.object_pose_topic(undeclared, "item")
+    line = ps.object_declaration("ground_truth")
+    assert line.startswith("object_pose_source: ground_truth (PERCEPTION STAND-IN")
+    assert "no run with it counts as the perception profile until an object detector replaces it" in line
+    for path in (("scripts", "planning_scene_loader.py"), ("openamrobot_build1_scene", "rig.py"),
+                 ("openamrobot_build1_scene", "scenarios.py")):
+        with open(os.path.join(HERE, "..", *path), encoding="utf-8") as f:
+            text = f.read()
+        for literal in ("ground_truth/{name}/pose", "ground_truth/item/pose", "ground_truth/tote/pose", "ground_truth/payload/pose"):
+            assert literal not in text, f"{path[-1]} reads {literal} without the declared object_pose_source"
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    assert "return self.get(object_pose_topic(self.object_pose_source, name))" in rig
+    assert "p = self.object_pose(name).pose.position" in rig
+    with open(os.path.join(HERE, "..", "scripts", "planning_scene_loader.py"), encoding="utf-8") as f:
+        loader = f.read()
+    assert 'declare_parameter("object_pose_source", DEFAULT_OBJECT_POSE_SOURCE)' in loader
+    assert "self.get_logger().info(object_declaration(self.object_pose_source))" in loader
+
+
+def test_every_run_declares_its_object_pose_source_and_a_run_without_it_is_refused():
+    """In /build1/run_info (and so in every scenario JSON, run.object_pose_source), in the launch log, in each scenario
+    log, and as the loader's parameter. The rig refuses to start a scenario when run_info lacks it."""
+    with open(os.path.join(HERE, "..", "launch", "build1.launch.py"), encoding="utf-8") as f:
+        launch = f.read()
+    assert 'DeclareLaunchArgument("object_pose_source", default_value=planning_scene.DEFAULT_OBJECT_POSE_SOURCE' in launch
+    assert 'info["object_pose_source"] = object_source' in launch
+    assert "LogInfo(msg=planning_scene.object_declaration(object_source))" in launch
+    assert launch.index('info["object_pose_source"] = object_source') < launch.index('"run_info": json.dumps(info, sort_keys=True)')
+    assert '"object_pose_source": object_source' in launch
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "rig.py"), encoding="utf-8") as f:
+        rig = f.read()
+    refuse = 'if "object_pose_source" not in info:\n            raise ScenarioFailed('
+    assert refuse in rig
+    assert rig.index('self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)') < rig.index(refuse)
+    assert 'self.object_pose_source = info["object_pose_source"]' in rig
+    assert "self.log.event(object_declaration(self.object_pose_source))" in rig
+    assert "self.object_pose_source = None" in rig
+    with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
+        assert 'arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])' in f.read()
