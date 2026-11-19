@@ -33,6 +33,35 @@ def content(msg):
     return None
 
 
+EXCERPT_TOPICS = ("/arm/joint_states", "/cmd_vel", "/joint_states")
+
+
+def serial(msg, receipt):
+    row = {"receipt_ns": receipt}
+    h = getattr(msg, "header", None)
+    if h is not None:
+        row.update(stamp_ns=stamp_ns(msg), frame_id=h.frame_id)
+    if hasattr(msg, "name"):
+        row.update(name=list(msg.name), position=[float(v) for v in msg.position],
+                   velocity=[float(v) for v in msg.velocity], effort=[float(v) for v in msg.effort])
+    if hasattr(msg, "linear"):
+        row.update(linear=[msg.linear.x, msg.linear.y, msg.linear.z], angular=[msg.angular.x, msg.angular.y, msg.angular.z])
+    return row
+
+
+def excerpts(rows, key, groups=3, context=2):
+    """Windows of consecutive recorded messages around the first equal values of `key`."""
+    out, taken = [], set()
+    for i in range(1, len(rows)):
+        if rows[i][key] == rows[i - 1][key] and i not in taken:
+            lo, hi = max(0, i - 1 - context), min(len(rows), i + 1 + context)
+            out.append({"first_index": lo, "rows": rows[lo:hi]})
+            taken.update(range(lo, hi))
+            if len(out) == groups:
+                break
+    return out
+
+
 def series_stats(values):
     eq = dec = 0
     max_dec = 0
@@ -75,6 +104,8 @@ def main():
     data = collections.defaultdict(list)  # topic -> [(receipt, header, content)]
     clock = []  # (receipt, clock value)
     skipped = set()
+    names = {}
+    raw_rows = collections.defaultdict(list)
     with AnyReader([a.bag]) as r:
         types = {c.topic: c.msgtype for c in r.connections}
         conns = [c for c in r.connections if a.topics is None or c.topic in a.topics or c.topic == "/clock"]
@@ -92,6 +123,10 @@ def main():
                 clock.append((t, int(msg.clock.sec) * 1_000_000_000 + int(msg.clock.nanosec)))
                 continue
             data[conn.topic].append((t, stamp_ns(msg), content(msg)))
+            if conn.topic not in names and hasattr(msg, "name"):
+                names[conn.topic] = list(msg.name)
+            if conn.topic in EXCERPT_TOPICS:
+                raw_rows[conn.topic].append(serial(msg, t))
     report = {"skipped_unknown_type": sorted(skipped), "bag": str(a.bag), "connections_per_topic": dict(pubs), "types": types, "topics": {}}
     if clock:
         cv = [c for _, c in clock]
@@ -141,6 +176,12 @@ def main():
         prof = yaml.safe_load(prof) if isinstance(prof, str) and prof else prof
         qos[md["name"]] = len(prof) if isinstance(prof, list) else prof
     report["publishers_per_topic_from_offered_qos"] = qos
+    report["joint_names_first_message"] = names
+    ex = {}
+    for topic, rows in raw_rows.items():
+        key = "stamp_ns" if rows and "stamp_ns" in rows[0] else "receipt_ns"
+        ex[topic] = {"key": key, "windows": excerpts(rows, key)}
+    (a.out.parent / "excerpts.json").write_text(json.dumps(ex, indent=1))
     a.out.write_text(json.dumps(report, indent=1, default=str))
     for topic in ("/clock",):
         if clock:
