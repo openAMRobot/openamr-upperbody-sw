@@ -1,0 +1,36 @@
+# Scratch workflow (not for merge): publishes the rendered simulation videos as a pre-release and removes the
+# scratch input staging release. The videos are rendered offline by tools/video/make_all.sh from recorded artifacts.
+name: sim-videos
+on:
+  push:
+    branches: [diag/sim-videos]
+    paths: [videos/**, tools/video/release_notes.md]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la videos
+          sha256sum videos/*.mp4
+          if gh release view sim-videos-2026-11-19 -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload sim-videos-2026-11-19 videos/*.mp4 --clobber -R "$GITHUB_REPOSITORY"
+            gh release edit sim-videos-2026-11-19 --notes-file tools/video/release_notes.md -R "$GITHUB_REPOSITORY"
+          else
+            gh release create sim-videos-2026-11-19 videos/*.mp4 -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+              --title "Simulation videos, 19 Nov 2026: grocery demonstration and engineering digital twin (simulation only)" \
+              --notes-file tools/video/release_notes.md
+          fi
+          gh release view sim-videos-2026-11-19 -R "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "ASSET \(.name) \(.size) \(.url)"'
+      - name: Remove the scratch input staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete scratch-video-inputs-2026-11-19 -R "$GITHUB_REPOSITORY" --yes --cleanup-tag || echo "scratch release already removed"
