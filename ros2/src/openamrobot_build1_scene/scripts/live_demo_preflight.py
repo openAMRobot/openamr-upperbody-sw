@@ -240,14 +240,20 @@ def check_ros(report, env, ros_setup):
     return True
 
 
-def dpkg_versions(packages):
-    status, out = run(["dpkg-query", "-W", "-f=${Package} ${Version} ${db:Status-Abbrev}\\n", *packages])
+def parse_dpkg(out):
+    """{package: version} of the installed packages in dpkg-query output (Package Version Status-Abbrev). Installed
+    is the second letter `i`: `ii`, and `hi` for a package on hold, as --setup leaves the Gazebo vendor builds."""
     versions = {}
     for line in out.splitlines():
         parts = line.split()
-        if len(parts) >= 3 and parts[2].startswith("ii"):
+        if len(parts) >= 3 and len(parts[2]) >= 2 and parts[2][1] == "i":
             versions[parts[0]] = parts[1]
     return versions
+
+
+def dpkg_versions(packages):
+    status, out = run(["dpkg-query", "-W", "-f=${Package} ${Version} ${db:Status-Abbrev}\\n", *packages])
+    return parse_dpkg(out)
 
 
 def check_gazebo(report, pins, ros_setup, have_ros):
@@ -267,7 +273,8 @@ def check_gazebo(report, pins, ros_setup, have_ros):
     if not have_ros:
         return
     for tool, want in (("sim", pins.get("GZ_SIM_VERSION")), ("sdf", pins.get("SDFORMAT_VERSION"))):
-        status, out = run(f"set +u; . '{ros_setup}' >/dev/null 2>&1; gz {tool} --versions", shell=True, timeout=60)
+        # bash, not /bin/sh: setup.bash does not source under dash, and gz is then not on PATH ("not found").
+        status, out = run(["bash", "-c", f"set +u; . '{ros_setup}' >/dev/null 2>&1; gz {tool} --versions"], timeout=60)
         have = out.strip().splitlines()[-1] if out.strip() else "not found"
         name = "gz-sim" if tool == "sim" else "sdformat"
         if have == want:

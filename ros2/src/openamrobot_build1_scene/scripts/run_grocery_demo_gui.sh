@@ -114,7 +114,7 @@ missing_packages() {  # the apt packages of APT_PACKAGES and VENDOR_PACKAGES tha
   local spec name want have
   for spec in $VENDOR_PACKAGES $APT_PACKAGES; do
     name="${spec%%=*}"; want="${spec#*=}"; [ "$want" = "$spec" ] && want=""
-    have=$(dpkg-query -W -f='${Version} ${db:Status-Abbrev}' "$name" 2>/dev/null | awk '$2 ~ /^ii/ {print $1}')
+    have=$(dpkg-query -W -f='${Version} ${db:Status-Abbrev}' "$name" 2>/dev/null | awk '$2 ~ /^.i/ {print $1}')
     if [ -z "$have" ] || { [ -n "$want" ] && [ "$have" != "$want" ]; }; then echo "$spec"; fi
   done
 }

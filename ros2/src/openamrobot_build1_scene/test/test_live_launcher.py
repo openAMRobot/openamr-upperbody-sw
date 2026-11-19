@@ -179,6 +179,38 @@ def test_preflight_parsers():
     assert pins["PLATFORM_SW_SHA"] == "931e631db661b16d1057dfd1ab1d13ea606482e2" and pins["GZ_SIM_VERSION"] == "8.15.0"
 
 
+def test_preflight_counts_held_packages_and_sources_ros_with_bash(monkeypatch):
+    """Session run 44590676440 (pinned vendor builds installed and held, as --setup leaves them): the preflight said
+    "not installed" for the held packages (dpkg status hi) and "gz-sim not found" (setup.bash sourced by /bin/sh)."""
+    out = ("ros-jazzy-gz-sim-vendor 0.0.13-1noble.20261031.125555 hi \nros-jazzy-rviz2 14.1.6-1noble ii \n"
+           "ros-jazzy-old 1.0 rc \n")
+    assert preflight.parse_dpkg(out) == {"ros-jazzy-gz-sim-vendor": "0.0.13-1noble.20261031.125555",
+                                          "ros-jazzy-rviz2": "14.1.6-1noble"}
+    commands = []
+
+    def fake_run(command, timeout=20, shell=False):
+        commands.append((command, shell))
+        return 0, "8.15.0\n" if "gz sim" in str(command) else "14.9.0\n" if "gz sdf" in str(command) else ""
+    monkeypatch.setattr(preflight, "run", fake_run)
+    report = preflight.Report()
+    preflight.check_gazebo(report, {"GZ_SIM_VERSION": "8.15.0", "SDFORMAT_VERSION": "14.9.0"}, "/opt/ros/jazzy/setup.bash", True)
+    gz = [c for c, _shell in commands if "--versions" in str(c)]
+    assert gz and all(isinstance(c, list) and c[0] == "bash" for c in gz), gz
+
+
+def test_setup_counts_a_held_package_as_installed():
+    """--setup holds the vendor builds; dpkg then reports them `hi`. The launcher's own installed-version filter must
+    take them, or every --setup lists them as missing again."""
+    import re
+    import subprocess
+    text = open(LAUNCHER, encoding="utf-8").read()
+    program = re.search(r"Status-Abbrev\}' \"\$name\" 2>/dev/null \| awk '([^']+)'", text).group(1)
+    out = subprocess.run(["awk", program], input="0.0.13-1noble.20261031.125555 hi \n", capture_output=True, text=True).stdout
+    assert out.strip() == "0.0.13-1noble.20261031.125555", program
+    gone = subprocess.run(["awk", program], input="1.0 rc \n", capture_output=True, text=True).stdout
+    assert gone.strip() == "", "a removed package (rc) counted as installed"
+
+
 def test_launcher_pins_equal_the_workflow_and_pins_yaml():
     pins = preflight.parse_pins(open(LAUNCHER, encoding="utf-8").read())
     workflow = yaml.safe_load(open(os.path.join(REPOSITORY, ".github", "workflows", "grocery-demo.yml"), encoding="utf-8"))
