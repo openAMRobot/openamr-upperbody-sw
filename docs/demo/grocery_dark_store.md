@@ -383,6 +383,7 @@ for 30 days:
 | File | Content |
 |---|---|
 | `grocery_demo.mp4`, `grocery_demo.srt`, `still_*.png` | store camera at 2 Hz of Gazebo time, 960 x 540, played at 10 fps (5x), phase and verdict burned in; a camera path over the store (overview, chase view while driving, close view at the shelf and the bench). A visual record, not evidence |
+| `grocery_demo_frames.csv` | frame index, video second and Gazebo second of every frame. The video's playback time is frame index / fps: it stays proportional to Gazebo time only while no frame is missing. Join the video to the bag, the report and the control room (all on Gazebo time) through this file; `grocery_video.py` prints the largest gap and the missing frame count |
 | `bag/` | ROS bag: `/joint_states`, `/tf`, `/tf_static`, `/odom`, ground truth of the base, product, tray and payload, `/amcl_pose`, `/cmd_vel*`, `/plan`, Nav2 action status and feedback, MoveIt action status, controller states, gripper action status, `/sil/*` drive, lift, BMS and firmware states, lift permit and command, contacts, footprint, mission events (`/grocery_demo/events`, `/grocery_demo/phase`), run info and real-time factor |
 | `record_candump_vcan_*.log` | `candump -L` of each virtual CAN bus |
 | `grocery_states.json` | controller lists of both controller managers and the drive, lift, BMS and firmware states at the end of every phase |

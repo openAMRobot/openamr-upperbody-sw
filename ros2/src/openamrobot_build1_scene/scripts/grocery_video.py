@@ -9,6 +9,9 @@ Reads LOG_DIR/frames/*.ppm (named by their Gazebo stamp, 2 Hz of Gazebo time) an
   grocery_demo.mp4        the frames at --fps (5x Gazebo time at 10 fps), a label and the running phase burned in
   grocery_demo.srt        the phases as subtitles (phase, verdict), for players that show them
   still_<phase>.png       one frame from the middle of lift_object, place and return_to_parking
+  grocery_demo_frames.csv frame index, video second, Gazebo second: the video's playback time is index / fps, so
+                          it is Gazebo time only while no frame is missing; this file is the join key to the bag,
+                          the report and the control room (one time base, Gazebo time)
 The frames are removed after a successful encode unless --keep-frames. No ROS import.
 """
 import argparse
@@ -51,6 +54,16 @@ def subtitles(phases, stamps, fps):
     return out
 
 
+def frame_timeline(stamps, fps, nominal_period=0.5):
+    """(rows, summary): rows (index, video s, Gazebo s) and the largest gap between frames against the nominal
+    period (2 Hz of Gazebo time). Where frames are missing the video runs ahead of Gazebo time by the lost frames."""
+    rows = [(i, round(i / fps, 3), round(s, 3)) for i, s in enumerate(stamps)]
+    gaps = [b - a for a, b in zip(stamps, stamps[1:])]
+    missing = sum(max(0, round(g / nominal_period) - 1) for g in gaps)
+    return rows, {"frames": len(stamps), "largest_gap_s": round(max(gaps), 3) if gaps else None,
+                  "missing_frames": missing, "gazebo_span_s": round(stamps[-1] - stamps[0], 3) if stamps else None}
+
+
 def encode(frames_dir, output, fps, srt):
     base = ["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(fps), "-pattern_type", "glob", "-i",
             os.path.join(frames_dir, "*.ppm")]
@@ -88,6 +101,10 @@ def main(argv=None):
     with open(srt, "w", encoding="utf-8") as f:
         for n, (a, b, text) in enumerate(entries, 1):
             f.write(f"{n}\n{srt_time(a)} --> {srt_time(b)}\n{text}\n\n")
+    rows, timeline = frame_timeline(stamps, args.fps)
+    with open(os.path.join(args.log_dir, "grocery_demo_frames.csv"), "w", encoding="utf-8") as f:
+        f.write("frame,video_s,gazebo_s\n" + "".join(f"{i},{v},{g}\n" for i, v, g in rows))
+    print(f"frame timeline: {json.dumps(timeline, sort_keys=True)} (grocery_demo_frames.csv)", flush=True)
     output = os.path.join(args.log_dir, "grocery_demo.mp4")
     used = encode(frames_dir, output, args.fps, srt)
     if used is None:
