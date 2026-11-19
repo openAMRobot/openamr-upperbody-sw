@@ -102,8 +102,6 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        from openamrobot_control_room.monitor import ignore_further_interrupts
-        ignore_further_interrupts()
         monitor.stop()
         node.destroy_node()
         rclpy.try_shutdown()

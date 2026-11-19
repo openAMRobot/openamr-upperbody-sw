@@ -327,6 +327,5 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        ignore_further_interrupts()
         node.destroy_node()
         rclpy.try_shutdown()
