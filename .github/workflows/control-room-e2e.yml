@@ -37,6 +37,13 @@ env:
   # Without it run 44445938978 stopped 0.0449 m from the station and the straight reach ended with the elbow straight
   # (grasp_reach_cartesian_fraction 0.6508; test_reach_margin.py).
   BASELINE1_STATION_ALIGNMENT: '1'
+  # CycloneDDS with the participant index cap raised to 120, as baseline1-acceptance.yml on integration/baseline1
+  # (Alex, 19 Nov 2026; DDS benchmark #89). With the alignment nodes and the control room on Fast DDS under
+  # ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST, run 44466371978 never matched the joint_state_broadcaster spawner with
+  # /controller_manager (180 s, "Could not contact service /controller_manager/list_controllers"): the index cap of
+  # docs/integration/dds_benchmark.md (#89).
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  CYCLONEDDS_URI: '<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
   # Acceptance profile (Alex, 18 Nov 2026). sim-oracle sets the planning scene from simulator ground truth and every run
   # declares it; perception uses the robot's own estimate. A sim-oracle pass is never a perception result.
   BASELINE1_PROFILE: sim-oracle
@@ -167,6 +174,10 @@ jobs:
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
             ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+          # ros-jazzy-rmw-cyclonedds-cpp from packages.ros.org (Eclipse Cyclone DDS: EPL-2.0 / EDL-1.0; rmw_cyclonedds:
+          # Apache-2.0), as baseline1-acceptance.yml and the DDS benchmark workflow (#89).
+          sudo apt-get install -y ros-jazzy-rmw-cyclonedds-cpp
+          dpkg -s ros-jazzy-rmw-cyclonedds-cpp > /dev/null || { echo "ENV/INFRA: rmw_cyclonedds_cpp missing"; exit 1; }
 
       - name: "ENV/INFRA: check the pinned versions"
         id: versions
