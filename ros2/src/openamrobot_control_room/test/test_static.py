@@ -13,8 +13,10 @@ from conftest import PACKAGE_DIR, REPOSITORY, package_path, read
 from openamrobot_control_room import readonly
 
 EM_DASH = chr(0x2014)
+# The node, launch and script sources. tools/ holds development tools run by CI workflows only (never installed, see
+# test_tools_are_not_installed); the rosbridge probe there sends write attempts on purpose to show they are refused.
 SOURCES = [os.path.join(root, name) for root, _, names in os.walk(PACKAGE_DIR) for name in names
-           if name.endswith(".py") and "/test" not in root.replace(PACKAGE_DIR, "")]
+           if name.endswith(".py") and not root.replace(PACKAGE_DIR, "").startswith(("/test", "/tools"))]
 
 
 def test_rviz_config_has_no_write_tool_or_display():
@@ -200,3 +202,9 @@ def test_replay_phase_lookup_on_recorded_mission():
     assert phases.at(50.0) == ("lift_to_target", "PASS")
     assert phases.at(1.0) == (None, None) and phases.at(500.0) == (None, None)
     assert [row["phase"] for row in phases.table()][0] == "spawn"
+
+
+def test_tools_are_not_installed():
+    cmake = read("CMakeLists.txt")
+    assert "tools" not in cmake, "tools/ are CI development tools, not part of the installed package"
+    assert SOURCES and not [p for p in SOURCES if "/tools/" in p]
