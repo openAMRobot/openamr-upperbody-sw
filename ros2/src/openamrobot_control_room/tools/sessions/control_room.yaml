@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT
+# Three sessions of the control room and its REPLAY, from the install space (control-room-tests.yml, step INSTALLED).
+# Ready means a message on the component's own status topic: a session in which nothing runs fails.
+cycles: 3
+stop_signals: [INT, TERM, INT]
+processes:
+  - name: control_room
+    command: [ros2, launch, openamrobot_control_room, control_room.launch.py, rviz:=false, foxglove:=true, vcan:=true,
+              use_sim_time:=false]
+    ready: {topic: /control_room/status, type: std_msgs/msg/String}
+    ready_timeout: 90
+    stop_timeout: 60
+  - name: replay
+    command: [ros2, launch, openamrobot_control_room, replay.launch.py, "bag:=$CR_SYNTHETIC/bag",
+              "mission:=$CR_SYNTHETIC/baseline1_mission.json", rviz:=false, hold:=600]
+    ready: {topic: /control_room/replay/status, type: std_msgs/msg/String}
+    ready_timeout: 90
+    stop_timeout: 60

@@ -19,7 +19,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   # No ROS graph: the read-only rule on the configurations, the arithmetic, the CAN counters, the CAN decoder and the
   # topic list against two recorded runs (test/fixtures/runs), the HTML report and the installed-package check.
-  foreach(name static state can_monitor can_decode topic_audit report installed_check)
+  foreach(name static state can_monitor can_decode topic_audit report installed_check ros_support check_recording session_cycles)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
   # ROS 2: the nodes' graph (no publisher outside /control_room/, no service or action client), the synthetic bag

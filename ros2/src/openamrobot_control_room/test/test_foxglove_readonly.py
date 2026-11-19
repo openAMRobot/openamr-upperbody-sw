@@ -138,8 +138,10 @@ def test_bridge_is_subscribe_only(ros, bridge):
             if isinstance(message, str):
                 parsed = json.loads(message)
                 assert parsed.get("op") != "parameterValues" or not parsed.get("parameters"), parsed
-        found = ros_support.wait_graph(observer, "control_room_foxglove_bridge", lambda g: True)
-        assert found is not None, "bridge node not on the graph"
+        # A running node always publishes /rosout: a graph without it is a node not (yet) seen, and the subset check
+        # below would pass on its empty publisher list.
+        found = ros_support.wait_graph(observer, "control_room_foxglove_bridge", lambda g: "/rosout" in g["publishers"])
+        assert found is not None, "bridge node not on the graph (no /rosout publisher seen)"
         print("bridge graph", found)
         allowed = {"/rosout", "/parameter_events"}
         assert set(found["publishers"]) <= allowed, found["publishers"]

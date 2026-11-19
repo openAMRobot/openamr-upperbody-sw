@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Negative control of control_room.yaml: the launch starts neither the monitor nor the vcan monitor. No status can
+# arrive, so session_cycles.py must exit 1 ("never became ready"); a pass here means the check passes on nothing.
+cycles: 1
+stop_signals: [INT]
+processes:
+  - name: control_room
+    command: [ros2, launch, openamrobot_control_room, control_room.launch.py, rviz:=false, foxglove:=false, vcan:=false,
+              monitor:=false, use_sim_time:=false]
+    ready: {topic: /control_room/status, type: std_msgs/msg/String}
+    ready_timeout: 30
+    stop_timeout: 30

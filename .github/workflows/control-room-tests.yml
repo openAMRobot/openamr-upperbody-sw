@@ -77,6 +77,56 @@ jobs:
         working-directory: ws
         run: python3 -P "src/openamr-upperbody-sw/ros2/src/$PACKAGE/tools/check_installed.py" "install/$PACKAGE" "src/openamr-upperbody-sw/ros2/src/$PACKAGE"
 
+      - name: "INSTALLED: entry points, launch files and config from share/ with the source tree moved away; three sessions"
+        working-directory: ws
+        run: |
+          set +e      # every check is counted; the step fails at the end if any did
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export ROS_DOMAIN_ID=78 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+          src="src/openamr-upperbody-sw/ros2/src/$PACKAGE"
+          # The checker tools are copied out first: nothing below may read the package's source tree.
+          cp -r "$src/tools" "$RUNNER_TEMP/cr_tools"
+          mv "$src" "$RUNNER_TEMP/cr_source_hidden"
+          trap 'mv "$RUNNER_TEMP/cr_source_hidden" "$src"' EXIT
+          mkdir -p ../sessions
+          exec > >(tee ../sessions/installed.txt) 2>&1
+          fail=0
+          check() { if eval "$2"; then echo "PASS: $1"; else echo "FAIL: $1"; fail=1; fi; }
+          prefix=$(ros2 pkg prefix "$PACKAGE")
+          module=$(python3 -c 'import openamrobot_control_room as m; print(m.__file__)')
+          echo "prefix $prefix"; echo "module $module"
+          check "the package prefix is the install space" '[ "$prefix" = "$PWD/install/$PACKAGE" ]'
+          check "the Python module is imported from the install space" '[ "${module#"$PWD/install/"}" != "$module" ]'
+          ros2 pkg executables "$PACKAGE" | sort | tee ../sessions/executables.txt
+          expected=$(for e in control_room_monitor.py control_room_replay.py mission_report.py vcan_monitor.py; do echo "$PACKAGE $e"; done)
+          check "four installed entry points" '[ "$(cat ../sessions/executables.txt)" = "$expected" ]'
+          for f in launch/control_room.launch.py launch/replay.launch.py config/foxglove_bridge.yaml config/lichtblick_layout.json \
+                   rviz/control_room.rviz rviz/control_room_replay.rviz; do
+            check "share/$PACKAGE/$f" '[ -f "$prefix/share/$PACKAGE/$f" ]'
+          done
+          check "control_room.launch.py resolves from share/" 'timeout 60 ros2 launch "$PACKAGE" control_room.launch.py --show-args > ../sessions/show_args.txt 2>&1'
+          check "replay.launch.py resolves from share/" 'timeout 60 ros2 launch "$PACKAGE" replay.launch.py --show-args >> ../sessions/show_args.txt 2>&1'
+          export CR_SYNTHETIC="$RUNNER_TEMP/cr_synthetic"
+          check "mission_report.py runs from lib/ (synthetic bag)" 'timeout 300 ros2 run "$PACKAGE" mission_report.py --synthetic "$CR_SYNTHETIC" -o "$CR_SYNTHETIC/report.html" > ../sessions/report.log 2>&1'
+          ros2 daemon stop > /dev/null 2>&1 || true
+          ip -br link show type vcan | tee ../sessions/vcan_before.txt || true
+          # Three start/stop sessions (SIGINT, SIGTERM, SIGINT) of the control room and its REPLAY: no orphan process, no
+          # stale ROS 2 daemon, no vcan interface left; each component must publish its status or the cycle fails.
+          python3 -P "$RUNNER_TEMP/cr_tools/session_cycles.py" "$RUNNER_TEMP/cr_tools/sessions/control_room.yaml" \
+            --log-dir ../sessions/cycles --summary ../sessions/summary.json
+          cycles=$?
+          check "three sessions of the control room and its REPLAY" '[ "$cycles" = 0 ]'
+          # Negative control: the same check on a launch that starts no monitor must fail ("never became ready").
+          python3 -P "$RUNNER_TEMP/cr_tools/session_cycles.py" "$RUNNER_TEMP/cr_tools/sessions/control_room_nothing_running.yaml" \
+            --log-dir ../sessions/negative --summary ../sessions/negative.json > ../sessions/negative.txt 2>&1
+          negative=$?
+          cat ../sessions/negative.txt
+          check "negative control: a session with nothing running fails" '[ "$negative" = 1 ] && grep -q "never became ready" ../sessions/negative.txt'
+          ip -br link show type vcan | tee ../sessions/vcan_after.txt || true
+          { echo '### Installed package and sessions'; grep -h "^PASS\|^FAIL\|session cycles" ../sessions/*.txt 2>/dev/null; } >> "$GITHUB_STEP_SUMMARY" || true
+          exit $fail
+
       - name: Tests
         working-directory: ws
         run: |
@@ -211,4 +261,5 @@ jobs:
             launch.log
             versions.txt
             ws/build/openamrobot_control_room/test_results/
+            sessions/
           if-no-files-found: warn

@@ -48,8 +48,9 @@ def graph(observer, name, namespace="/"):
 
 
 def wait_graph(observer, name, condition, timeout=10.0):
+    """The node's graph once `condition` holds on it, or None. Never a graph on which the condition did not hold: a
+    node seen with no publishers yet would pass every "nothing outside /control_room/" and "no clients" assertion."""
     deadline = time.monotonic() + timeout
-    found = None
     while time.monotonic() < deadline:
         try:
             found = graph(observer, name)
@@ -58,4 +59,4 @@ def wait_graph(observer, name, condition, timeout=10.0):
         if found is not None and condition(found):
             return found
         time.sleep(0.1)
-    return found
+    return None

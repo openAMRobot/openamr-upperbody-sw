@@ -193,6 +193,7 @@ def main(args=None):
     import argparse
     import rclpy
     from rclpy.clock import Clock, ClockType
+    from rclpy.executors import ExternalShutdownException
     from openamrobot_control_room.monitor import make_node
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--bag", action="append", required=True, help="a rosbag2 directory; give it again for more bags")
@@ -222,7 +223,7 @@ def main(args=None):
         end = time.monotonic() + known.hold
         while time.monotonic() < end:
             executor.spin_once(timeout_sec=0.1)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):     # Ctrl-C or the launch's SIGINT: a normal stop
         pass
     finally:
         node.destroy_node()
