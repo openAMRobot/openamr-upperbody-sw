@@ -295,25 +295,25 @@ the five buses, `mission.log`, `grocery_demo_mission.json`, `grocery_demo_report
   buttons only (`src/gui/plugins/video_recorder/VideoRecorder.cc`, no service). On Wayland, use the desktop's
   recorder (GNOME: Ctrl+Shift+Alt+R) or, in the Gazebo window, the top-right menu, Video Recorder, which writes MP4.
 
-Replay, three terminals, each with `source ~/openamr_ws/install/setup.bash`:
+Replay in RViz, two terminals, each with `source ~/openamr_ws/install/setup.bash`:
 
 ```bash
 # 1. the recording, on its own clock
 ros2 bag play ~/grocery_demo_logs/<date_time>/live_bag --clock
 # 2. RViz with the same configuration and the MoveIt description, on simulation time, no simulator
 ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py stack:=false rviz:=true follow:=false mission:=false
-# 3. the control room of openamr-upperbody-sw #84 (open, not merged: build openamrobot_control_room from branch
-#    demo/control-room, d4c42ee, into the same workspace), its monitors on the replayed topics, no CAN listening
-ros2 launch openamrobot_control_room control_room.launch.py rviz:=false vcan:=false
 ```
 
 The robot model comes from the recorded `/robot_description`. The CAN logs replay into a bus with
-`canplayer -I record_candump_vcan_drive.log` (and `vcan:=true` for the control room). The control room's offline
-report reads the mission bag: `ros2 run openamrobot_control_room mission_report.py --bag <log dir>/bag --mission
-<log dir>/grocery_demo_mission.json --candump "<log dir>/record_candump_*.log" --scene
-~/openamr_ws/install/openamrobot_build1_scene/share/openamrobot_build1_scene/config/grocery_scene.yaml -o report.html`.
-That report was written for the Baseline 1 mission JSON; whether it reads the grocery mission JSON and scene has not
-been checked.
+`canplayer -I record_candump_vcan_drive.log`.
+
+Replay with phases, verdicts and the offline report: the control room of openamr-upperbody-sw #84 (open, not merged;
+build `openamrobot_control_room` from branch `demo/control-room` into the same workspace) has its own replay mode and
+report. Follow its page, sections
+[REPLAY of a recorded run](https://github.com/openAMRobot/openamr-upperbody-sw/blob/demo/control-room/docs/demo/control_room.md#replay-of-a-recorded-run)
+and [Offline mission report](https://github.com/openAMRobot/openamr-upperbody-sw/blob/demo/control-room/docs/demo/control_room.md#offline-mission-report),
+with `bag:=<log dir>/bag` (or `<log dir>/bag,<log dir>/live_bag`) and `mission:=<log dir>/grocery_demo_mission.json`.
+Those were written for the Baseline 1 mission JSON; whether they read the grocery mission JSON has not been checked.
 
 ### Headless checks (CI)
 
