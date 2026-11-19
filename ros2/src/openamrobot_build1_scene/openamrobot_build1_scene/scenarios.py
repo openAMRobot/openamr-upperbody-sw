@@ -486,8 +486,18 @@ def grasp(rig, log):
                  note="finger_joint2 against finger_joint1 in the physics (SW-09)")
 
     _mark(rig, "grasp_approach_start")
-    approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3,
-                                                     angle_tolerance=approach_tolerances(quaternion)), "grasp_approach")
+    logged = os.environ.get("BUILD1_DIAG_APPROACH_JOINTS")    # scratch (diag/arm-torque, not for merge)
+    if logged:
+        values = [float(v) for v in logged.split(",")]
+        joint_goal = _joint_goal(f"{side}_arm", {f"openarm_{side}_joint{i}": v for i, v in enumerate(values, 1)}, 0.3)
+        for constraint in joint_goal.request.goal_constraints[0].joint_constraints:
+            constraint.tolerance_above = constraint.tolerance_below = 0.0005
+        log.event(f"scratch: approach to the logged joint state {values}")
+        approached_ok = _move_group(rig, log, joint_goal, "grasp_approach")
+    else:
+        approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3,
+                                                         angle_tolerance=approach_tolerances(quaternion)), "grasp_approach")
+    log.event(f"scratch: approach ended at {[round(rig.joint(f'openarm_{side}_joint{i}'), 5) for i in range(1, 8)]}")
     _mark(rig, "grasp_approach_end")
     if not approached_ok:
         return

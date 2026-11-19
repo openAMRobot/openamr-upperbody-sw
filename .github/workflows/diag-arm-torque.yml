@@ -120,13 +120,17 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           BUILD1_CONTACT_SENSORS: "1"
-          BUILD1_DIAG_SPAWN_POSE: ${{ matrix.leg == 'fail' && needs.poses.outputs.fail_pose || needs.poses.outputs.pass_pose }}
+          BUILD1_DIAG_SPAWN_POSE: ${{ startsWith(matrix.leg, 'fail') && needs.poses.outputs.fail_pose || needs.poses.outputs.pass_pose }}
+          BUILD1_DIAG_APPROACH_JOINTS: ${{ startsWith(matrix.leg, 'fail') && needs.poses.outputs.fail_approach || needs.poses.outputs.pass_approach }}
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           export BUILD1_LOG_DIR="$PWD/diag/${{ matrix.leg }}"
           mkdir -p "$BUILD1_LOG_DIR"
-          echo "spawn pose $BUILD1_DIAG_SPAWN_POSE, nproc $(nproc)"
+          echo "spawn pose $BUILD1_DIAG_SPAWN_POSE, approach joints $BUILD1_DIAG_APPROACH_JOINTS, nproc $(nproc)"
+          ip -details link show vcan_arm_l
+          setsid stdbuf -oL candump -L vcan_arm_l > "$BUILD1_LOG_DIR/candump_vcan_arm_l.log" 2> "$BUILD1_LOG_DIR/candump.err" &
+          echo $! > /tmp/can.pid
           (
             for i in $(seq 1 600); do
               domain=$(for p in /proc/[0-9]*; do tr '\0' '\n' < "$p/environ" 2>/dev/null | sed -n 's/^GZ_PARTITION=build1_\([0-9]*\)_.*/\1/p'; done | sort -u | head -1)
@@ -135,17 +139,17 @@ jobs:
             echo "side recorder domain $domain"
             export ROS_DOMAIN_ID="$domain" ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
             dfl() { python3 -c 'import os,signal,sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' "$@"; }
-            dfl ros2 bag record --use-sim-time -s mcap -o "$BUILD1_LOG_DIR/side_bag" --topics /left_arm_controller/controller_state \
+            setsid python3 -c 'import os,signal,sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' ros2 bag record --use-sim-time -s mcap -o "$BUILD1_LOG_DIR/side_bag" --topics /left_arm_controller/controller_state \
               /left_arm_gravity_controller/commands /sim/left_arm_emulator/status /build1/rtf_stats /execute_trajectory/_action/status \
               /left_arm_controller/joint_trajectory > "$BUILD1_LOG_DIR/side_record.log" 2>&1 &
             echo $! > /tmp/rec.pid
-            candump -L vcan_arm_l > "$BUILD1_LOG_DIR/candump_vcan_arm_l.log" 2>&1 &
-            echo $! > /tmp/can.pid
           ) &
           set +e
           colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure --ctest-args -R '^test_diag_grasp$'
           echo "TEST_RC=$?" >> "$GITHUB_ENV"
-          kill -INT "$(cat /tmp/rec.pid)" 2>/dev/null; kill "$(cat /tmp/can.pid)" 2>/dev/null; sleep 8
+          kill -INT -- "-$(cat /tmp/rec.pid)" 2>/dev/null; kill -INT "$(cat /tmp/can.pid)" 2>/dev/null
+          for i in $(seq 1 30); do kill -0 "$(cat /tmp/rec.pid)" 2>/dev/null || break; sleep 1; done
+          echo "== side recorder log"; tail -20 "$BUILD1_LOG_DIR/side_record.log"; echo "== candump"; cat "$BUILD1_LOG_DIR/candump.err"; wc -l "$BUILD1_LOG_DIR/candump_vcan_arm_l.log"
           echo "== world physics and item surfaces"
           for f in /tmp/build1_scene_*/build1_*.sdf; do echo "## $f"; python3 - "$f" <<'PY'
           import sys, xml.etree.ElementTree as ET
