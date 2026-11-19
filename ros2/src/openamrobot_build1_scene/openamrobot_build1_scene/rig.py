@@ -445,6 +445,10 @@ class Rig:
         factor = (self.sim_time() - sim0) / wall if wall > 0 else 0.0
         state = self.get("/sil/lift/emulator_state") or {}
         self.log.quantity(f"lift_move_to_stop_{stop}_real_time_factor", factor, "1", note="while the lift was commanded")
+        status = self.get("/sil/lift/status") or {}
+        if not arrived and status.get("cmd_result") == LIFT_REFUSED:
+            self.log.event(f"lift to stop {stop}: CTL-017 refused the command (cmd_result 0x{LIFT_REFUSED:02X}, seq "
+                           f"{status.get('last_seq')}): no fresh permit when it arrived; the keep-alive does not repeat it")
         if not arrived and state.get("faults"):
             # Since openamr-platform-sw #162 every CTL-017 timer and the node step run on the simulation clock, so a fault
             # at a low real-time factor is a result of the run, not of the runner: reported with its codes, never BLOCKED.
@@ -459,13 +463,30 @@ class Rig:
         An action that reports success while the joint stayed short of the stop is not an arrival."""
         if self.devices:
             self.lift_permit(True)
-            self.wait(lambda: self.get("/sil/lift/emulator_state")["permit_fresh"], 3.0, "permit fresh")
+            if not self.wait_permit_fresh_after_grant():
+                self.log.event(f"lift to stop {stop}: the permit did not become fresh after the grant; no command sent")
+                self.lift_permit(False)
+                return False
             try:
                 return self.lift_go(stop, sim_s)
             finally:
                 self.lift_permit(False)
         status, _ = self.lift_trajectory(stop, sim_s)
         return self.succeeded(status) and self.lift_at(stop)
+
+    def wait_permit_fresh_after_grant(self, sim_s=3.0, emulator="/sil/lift/emulator_state"):
+        """Call right after lift_permit(True). -> True when the CTL-017 emulator holds a fresh permit given after it.
+
+        The emulator publishes its state every 0.05 s of Gazebo time, so the cached state can be older than the grant.
+        In run 44364910928 (job 135016191561) the cached state still said fresh from before a withdrawal: the command
+        (210h seq 2) went out 0.26 s after the withdrawal's flag-0 frame (410h seq 940) and 30 ms before the first frame
+        of the new permit (410h seq 941). The emulator refused it (190h result 80h); the keep-alive repeats the same
+        sequence number, which the CTL-017 does not execute again, and the lift stayed at stop 0 without a fault for 60 s.
+        So the condition is read only from the second state message that arrives after the call: the first can be on
+        its way from before the grant. This only waits; it changes neither the permit nor the emulator's gate."""
+        after = self.count(emulator)
+        return self.wait(lambda: self.count(emulator) >= after + 2 and bool(self.get(emulator)["permit_fresh"]),
+                         sim_s, "permit fresh after the grant")
 
     def lift_at(self, stop, settle_sim_s=1.0):
         """True when /joint_states shows lift_joint within LIFT_STOP_TOLERANCE_M of the stop, waiting up to settle_sim_s."""
