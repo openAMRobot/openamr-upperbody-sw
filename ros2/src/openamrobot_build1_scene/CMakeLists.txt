@@ -34,6 +34,8 @@ if(BUILD_TESTING)
   foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record baseline1_strict arm_frames lift_plant diagnostics station_marker)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
+  # Shelf clearance of a half turn at the station: geometry over about 90 000 surface points, about 30 s locally.
+  ament_add_pytest_test(test_station_turn_clearance test/test_station_turn_clearance.py TIMEOUT 300)
 
   # Virtual CAN tests: BLOCKED, never passed, where the interfaces cannot be had.
   ament_add_pytest_test(test_canfd_vcan test/test_canfd_vcan.py TIMEOUT 120)
