@@ -1,0 +1,50 @@
+# SPDX-License-Identifier: MIT
+# Scratch (not for merge): timestamp measurement and end-to-end conversion of the recorded AI capture run
+# 44448676604 with the embodied-ai converter. Read only, no hardware, no secrets. Simulation evidence only.
+name: Scratch AI capture e2e
+
+on:
+  push:
+    branches: [scratch/ai-capture-e2e]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  RUN_ID: '44448676604'
+  ARTIFACT: baseline1-acceptance-attempt1
+  ROSBAGS_VERSION: '0.11.9'
+
+jobs:
+  measure:
+    name: Timestamps of run 44448676604
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.ARTIFACT }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+          path: run-artifact
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "rosbags==${ROSBAGS_VERSION}" pyyaml
+      - name: Measure
+        run: |
+          set -e
+          ls -la run-artifact/ws/build1_logs/bag
+          head -c 4000 run-artifact/ws/build1_logs/bag/metadata.yaml
+          mkdir -p out
+          python3 tools/scratch/measure_stamps.py run-artifact/ws/build1_logs/bag --out out/stamps.json | tee out/stamps.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: stamps-${{ env.RUN_ID }}
+          path: out/
+          retention-days: 30
