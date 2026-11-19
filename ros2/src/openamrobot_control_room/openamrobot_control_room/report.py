@@ -113,8 +113,6 @@ def extract(messages, station=None):
             out["contacts"].setdefault(topic.rsplit("/", 1)[-1], []).append((t, force))
     # /control_room/contacts/max_force derives from the contact sensor topics. Without any of them in the recording
     # (BUILD1_CONTACT_SENSORS unset) a monitor before 19 Nov 2026 published 0.0 N: unknown, so it is not plotted.
-    if "max_force" in out["contacts"] and not any(t.startswith("/build1/contacts/") for t in out["topics"]):
-        del out["contacts"]["max_force"]
     out["sim_span"] = (first_sim, last_sim) if first_sim is not None else None
     return out
 

@@ -11,6 +11,8 @@
 name: Control room tests
 
 on:
+  push:
+    branches: [diag/control-room-revert]
   pull_request:
     paths:
       - '.github/workflows/control-room-tests.yml'

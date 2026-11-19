@@ -57,7 +57,7 @@ class ControlRoomMonitor:
         self.base_frame = node.declare_parameter("base_frame", "base_footprint").value
         self.map_frame = node.declare_parameter("map_frame", "map").value
         self.data = {"sim_time": None, "truth": None, "amcl": None, "tf_error": None, "goal": None,
-                     "lift_m": None, "lift_physics_m": None, "joint_names": None, "fingers": None, "mission": None,
+                     "lift_m": None, "lift_physics_m": None, "joint_names": 0, "fingers": None, "mission": None,
                      "permit": None, "json": {}, "scan": None, "grocery_phase": None, "grocery_events": []}
         self.actions = state.ActionWatch()
         self.item = state.Motion()
@@ -290,10 +290,9 @@ class ControlRoomMonitor:
             self.pub["loc_tf"].publish(self.Float64(data=float(loc)))
         if snap["station"].get("distance_m") is not None:
             self.pub["station"].publish(self.Float64(data=float(snap["station"]["distance_m"])))
-        if snap["item"] and snap["item"]["speed_mps"] is not None:
+        if snap["item"]:
             self.pub["item"].publish(self.Float64(data=float(snap["item"]["speed_mps"])))
-        if self.contact_subs:      # no contact sensor topic: the force is unknown, not 0 N
-            self.pub["force"].publish(self.Float64(data=float(self.period_force)))
+        self.pub["force"].publish(self.Float64(data=float(self.period_force)))
         self.period_force = 0.0
 
 
