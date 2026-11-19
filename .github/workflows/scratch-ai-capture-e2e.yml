@@ -39,7 +39,6 @@ jobs:
         run: |
           set -e
           ls -la run-artifact/ws/build1_logs/bag
-          head -c 4000 run-artifact/ws/build1_logs/bag/metadata.yaml
           mkdir -p out
           python3 tools/scratch/measure_stamps.py run-artifact/ws/build1_logs/bag --out out/stamps.json | tee out/stamps.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

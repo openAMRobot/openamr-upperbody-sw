@@ -74,6 +74,7 @@ def main():
     meta = (a.bag / "metadata.yaml").read_text()
     data = collections.defaultdict(list)  # topic -> [(receipt, header, content)]
     clock = []  # (receipt, clock value)
+    skipped = set()
     with AnyReader([a.bag]) as r:
         types = {c.topic: c.msgtype for c in r.connections}
         conns = [c for c in r.connections if a.topics is None or c.topic in a.topics or c.topic == "/clock"]
@@ -82,12 +83,16 @@ def main():
             if "Image" in conn.msgtype and "CameraInfo" not in conn.msgtype:
                 # Images: header only (deserializing is slow but needed for the stamp)
                 pass
-            msg = r.deserialize(raw, conn.msgtype)
+            try:
+                msg = r.deserialize(raw, conn.msgtype)
+            except KeyError:
+                skipped.add(conn.topic)
+                continue
             if conn.topic == "/clock":
                 clock.append((t, int(msg.clock.sec) * 1_000_000_000 + int(msg.clock.nanosec)))
                 continue
             data[conn.topic].append((t, stamp_ns(msg), content(msg)))
-    report = {"bag": str(a.bag), "connections_per_topic": dict(pubs), "types": types, "topics": {}}
+    report = {"skipped_unknown_type": sorted(skipped), "bag": str(a.bag), "connections_per_topic": dict(pubs), "types": types, "topics": {}}
     if clock:
         cv = [c for _, c in clock]
         report["clock"] = {"value": series_stats(cv), "receipt": series_stats([t for t, _ in clock]),
