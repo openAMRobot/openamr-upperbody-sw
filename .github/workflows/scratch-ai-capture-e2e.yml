@@ -18,7 +18,7 @@ env:
 
 jobs:
   measure:
-    name: Probe of run 44448676604
+    name: Excerpts of run 44448676604
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -39,7 +39,9 @@ jobs:
         run: |
           set -e
           mkdir -p out
-          python3 tools/scratch/probe_b1.py run-artifact/ws/build1_logs/bag | tee out/probe.txt
+          python3 tools/scratch/excerpts_b1.py run-artifact/ws/build1_logs/bag > out/excerpts.txt
+          wc -c out/excerpts.txt
+          cat out/excerpts.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
