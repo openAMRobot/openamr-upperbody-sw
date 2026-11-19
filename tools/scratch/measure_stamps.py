@@ -155,7 +155,21 @@ def main():
                                          "content_equal": rows[i][2] == rows[i - 1][2],
                                          "prev_delta_ns": hdr[i - 1] - hdr[i - 2] if i >= 2 else None,
                                          "next_delta_ns": hdr[i + 1] - hdr[i] if i + 1 < len(hdr) else None})
-            entry["equal_header_pairs"] = {"content_identical": same, "content_different": diff, "examples": examples}
+            around = collections.Counter()
+            for i in range(2, len(hdr) - 1):
+                if hdr[i] == hdr[i - 1]:
+                    around[(hdr[i - 1] - hdr[i - 2], hdr[i + 1] - hdr[i])] += 1
+            entry["equal_header_pairs"] = {"content_identical": same, "content_different": diff, "examples": examples,
+                                           "delta_before_and_after_ns": sorted(([list(k), v] for k, v in around.items()),
+                                                                               key=lambda x: -x[1])}
+            if clock:
+                # /clock messages recorded between the two receipts of an equal-stamp pair
+                crec = [t for t, _ in clock]
+                between = collections.Counter()
+                for i in range(1, len(hdr)):
+                    if hdr[i] == hdr[i - 1]:
+                        between[bisect.bisect_right(crec, rec[i]) - bisect.bisect_left(crec, rec[i - 1])] += 1
+                entry["equal_header_pairs"]["clock_messages_between_receipts"] = dict(sorted(between.items()))
             if clock:
                 on_clock = sum(1 for h in hdr if clock_values[min(bisect.bisect_left(clock_values, h), len(clock_values) - 1)] == h)
                 entry["header_stamps_equal_to_a_clock_value"] = on_clock
