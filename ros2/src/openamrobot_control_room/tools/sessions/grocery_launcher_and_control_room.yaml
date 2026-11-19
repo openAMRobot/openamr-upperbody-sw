@@ -6,7 +6,9 @@ cycles: 3
 stop_signals: [INT, TERM, INT]
 processes:
   - name: launcher
-    command: [bash, "$LAUNCHER", --ws, "$WS", --headless, --no-mission, --log-dir, "$LOGS/launcher", --ready-timeout, "900"]
+    # --force: a CI runner has no display or GPU; the preflight's FAIL lines are still printed in the cycle's log.
+    command: [bash, "$LAUNCHER", --ws, "$WS", --headless, --no-mission, --force, --log-dir, "$LOGS/launcher",
+              --ready-timeout, "900"]
     ready: {line: "ready after [0-9]+ s wall"}
     ready_timeout: 960
     stop_timeout: 120
