@@ -23,7 +23,8 @@ PROFILE = {"channels": [
     {"index": 1, "name": "openarm_left_finger_joint1", "joint": "openarm_left_finger_joint1", "component": "left_gripper",
      "unit": "rad", "range": [0.0, 0.7854]},
     {"index": 2, "name": "lift_joint", "joint": "lift_joint", "component": "lift", "unit": "m", "range": [0.0, 0.35]},
-    {"index": 3, "name": "base_linear_x", "component": "base", "unit": "m/s", "range": None},
+    {"index": 3, "name": "base_linear_x", "joint": "base_link/twist/linear.x", "component": "base", "unit": "m/s",
+     "range": None},   # interfaces #39 gives base channels a pseudo-joint name
 ]}
 RUN_INFO = {"profile": "firmware_sil", "planning_pose_source": "ground_truth", "object_pose_source": "ground_truth"}
 

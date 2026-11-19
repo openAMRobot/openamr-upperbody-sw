@@ -149,7 +149,7 @@ def bind(data, component_profile):
         name, joint, rng = c["name"], c.get("joint"), c.get("range")
         row = {"index": c["index"], "name": name, "component": c["component"], "unit": c["unit"], "range": rng}
         obs = act = None
-        if joint:
+        if c["component"] != "base" and joint:
             for topic in JOINT_STATE_TOPICS:
                 if (topic, joint) in data["state"]:
                     obs = {"topic": topic, "field": "position", "joint": joint, **data["state"][(topic, joint)].summary()}
@@ -191,7 +191,7 @@ def bind(data, component_profile):
                     "(after Nav2's velocity smoother and collision monitor)", **cmd.summary()} if cmd else
                    {"unbound": "no /cmd_vel in this bag"})
         row["observation"] = obs if obs is not None else {"unbound": f"no recorded JointState names {joint}"}
-        row["action"] = act
+        row["action"] = act if act is not None else {"unbound": f"no command source is known for component {c['component']}"}
         rows.append(row)
     return rows
 
