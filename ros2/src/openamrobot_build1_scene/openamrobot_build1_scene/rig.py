@@ -174,6 +174,7 @@ class Rig:
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self.node)
         self.actions = {}
+        self.gripper_goal_listeners = []   # callables (side, position) told of each GripperCommand goal sent
         self.executor = MultiThreadedExecutor(num_threads=4)
         self.executor.add_node(self.node)
         self.thread = threading.Thread(target=self.executor.spin, daemon=True)
@@ -507,6 +508,8 @@ class Rig:
         goal = GripperCommand.Goal()
         goal.command.position = float(position)
         goal.command.max_effort = 3.0
+        for listener in self.gripper_goal_listeners:   # e.g. the opt-in AI capture hold (baseline1_record.py)
+            listener(side, goal.command.position)
         handle = self.send_goal(f"/{side}_gripper_controller/gripper_cmd", "control_msgs.action", "GripperCommand", goal)
         if handle is None:
             return None

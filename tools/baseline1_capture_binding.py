@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -27,13 +28,22 @@ LIFT_STOP_M = (0.0, 0.175, 0.350)
 LIFT_STOP_ID = ("L1000", "L1175", "L1350")
 # Recorded JointState topics, in the order a joint is looked up (the component profile names /arm/joint_states).
 JOINT_STATE_TOPICS = ("/arm/joint_states", "/joint_states", "/sil/gz/joint_states")
+# C9 camera feature -> (image topic, camera_info topic) of build1_robot.urdf.xacro part 3, as the opt-in AI capture of
+# baseline1_record.py records them. The base camera is the RGB-D sensor 3a, not the simulation-only station camera
+# (/base_camera/color/image_raw, part 4), which shares its frame.
 C9_CAMERAS = {
-    "observation.images.camera_wrist_left": "left_wrist_camera",
-    "observation.images.camera_wrist_right": "right_wrist_camera",
-    "observation.images.head": "head_camera",
-    "observation.images.base": "base_camera",
+    "observation.images.camera_wrist_left": ("/left_wrist_camera/image", "/left_wrist_camera/camera_info"),
+    "observation.images.camera_wrist_right": ("/right_wrist_camera/image", "/right_wrist_camera/camera_info"),
+    "observation.images.head": ("/head_camera/rgbd/image", "/head_camera/rgbd/camera_info"),
+    "observation.images.base": ("/base_camera/rgbd/image", "/base_camera/rgbd/camera_info"),
 }
 IMAGE_TYPES = ("sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage")
+# Held gripper command of the opt-in AI capture (baseline1_record.py GripperCommandHold, Proposed).
+GRIPPER_COMMAND_TOPIC = "/build1/capture/gripper_command"
+# Arm emulator status: mit_q is the gripper motor's last commanded position as received over CAN (motor side).
+EMULATOR_STATUS_TOPICS = ("/sim/left_arm_emulator/status", "/sim/right_arm_emulator/status")
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+ACCEPTANCE_LINE = re.compile(r"acceptance profile: ([a-z-]+), pose_source: ([a-z_]+)")
 # Upper end of the pinned driver's parallel_link (prismatic) finger range, metres (openarm_ros2 4e837e1).
 PARALLEL_LINK_MAX_M = 0.044
 RANGE_TOL = 1e-3
@@ -56,6 +66,42 @@ def stamp_ns(msg):
     if header is None:
         return None
     return int(header.stamp.sec) * 1_000_000_000 + int(header.stamp.nanosec)
+
+
+def acceptance_from_log(text):
+    """(acceptance profile, pose_source) from the echo line of baseline1-acceptance.yml, or (None, None).
+
+    The job log has a timestamp prefix and may carry terminal colour codes; the echoed command itself (with
+    ${BASELINE1_PROFILE}) never matches."""
+    for line in text.splitlines():
+        m = ACCEPTANCE_LINE.search(ANSI.sub("", line))
+        if m:
+            return m.group(1), m.group(2)
+    return None, None
+
+
+class Stamps:
+    """Timestamps of one topic as the converter's read_bag orders them: header stamp, else bag receipt time."""
+
+    def __init__(self):
+        self.header = {"last": None, "nonincreasing": 0}
+        self.receipt = {"last": None, "nonincreasing": 0}
+
+    @staticmethod
+    def _add(slot, t):
+        if slot["last"] is not None and t <= slot["last"]:
+            slot["nonincreasing"] += 1
+        slot["last"] = t if slot["last"] is None else max(slot["last"], t)
+
+    def add(self, receipt, header_t):
+        self._add(self.receipt, receipt)
+        if header_t is not None:
+            self._add(self.header, header_t)
+
+    def summary(self, has_header):
+        return {"has_header": has_header, "receipt_nonincreasing": self.receipt["nonincreasing"],
+                "header_nonincreasing": self.header["nonincreasing"] if has_header else None,
+                "strictly_increasing_as_read": (self.header if has_header else self.receipt)["nonincreasing"] == 0}
 
 
 class Series:
@@ -97,21 +143,46 @@ def read(bag_dir, component_profile):
     state = {}            # (topic, joint) -> Series of position
     command = {}          # (topic, joint) -> Series of reference position (JointTrajectoryControllerState)
     other = {}            # name -> Series
-    frames, run_info, topics = {}, None, {}
+    frames, run_info, topics, stamps, camera_info, motor_command = {}, None, {}, {}, {}, {}
     with AnyReader([bag_dir], default_typestore=get_typestore(Stores.ROS2_JAZZY)) as reader:
         for c in reader.connections:
-            topics[c.topic] = {"type": c.msgtype, "count": c.msgcount}
+            topics[c.topic] = {"type": c.msgtype, "count": c.msgcount, "bytes": 0}
         start, end = reader.start_time, reader.end_time
+        for conn, _t, raw in reader.messages():      # size of every topic; nothing is deserialized here
+            topics[conn.topic]["bytes"] += len(raw)
         wanted = [c for c in reader.connections if c.msgtype in (
             "sensor_msgs/msg/JointState", "control_msgs/msg/JointTrajectoryControllerState", "geometry_msgs/msg/Twist",
-            "std_msgs/msg/Int8", "std_msgs/msg/String", "nav_msgs/msg/Odometry", *IMAGE_TYPES)
+            "std_msgs/msg/Int8", "std_msgs/msg/String", "nav_msgs/msg/Odometry", "sensor_msgs/msg/CameraInfo",
+            "diagnostic_msgs/msg/DiagnosticArray", *IMAGE_TYPES)
             and c.topic != "/build1/rtf_stats"]
         for conn, t, raw in reader.messages(connections=wanted):
             msg = reader.deserialize(raw, conn.msgtype)
             ht = stamp_ns(msg)
             if ht is not None:
                 frames.setdefault(conn.topic, msg.header.frame_id)
+            stamps.setdefault(conn.topic, Stamps()).add(t, ht)
+            if conn.msgtype == "sensor_msgs/msg/CameraInfo":
+                camera_info.setdefault(conn.topic, {"frame_id": msg.header.frame_id, "width": int(msg.width),
+                                                    "height": int(msg.height), "k": [round(float(v), 4) for v in msg.k],
+                                                    "distortion_model": msg.distortion_model})
+                continue
+            if conn.msgtype == "diagnostic_msgs/msg/DiagnosticArray":
+                if conn.topic in EMULATOR_STATUS_TOPICS:
+                    for status in msg.status:
+                        joint = status.name.rsplit("/", 1)[-1]
+                        if joint in joints:
+                            value = {kv.key: kv.value for kv in status.values}.get("mit_q")
+                            try:
+                                motor_command.setdefault((conn.topic, joint), Series()).add(t, float(value), ht)
+                            except (TypeError, ValueError):
+                                pass
+                continue
             if conn.msgtype == "sensor_msgs/msg/JointState":
+                if conn.topic == GRIPPER_COMMAND_TOPIC:
+                    for i, name in enumerate(msg.name):
+                        if name in joints and i < len(msg.position):
+                            command.setdefault((conn.topic, name), Series()).add(t, float(msg.position[i]), ht)
+                    continue
                 if conn.topic not in JOINT_STATE_TOPICS:
                     continue
                 for i, name in enumerate(msg.name):
@@ -139,7 +210,8 @@ def read(bag_dir, component_profile):
             elif conn.msgtype in IMAGE_TYPES:
                 other.setdefault(conn.topic + ":image", Series()).add(t, None, ht)
     return {"topics": topics, "start_ns": start, "end_ns": end, "state": state, "command": command, "other": other,
-            "frames": frames, "run_info": run_info}
+            "frames": frames, "run_info": run_info, "stamps": {k: v.summary(k in frames) for k, v in stamps.items()},
+            "camera_info": camera_info, "motor_command": motor_command}
 
 
 def bind(data, component_profile):
@@ -164,9 +236,21 @@ def bind(data, component_profile):
                 else:
                     act = {"unbound": f"no {key[0]} sample names {joint}"}
             elif c["component"].endswith("_gripper"):
-                act = {"unbound": "the gripper is commanded by control_msgs/action/GripperCommand goals "
-                                  "(rig.py gripper()); a ROS 2 Jazzy bag records topics, not action goals, and no "
-                                  "gripper command topic is in this bag"}
+                key = (GRIPPER_COMMAND_TOPIC, joint)
+                if key in data["command"]:
+                    act = {"topic": GRIPPER_COMMAND_TOPIC, "field": "position", "joint": joint, "semantics":
+                           "held GripperCommand goal command.position (opt-in AI capture, Proposed); before the side's "
+                           "first goal, the finger position measured at capture start", **data["command"][key].summary()}
+                else:
+                    act = {"unbound": "the gripper is commanded by control_msgs/action/GripperCommand goals "
+                                      "(rig.py gripper()); a ROS 2 Jazzy bag records topics, not action goals, and "
+                                      f"{GRIPPER_COMMAND_TOPIC} (opt-in AI capture) is not in this bag"}
+                trace = [k for k in data["motor_command"] if k[1] == joint]
+                if trace:
+                    act["motor_side_trace"] = {"topic": trace[0][0], "key": "mit_q", "semantics":
+                                               "gripper motor's last MIT position command as received over CAN, motor "
+                                               "units; DiagnosticArray strings, not readable by a field path",
+                                               **data["motor_command"][trace[0]].summary()}
             elif c["component"] == "lift":
                 s = data["other"].get("/sil/lift/command:data")
                 if s is not None:
@@ -177,6 +261,10 @@ def bind(data, component_profile):
                            **s.summary()}
                 else:
                     act = {"unbound": "no /sil/lift/command in this bag"}
+            source = c.get("state_source") or ""
+            if obs is not None and source and not source.startswith(obs["topic"] + " "):
+                obs["component_profile_state_source"] = source.split(" ")[0]
+                obs["state_source_differs_from_profile"] = True
             if obs is not None and rng is not None and obs["min"] is not None:
                 obs["within_profile_range"] = (rng[0] - RANGE_TOL <= obs["min"]) and (obs["max"] <= rng[1] + RANGE_TOL)
         else:
@@ -211,11 +299,25 @@ def gripper_unit(rows):
 def cameras(data):
     images = {t: v for t, v in data["topics"].items() if v["type"] in IMAGE_TYPES}
     out = {}
-    for key, link in C9_CAMERAS.items():
-        hit = [t for t in images if link in (data["frames"].get(t) or "") or link in t]
-        out[key] = ({"topic": hit[0], "frame_id": data["frames"].get(hit[0]), **data["other"][hit[0] + ":image"].summary()}
-                    if hit else {"unbound": "no image topic of this camera in the bag"})
+    for key, (topic, info) in C9_CAMERAS.items():
+        if topic in images and topic + ":image" in data["other"]:
+            out[key] = {"topic": topic, "type": images[topic]["type"], "frame_id": data["frames"].get(topic),
+                        "camera_info_topic": info if info in data["camera_info"] else None,
+                        "camera_info": data["camera_info"].get(info), **data["other"][topic + ":image"].summary()}
+        else:
+            out[key] = {"unbound": f"{topic} is not in the bag (recorded only with the opt-in AI capture)"}
     return {"bound": out, "image_topics_in_bag": sorted(images)}
+
+
+def candidate_grid(cams, fps, max_skew_ns):
+    """Candidate export grid: the converter refuses a reused camera frame, so fps is at most the slowest camera rate;
+    max_skew_ns covers half the slowest camera period. Not approved values."""
+    rates = [v["rate_hz"] for v in cams["bound"].values() if v.get("rate_hz")]
+    if fps is None:
+        fps = max(1, int(min(rates))) if len(rates) == len(C9_CAMERAS) else 10
+    if max_skew_ns is None:
+        max_skew_ns = int(round(0.5e9 / min(rates))) if len(rates) == len(C9_CAMERAS) else 50_000_000
+    return fps, max_skew_ns
 
 
 def pins(path):
@@ -230,21 +332,29 @@ def pins(path):
     return out
 
 
-def candidate_profile(args, data, rows, component_profile_path, component_profile):
+def candidate_profile(args, data, rows, component_profile_path, component_profile, cams=None):
     """The converter's capture_version 1 shape. status stays proposed: only an owner registers a profile."""
     info = data["run_info"] or {}
     streams, seen = [], {}
 
-    def stream(topic, component):
+    def stream(topic, component, **extra):
         if topic in seen:
             return seen[topic]
         sid = topic.strip("/").replace("/", "_")
         streams.append({"id": sid, "component": component, "topic": topic, "type": data["topics"][topic]["type"],
                         "frame_id": data["frames"].get(topic, ""), "clock_domain": "ros.sim_time",
                         "timestamp_source": "header" if topic in data["frames"] else "bag",
-                        **({} if topic in data["frames"] else {"frame_id_source": "configuration"})})
+                        **({} if topic in data["frames"] else {"frame_id_source": "configuration"}), **extra})
         seen[topic] = sid
         return sid
+
+    for key, cam in (cams or {"bound": {}})["bound"].items():
+        if "topic" in cam:
+            info_ = cam.get("camera_info") or {}
+            # A candidate identity of the simulated intrinsics, not a calibration: Gazebo's camera_info, no distortion.
+            calibration = (f"gazebo-camera-info:{cam['camera_info_topic']}:{info_.get('width')}x{info_.get('height')}:"
+                           f"fx{info_['k'][0]}" if info_.get("k") else None)
+            stream(cam["topic"], "camera", camera_key=key, **({"calibration_id": calibration} if calibration else {}))
 
     state_channels, action_channels = [], []
     for r in rows:
@@ -264,6 +374,8 @@ def candidate_profile(args, data, rows, component_profile_path, component_profil
                 ch["semantics"] = "requested_velocity"
             if r["component"] == "lift":
                 ch["source_unit"] = "stop_index"
+            if r["component"].endswith("_gripper"):
+                ch["semantics"] = "held_gripper_goal"
             action_channels.append(ch)
     commits = dict(pins(args.pins))
     commits.update({k: v for k, v in {"openamr-upperbody-sw": args.run_sha, "openamr-platform-sw": args.platform_sha,
@@ -280,6 +392,7 @@ def candidate_profile(args, data, rows, component_profile_path, component_profil
         "robot_configuration_id": info.get("robot_configuration_id") or "unknown: not declared in /build1/run_info",
         "fps": args.fps,
         "max_skew_ns": args.max_skew_ns,
+        "units": "radians for every angular channel (decision #79); metres for the lift; m/s and rad/s for the base",
         "streams": streams,
         "components": list(dict.fromkeys(r["component"] for r in rows)),
         "state_channels": state_channels,
@@ -307,9 +420,19 @@ def main(argv=None):
     p.add_argument("--artifact", default=None)
     p.add_argument("--pins", default=None, help="pins.txt of the run artifact")
     p.add_argument("--acceptance-profile", default=None, help="as the run's log declares it (sim-oracle | perception)")
-    p.add_argument("--fps", type=int, default=10, help="candidate export grid (not an approved value)")
-    p.add_argument("--max-skew-ns", type=int, default=50_000_000, help="candidate tolerance (not an approved value)")
+    p.add_argument("--run-log", default=None, help="job log of the recording run; read for the acceptance profile line")
+    p.add_argument("--fps", type=int, default=None, help="candidate export grid (default: slowest camera rate, else 10; "
+                                                          "not an approved value)")
+    p.add_argument("--max-skew-ns", type=int, default=None, help="candidate tolerance (default: half the slowest camera "
+                                                                 "period, else 50 ms; not an approved value)")
     args = p.parse_args(argv)
+    pose_source_from_log = None
+    if args.run_log and Path(args.run_log).is_file():
+        profile_from_log, pose_source_from_log = acceptance_from_log(Path(args.run_log).read_text(errors="replace"))
+        if not args.acceptance_profile:
+            args.acceptance_profile = profile_from_log
+    if not args.acceptance_profile:
+        args.acceptance_profile = "not declared in the run log"
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     try:
@@ -321,17 +444,27 @@ def main(argv=None):
         return 2
     rows = bind(data, component_profile)
     cams = cameras(data)
+    args.fps, args.max_skew_ns = candidate_grid(cams, args.fps, args.max_skew_ns)
     bound_obs = sum("topic" in r["observation"] for r in rows)
     bound_act = sum("topic" in r["action"] for r in rows)
     bound_cam = sum("topic" in v for v in cams["bound"].values())
     sim_time = data["start_ns"] is not None and data["start_ns"] < 10**15 and "/clock" in data["topics"]
+    duration_s = None if data["start_ns"] is None else (data["end_ns"] - data["start_ns"]) * 1e-9
+    total_bytes = sum(f.stat().st_size for f in Path(args.bag).iterdir() if f.is_file())
+    camera_bytes = sum(v["bytes"] for t, v in data["topics"].items() if v["type"] in IMAGE_TYPES)
+    size = {"files_mb": round(total_bytes / 1e6, 1), "message_mb": round(sum(v["bytes"] for v in data["topics"].values()) / 1e6, 1),
+            "camera_image_mb": round(camera_bytes / 1e6, 1),
+            "mb_per_sim_minute": round(total_bytes / 1e6 / (duration_s / 60.0), 1) if duration_s else None,
+            "camera_mb_per_sim_minute": round(camera_bytes / 1e6 / (duration_s / 60.0), 1) if duration_s else None}
     report = {
         "status": "Proposed analysis; simulation evidence only",
         "bag": {"path": str(args.bag), "start_ns": data["start_ns"], "end_ns": data["end_ns"],
                 "duration_s": None if data["start_ns"] is None else round((data["end_ns"] - data["start_ns"]) * 1e-9, 3),
                 "simulation_time": sim_time,
                 "files_sha256": {f.name: sha256_file(f) for f in sorted(Path(args.bag).iterdir()) if f.is_file()},
-                "topics": data["topics"]},
+                "size": size, "topics": data["topics"]},
+        "acceptance": {"profile": args.acceptance_profile, "pose_source_from_log": pose_source_from_log},
+        "timestamps": data["stamps"],
         "run_info": data["run_info"],
         "channels": rows,
         "cameras": cams,
@@ -341,7 +474,7 @@ def main(argv=None):
         "c9_v1_complete": bound_cam == len(C9_CAMERAS) and bound_obs == len(rows) and bound_act == len(rows),
     }
     (out / "binding.json").write_text(json.dumps(report, indent=1) + "\n")
-    cand = candidate_profile(args, data, rows, profile_path, component_profile)
+    cand = candidate_profile(args, data, rows, profile_path, component_profile, cams)
     (out / "capture_profile_candidate.json").write_text(json.dumps(cand, indent=1) + "\n")
     lines = [f"# Bag binding: run {args.run_id}", "",
              f"Simulation time: {sim_time}; duration {report['bag']['duration_s']} s; "
@@ -349,14 +482,26 @@ def main(argv=None):
              f"object_pose_source {(data['run_info'] or {}).get('object_pose_source')}", "",
              f"Channels {len(rows)}: observation bound {bound_obs}, action bound {bound_act}; "
              f"C9 cameras bound {bound_cam}/{len(C9_CAMERAS)}; C9 v1 complete: {report['c9_v1_complete']}", "",
+             f"Bag: {size['files_mb']} MB on disk, {size['mb_per_sim_minute']} MB per minute of Gazebo time "
+             f"(camera images {size['camera_image_mb']} MB, {size['camera_mb_per_sim_minute']} MB per minute); "
+             f"candidate grid {args.fps} fps, max skew {args.max_skew_ns} ns", "",
              "| # | channel | unit | observation | rate Hz | min | max | in range | action |", "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         o, a = r["observation"], r["action"]
         lines.append(f"| {r['index']} | {r['name']} | {r['unit']} | {o.get('topic', 'UNBOUND')} | {o.get('rate_hz', '')} | "
                      f"{o.get('min', '')} | {o.get('max', '')} | {o.get('within_profile_range', '')} | "
                      f"{a.get('topic', 'UNBOUND: ' + a.get('unbound', ''))} |")
-    lines += ["", "| C9 camera | binding |", "|---|---|"]
-    lines += [f"| {k} | {v.get('topic', 'UNBOUND: ' + v.get('unbound', ''))} |" for k, v in cams["bound"].items()]
+    lines += ["", "| C9 camera | binding | rate Hz | frame | camera_info |", "|---|---|---|---|---|"]
+    lines += [f"| {k} | {v.get('topic', 'UNBOUND: ' + v.get('unbound', ''))} | {v.get('rate_hz', '')} | "
+              f"{v.get('frame_id', '')} | {v.get('camera_info_topic', '')} |" for k, v in cams["bound"].items()]
+    used = [s["topic"] for s in cand["streams"]]
+    lines += ["", "| candidate stream | timestamp source | strictly increasing as read_bag reads it | non-increasing |",
+              "|---|---|---|---|"]
+    for s_ in cand["streams"]:
+        st = data["stamps"].get(s_["topic"], {})
+        bad = st.get("header_nonincreasing") if s_["timestamp_source"] == "header" else st.get("receipt_nonincreasing")
+        lines.append(f"| {s_['topic']} | {s_['timestamp_source']} | {st.get('strictly_increasing_as_read')} | {bad} |")
+    lines += ["", f"Streams in the candidate: {len(used)}"]
     lines += ["", "Gripper unit: " + json.dumps(report["gripper_unit"])]
     (out / "summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))

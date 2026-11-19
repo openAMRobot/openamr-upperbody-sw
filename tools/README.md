@@ -142,4 +142,11 @@ python3 tools/baseline1_capture_binding.py --bag <run>/ws/build1_logs/bag \
         --component-profile <interfaces #39>/profiles/c9/mobile-lift-qpos-v1-proposed.json --out out --pins <run>/pins.txt
 ```
 
+A bag recorded with the opt-in AI capture (`BASELINE1_AI_CAPTURE=1`, dispatch input `ai_capture` of
+`baseline1-acceptance.yml`) also binds the four C9 cameras (with their `camera_info`) and the gripper action channels
+(`/build1/capture/gripper_command`, the held GripperCommand goal, Proposed). The report adds the bag size in MB per minute
+of Gazebo time, per-topic bytes and, per candidate stream, whether its timestamps are strictly increasing as the
+converter's `read_bag` reads them. `--run-log` reads the acceptance profile from the recording run's job log.
+Proposals for the owners: `docs/ai/`.
+
 Simulation evidence only. A bound channel is a recorded topic, not an approved capture contract.

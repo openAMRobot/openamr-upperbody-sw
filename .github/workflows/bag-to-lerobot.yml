@@ -96,14 +96,19 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" \
             --jq '{id, name, head_branch, head_sha, conclusion, created_at, path}' | tee run.json
           job=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --jq '.jobs[0].id')
-          gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${job}/logs" > run.log || true
-          grep -m1 -oE 'acceptance profile: [a-z-]+, pose_source: [a-z_]+' run.log | tee acceptance.txt || echo "not in the log" > acceptance.txt
+          # The job log is fetched with curl: gh api refuses a body with terminal colour codes on this runner, which
+          # left run.log empty and the acceptance profile "unknown" (run 44443454904). The tool strips the codes.
+          curl -sSfL -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/jobs/${job}/logs" -o run.log || echo "job log not fetched"
+          echo "run log: $(wc -l < run.log 2>/dev/null || echo 0) lines"
+          sed 's/\x1b\[[0-9;]*[A-Za-z]//g' run.log | grep -m1 -oE 'acceptance profile: [a-z-]+, pose_source: [a-z_]+' | tee acceptance.txt || echo "not in the log" > acceptance.txt
           grep -m1 -oE 'BASELINE1_STATION_ALIGNMENT: [01]' run.log | tee -a acceptance.txt || true
+          grep -m1 -oE 'BASELINE1_AI_CAPTURE: [01]' run.log | tee -a acceptance.txt || true
           grep -m1 -oE 'Baseline 1 report exit status: [0-9]+' run.log | tee -a acceptance.txt || true
           ls -la run-artifact run-artifact/ws/build1_logs/bag 2>/dev/null || ls -laR run-artifact | head -40
+          echo "== record_bag.log (whole)"; cat run-artifact/ws/build1_logs/record_bag.log 2>/dev/null | grep -v '^$' | tail -80 || true
           echo "PLATFORM_SHA=$(grep -oE 'platform[^ ]* [0-9a-f]{40}' run-artifact/pins.txt | grep -oE '[0-9a-f]{40}' | head -1)" >> "$GITHUB_ENV"
           echo "RUN_SHA=$(python3 -c 'import json;print(json.load(open("run.json"))["head_sha"])')" >> "$GITHUB_ENV"
-          echo "ACCEPTANCE=$(grep -oE 'acceptance profile: [a-z-]+' acceptance.txt | cut -d' ' -f3)" >> "$GITHUB_ENV"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
@@ -126,8 +131,9 @@ jobs:
           python3 tools/baseline1_capture_binding.py --bag "$bag" \
             --component-profile external/openamrobot-interfaces/profiles/c9/mobile-lift-qpos-v1-proposed.json \
             --out out --run-id "$RUN_ID" --run-sha "$RUN_SHA" --platform-sha "$PLATFORM_SHA" \
-            --interfaces-sha "$INTERFACES_SHA" --artifact "$ARTIFACT" --pins run-artifact/pins.txt --acceptance-profile "${ACCEPTANCE:-unknown}"
+            --interfaces-sha "$INTERFACES_SHA" --artifact "$ARTIFACT" --pins run-artifact/pins.txt --run-log run.log
           cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
+          echo "== capture_profile_candidate.json"; cat out/capture_profile_candidate.json
       - name: The converter's own gates on the candidate profile (unchanged)
         run: |
           python3 tools/run_capture_gates.py --profile out/capture_profile_candidate.json \
