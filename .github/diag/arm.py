@@ -81,3 +81,20 @@ gc = rows["/left_arm_gravity_controller/commands"]
 gaps = [(gc[i + 1][0] - gc[i][0], gc[i][0]) for i in range(len(gc) - 1)]
 gaps.sort(reverse=True)
 print("gravity command gaps (s, at):", [(round(a, 3), round(b, 2)) for a, b in gaps[:8]], "msgs", len(gc))
+
+# all joints at the stuck time and after the release, for offline kinematics
+def snapshot(label, t):
+    c = at(cs, t); f = at(rows["/build1/ground_truth/finger_joint_states"], t); it = at(rows["/build1/ground_truth/item/pose"], t)
+    m = c[1]
+    print("SNAP", label, "t", round(t, 3), "names", list(m.joint_names))
+    print("SNAP", label, "ref", [round(v, 5) for v in m.reference.positions])
+    print("SNAP", label, "fb", [round(v, 5) for v in m.feedback.positions])
+    if f: print("SNAP", label, "fingers", list(f[1].name), [round(v, 5) for v in f[1].position])
+    if it:
+        p, o = it[1].pose.position, it[1].pose.orientation
+        print("SNAP", label, "item", [round(p.x, 5), round(p.y, 5), round(p.z, 5)], [round(o.x, 5), round(o.y, 5), round(o.z, 5), round(o.w, 5)])
+end = [t for t, m in cs if abs(m.reference.positions[list(m.joint_names).index(J)] - target_j1) < 1e-5 and abs(m.reference.velocities[list(m.joint_names).index(J)]) < 1e-6]
+te = end[0] if end else t0 + 1.2
+print("trajectory end (reference at rest at the end point)", round(te, 3))
+for label, dt in (("end", 0.0), ("hold", 0.4), ("hold2", 0.9), ("after", 2.0)):
+    snapshot(label, te + dt)
