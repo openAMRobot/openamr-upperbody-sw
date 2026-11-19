@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+# Scratch diagnosis (not for merge): reads recorded artifacts of earlier runs and prints evidence lines.
+name: diag rel artifacts
+on:
+  push:
+    branches: [diag/rel-artifacts]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  read:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: drive bus of benchmark fastdds_default r1 (run 44346730235)
+        run: |
+          gh run download 44346730235 -R ${{ github.repository }} -n dds-benchmark-fastdds_default-r1-attempt1 -D a1
+          python3 .github/diag/analyze.py a1 drive 1795019692.52
+      - name: aux bus of benchmark cyclonedds r1 (run 44364910928)
+        run: |
+          gh run download 44364910928 -R ${{ github.repository }} -n dds-benchmark-cyclonedds-r1-attempt1 -D a2
+          python3 .github/diag/analyze.py a2 aux 1795025925.0 1795025945.0
+      - name: aux bus of benchmark fastdds r1 for comparison (lift passed)
+        run: |
+          python3 .github/diag/analyze.py a1 aux 1795020155.0 1795020180.0 | head -150
