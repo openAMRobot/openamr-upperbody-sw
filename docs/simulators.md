@@ -128,6 +128,29 @@ every joint axis and anchor, camera frames, visual and collision geometry. 2922 
 Ten mutation tests change one value each in the compiled model and must fail. The parity reference (the URDF forward kinematics) is
 itself checked against pinocchio's frame placements.
 
+## Parameter register
+
+`simulation/parameter_register.yaml` (Proposed) lists the physical and mechanical parameters the simulators carry: drive wheel
+radius (nominal and effective), contact height, tyre width, track, wheel axes and torque limit, castor contact radius, base and
+wheel masses, base inertia, total mass, lift stroke, velocity and force, lidar, IMU, base camera and wrist camera frames, camera fields
+of view, base speed ceiling and travel deceleration. Per row: the source, the value, the verification level (placeholder, datasheet,
+design decision, measured), the file that defines it (its authority) and its hand-maintained copies, where each simulator reads it,
+how it is checked, the owner (CODEOWNERS or a Team doc section) and the calibration still needed (measurement plan items). A
+`clocks` section lists the SIL and emulator timers that still run on host time.
+
+It is not a source of values: no generator and no xacro reads it. `simulation/tests/test_parameter_register.py` checks each value
+against its authority file (datums.yaml, roadmap_mass_export.yaml in both repositories, platform-sw sensor_frames.yaml) and then
+every check against the Gazebo expansion, the compiled MJCF and its generator report, and the Isaac importer URDF and job, for bp000
+and bp050. A simulator value that differs from the register fails unless the row declares that deviation with its value and the
+tracking issue (#96); a declared deviation that no longer holds fails too, so a fix updates the register in the same change. Rows
+whose source is a register entry of openAMRobot/.github or a supplier document say `machine_checked: false`: CI does not read those.
+
+Findings at the pin, all declared against #96: drive wheel collision and DiffDrive radius 0.100 against the effective 0.098 (the
+wheel collision sits 2 mm in the floor in the zero pose; MuJoCo lifts the robot 2 mm); tyre width 0.046 against 49.4 mm on the drawing;
+castor sphere r 0.026 against the 35 mm castor wheel; the MuJoCo base camera on the legacy Gate A frame with a 46.8 deg vertical
+field of view against 68 deg; head and wrist cameras at the MuJoCo default 45 deg; DiffDrive at 1.0 m/s against the 0.5 m/s ceiling
+and 0.5 m/s2 against the 1.5 m/s2 travel deceleration.
+
 ## Physics checks (MuJoCo only)
 
 Local results, MuJoCo 4.0.1, bp000 (bp050 alike):

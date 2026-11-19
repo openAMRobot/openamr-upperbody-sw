@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (19 Nov 2026; simulation parameter register, stacked on pull request 69)
+
+- **Parameter register.** `simulation/parameter_register.yaml` (Proposed): 25 parameters with source, value, verification level,
+  authority file and hand-maintained copies, simulator readers, validation, owner and remaining calibration, plus the timers that
+  still run on host time. Read by no generator and no xacro, so the expansion and its lock are unchanged.
+- **Register test.** `simulation/tests/test_parameter_register.py` (189 tests): every row against its authority file, every check
+  against Gazebo (expansion), MuJoCo (compiled MJCF and report) and Isaac (importer URDF and job) for bp000 and bp050, findings to
+  `SIM_EVIDENCE_DIR/parameter_register_findings.json`, five mutation tests. Twenty-one current deviations are declared against
+  issue #96, not fixed.
+
 ### Added (15 Nov 2026; MuJoCo and Isaac Sim representations of the combined model, issue #58)
 
 Base: main `b15bcb6`, stacked on pull request 66 (head `5adeba3`, not merged). Inputs: the digital-twin lock of audits
