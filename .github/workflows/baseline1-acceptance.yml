@@ -396,8 +396,10 @@ jobs:
       - name: Verdict
         run: |
           expect=$([ "${BASELINE1_SEQUENCE}" = "strict" ] && echo 2 || echo 1)
-          ls -d legs/*/ || true
-          python3 ros2/src/openamrobot_build1_scene/scripts/baseline1_strict_verdict.py legs/* --expect "$expect" \
+          # One matching artifact is extracted straight into legs/, several into one directory each: --find takes
+          # every directory holding a declaration.json (validation run 44465602026 read files as legs).
+          find legs -name declaration.json | sort
+          python3 ros2/src/openamrobot_build1_scene/scripts/baseline1_strict_verdict.py --find legs --expect "$expect" \
             --require-profile sim-oracle --require-rmw rmw_cyclonedds_cpp --require-alignment 1 --min-participant-index 120 \
             --summary "$GITHUB_STEP_SUMMARY" --out verdict.json
           echo "VERDICT_RC=$?" >> "$GITHUB_ENV"

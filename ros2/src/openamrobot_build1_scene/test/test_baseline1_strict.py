@@ -109,3 +109,21 @@ def test_one_validation_leg_is_never_strict(tmp_path, capsys):
     rc, record = verdict(tmp_path, [write_leg(tmp_path, 1)], "--expect", "1")
     assert (rc, record["verdict"], record["problems"]) == (1, "NOT STRICT", [])
     assert "never the strict two-run acceptance" in capsys.readouterr().out
+
+
+def test_find_reads_one_leg_at_the_root_and_two_legs_in_their_own_directories(tmp_path):
+    """download-artifact: one matching artifact lands straight in the path, several land in one directory each."""
+    single = tmp_path / "single"
+    leg_dir = write_leg(single, 1)
+    for name in os.listdir(leg_dir):
+        os.rename(os.path.join(leg_dir, name), single / name)
+    rc, record = verdict(tmp_path, ["--find", str(single), "--expect", "1"])
+    assert (record["verdict"], record["problems"]) == ("NOT STRICT", [])
+    double = tmp_path / "double"
+    write_leg(double, 1), write_leg(double, 2)
+    rc, record = verdict(tmp_path, ["--find", str(double)])
+    assert (rc, record["verdict"]) == (0, "PASS") and len(record["legs"]) == 2
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    rc, record = verdict(tmp_path, ["--find", str(empty)])
+    assert (rc, record["verdict"]) == (1, "FAIL") and "legs found [], expected 1 to 2" in record["problems"]

@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: MIT
 """Decide the strict Baseline 1 verdict from the mission legs of one acceptance dispatch.
 
-  baseline1_strict_verdict.py LEG_DIR [LEG_DIR ...] [--expect 2] [--require-profile sim-oracle]
+  baseline1_strict_verdict.py [LEG_DIR ...] [--find ROOT] [--expect 2] [--require-profile sim-oracle]
       [--require-rmw rmw_cyclonedds_cpp] [--require-alignment 1] [--min-participant-index 120]
       [--summary FILE] [--out FILE]
 
-Each LEG_DIR is one leg's artifact: declaration.json (written by the workflow: leg number, pinned commits, middleware,
+--find ROOT adds every directory under ROOT that holds a declaration.json: actions/download-artifact puts each
+artifact in its own directory when several match, and one matching artifact straight into ROOT.
+Each leg is one artifact: declaration.json (written by the workflow: leg number, pinned commits, middleware,
 settings, build and environment outcome) and ws/build1_logs/baseline1_mission.json (written by the mission).
 
 PASS only when all of these hold:
@@ -51,6 +53,11 @@ def read_leg(leg_dir):
         if mission is not None:
             break
     return declaration, mission
+
+
+def find_legs(root):
+    """Every directory under root (root included) that holds a declaration.json, sorted."""
+    return sorted(dirpath for dirpath, _dirs, files in os.walk(root) if "declaration.json" in files)
 
 
 def participant_index(uri):
@@ -149,6 +156,7 @@ def render(record):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("legs", nargs="*")
+    parser.add_argument("--find", help="add every directory under this root that holds a declaration.json")
     parser.add_argument("--expect", type=int, default=2)
     parser.add_argument("--require-profile", default="sim-oracle")
     parser.add_argument("--require-rmw", default="rmw_cyclonedds_cpp")
@@ -157,7 +165,8 @@ def main(argv=None):
     parser.add_argument("--summary")
     parser.add_argument("--out")
     args = parser.parse_args(argv)
-    legs = [(d, *read_leg(d)) for d in sorted(args.legs)]
+    dirs = sorted(set(args.legs) | set(find_legs(args.find) if args.find else []))
+    legs = [(d, *read_leg(d)) for d in dirs]
     record = decide(legs, args)
     text = render(record)
     print(text)
