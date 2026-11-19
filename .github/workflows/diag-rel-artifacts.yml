@@ -8,21 +8,46 @@ permissions:
   contents: read
   actions: read
 jobs:
-  read:
+  arm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: pip mcap readers
+        run: python3 -m pip install --user mcap==1.2.2 mcap-ros2-support==0.5.5
+      - name: control room run 44476577635 (grasp_reach servo torque 1.018 N m)
+        run: |
+          gh run download 44476577635 -R ${{ github.repository }} -n control-room-e2e -D cr
+          python3 .github/diag/arm.py cr -0.90234
+      - name: acceptance leg 1 of 44470870769 (passing, 0.158 N m)
+        run: |
+          gh run download 44470870769 -R ${{ github.repository }} -n baseline1-acceptance-leg1-attempt1 -D l1
+          python3 .github/diag/arm.py l1 -0.93651
+  lift:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: drive bus of benchmark fastdds_default r1 (run 44346730235)
+      - name: scn02 artifacts, failing 323a2ce (run 44480278103) and passing fdef62c (run 44442069234)
         run: |
-          gh run download 44346730235 -R ${{ github.repository }} -n dds-benchmark-fastdds_default-r1-attempt1 -D a1
-          python3 .github/diag/analyze.py a1 drive 1795019692.52
-      - name: aux bus of benchmark cyclonedds r1 (run 44364910928)
-        run: |
-          gh run download 44364910928 -R ${{ github.repository }} -n dds-benchmark-cyclonedds-r1-attempt1 -D a2
-          python3 .github/diag/analyze.py a2 aux 1795025925.0 1795025945.0
-      - name: aux bus of benchmark fastdds r1 for comparison (lift passed)
-        run: |
-          python3 .github/diag/analyze.py a1 aux 1795020155.0 1795020180.0 | head -150
+          for r in 44480278103 44442069234; do
+            gh run download $r -R ${{ github.repository }} -D s$r || true
+            find s$r -type f | grep -i -E 'scn02|aux|lift' | head -40
+            for f in $(find s$r -name 'scn02*.json'); do
+              python3 - "$f" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          print("==", sys.argv[1], d.get("result"), d.get("reason"))
+          for e in d.get("events", []): print("event", e)
+          for q in d.get("quantities", [])[:60]: print("q", q.get("name"), q.get("value"))
+          tr = d.get("trace")
+          if isinstance(tr, list):
+              for row in tr[:400]: print("trace", row)
+          PY
+            done
+            for f in $(find s$r -name '*scn02*aux*' -o -name '*candump_vcan_aux*' | head -2); do echo "== $f"; grep -E ' (190|290|210|410)#' $f | head -400; done
+          done
