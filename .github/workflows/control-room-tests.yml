@@ -193,6 +193,11 @@ jobs:
           kill -TERM $pid 2>/dev/null || true
           for p in control_room_monitor.py vcan_monitor.py foxglove_bridge; do pkill -TERM -f "$p" || true; done
           wait $pid || true
+          # ros2 node info and ros2 topic echo above start a ROS 2 daemon; a job that ends with it running leaves an
+          # orphan (run 44590303735: "Terminate orphan process ... python3"). Stop it and check that none is left.
+          ros2 daemon stop || true
+          sleep 2
+          if pgrep -af _ros2_daemon; then echo "FAIL: a ROS 2 daemon is still running"; exit 1; fi
           cat ../launch.log
           python3 - ../graph.txt <<'EOF'
           import re, sys
