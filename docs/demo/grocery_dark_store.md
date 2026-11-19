@@ -143,16 +143,46 @@ Gazebo window, a camera that follows the robot, and RViz, on your own machine. H
   `931e631db661b16d1057dfd1ab1d13ea606482e2`, enactic/openarm_description `14ff67b`, openarm_ros2 `4e837e1`,
   openarm_can `bfd4e52` (config/pins.yaml), in one colcon workspace.
 - Build: `cd ~/openamr_ws && source /opt/ros/jazzy/setup.bash && colcon build --packages-up-to openamrobot_build1_scene`.
-  `--setup` below does all of this.
+  `--setup` below clones the sources and, after asking, installs the packages; the first run builds.
+
+### Preflight (changes nothing)
+
+From a checkout of this repository, before anything else:
+
+```bash
+bash ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --preflight
+```
+
+It prints one line per check, `PASS`, `WARN` or `FAIL`, and under each WARN or FAIL the exact command that fixes it.
+It runs none of them: no apt, no modprobe, no `ip link`, no git fetch, no file written (the only sudo call is
+`sudo -n true`, which never prompts, to tell whether sudo would ask for a password). It checks: Ubuntu 24.04 and the
+architecture; the display server (X11, Wayland with or without XWayland, WSLg, none); the OpenGL renderer from
+`glxinfo -B` (or `lspci`, `nvidia-smi` and `/dev/dri` without it), OpenGL 3.3 for ogre2, and whether it is software
+rendering (llvmpipe) or `LIBGL_ALWAYS_SOFTWARE=1` is set; ROS 2 Jazzy installed and whether another distribution is
+sourced; colcon and rosdep; the three Gazebo vendor packages against the pinned versions, whether they are held, and
+`gz sim --versions` / `gz sdf --versions` against 8.15.0 / 14.9.0; the required packages; the workspace, each source
+checkout against its pin (platform-sw `931e631`, the OpenArm pins of config/pins.yaml) and local changes; the vcan
+module, the five interfaces, their MTU and whether sudo will be needed; free disk, RAM and cores; Gazebo or RViz
+already running; the Gazebo GUI configuration (the follow camera needs its CameraTracking plugin); and whether a screen
+video can be recorded. Exit 0 without FAIL. The normal start runs the same preflight and stops on a FAIL (`--force`
+starts anyway); its output is kept in the log directory as `preflight.txt`.
 
 ### The one command
 
-First time (clones the pinned sources into `~/openamr_ws/src`, installs the pinned Gazebo packages and rosdep keys,
-builds), from a checkout of this repository:
+First time, from a checkout of this repository:
 
 ```bash
 bash ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --setup
 ```
+
+`--setup` first clones the pinned sources into `~/openamr_ws/src` (user space only): this repository at the commit
+the command runs from (or `--upperbody-ref REF`), openamr-platform-sw `931e631`, openarm_description `14ff67b`,
+openarm_ros2 `4e837e1`, openarm_can `bfd4e52`, each as a detached checkout verified against its hash and written to
+`~/openamr_ws/grocery_demo_pins.txt`. A checkout with local changes is never moved: it stops and says so. Then it lists
+every package change it would make (the pinned Gazebo vendor packages and their `apt-mark hold`, the runtime
+packages, `linux-modules-extra` when vcan is missing, and rosdep's own commands from `rosdep install --simulate`) and
+asks `run these commands now? [y/N]`. Without a terminal it does not ask: it prints the list and stops (exit 3).
+`--yes` runs the list without asking. To leave this machine's packages alone, use the container route below.
 
 Every time after that:
 
@@ -160,18 +190,81 @@ Every time after that:
 ~/openamr_ws/install/openamrobot_build1_scene/lib/openamrobot_build1_scene/run_grocery_demo_gui.sh
 ```
 
-It checks Ubuntu, ROS and the gz-sim version, builds when the workspace is not built (`--build` forces it), creates the
-virtual CAN buses with sudo and runs
-`ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py create_vcan:=false`. Options: `--no-rviz`,
-`--no-follow`, `--no-mission` (the store and the robot only), `--video` (also record the store camera as CI does),
-`--ws DIR`. The launch file alone takes `follow`, `follow_offset`, `rviz`, `mission`, `mission_delay`, `video`,
-`create_vcan` and `log_dir`. The mission starts 20 s after the stack and prints the phase table at the end.
+Options: `--no-rviz`, `--no-follow`, `--no-mission` (the store and the robot only), `--video` (also record the store
+camera as CI does), `--record` (below), `--headless` or `--no-gui` (Gazebo server only, no RViz, no follow camera),
+`--duration S` (stop and clean up after S seconds), `--log-dir DIR`, `--ws DIR`, `--build`, `--force`,
+`--ready-timeout S` (default 900). The launch file alone takes `stack`, `gazebo_gui`, `follow`, `follow_offset`, `rviz`,
+`mission`, `mission_delay`, `video`, `create_vcan` and `log_dir`.
+
+What it does, in order:
+
+1. The preflight (above); a FAIL stops it.
+2. `colcon build --packages-up-to openamrobot_build1_scene` when the workspace is not built (`--build` forces it).
+3. The virtual CAN buses it lacks: it looks at each of the five first. One that exists with the right MTU and up is
+   kept as it is; one that exists with a wrong MTU or down stops the run with the fix command (it is not changed). Only
+   the missing ones are created, with sudo (one password prompt), and listed in `vcan_created.txt`.
+4. The stack in its own process group: `ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py stack:=true`
+   with RViz, follow camera and mission off (log `stack.log`). The run gets its own `GZ_PARTITION`, so another Gazebo
+   on the machine does not mix in.
+5. `live_demo_wait.py` waits until `/clock` advances by 2 s of simulation time and `/tf`, `/scan` and `/odom` have
+   published (`ready.log`). If the stack exits meanwhile, the run stops with the end of `stack.log`.
+6. Then RViz and the follow camera (`stack:=false rviz:=true follow:=true`, log `views.log`), and the mission
+   (`stack:=false mission:=true mission_delay:=0`, log `mission.log`; it waits for Nav2 and MoveIt itself, and at the
+   end the terminal shows its verdict line and phase table).
+7. While it runs it watches every 5 s: the stack process and the `gz sim` processes of this run (gone: "Gazebo is no
+   longer running", the run stops), the Gazebo window (its `/gui/camera/pose` topic gone: reported, the server runs
+   on), RViz (gone: reported, the run goes on) and the end of the mission (reported; the windows stay open).
+8. On Ctrl-C, on `--duration`, on any stop and on exit (a trap): it stops the screen recorder and the bag first (SIGINT,
+   so the files are closed properly), then the mission, the views and the stack, each process group with SIGINT, then
+   SIGTERM, then SIGKILL; then any process still carrying this run's `GROCERY_DEMO_RUN_ID`; then it deletes the vcan
+   interfaces listed in `vcan_created.txt` and no other. `cleanup.txt` lists what was stopped, deleted and kept, and
+   `<log dir>.logs.tar.gz` bundles the text logs (no bags, no video).
+
+### Container route
+
+The repository's dev container (`.devcontainer/`) uses the same image. To run the live demo in a container without
+changing the host's ROS or Gazebo packages:
+
+```bash
+# On the host, once per boot: the vcan module and the five buses (the container shares the host network)
+sudo modprobe vcan
+sudo sh ros2/src/openamrobot_build1_scene/scripts/setup_vcan_all.sh
+# Let local containers draw on the X server (X11, or XWayland on a Wayland desktop)
+xhost +SI:localuser:root
+# Intel or AMD GPU: --device /dev/dri. NVIDIA: install nvidia-container-toolkit on the host and add
+#   --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all
+docker run --rm -it --network host --ipc host \
+  -e DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+  --device /dev/dri \
+  -v "$PWD":/root/openamr-upperbody-sw -v "$HOME/openamr_ws":/root/openamr_ws \
+  osrf/ros:jazzy-desktop bash
+# In the container: packages go into the container only
+apt-get update
+bash /root/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --preflight
+bash /root/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --setup --yes
+```
+
+The container runs as root, sees the five interfaces the host created and creates none (so it deletes none). The
+preflight inside reports "running inside a container"; its OpenGL line must not say llvmpipe if the GPU is passed
+through. The image tag moves: note the digest you used (`docker inspect --format '{{index .RepoDigests 0}}'
+osrf/ros:jazzy-desktop`) in the acceptance report. Afterwards on the host: `xhost -SI:localuser:root` and, if you want
+the buses gone, `sudo sh .../setup_vcan_all.sh --delete`. Not verified: this route has not been run with a GPU yet.
 
 ### Moving around
 
 - Gazebo window: left drag rotates (orbit), right drag or scroll zooms, middle drag (or Shift and left drag) pans.
-  The camera follows the robot model `openamrobot` (`gz_follow.py`, the GUI's camera tracking). To stop following,
-  or to follow by hand: right-click the robot in the Entity Tree (right panel) and choose Follow or Move to; Esc ends it.
+  The camera follows the robot model `openamrobot`, 2.5 m behind and 2.0 m above it in the robot's frame.
+  `gz_follow.py` does it through the GUI's CameraTracking plugin as the pinned sources define it (gz-sim tag
+  `gz-sim8_8.15.0`, which uses gz-gui8; read in gz-gui tag `gz-gui8_8.4.0`,
+  `src/plugins/camera_tracking/CameraTracking.cc`): it publishes a `gz.msgs.CameraTrack` with `track_mode: FOLLOW`
+  on the topic `/gui/track` (a topic, not a service), then reads `/gui/currently_tracked` until the GUI reports FOLLOW
+  of `openamrobot`, every 3 s, because the GUI drops a target that is not in its scene yet and the robot is spawned
+  after the window opens. The deprecated services `/gui/follow` and `/gui/follow/offset` (still offered) are tried the
+  same way as a second route. `views.log` and the terminal show `gz_follow: confirmed by /gui/currently_tracked ...`
+  or that it gave up. To stop following: Esc in the 3D view. To follow by hand: right-click the robot in the Entity
+  Tree (right panel), Follow (or Move to). A custom `~/.gz/sim/8/gui.config` without CameraTracking disables all of
+  this (the preflight warns). The gz-gui and gz-transport versions are whatever the Jazzy vendor packages bring; only
+  gz-sim, gz-tools and sdformat are pinned.
 - RViz (`rviz/grocery_demo.rviz`, read only: no goal, pose or interactive tools): left drag orbits, scroll zooms, middle
   drag pans; the orbit view follows `base_footprint` (Views panel, Target Frame, set it to `map` to stop following).
   It shows TF, the robot model, map, costmaps, footprint, LiDAR (`/scan_filtered`, `/scan`), odometry, ground truth,
@@ -186,16 +279,101 @@ virtual CAN buses with sudo and runs
 
 ### Recording and replay
 
-- Every run records into `~/grocery_demo_logs/<date_time>/` (or `log_dir`): a ROS bag (`bag/`, the topics of
-  Recordings below, plus `/robot_description`), `record_candump_vcan_*.log` for the five buses, the mission log and
-  report JSON, states and contacts.
-- More topics, by hand: `ros2 bag record --use-sim-time -o my_bag /tf /tf_static /scan_filtered /head_camera/rgbd/image`.
-- Gazebo: the Video Recorder plugin (top-right menu, Video Recorder) records the Gazebo view to MP4; the
-  screenshot button saves a PNG.
-- Replay a bag with RViz: `ros2 bag play ~/grocery_demo_logs/<date_time>/bag --clock` in one terminal, and in another
-  `rviz2 -d ~/openamr_ws/install/openamrobot_build1_scene/share/openamrobot_build1_scene/rviz/grocery_demo.rviz --ros-args -p use_sim_time:=true`.
-  The robot model comes from the recorded `/robot_description`; the CAN logs replay into a bus with
-  `canplayer -I record_candump_vcan_drive.log`.
+Every run with the mission records into its log directory (`~/grocery_demo_logs/<date_time>/` or `--log-dir`): the
+mission's ROS bag (`bag/`, the topics of Recordings below, plus `/robot_description`), `record_candump_vcan_*.log` for
+the five buses, `mission.log`, `grocery_demo_mission.json`, `grocery_demo_report.json`, states and contacts.
+
+`--record` adds, for the whole session from the moment the stack is ready:
+
+- `live_bag/`: a ROS bag of what RViz and the control room draw: `/clock`, `/tf`, `/tf_static`, `/robot_description`,
+  `/map`, both costmaps, the footprint, `/scan`, `/scan_filtered`, `/odom`, ground truth of the base and the item,
+  `/amcl_pose`, `/plan`, `/local_plan`, `/joint_states`, the MoveIt planning scene and planned paths, the mission
+  phases and events, the real-time factor and the drive, lift, BMS and firmware states. No camera images (size); add
+  them by hand with `ros2 bag record` if needed.
+- `screen.mp4`: on X11 with an ffmpeg that has x11grab (Ubuntu's has), the whole screen at 15 frames per second.
+  Gazebo's own Video Recorder plugin cannot be started from outside the window: in gz-sim 8.15.0 it has start and stop
+  buttons only (`src/gui/plugins/video_recorder/VideoRecorder.cc`, no service). On Wayland, use the desktop's
+  recorder (GNOME: Ctrl+Shift+Alt+R) or, in the Gazebo window, the top-right menu, Video Recorder, which writes MP4.
+
+Replay, three terminals, each with `source ~/openamr_ws/install/setup.bash`:
+
+```bash
+# 1. the recording, on its own clock
+ros2 bag play ~/grocery_demo_logs/<date_time>/live_bag --clock
+# 2. RViz with the same configuration and the MoveIt description, on simulation time, no simulator
+ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py stack:=false rviz:=true follow:=false mission:=false
+# 3. the control room of openamr-upperbody-sw #84 (open, not merged: build openamrobot_control_room from branch
+#    demo/control-room, d4c42ee, into the same workspace), its monitors on the replayed topics, no CAN listening
+ros2 launch openamrobot_control_room control_room.launch.py rviz:=false vcan:=false
+```
+
+The robot model comes from the recorded `/robot_description`. The CAN logs replay into a bus with
+`canplayer -I record_candump_vcan_drive.log` (and `vcan:=true` for the control room). The control room's offline
+report reads the mission bag: `ros2 run openamrobot_control_room mission_report.py --bag <log dir>/bag --mission
+<log dir>/grocery_demo_mission.json --candump "<log dir>/record_candump_*.log" --scene
+~/openamr_ws/install/openamrobot_build1_scene/share/openamrobot_build1_scene/config/grocery_scene.yaml -o report.html`.
+That report was written for the Baseline 1 mission JSON; whether it reads the grocery mission JSON and scene has not
+been checked.
+
+### Headless checks (CI)
+
+`.github/workflows/grocery-demo-live-headless.yml` runs, headless, on pull requests that touch the launcher, its
+helpers, the live launch file or the RViz configuration: `test_live_launcher` (the launcher against stub commands and
+a fake sysfs: the preflight runs no mutating command and writes nothing, `--setup` installs nothing without
+confirmation and runs the listed commands with `--yes`, only missing vcan interfaces are created and only those are
+deleted, an existing interface with a wrong MTU is left alone, Ctrl-C stops every process and the stack gets SIGINT,
+a dead `gz sim` is detected); `--preflight` on the runner with no display and under Xvfb; smoke A, `--headless
+--no-mission --record` for 240 s (readiness, the bag, cleanup, a pre-existing `vcan_aux` kept); and smoke B,
+informational, the Gazebo window, RViz and the follow camera under Xvfb with Mesa's software renderer. None of these is
+a desktop test: Xvfb has no GPU and no one looks at the windows.
+
+### Desktop acceptance test
+
+For a person with a Linux desktop and a GPU. It is the only test of what this page promises to show. About one hour,
+most of it the first build and the mission.
+
+1. Preflight. In a terminal of the desktop session, from a checkout of this repository on `demo/grocery-dark-store`:
+   `bash ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --preflight | tee ~/preflight.txt`.
+   Expected: no FAIL; `display` is X11 or Wayland; `OpenGL` is PASS with your GPU's name (a WARN with llvmpipe means
+   software rendering: note it, the test can go on, slowly). Fix any FAIL with the command printed under it.
+2. Setup. `bash ros2/src/openamrobot_build1_scene/scripts/run_grocery_demo_gui.sh --setup`. Expected: five lines
+   `<repository> at <hash>` (the four pinned hashes above and this checkout's), then the list of package changes and
+   the question. Answer y (or n, run the commands yourself, then repeat). Then the preflight again: no FAIL.
+3. Start. `~/openamr_ws/install/openamrobot_build1_scene/lib/openamrobot_build1_scene/run_grocery_demo_gui.sh --record`.
+   The first time it builds (10 to 30 minutes). Expected in the terminal: the vcan line (sudo password once, unless
+   the buses exist), `stack: ros2 launch ...`, then `waiting for simulation time, /tf, /scan and /odom`.
+4. Gazebo window. Within a minute or two after the build: the Gazebo window with the store: shelf rows, bollards at
+   the row ends, the packing bench with the order tote, and the robot at its parking spot. Then the terminal says
+   `ready after N s`.
+5. Follow camera. Within about 30 s after `ready`: the terminal (and `views.log`) says `gz_follow: confirmed by
+   /gui/currently_tracked: the Gazebo camera follows openamrobot`, and the Gazebo view moves behind and above the
+   robot. Orbit with the left mouse button: the view stays centred on the robot. Esc ends following.
+6. RViz. A window with the `map` (grey occupancy grid of the store), the robot model, the LiDAR scan as points along
+   the shelves (`/scan_filtered`, on), the local costmap and footprint around the robot, the AMCL pose arrow and the
+   head camera image. Displays panel: errors or warnings only on image displays whose topic is not published (the
+   store camera without `--video`).
+7. Mission. The twelve phases, in this order: park, aisle shelf, stop and authorize, lift, approach, grasp, lift the
+   product, back up with it, packing bench, place it in the order tote, retreat, back to parking. In Gazebo the robot
+   drives to the aisle shelf, the lift rises, the arm takes the product, the robot backs up, drives to the packing
+   bench and puts the product into the tote, then drives back. In RViz the global plan (`/plan`) appears as a line
+   before each drive and the local plan follows the robot; the planned arm trajectory shows during the grasp and the
+   place. At the end the terminal prints `grocery demo mission: PASS` (or FAIL or BLOCKED with the reason), the phase
+   table and `mission process ended`. Note the time each phase was reached if a phase looks wrong.
+8. Robustness (optional, after the mission). Close RViz: the terminal reports `RViz is not running`. Then press Ctrl-C:
+   expected `stopping (cleanup)`, a list of stopped process groups, `deleted vcan_...` for each interface the run
+   created and `kept ...` for any that existed, and the log bundle path. `pgrep -a -f 'gz sim|rviz2'` prints nothing.
+
+Send back, in the pull request or to the work-package owner:
+
+- a screen recording of steps 4 to 7 (`<log dir>/screen.mp4` from `--record` on X11, or the desktop's recorder), at
+  least the start, one grasp and the place;
+- `~/preflight.txt` from step 1 and `<log dir>/preflight.txt`;
+- the log bundle `<log dir>.logs.tar.gz` (stack, views, mission and readiness logs, cleanup, report JSON);
+- `~/openamr_ws/grocery_demo_pins.txt`, the GPU and driver (`glxinfo -B | head -8`), and what you saw that differs from
+  the expectations above, by step number.
+
+This is a test of the simulation's visual presentation and of the launcher on a desktop. It is not hardware, physical
+acceptance, perception or safety evidence.
 
 ## Recordings
 

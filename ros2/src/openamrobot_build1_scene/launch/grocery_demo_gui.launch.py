@@ -1,14 +1,20 @@
 # SPDX-License-Identifier: MIT
 """Watch the grocery dark store demonstrator live: the Gazebo window, RViz and the mission, on a local machine.
 
-    ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py [follow:=true] [rviz:=true] [mission:=true]
-        [mission_delay:=20.0] [create_vcan:=true] [log_dir:=...]
+    ros2 launch openamrobot_build1_scene grocery_demo_gui.launch.py [stack:=true] [gazebo_gui:=true] [follow:=true]
+        [rviz:=true] [mission:=true] [mission_delay:=20.0] [create_vcan:=true] [log_dir:=...]
+
+run_grocery_demo_gui.sh uses it in three parts: stack:=true with rviz, follow and mission false; then, once
+live_demo_wait.py has seen simulation time, /tf, /scan and /odom, stack:=false with the views; then stack:=false
+mission:=true mission_delay:=0. Launched alone with the defaults it starts everything at once as before.
 
 What it starts
-  build1.launch.py   the integrated stack exactly as the grocery-demo workflow runs it (profile firmware_sil, scene
-                     grocery_scene.yaml, planning_pose_source and object_pose_source ground_truth: the sim-oracle profile,
-                     station alignment off), but with headless:=false, so the Gazebo window opens
-  gz_follow.py       (follow:=true) asks the Gazebo GUI's camera tracking to follow the robot model `openamrobot`
+  build1.launch.py   (stack:=true) the integrated stack exactly as the grocery-demo workflow runs it (profile
+                     firmware_sil, scene grocery_scene.yaml, planning_pose_source and object_pose_source ground_truth:
+                     the sim-oracle profile, station alignment off), but with headless:=false, so the Gazebo window
+                     opens (gazebo_gui:=false: server only)
+  gz_follow.py       (follow:=true) asks the Gazebo GUI's camera tracking to follow the robot model `openamrobot` and
+                     waits until the GUI confirms it
   rviz2              (rviz:=true) rviz/grocery_demo.rviz, read only, with the MoveIt description for the trajectory display
   the mission        (mission:=true) scripts/grocery_demo_run.py after mission_delay seconds of wall time; it waits for
                      the stack itself. Logs, ROS bag and candump go to log_dir
@@ -29,6 +35,7 @@ from launch_ros.actions import Node
 
 PACKAGE = "openamrobot_build1_scene"
 # The arguments build1.launch.py gets from this launch. test_grocery_scene.py checks that each one exists there.
+# headless follows gazebo_gui (false unless gazebo_gui:=false).
 STACK_ARGUMENTS = {"profile": "firmware_sil", "scene": "grocery_scene.yaml", "station": "origin", "headless": "false",
                    "rviz": "false", "nav2": "true", "moveit": "true", "station_alignment": "false",
                    "planning_pose_source": "ground_truth", "object_pose_source": "ground_truth"}
@@ -44,9 +51,11 @@ def setup(context):
                SetEnvironmentVariable("BASELINE1_STATION_ALIGNMENT", "0"),
                SetEnvironmentVariable("GROCERY_VIDEO", value("video")),
                LogInfo(msg=f"grocery demonstrator, live: logs, ROS bag and candump in {log_dir}")]
-    actions.append(IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(share, "launch", "build1.launch.py")),
-        launch_arguments={**STACK_ARGUMENTS, "create_vcan": value("create_vcan")}.items()))
+    if value("stack") == "true":
+        headless = "false" if value("gazebo_gui") == "true" else "true"
+        actions.append(IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(share, "launch", "build1.launch.py")),
+            launch_arguments={**STACK_ARGUMENTS, "headless": headless, "create_vcan": value("create_vcan")}.items()))
     if value("follow") == "true":
         actions.append(Node(package=PACKAGE, executable="gz_follow.py", name="gz_follow", output="screen",
                             arguments=["--entity", "openamrobot", "--offset", value("follow_offset")]))
@@ -67,6 +76,10 @@ def setup(context):
 def generate_launch_description():
     boolean = ["true", "false"]
     return LaunchDescription([
+        DeclareLaunchArgument("stack", default_value="true", choices=boolean,
+                              description="Start the integrated stack (build1.launch.py); false: only the views or the mission"),
+        DeclareLaunchArgument("gazebo_gui", default_value="true", choices=boolean,
+                              description="Gazebo window; false: server only (headless smoke runs)"),
         DeclareLaunchArgument("follow", default_value="true", choices=boolean,
                               description="Gazebo GUI camera follows the robot (camera tracking of the GUI)"),
         DeclareLaunchArgument("follow_offset", default_value="-2.5,0.0,2.0",

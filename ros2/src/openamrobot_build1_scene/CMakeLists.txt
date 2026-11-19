@@ -29,6 +29,8 @@ install(PROGRAMS
   scripts/grocery_map.py
   scripts/grocery_demo_run.py
   scripts/gz_follow.py
+  scripts/live_demo_preflight.py
+  scripts/live_demo_wait.py
   scripts/run_grocery_demo_gui.sh
   DESTINATION lib/${PROJECT_NAME})
 
@@ -40,6 +42,8 @@ if(BUILD_TESTING)
   foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record arm_frames lift_plant diagnostics station_marker grocery_scene)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
+  # The live launcher against stub commands and a fake sysfs (no ROS, Gazebo, display or sudo): about 2 minutes.
+  ament_add_pytest_test(test_live_launcher test/test_live_launcher.py TIMEOUT 300)
 
   # Virtual CAN tests: BLOCKED, never passed, where the interfaces cannot be had.
   ament_add_pytest_test(test_canfd_vcan test/test_canfd_vcan.py TIMEOUT 120)
