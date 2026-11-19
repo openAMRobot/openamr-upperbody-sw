@@ -50,6 +50,30 @@ are reported apart. Deterministic start: `BASELINE1_SEED` seeds Python random an
 `PYTHONHASHSEED` is fixed, every node runs on simulation time. Gazebo gets no seed: the launch has no seed argument,
 and adding one is a launch contract change.
 
+## Strict acceptance sequence (19 Nov 2026, workflow ready, sequence not started)
+
+One dispatch with `sequence: strict` (the default) runs two missions one after the other (matrix legs 1 and 2,
+`max-parallel: 1`, a fresh runner each) on the same pinned commits. Each leg writes `declaration.json`: the commit of
+every checkout, the middleware rclpy reports at runtime, `CYCLONEDDS_URI`, profile, station approach and alignment,
+seed, build and environment outcome. The `verdict` job runs `test/test_baseline1_strict.py`, then
+`scripts/baseline1_strict_verdict.py`, and is PASS only when both legs are 8 of 8, the commits of both legs are
+identical, both ran `rmw_cyclonedds_cpp` with `MaxAutoParticipantIndex` 120, both declared station alignment 1 and
+sent the goal through `/station_alignment/navigate_to_station`, and both declared sim-oracle
+(`planning_pose_source: ground_truth` in the run identity). A pull_request run, or `sequence: single`, is one
+validation leg and is reported NOT STRICT. Artifacts per leg and the verdict are kept 90 days.
+
+Settings declared in every leg:
+- Middleware: CycloneDDS for initial acceptance (Alex, 19 Nov 2026), with the participant index cap raised to 120 as in
+  the DDS benchmark (#89). The robot's middleware beyond acceptance stays the owners' decision.
+- Station alignment: openamr-platform-sw #167 on (simulation-only base camera), `station_alignment: 0` is the revert run.
+- Profile: sim-oracle (object and planning poses from simulator ground truth); not a perception result.
+- Retreat: one straight 0.30 m backup through behavior_server's `backup` action, the mission's last phase, simulation
+  only. A declared station departure, not a recovery; general reversing recovery is removed (Alex, 19 Nov 2026).
+
+Pins: openamr-platform-sw integration branch `fb25be1` (#164 at `09f9a85`, BackUp removed from its trees; #167 at
+`99ec17f`, then `dccd5e0`, test-only change on top), openamrobot-interfaces `50ed777` (StopState, imported by #167's
+node from 99ec17f on).
+
 ## Gate status (17 Nov 2026, branch head `80c92e1`, draft PR #77)
 
 Baseline 1: NOT COMPLETE. Acceptance run 44076639872 (platform `d36b33a`, `firmware_sil`, DART, 1 ms step,
