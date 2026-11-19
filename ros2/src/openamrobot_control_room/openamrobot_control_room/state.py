@@ -86,7 +86,7 @@ class Motion:
 
     def __init__(self):
         self.first = self.last = None
-        self.speed = 0.0
+        self.speed = None          # unknown until two poses at different times: never shown as 0.0
 
     def update(self, t, xyz):
         if self.last is not None and t > self.last[0]:
@@ -99,7 +99,7 @@ class Motion:
         if self.last is None:
             return None
         return {"position": [round(v, 4) for v in self.last[1]], "displacement_m": round(math.dist(self.last[1], self.first[1]), 4),
-                "speed_mps": round(self.speed, 4)}
+                "speed_mps": None if self.speed is None else round(self.speed, 4)}
 
 
 def contact_force(contacts):
@@ -127,9 +127,14 @@ class Contacts:
         record["max_force_n"] = round(max(record["max_force_n"], force), 3)
 
     def summary(self):
+        """Without a contact sensor topic (BUILD1_CONTACT_SENSORS unset) nothing is known: events, in_contact and
+        max_force_n are None, never 0 (no contact measured is not the same as no contact)."""
+        if not self.topics:
+            return {"topics": 0, "events": None, "in_contact": None, "max_force_n": None,
+                    "unknown": "no contact sensor topic (/build1/contacts/*): contact sensors run only with BUILD1_CONTACT_SENSORS=1"}
         return {"topics": len(self.topics), "events": sum(r["events"] for r in self.topics.values()),
                 "in_contact": sorted(t.rsplit("/", 1)[-1] for t, r in self.topics.items() if r["in_contact"]),
-                "max_force_n": max((r["max_force_n"] for r in self.topics.values()), default=0.0)}
+                "max_force_n": max(r["max_force_n"] for r in self.topics.values())}
 
 
 def scalars(value, limit=24):

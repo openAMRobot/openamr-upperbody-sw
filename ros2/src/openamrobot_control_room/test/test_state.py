@@ -46,6 +46,21 @@ def test_motion_and_contacts():
     assert contacts.summary() == {"topics": 1, "events": 2, "in_contact": ["openarm_left_link7"], "max_force_n": 3.0}
 
 
+def test_unsupported_telemetry_is_unknown_not_zero():
+    """A value the run does not provide is None, never a made-up 0: one item pose gives no speed, and without a contact
+    sensor topic (BUILD1_CONTACT_SENSORS unset, as in run 44476577635) there is no contact force or event count."""
+    motion = state.Motion()
+    assert motion.summary() is None
+    motion.update(1.0, (0.0, 0.0, 0.8))
+    assert motion.summary()["speed_mps"] is None
+    motion.update(1.0, (0.0, 0.0, 0.9))      # same time stamp: still no speed
+    assert motion.summary()["speed_mps"] is None
+    empty = state.Contacts().summary()
+    assert empty["topics"] == 0
+    assert empty["max_force_n"] is None and empty["events"] is None and empty["in_contact"] is None
+    assert "BUILD1_CONTACT_SENSORS" in empty["unknown"]
+
+
 def test_scalars_keeps_only_scalar_fields():
     assert state.scalars({"a": 1, "b": [1, 2], "c": "x", "d": {"e": 1}, "f": None}) == {"a": 1, "c": "x", "f": None}
     assert state.scalars(None) is None

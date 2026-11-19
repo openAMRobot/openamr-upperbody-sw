@@ -14,6 +14,7 @@ Gazebo time of each summary comes from /clock. Same read-only rules as monitor.p
 """
 import json
 import threading
+import time
 
 from openamrobot_control_room import can_decode, can_monitor, readonly
 
@@ -68,13 +69,14 @@ class VcanMonitorNode:
         summary = self.monitor.summary()
         for bus, rate in self.sim_rates(summary).items():
             summary[bus]["rate_per_sim_s"] = rate
+        host_time = round(time.time(), 6)    # next to sim_time: a (host, Gazebo) pair for timebase.py
         self.summary_pub.publish(self.String(data=json.dumps(
-            {"buses": summary, "sim_time": self.sim_time,
+            {"buses": summary, "sim_time": self.sim_time, "host_time": host_time,
              "note": "receive-only; rate_hz per wall second, rate_per_sim_s per Gazebo second; nothing sent"},
             sort_keys=True)))
         with self.lock:
             decoded = json.loads(json.dumps(self.latest.summary(), default=str))
-        decoded.update(sim_time=self.sim_time, decode_errors=self.decode_errors,
+        decoded.update(sim_time=self.sim_time, host_time=host_time, decode_errors=self.decode_errors,
                        note="decoded by openamrobot_control_room can_decode.py from emulated devices on vcan; "
                             "frame times t are host time")
         self.decoded_pub.publish(self.String(data=json.dumps(decoded, sort_keys=True)))

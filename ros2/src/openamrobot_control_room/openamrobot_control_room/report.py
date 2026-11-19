@@ -42,7 +42,8 @@ def extract(messages, station=None):
     """Series from bag messages. `station`: (x, y, yaw) for the station error, or None."""
     out = {"station_error": [], "station_along": [], "station_left": [], "loc_error": [], "loc_yaw_error": [],
            "lift_js": [], "lift_physics": [], "rtf": [], "contacts": {}, "joints": {j: [] for j in ARM_JOINTS},
-           "item_z": [], "topics": {}, "sim_span": None, "run_info": None, "mission_status": []}
+           "item_z": [], "topics": {}, "sim_span": None, "run_info": None, "mission_status": [],
+           "mission_status_json": [], "lift_status": []}
     clock = None
     truth = None
     first_sim = last_sim = None
@@ -94,6 +95,10 @@ def extract(messages, station=None):
                 pass
         elif topic in ("/baseline1/mission_status", "/grocery_demo/phase"):
             out["mission_status"].append((t, topic, getattr(msg, "data", "")[:300]))
+            if topic == "/baseline1/mission_status":
+                out["mission_status_json"].append((t, getattr(msg, "data", "")))
+        elif topic == "/sil/lift/status":       # CTL-017 counter and the host client's Gazebo time: timebase.py
+            out["lift_status"].append((t, getattr(msg, "data", "")))
         elif topic.startswith("/build1/contacts/") or topic == "/control_room/contacts/max_force":
             if hasattr(msg, "contacts"):
                 force = 0.0
@@ -106,6 +111,10 @@ def extract(messages, station=None):
             else:
                 force = float(msg.data)
             out["contacts"].setdefault(topic.rsplit("/", 1)[-1], []).append((t, force))
+    # /control_room/contacts/max_force derives from the contact sensor topics. Without any of them in the recording
+    # (BUILD1_CONTACT_SENSORS unset) a monitor before 19 Nov 2026 published 0.0 N: unknown, so it is not plotted.
+    if "max_force" in out["contacts"] and not any(t.startswith("/build1/contacts/") for t in out["topics"]):
+        del out["contacts"]["max_force"]
     out["sim_span"] = (first_sim, last_sim) if first_sim is not None else None
     return out
 
@@ -113,8 +122,9 @@ def extract(messages, station=None):
 _CANDUMP = re.compile(r"^\((?P<t>[0-9.]+)\)\s+(?P<bus>\S+)\s+(?P<id>[0-9A-Fa-f]+)#")
 
 
-def candump_rates(lines_by_bus, bin_s=1.0):
-    """candump -L lines per bus to (seconds since the first frame of any bus, frames per second) per bus."""
+def candump_rates(lines_by_bus, bin_s=1.0, to_sim=None):
+    """candump -L lines per bus to (seconds since the first frame of any bus, frames per wall second) per bus. With
+    `to_sim` (timebase.py) the x value is the Gazebo time of the bin centre instead (None outside the map: dropped)."""
     times = {}
     for bus, lines in lines_by_bus.items():
         stamps = []
@@ -130,25 +140,33 @@ def candump_rates(lines_by_bus, bin_s=1.0):
         for t in stamps:
             k = int((t - start) // bin_s)
             bins[k] = bins.get(k, 0) + 1
-        if bins:
+        if bins and to_sim is not None:
+            points = [(to_sim(start + (k + 0.5) * bin_s), bins.get(k, 0) / bin_s) for k in range(0, max(bins) + 1)]
+            rates[bus] = [(x, y) for x, y in points if x is not None]
+        elif bins:
             rates[bus] = [((k + 0.5) * bin_s, bins.get(k, 0) / bin_s) for k in range(0, max(bins) + 1)]
         else:
             rates[bus] = []
     return rates
 
 
-def candump_decoded(lines_by_bus, arm_every=25):
+def candump_decoded(lines_by_bus, arm_every=25, to_sim=None):
     """Engineering series from candump -L lines (can_decode.py), on candump's host wall time since the first frame of
     any bus. Arm buses: every `arm_every`th frame of each ID (they carry about 2000 frames per simulated second).
-    Returns {"series": {name: [(t, value)]}, "commands": [lift command rows], "raw": [first frame of each bus and ID]}."""
+    With `to_sim` (timebase.py) every time is Gazebo time; frames outside the map are dropped, never placed.
+    Returns {"series": {name: [(t, value)]}, "commands": [lift command rows], "raw": [first frame of each bus and ID],
+    "time_base": "gazebo" or "host"}."""
     from openamrobot_control_room import can_decode as cd
     parsed = {bus: [p for p in (cd.parse_candump(line) for line in lines) if p] for bus, lines in lines_by_bus.items()}
     start = min((p[0][0] for p in parsed.values() if p), default=None)
     series, commands, raw, seen, counter = {}, [], [], set(), {}
 
+    def when(t):
+        return round(t - start, 3) if to_sim is None else (None if to_sim(t) is None else round(to_sim(t), 3))
+
     def add(name, t, value):
-        if value is not None:
-            series.setdefault(name, []).append((t - start, value))
+        if value is not None and when(t) is not None:
+            series.setdefault(name, []).append((when(t), value))
     for bus, frames in sorted(parsed.items()):
         for t, _bus, can_id, data, ext, _fd in frames:
             if bus in cd.ARM_SIDE:
@@ -158,7 +176,7 @@ def candump_decoded(lines_by_bus, arm_every=25):
             r = cd.decode(bus, can_id, data, ext)
             if (bus, can_id) not in seen:
                 seen.add((bus, can_id))
-                raw.append({"bus": bus, "id": f"{can_id:X}", "data": data.hex().upper(), "t": round(t - start, 3),
+                raw.append({"bus": bus, "id": f"{can_id:X}", "data": data.hex().upper(), "t": when(t),
                             "decoded": {k: v for k, v in r.items() if k not in ("device",)}})
             kind = r.get("kind")
             if bus == "vcan_drive" and kind in ("SDO write", "SDO read reply") and r.get("index") in ("60FFh", "606Ch"):
@@ -170,13 +188,13 @@ def candump_decoded(lines_by_bus, arm_every=25):
             elif bus == "vcan_aux" and kind == "TPDO2 inputs and drive":
                 add("lift TPDO2 velocity", t, r["velocity_mm_s"])
             elif bus == "vcan_aux" and kind == "RPDO1 command" and (not commands or commands[-1]["seq"] != r["seq"]):
-                commands.append({"t": round(t - start, 3), "seq": r["seq"], "op": r["op"], "stop": r["stop"]})
+                commands.append({"t": when(t), "seq": r["seq"], "op": r["op"], "stop": r["stop"]})
             elif bus == "vcan_bms" and r.get("data_id") == "90h" and "soc_percent" in r:
                 add("BMS SOC", t, r["soc_percent"])
                 add("BMS pack voltage", t, r["pack_voltage_v"])
             elif bus in cd.ARM_SIDE and kind in ("MIT command", "state feedback") and r["motor"] <= 7:
                 add(f"{r['joint']} {'command' if kind == 'MIT command' else 'feedback'}", t, r["q_rad"])
-    return {"series": series, "commands": commands, "raw": raw}
+    return {"series": series, "commands": commands, "raw": raw, "time_base": "host" if to_sim is None else "gazebo"}
 
 
 def _thin(points, limit=MAX_POINTS):
@@ -380,28 +398,31 @@ def provenance_table(run_info):
             f"<tr><td>hardware</td><td>{html.escape(view['hardware'])}</td></tr></tbody></table><p class=note>Run: {run}</p>")
 
 
-def decoded_sections(decoded, section):
+def decoded_sections(decoded, section, bands=()):
     if not decoded:
         section("Decoded CAN signals", '<p class="empty">No candump logs were given (--candump).</p>')
         return
     s = decoded["series"]
-    wall = "host wall s since the first frame (candump time, not Gazebo time)"
+    if decoded.get("time_base") == "gazebo":
+        wall = "Gazebo s (candump host time mapped, see Time base)"
+    else:
+        wall, bands = "host wall s since the first frame (candump time, not Gazebo time)", ()
     pick = lambda *names: [(n, s[n]) for n in names if n in s]  # noqa: E731
     section("Drive (vcan_drive, ZLAC8015D emulator): wheel speed", svg_chart(
         "can_drive", pick("drive left target (60FFh write)", "drive right target (60FFh write)",
-                          "drive left actual (606Ch read)", "drive right actual (606Ch read)"), wall, "wheel rim m/s"),
+                          "drive left actual (606Ch read)", "drive right actual (606Ch read)"), wall, "wheel rim m/s", bands),
         "SDO 60FFh writes (r/min) and 606Ch read replies (0.1 r/min) of the host stand-in, times 2 pi / 60 times "
         "the wheel radius 0.098 m of openamrobot_sil sil.yaml.")
     section("Lift (vcan_aux, CTL-017 emulator): position and velocity", svg_chart(
-        "can_lift", pick("lift TPDO1 position", "lift TPDO2 velocity"), wall, "mm, mm/s"),
+        "can_lift", pick("lift TPDO1 position", "lift TPDO2 velocity"), wall, "mm, mm/s", bands),
         "TPDO1 position (0.1 mm) and TPDO2 velocity (0.1 mm/s). Commands (RPDO1): " + (", ".join(
             f"t={c['t']} s seq {c['seq']} {c['op']} {c['stop'] or ''}" for c in decoded["commands"]) or "none"))
     arm = [n for n in sorted(s) if n.startswith("openarm_left_joint") and n.split()[0][-1] in "1247"]
     section("Left arm (vcan_arm_l, emulated Damiao motors): MIT command and feedback position", svg_chart(
-        "can_arm", [(n, s[n]) for n in arm], wall, "rad"),
+        "can_arm", [(n, s[n]) for n in arm], wall, "rad", bands),
         "MIT command q of the unmodified openarm_ros2 driver and the motors' state feedback q, joints 1, 2, 4 and 7, "
         "every 25th frame of each ID.")
-    section("BMS (vcan_bms, Daly emulator)", svg_chart("can_bms", pick("BMS SOC", "BMS pack voltage"), wall, "%, V"),
+    section("BMS (vcan_bms, Daly emulator)", svg_chart("can_bms", pick("BMS SOC", "BMS pack voltage"), wall, "%, V", bands),
             "Data ID 90h replies. The Daly protocol is unconfirmed for the delivered unit.")
     rows = "".join(f"<tr><td>{html.escape(r['bus'])}</td><td>{html.escape(r['id'])}</td><td><code>{html.escape(r['data'])}"
                    f"</code></td><td>{html.escape(json.dumps(r['decoded'], sort_keys=True))}</td></tr>" for r in decoded["raw"])
@@ -409,7 +430,29 @@ def decoded_sections(decoded, section):
             f"</th><th>Decoded</th></tr></thead><tbody>{rows}</tbody></table>")
 
 
-def render(series, mission, can_rates=None, title="Baseline 1 mission report", source="", decoded=None):
+def time_base_table(info):
+    if not info:
+        return '<p class="empty">No time base information (no candump logs, no control room log).</p>'
+    rows = [("Bag", info["bag"]), ("Mission JSON", info["mission_json"]), ("REPLAY", info["replay"]),
+            ("candump", info["candump"]),
+            ("CAN plots on", info.get("can_mapped_by") or f"host time, not mapped: {info.get('can_not_mapped_because')}")]
+    tpdo = info.get("tpdo1_pairs") or {}
+    if tpdo:
+        rows.append(("CTL-017 TPDO1 counter pairs", f"{tpdo['pairs']} pairs, {tpdo['coverage_of_candump']:.0%} of the candump, leave-one-out "
+                     f"{json.dumps(tpdo['leave_one_out'], sort_keys=True)}; bias 0 to +50 ms (status timer 0.05 s)"))
+    cr = info.get("control_room_pairs") or {}
+    if cr.get("n"):
+        rows.append(("Control room status pairs", f"{cr['n']} pairs, leave-one-out {json.dumps(cr['leave_one_out'], sort_keys=True)}"))
+    if info.get("tpdo1_map_minus_control_room_pairs"):
+        rows.append(("TPDO1 map minus control room pairs", json.dumps(info["tpdo1_map_minus_control_room_pairs"], sort_keys=True)))
+    ms = info.get("mission_status_minus_mission_json") or {}
+    rows.append(("/baseline1/mission_status (Proposed, #82) minus mission JSON phase begin",
+                 f"{ms.get('phases', 0)} phases, largest {ms.get('max_abs_ms')} ms" if ms.get("phases") else "no Proposed status topic in the bag"))
+    body = "".join(f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>" for k, v in rows)
+    return f"<table><thead><tr><th>Stream</th><th>Time base and measured skew</th></tr></thead><tbody>{body}</tbody></table>"
+
+
+def render(series, mission, can_rates=None, title="Baseline 1 mission report", source="", decoded=None, time_base=None):
     mission = mission or {}
     bands = phase_bands(mission)
     sim = "Gazebo time, s"
@@ -442,11 +485,16 @@ def render(series, mission, can_rates=None, title="Baseline 1 mission report", s
     section("Real-time factor", svg_chart("rtf", [("rtf_last", series["rtf"])], sim, "Gazebo s per wall s", bands),
             "/build1/rtf_stats (rtf_monitor.py, the last second).")
     rates = can_rates or {}
+    mapped = bool(time_base and time_base.get("can_mapped_by"))
     section("CAN frame rate", svg_chart("can", [(bus, pts) for bus, pts in sorted(rates.items())],
-                                        "wall s since the first frame", "frames per s"),
-            "candump -L logs of the virtual buses (wall time, not Gazebo time)." if rates else
+                                        "Gazebo s (candump host time mapped)" if mapped else "wall s since the first frame",
+                                        "frames per wall s", bands if mapped else ()),
+            ("candump -L logs of the virtual buses, frames per wall second, placed on Gazebo time (Time base)." if mapped else
+             "candump -L logs of the virtual buses (wall time, not Gazebo time).") if rates else
             "No candump logs were given (--candump).")
-    decoded_sections(decoded, section)
+    decoded_sections(decoded, section, bands)
+    section("Time base", time_base_table(time_base),
+            "Every plot above is on Gazebo time except where its axis says host time. Skews are measured, not assumed.")
     contacts = series["contacts"]
     top = sorted(contacts, key=lambda k: -max((f for _, f in contacts[k]), default=0.0))[:8]
     section("Contact force", svg_chart("contacts", [(k, contacts[k]) for k in top], sim, "N", bands),

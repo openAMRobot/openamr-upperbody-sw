@@ -36,6 +36,9 @@ def main(argv=None):
     parser.add_argument("--bag")
     parser.add_argument("--mission")
     parser.add_argument("--candump", nargs="*", default=[])
+    parser.add_argument("--control-room-log", nargs="*", default=[],
+                        help="the control room's JSON lines (status.jsonl, can.jsonl): host and Gazebo time pairs")
+    parser.add_argument("--time-base-json", help="write the time base and its measured skews to this file")
     parser.add_argument("--station", nargs=3, type=float)
     parser.add_argument("--scene")
     parser.add_argument("--station-name", default="work_shelf")
@@ -88,9 +91,22 @@ def main(argv=None):
         print(f"no bag at {args.bag}", file=sys.stderr)
         return 2
     series = report.extract(bag.read(args.bag), station=station)
-    decoded = report.candump_decoded(can_lines) if can_lines and not args.synthetic else None
-    page = report.render(series, mission, report.candump_rates(can_lines) if can_lines else None, title=args.title,
-                         source=f"bag {args.bag}, mission {args.mission or '-'}", decoded=decoded)
+    from openamrobot_control_room import timebase
+    lines = []
+    for path in args.control_room_log:
+        if os.path.exists(path):
+            with open(path, encoding="utf-8", errors="replace") as f:
+                lines.extend(f.readlines())
+    to_sim, time_base = timebase.run_time_base(can_lines if not args.synthetic else {}, series["lift_status"], lines,
+                                               mission, series["mission_status_json"])
+    print("time base: " + json.dumps(time_base, sort_keys=True))
+    if args.time_base_json:
+        with open(args.time_base_json, "w", encoding="utf-8") as f:
+            json.dump(time_base, f, indent=1, sort_keys=True)
+    decoded = report.candump_decoded(can_lines, to_sim=to_sim) if can_lines and not args.synthetic else None
+    rates = report.candump_rates(can_lines, to_sim=to_sim if not args.synthetic else None) if can_lines else None
+    page = report.render(series, mission, rates, title=args.title,
+                         source=f"bag {args.bag}, mission {args.mission or '-'}", decoded=decoded, time_base=time_base)
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(page)

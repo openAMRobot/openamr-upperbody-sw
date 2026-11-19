@@ -42,6 +42,24 @@ def test_extract():
     assert series["sim_span"] == (0.5, 50.0)
 
 
+def test_control_room_force_without_contact_sensors_is_not_plotted():
+    """Bags of monitors before 19 Nov 2026 carry /control_room/contacts/max_force = 0.0 N although no contact sensor ran
+    (run 44476577635: 1339 messages, no /build1/contacts/ topic). Unknown is not plotted as 0 N."""
+    def without_sensors():
+        for k in range(1, 11):
+            t = k * 0.5
+            yield "/clock", NS(clock=NS(sec=int(t), nanosec=int((t % 1) * 1e9))), k
+            yield "/control_room/contacts/max_force", NS(data=0.0), k
+    series = report.extract(without_sensors())
+    assert series["contacts"] == {}
+    assert 'id="contacts"' in report.render(series, None) and '<p class="empty" id="contacts">' in report.render(series, None)
+
+    def with_sensors():
+        yield from without_sensors()
+        yield "/build1/contacts/openarm_left_link7", NS(header=stamp(5.0), contacts=[]), 99
+    assert "max_force" in report.extract(with_sensors())["contacts"]
+
+
 def test_candump_rates():
     rates = report.candump_rates(bag.synthetic_candump(lines_per_bus=100))
     assert set(rates) == {"vcan_drive", "vcan_aux", "vcan_bms", "vcan_arm_l", "vcan_arm_r"}

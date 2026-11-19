@@ -230,3 +230,37 @@ def test_guard_refuses_a_command_publisher(ros):
                 if t == "/cmd_vel"] == []
     finally:
         node.destroy_node()
+
+
+def test_no_contact_sensor_no_force_and_one_pose_no_speed(ros):
+    """Unsupported telemetry is unknown, never invented: without a /build1/contacts/* topic the monitor publishes no
+    /control_room/contacts/max_force (it sent 0.0 N at 2 Hz in run 44476577635, contact sensors off) and the status says
+    null; one item pose gives no /control_room/item/speed. The status must arrive, so the test fails without the node."""
+    from geometry_msgs.msg import PoseStamped
+    from std_msgs.msg import Float64, String
+    monitor_node, monitor, vcan_node, vcan = _nodes(ros)
+    observer = ros.create_node("control_room_test_unknown")
+    try:
+        status, force, speed = [], [], []
+        observer.create_subscription(String, "/control_room/status", lambda m: status.append(json.loads(m.data)), 10)
+        observer.create_subscription(Float64, "/control_room/contacts/max_force", lambda m: force.append(m.data), 10)
+        observer.create_subscription(Float64, "/control_room/item/speed", lambda m: speed.append(m.data), 10)
+        item_pub = observer.create_publisher(PoseStamped, "/build1/ground_truth/item/pose", 10)
+        item = PoseStamped()
+        item.pose.position.z = 0.9
+
+        def publish():
+            item_pub.publish(item)      # the same pose and stamp every time: no motion can be computed
+            return False
+        assert ros_support.spin_until([monitor_node, vcan_node, observer],
+                                      lambda: publish() or (len(status) >= 4 and status[-1]["item"] is not None), timeout=20.0), \
+            status[-1:] or "no /control_room/status: the monitor is not running"
+        last = status[-1]
+        assert last["contacts"]["max_force_n"] is None and last["contacts"]["topics"] == 0, last["contacts"]
+        assert last["item"]["speed_mps"] is None, last["item"]
+        assert force == [], f"/control_room/contacts/max_force published {force[:5]} without a contact sensor"
+        assert speed == [], f"/control_room/item/speed published {speed[:5]} from one pose"
+    finally:
+        vcan.stop()
+        for node in (monitor_node, vcan_node, observer):
+            node.destroy_node()

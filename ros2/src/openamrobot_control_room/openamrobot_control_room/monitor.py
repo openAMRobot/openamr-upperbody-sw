@@ -14,11 +14,14 @@ Published, all derived from other nodes' topics:
   /control_room/station_error                std_msgs/Float64 m: ground truth against the station parameter
   /control_room/nav_goal                     geometry_msgs/PoseStamped: the last pose of Nav2's /plan
   /control_room/lift/position                std_msgs/Float64 m: lift_joint of /joint_states
-  /control_room/item/speed                   std_msgs/Float64 m/s: from /build1/ground_truth/item/pose
-  /control_room/contacts/max_force           std_msgs/Float64 N: largest contact force of the last status period
+  /control_room/item/speed                   std_msgs/Float64 m/s: from /build1/ground_truth/item/pose (after two poses)
+  /control_room/contacts/max_force           std_msgs/Float64 N: largest contact force of the last status period, only
+                                             while a /build1/contacts/* topic is subscribed (nothing otherwise)
+A value the run does not provide is null in the status and not published on its Float64 topic: unknown, never 0.
 Simulation evidence only; nothing here is a check or safety evidence.
 """
 import json
+import time
 
 from openamrobot_control_room import readonly, state
 
@@ -54,7 +57,7 @@ class ControlRoomMonitor:
         self.base_frame = node.declare_parameter("base_frame", "base_footprint").value
         self.map_frame = node.declare_parameter("map_frame", "map").value
         self.data = {"sim_time": None, "truth": None, "amcl": None, "tf_error": None, "goal": None,
-                     "lift_m": None, "lift_physics_m": None, "joint_names": 0, "fingers": None, "mission": None,
+                     "lift_m": None, "lift_physics_m": None, "joint_names": None, "fingers": None, "mission": None,
                      "permit": None, "json": {}, "scan": None, "grocery_phase": None, "grocery_events": []}
         self.actions = state.ActionWatch()
         self.item = state.Motion()
@@ -240,6 +243,9 @@ class ControlRoomMonitor:
         mission = d["mission"]
         return {
             "sim_time": d["sim_time"],
+            # Host wall time of this status next to the last /clock: one (host, Gazebo) pair of the time base
+            # (timebase.py) that maps candump's host stamps to Gazebo time.
+            "host_time": round(time.time(), 6),
             "rtf": state.scalars(js.get("/build1/rtf_stats")),
             "run_info": state.scalars(js.get("/build1/run_info")),
             "mission": state.mission_view(mission, d["grocery_phase"], d["grocery_events"], self.actions.active()),
@@ -284,9 +290,10 @@ class ControlRoomMonitor:
             self.pub["loc_tf"].publish(self.Float64(data=float(loc)))
         if snap["station"].get("distance_m") is not None:
             self.pub["station"].publish(self.Float64(data=float(snap["station"]["distance_m"])))
-        if snap["item"]:
+        if snap["item"] and snap["item"]["speed_mps"] is not None:
             self.pub["item"].publish(self.Float64(data=float(snap["item"]["speed_mps"])))
-        self.pub["force"].publish(self.Float64(data=float(self.period_force)))
+        if self.contact_subs:      # no contact sensor topic: the force is unknown, not 0 N
+            self.pub["force"].publish(self.Float64(data=float(self.period_force)))
         self.period_force = 0.0
 
 
