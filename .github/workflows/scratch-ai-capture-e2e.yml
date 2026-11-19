@@ -36,23 +36,20 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install "rosbags==${ROSBAGS_VERSION}" pyyaml
-      - name: Measure
+      - name: Probe
         run: |
           set -e
-          ls -la run-artifact/ws/build1_logs/bag
           mkdir -p out
-          python3 tools/scratch/measure_stamps.py run-artifact/ws/build1_logs/bag --out out/stamps.json | tee out/stamps.txt
-          echo '=== STAMPS JSON'; python3 -c 'import json;print(json.dumps(json.load(open("out/stamps.json"))))'
-          echo '=== EXCERPTS JSON'; python3 -c 'import json;print(json.dumps(json.load(open("out/excerpts.json"))))'
-          echo '=== END'
+          python3 tools/scratch/probe_b1.py run-artifact/ws/build1_logs/bag | tee out/probe.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: stamps-${{ env.RUN_ID }}
+          name: probe-${{ env.RUN_ID }}
           path: out/
           retention-days: 30
 
   convert:
+    if: false
     name: Convert run 44448676604 with the embodied-ai converter branch
     runs-on: ubuntu-24.04
     timeout-minutes: 90
