@@ -18,8 +18,7 @@ env:
 
 jobs:
   measure:
-    name: Timestamps of run 44448676604
-    if: false  # done in runs 44465407013 and 44467503715
+    name: Probe of run 44448676604
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
