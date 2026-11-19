@@ -36,6 +36,11 @@ on:
         default: '0'
         type: choice
         options: ['1', '0']
+      ai_capture:
+        description: "0 (Baseline 1): the bag as before. 1: opt-in AI capture (Proposed, baseline1_record.py): the four robot cameras, camera_info, the held gripper command, arm emulator status, hidden topics, recorder discovery peers. Not an acceptance input"
+        default: '0'
+        type: choice
+        options: ['1', '0']
 
 permissions:
   contents: read
@@ -56,6 +61,8 @@ env:
   # Acceptance profile (Alex, 18 Nov 2026). sim-oracle sets the planning scene from simulator ground truth and every run
   # declares it; perception uses the robot's own estimate. A sim-oracle pass is never a perception result.
   BASELINE1_PROFILE: ${{ github.event.inputs.profile || 'sim-oracle' }}
+  # Opt-in AI capture (Proposed). Off unless dispatched with ai_capture 1; it changes what is recorded, never a check.
+  BASELINE1_AI_CAPTURE: ${{ github.event.inputs.ai_capture || '0' }}
   BUILD1_PLANNING_POSE_SOURCE: ${{ (github.event.inputs.profile || 'sim-oracle') == 'sim-oracle' && 'ground_truth' || 'map' }}
   # The scene's launch calls sil.launch.py's can_nodes(config, stm32, gazebo, renode) and default_renode_args() (#141);
   # #166 carries that API on the clock contract, so the #145 pin (config/pins.yaml platform_sw_pr145) is not built here.
@@ -267,6 +274,7 @@ jobs:
           fi
           source /opt/ros/jazzy/setup.bash
           echo "### ROS bag"; ros2 bag info "$logs/bag" 2>&1 | tee "$logs/bag_info.txt" | head -80
+          echo "AI capture: BASELINE1_AI_CAPTURE=${BASELINE1_AI_CAPTURE}; bag $(du -sm "$logs/bag" 2>/dev/null | cut -f1) MB on disk"
           echo "### CAN (candump -L per virtual bus): frames, then the 8 most frequent IDs"
           for f in "$logs"/record_candump_*.log; do
             [ -f "$f" ] || continue

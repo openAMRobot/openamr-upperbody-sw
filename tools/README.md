@@ -123,3 +123,30 @@ bp000 and bp050, lift at 0 (L1000), every arm and finger joint at 0 (the stack's
 links with collision geometry) it reports the minimum distance to the base top cover twice: MoveIt's distance to base_link's collision box (top
 0.295 m, what planning sees; SRDF not consulted) and the exact triangle distance to the visual cover mesh `base_covers.stl` (0 when the
 meshes cross; vertex-face and edge-edge otherwise), with the height gap as a certified lower bound. Exit 0 whatever it finds.
+
+## Recorded bag to the C9 capture channels (Proposed)
+
+`baseline1_capture_binding.py` reads one recorded Baseline 1 or grocery bag (rosbag2, MCAP or SQLite, read with
+`rosbags==0.11.9`) and writes `binding.json`, `summary.md` and `capture_profile_candidate.json`: for every channel of the
+Proposed C9 component profile (openamrobot-interfaces #39) and for the four C9 camera features, the recorded topic and
+field that carries it, its rate, unit and range, or the reason nothing does; the gripper unit check of #79; and the
+run's provenance (run id, commit SHAs from `pins.txt`, acceptance profile, `planning_pose_source` and
+`object_pose_source` from `/build1/run_info`). `run_capture_gates.py` runs openamrobot-embodied-ai's own
+`validate_profile` and `read_bag` on the candidate, unchanged. The converter itself is embodied-ai's `oa-convert-bag`;
+nothing here writes a dataset. `.github/workflows/bag-to-lerobot.yml` downloads a run's artifact and runs both.
+
+```bash
+python3 -m pip install rosbags==0.11.9 numpy pytest
+python3 -m pytest -q tools/tests/test_baseline1_capture_binding.py
+python3 tools/baseline1_capture_binding.py --bag <run>/ws/build1_logs/bag \
+        --component-profile <interfaces #39>/profiles/c9/mobile-lift-qpos-v1-proposed.json --out out --pins <run>/pins.txt
+```
+
+A bag recorded with the opt-in AI capture (`BASELINE1_AI_CAPTURE=1`, dispatch input `ai_capture` of
+`baseline1-acceptance.yml`) also binds the four C9 cameras (with their `camera_info`) and the gripper action channels
+(`/build1/capture/gripper_command`, the held GripperCommand goal, Proposed). The report adds the bag size in MB per minute
+of Gazebo time, per-topic bytes and, per candidate stream, whether its timestamps are strictly increasing as the
+converter's `read_bag` reads them. `--run-log` reads the acceptance profile from the recording run's job log.
+Proposals for the owners: `docs/ai/`.
+
+Simulation evidence only. A bound channel is a recorded topic, not an approved capture contract.
