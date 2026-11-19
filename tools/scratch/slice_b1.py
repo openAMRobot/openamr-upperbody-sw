@@ -54,7 +54,7 @@ def main():
             raw["arm_joint_states"].append((receipt, msg.header.stamp.sec * 10**9 + msg.header.stamp.nanosec))
     del raw_profile
     candidates = []
-    for start_s in (40.0, 40.2, 39.8, 40.4, 39.5, 39.0, 52.0, 52.5):
+    for start_s in (37.5, 37.7, 37.0, 36.5):  # last /cmd_vel before the lift at 37.82 s; lift command at 40.524 s
         start, end = int(start_s * 1e9), int((start_s + 5.0) * 1e9)
         sub = window(data, start, end)
         stamps = [t for r, t in raw["arm_joint_states"] if start <= r < end]
