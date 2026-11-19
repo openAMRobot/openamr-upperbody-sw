@@ -39,10 +39,13 @@ def test_the_plate_is_only_in_the_opt_in_world():
     assert scene_model.world_sdf(scene(), "fast", station_marker=True).count("<uri>model://station_marker</uri>") == 1
 
 
-def test_baseline1_runs_without_the_alignment_by_default():
+def test_the_acceptance_workflow_runs_with_the_alignment_by_default():
+    """Strict acceptance runs #167's alignment, declared in every leg (19 Nov 2026); the scene still has no hard
+    dependency on the extension package, and station_alignment 0 stays available as the revert run."""
     with open(os.path.join(PACKAGE, "..", "..", "..", ".github", "workflows", "baseline1-acceptance.yml"), encoding="utf-8") as f:
         wf = f.read()
-    assert "BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '0' }}" in wf
+    assert "BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '1' }}" in wf
+    assert "--require-alignment 1" in wf
     with open(os.path.join(PACKAGE, "package.xml"), encoding="utf-8") as f:
         assert "openamrobot_station_alignment" not in f.read(), "no hard dependency on the extension package"
     # but the opt-in run must still build it
