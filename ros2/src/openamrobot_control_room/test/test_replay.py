@@ -81,6 +81,8 @@ def test_replay_publishes_only_under_the_replay_prefix(ros, tmp_path):
     observer.create_subscription(String, "/control_room/replay/mission_phase", lambda m: got["phase"].append(m.data), 10)
     observer.create_subscription(Odometry, "/control_room/replay/build1/ground_truth/odom",
                                  lambda m: got["odom"].append(m.pose.pose.position.x), 10)
+    # Discovery first: spin_until uses an executor of its own and takes the node out of it at the end.
+    ros_support.spin_until([observer, node], lambda: False, timeout=1.5)
     executor = ros.executors.SingleThreadedExecutor()
     executor.add_node(node)
     executor.add_node(observer)
@@ -92,11 +94,10 @@ def test_replay_publishes_only_under_the_replay_prefix(ros, tmp_path):
         if int(replay.sim_time or 0) != getattr(spin_once, "last", None):
             spin_once.last = int(replay.sim_time or 0)
             replay.publish_status()
-    ros_support.spin_until([observer], lambda: False, timeout=1.0)   # discovery
     try:
         replay.run(spin_once)
-        for _ in range(40):
-            spin_once(0.05)
+        for _ in range(200):          # spin_once takes one callback: drain what the observer has queued
+            spin_once(0.02)
         topics = [t for t, _ in observer.get_publisher_names_and_types_by_node("control_room_replay", "/")]
         assert readonly.publisher_violations(topics) == [], topics
         assert "/control_room/replay/cmd_vel" not in topics and "/cmd_vel" not in topics
