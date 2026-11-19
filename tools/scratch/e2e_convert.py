@@ -74,10 +74,10 @@ def census(bag, profile, out):
                         break
                 if vals:
                     lim = c.get("range")
-                    out = [v for v in vals if lim and not lim[0] <= v <= lim[1]]
+                    outside = [v for v in vals if lim and not lim[0] <= v <= lim[1]]
                     ranges[f"{kind}.{c['name']}"] = {"stream": c["stream"], "n": len(vals), "min": min(vals), "max": max(vals),
-                                                      "range": lim, "outside": len(out),
-                                                      "worst": (min(out, key=lambda v: min(abs(v - lim[0]), abs(v - lim[1])) * -1) if out else None)}
+                                                      "range": lim, "outside": len(outside),
+                                                      "lowest": min(outside) if outside else None, "highest": max(outside) if outside else None}
         frames = {}
         for st in profile["streams"]:
             hdr = [getattr(getattr(x.message, "header", None), "frame_id", None) for x in data[st["id"]][:50]]
