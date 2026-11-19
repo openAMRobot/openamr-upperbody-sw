@@ -54,4 +54,4 @@ if out:
 cans = sorted(glob.glob(root + "/**/record_candump_vcan_arm_l*.log", recursive=True))
 print(label, "candump", cans)
 if cans:
-    os.system(f"python3 -I {os.path.join(os.path.dirname(__file__), 'can_hold.py')} {cans[0]} {j1_end}")
+    os.system(f"python3 -P {os.path.join(os.path.dirname(__file__), 'can_hold.py')} {cans[0]} {j1_end}")
