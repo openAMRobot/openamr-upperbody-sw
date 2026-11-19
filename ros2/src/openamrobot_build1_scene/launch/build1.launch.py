@@ -199,6 +199,9 @@ def launch_setup(context):
 
     # 2. World, map, descriptions and controller files.
     spawn = scene_model.station(scene, value("station"))
+    # Scratch (diag/arm-torque, not for merge): BUILD1_DIAG_SPAWN_POSE="x,y,yaw" spawns base_footprint there instead.
+    if os.environ.get("BUILD1_DIAG_SPAWN_POSE"):
+        spawn = tuple(float(v) for v in os.environ["BUILD1_DIAG_SPAWN_POSE"].split(","))
     work_dir = tempfile.mkdtemp(prefix="build1_scene_")
     world_file = os.path.join(work_dir, f"build1_{step}.sdf")
     # Diagnostics only (BUILD1_CONTACT_SENSORS=1): contact sensors on the arm links and gz-sim's Contact system.

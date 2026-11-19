@@ -1,0 +1,193 @@
+# SPDX-License-Identifier: MIT
+# Scratch diagnosis (diag/arm-torque-*, not for merge): the grasp_reach servo torque failure of control room run
+# 44476577635 against leg 1 of acceptance run 44470870769. Job poses reads both recorded artifacts (base pose, lift,
+# item, MIT frames on vcan_arm_l). Job grasp runs scn04's grasp (diag_grasp, contact sensors on) with the robot spawned
+# at each logged base pose, same seed, same platform pin and middleware as the failing run, and records contacts,
+# controller state, gravity commands, emulator status and the arm bus. Simulation evidence only.
+name: diag arm torque
+on:
+  push:
+    branches: ['diag/arm-torque-*']
+    paths: ['.github/diag/arm_torque/run.trigger']
+permissions:
+  contents: read
+  actions: read
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  PLATFORM_SW_SHA: 931e631db661b16d1057dfd1ab1d13ea606482e2
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  CYCLONEDDS_URI: '<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+  BUILD1_PLANNING_POSE_SOURCE: ground_truth
+  GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
+  GZ_TOOLS_VENDOR: 0.0.8-1noble.20261025.230735
+  SDFORMAT_VENDOR: 0.0.14-1noble.20261031.120928
+  BASELINE1_SEED: '20261117'
+  PYTHONHASHSEED: '20261117'
+jobs:
+  poses:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      fail_pose: ${{ steps.p.outputs.fail_pose }}
+      pass_pose: ${{ steps.p.outputs.pass_pose }}
+      legs: ${{ steps.legs.outputs.legs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: legs
+        run: echo "legs=$(tr -d '\n' < .github/diag/arm_torque/legs.json)" >> "$GITHUB_OUTPUT"
+      - run: python3 -m pip install --user mcap==1.2.2 mcap-ros2-support==0.5.5
+      - id: p
+        name: logged poses and MIT frames (fail 44476577635, pass 44470870769 leg 1)
+        run: |
+          gh run download 44476577635 -R ${{ github.repository }} -n control-room-e2e -D fail
+          gh run download 44470870769 -R ${{ github.repository }} -n baseline1-acceptance-leg1-attempt1 -D pass
+          python3 -I .github/diag/arm_torque/poses.py fail fail -0.90234
+          python3 -I .github/diag/arm_torque/poses.py pass pass -0.93651
+          cat "$GITHUB_OUTPUT"
+
+  grasp:
+    needs: poses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ${{ fromJSON(needs.poses.outputs.legs) }}
+    steps:
+      - name: ROS 2 Jazzy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.3.0/ros2-apt-source_1.3.0.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools
+          sudo rosdep init || true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+      - id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'PY'
+          import sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("openarm_ros2", "openarm_can", "openarm_description"):
+              print(f"{key}={pins[key]['sha']}")
+          PY
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {repository: openAMRobot/openamr-platform-sw, ref: "${{ env.PLATFORM_SW_SHA }}", path: ws/src/openamr-platform-sw, persist-credentials: false}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {repository: enactic/openarm_description, ref: "${{ steps.pins.outputs.openarm_description }}", path: ws/src/upstream/openarm_description, persist-credentials: false}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {repository: enactic/openarm_ros2, ref: "${{ steps.pins.outputs.openarm_ros2 }}", path: ws/src/upstream/openarm_ros2, persist-credentials: false}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {repository: enactic/openarm_can, ref: "${{ steps.pins.outputs.openarm_can }}", path: ws/src/upstream/openarm_can, persist-credentials: false}
+      - name: pins
+        working-directory: ws
+        run: for d in src/openamr-upperbody-sw src/openamr-platform-sw src/upstream/*; do echo "$d $(git -C "$d" rev-parse HEAD)"; done | tee ../pins.txt
+      - name: virtual CAN
+        run: |
+          sudo apt-get install -y iproute2 can-utils "linux-modules-extra-$(uname -r)" || true
+          sudo modprobe vcan; sudo modprobe can_raw
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh"
+      - name: Gazebo pins, rosdep, build
+        working-directory: ws
+        run: |
+          sudo apt-get install -y --allow-downgrades ros-jazzy-gz-sim-vendor=${GZ_SIM_VENDOR} ros-jazzy-gz-tools-vendor=${GZ_TOOLS_VENDOR} ros-jazzy-sdformat-vendor=${SDFORMAT_VENDOR}
+          sudo apt-mark hold ros-jazzy-gz-sim-vendor ros-jazzy-gz-tools-vendor ros-jazzy-sdformat-vendor
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest ros-jazzy-rmw-cyclonedds-cpp
+          python3 -m pip install --user mcap==1.2.2 mcap-ros2-support==0.5.5
+          gz sim --versions
+          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+      - name: grasp at the ${{ matrix.leg }} pose
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+          BUILD1_CONTACT_SENSORS: "1"
+          BUILD1_DIAG_SPAWN_POSE: ${{ matrix.leg == 'fail' && needs.poses.outputs.fail_pose || needs.poses.outputs.pass_pose }}
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/diag/${{ matrix.leg }}"
+          mkdir -p "$BUILD1_LOG_DIR"
+          echo "spawn pose $BUILD1_DIAG_SPAWN_POSE, nproc $(nproc)"
+          (
+            for i in $(seq 1 600); do
+              domain=$(for p in /proc/[0-9]*; do tr '\0' '\n' < "$p/environ" 2>/dev/null | sed -n 's/^GZ_PARTITION=build1_\([0-9]*\)_.*/\1/p'; done | sort -u | head -1)
+              [ -n "$domain" ] && break; sleep 2
+            done
+            echo "side recorder domain $domain"
+            export ROS_DOMAIN_ID="$domain" ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+            dfl() { python3 -c 'import os,signal,sys; signal.signal(signal.SIGINT, signal.SIG_DFL); os.execvp(sys.argv[1], sys.argv[1:])' "$@"; }
+            dfl ros2 bag record --use-sim-time -s mcap -o "$BUILD1_LOG_DIR/side_bag" --topics /left_arm_controller/controller_state \
+              /left_arm_gravity_controller/commands /sim/left_arm_emulator/status /build1/rtf_stats /execute_trajectory/_action/status \
+              /left_arm_controller/joint_trajectory > "$BUILD1_LOG_DIR/side_record.log" 2>&1 &
+            echo $! > /tmp/rec.pid
+            candump -L vcan_arm_l > "$BUILD1_LOG_DIR/candump_vcan_arm_l.log" 2>&1 &
+            echo $! > /tmp/can.pid
+          ) &
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure --ctest-args -R '^test_diag_grasp$'
+          echo "TEST_RC=$?" >> "$GITHUB_ENV"
+          kill -INT "$(cat /tmp/rec.pid)" 2>/dev/null; kill "$(cat /tmp/can.pid)" 2>/dev/null; sleep 8
+          echo "== world physics and item surfaces"
+          for f in /tmp/build1_scene_*/build1_*.sdf; do echo "## $f"; python3 - "$f" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for ph in root.iter("physics"):
+              print(ET.tostring(ph, encoding="unicode")[:3000])
+          for m in root.iter("model"):
+              if m.get("name") in ("item", "tote"):
+                  for c in m.iter("collision"):
+                      print(m.get("name"), ET.tostring(c, encoding="unicode")[:2000])
+          PY
+          done
+          echo "== palm and finger collisions in the plant model"
+          python3 - "$BUILD1_LOG_DIR/diag_plant_model.urdf" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for link in root.findall("link"):
+              if link.get("name", "").startswith("openarm_left_ee"):
+                  for c in link.findall("collision"):
+                      print(link.get("name"), ET.tostring(c, encoding="unicode").replace("\n", " ")[:800])
+          for j in root.findall("joint"):
+              if j.get("name", "").startswith("openarm_left_joint"):
+                  print(j.get("name"), ET.tostring(j.find("limit"), encoding="unicode").strip() if j.find("limit") is not None else None,
+                        ET.tostring(j.find("dynamics"), encoding="unicode").strip() if j.find("dynamics") is not None else None)
+          for g in root.findall("gazebo"):
+              t = ET.tostring(g, encoding="unicode")
+              if "ee_base" in t or "mu" in t:
+                  print("gazebo", t.replace("\n", " ")[:600])
+          PY
+          ls -la "$BUILD1_LOG_DIR"
+      - name: evidence
+        if: always()
+        working-directory: ws
+        run: |
+          python3 -I src/openamr-upperbody-sw/.github/diag/arm_torque/repro.py "diag/${{ matrix.leg }}" "${{ matrix.leg }}"
+          end=$(python3 -c "import json,glob; t=json.load(open(glob.glob('diag/${{ matrix.leg }}/diag_grasp_trace.json')[0])); p=[p for p in t['plans'] if p['label']=='grasp_reach'][0]; print(p['points'][-1][p['joint_names'].index('openarm_left_joint1')])")
+          python3 -I src/openamr-upperbody-sw/.github/diag/arm_torque/can_hold.py "diag/${{ matrix.leg }}/candump_vcan_arm_l.log" "$end"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: diag-arm-torque-${{ matrix.leg }}
+          path: |
+            ws/diag/
+            ws/log/latest_test/
+            pins.txt
+      - name: result
+        if: always()
+        run: echo "diag_grasp test exit ${TEST_RC:-not run} (the scn04 checks inside, unchanged)"

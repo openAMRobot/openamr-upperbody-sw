@@ -12,6 +12,9 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build1_harness  # noqa: E402
+import random  # noqa: E402
+
+random.seed(int(os.environ.get("BASELINE1_SEED", "20261117")))  # scratch: the mission's seed
 
 
 @pytest.mark.launch_test
