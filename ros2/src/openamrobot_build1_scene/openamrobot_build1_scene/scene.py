@@ -85,6 +85,15 @@ def shelf_poses(scene):
     return poses
 
 
+def extension(scene):
+    """The module that adds fixtures to a scene with an extension section, or None. Only the grocery dark store demo
+    (config/grocery_scene.yaml, key `grocery`) has one; config/scene.yaml has none and is unchanged by this."""
+    if "grocery" in scene:
+        from openamrobot_build1_scene import grocery_scene
+        return grocery_scene
+    return None
+
+
 def static_boxes(scene):
     """Every fixed box of the scene: (name, size, centre, yaw). Cylinders are in obstacles()."""
     boxes = []
@@ -94,6 +103,8 @@ def static_boxes(scene):
         if obstacle["shape"] == "box":
             x, y, yaw = obstacle["pose"]
             boxes.append((obstacle["name"], tuple(obstacle["size"]), (x, y, obstacle["size"][2] / 2.0), yaw))
+    if extension(scene) is not None:
+        boxes += extension(scene).static_boxes(scene)
     return boxes
 
 
@@ -256,9 +267,10 @@ def world_sdf(scene, profile, sensors=True, station_marker=False):
     for name, size, centre, yaw in static_boxes(scene):
         geometry = f"<geometry><box><size>{size[0]} {size[1]} {size[2]}</size></box></geometry>"
         pose = f"<pose>{centre[0]:.5f} {centre[1]:.5f} {centre[2]:.5f} 0 0 {yaw:.5f}</pose>"
+        colour = extension(scene).colour(name) if extension(scene) is not None else "0.55 0.45 0.3 1"
         out.append(f'<collision name="{name}_collision">{pose}{geometry}{_surface(0.8)}</collision>'
-                   f'<visual name="{name}_visual">{pose}{geometry}<material><ambient>0.55 0.45 0.3 1</ambient>'
-                   "<diffuse>0.55 0.45 0.3 1</diffuse></material></visual>")
+                   f'<visual name="{name}_visual">{pose}{geometry}<material><ambient>{colour}</ambient>'
+                   f"<diffuse>{colour}</diffuse></material></visual>")
     for name, radius, height, centre in cylinders(scene):
         geometry = f"<geometry><cylinder><radius>{radius}</radius><length>{height}</length></cylinder></geometry>"
         pose = f"<pose>{centre[0]} {centre[1]} {centre[2]} 0 0 0</pose>"
@@ -276,6 +288,8 @@ def world_sdf(scene, profile, sensors=True, station_marker=False):
                    f"<pose>{x:.5f} {y:.5f} {z:.5f} 0 0 {yaw:.5f}</pose></include>")
     for name, body in movable_objects(scene).items():
         out.append(_movable_sdf(name, body))
+    if extension(scene) is not None:
+        out += extension(scene).world_elements(scene)     # visual-only products and lights of the extension
     out += ["</world>", "</sdf>", ""]
     return "\n".join(out)
 

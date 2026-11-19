@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: MIT
+# The grocery dark store demonstrator scene (Use_Case_1 style store, simulation only). Same schema as scene.yaml, which
+# it does not change: build1.launch.py reads it with scene:=grocery_scene.yaml. scene.py builds the Gazebo world, the
+# Nav2 map, the MoveIt collision objects and the stations from it; the `grocery` section at the end is read by
+# openamrobot_build1_scene/grocery_scene.py (scene.extension).
+#
+# Kept from scene.yaml unchanged: robot envelope, shelf unit, the work shelf unit with its tray (`tote`), target product
+# (`item`) and `payload`, parking gap, station marker, physics profiles, map resolution. The work shelf, the tray and the
+# product keep their Baseline 1 geometry relative to the work-shelf station, so the Baseline 1 grasp applies unchanged.
+#
+# Every number has a status:
+#   sourced    a document states the value. `source` names the document and the item.
+#   derived    computed from sourced values. `source` says how.
+#   estimated  no document in scope states it. It is a working value for simulation only.
+# Simulation input only. Nothing here is a measurement of a site or of a built robot.
+schema_version: 1
+# The tools address the world by this name (gz service, ros_gz_sim create): kept from scene.yaml.
+world_name: build1
+
+sources:
+  UC1: "Use Case 1 Requirements Baseline rev18.6 (8 Nov 2026), read in audits audit/2026-09-28 at 6b13302"
+  M-01: "M-01 Mechanical CAD Design Work Package rev19.10, read in audits audit/2026-09-28 at 6b13302"
+  E-01: "E-01 Safety and Power Distribution Baseline rev1.8, read in audits audit/2026-09-28 at 6b13302"
+  PLATFORM: "openamr-platform-sw main 69847ab (openamrobot_description, openamrobot_docking, openamrobot_nav2)"
+
+# The baseline states work heights, the robot envelope and a parking distance.
+# It states no aisle width, no shelf depth, no tote size and no floor friction. Those are estimated here.
+robot_envelope:
+  width: {value: 0.65, unit: m, status: sourced, source: "UC1 item UC1-05, width limit"}
+  depth: {value: 0.80, unit: m, status: sourced, source: "UC1 item UC1-05, depth limit"}
+  chassis: {value: [0.780, 0.582], unit: m, status: sourced, source: "M-01, steel chassis 780 x 582 mm"}
+
+floor:
+  size: {value: [14.0, 10.0], unit: m, status: estimated, source: "a small dark store: two aisles, packing and parking areas"}
+  friction:
+    mu: {value: 0.8, unit: "1", status: estimated,
+         source: "no measured coefficient exists. UC1 item UC1-09 states a level indoor floor only"}
+    note: "The wheel coefficients come from PLATFORM (#135) and are simulation estimates too."
+
+# The aisle rows of this scene are in grocery.rows; scene.py's own aisle has no unit here (units_per_side 0).
+aisle:
+  width: {value: 2.20, unit: m, status: estimated,
+          source: "not in UC1. The robot turns in the aisle with the arm out holding a product (about 0.9 m swept radius)"}
+  length: {value: 4.80, unit: m, status: estimated, source: "four shelf units of 1.20 m"}
+  centre: [1.6, -1.3, 0.0]    # x, y, yaw of the aisle 1 centre line start. The aisle runs along +x.
+
+shelf:
+  unit_length: {value: 1.20, unit: m, status: estimated, source: "not in UC1"}
+  depth: {value: 0.40, unit: m, status: estimated, source: "not in UC1"}
+  board_thickness: {value: 0.02, unit: m, status: estimated, source: "not in UC1"}
+  post: {value: 0.04, unit: m, status: estimated, source: "not in UC1"}
+  levels:
+    - {value: 0.82, unit: m, status: sourced, source: "UC1 site heights table, 82 cm surface"}
+    - {value: 1.09, unit: m, status: sourced, source: "UC1 site heights table, 109 cm surface"}
+  work_span: {value: [0.65, 1.40], unit: m, status: sourced, source: "UC1, arm work span about 65 to 140 cm"}
+  units_per_side: 0
+
+# One shelf unit stands alone in the open area. The arm and grasp scenarios use it.
+# The pick unit: the second unit of row A (grocery.rows), the Baseline 1 work shelf. Its front face looks along +y,
+# into aisle 1.
+work_shelf:
+  pose: [3.4, -2.6, 0.0]       # x, y, yaw of the unit centre. Its front face looks along +y.
+  parking_gap: {value: 0.30, unit: m, status: sourced, source: "UC1, the robot parks about 30 cm away"}
+
+# Station marker plate (Proposed, openamr-platform-sw #167 at 353e3d6): two AprilTag 36h11 panels (ids 3 and 4, 0.10 m
+# black square, centres 0.10 m either side of the unit centre along the shelf) 0.32 m above the floor, the plate face
+# 0.002 m in front of the work-shelf front edge. Visual only (no collision), above the LiDAR plane. The detector's
+# standoff (0.713 m) is parking_gap + footprint front x - face_offset; test_scene.py checks the two agree.
+station_marker:
+  model_uri: "model://station_marker"
+  height: {value: 0.32, unit: m, status: estimated, source: "openamr-platform-sw #167, scene.py MARKER_HEIGHT"}
+  face_offset: {value: 0.002, unit: m, status: estimated, source: "openamr-platform-sw #167, scene.py MARKER_FACE_OFFSET"}
+
+dock:
+  model_uri: "model://apriltag_dock"
+  pose: {value: [-6.8, 2.5, 0.30, 0.0, 0.0, 0.0], status: estimated,
+         source: "charging dock on the west wall, not used by the mission. Height 0.30 m as in PLATFORM walled_world.sdf"}
+  tag: {family: 36h11, ids: [0, 1, 2], size: 0.16, status: sourced,
+        source: "PLATFORM openamrobot_docking simulation tag size. The real tag size is a placeholder there"}
+
+tote:
+  size: {value: [0.40, 0.30, 0.06], unit: m, status: estimated,
+         source: "not in UC1. 400 x 300 mm footprint, low wall so that a side grasp clears it"}
+  wall: {value: 0.005, unit: m, status: estimated, source: "not in UC1"}
+  mass: {value: 0.6, unit: kg, status: estimated, source: "not in UC1"}
+  level: 0                     # stands on work shelf level 0 (0.82 m)
+  offset: [0.0, 0.0]           # along the shelf, and inward from the shelf front edge
+
+item:
+  size: {value: [0.035, 0.035, 0.14], unit: m, status: estimated,
+         source: "not in UC1. Narrower than the open finger gap of the model"}
+  mass: {value: 0.15, unit: kg, status: estimated, source: "not in UC1. UC1 item UC1-19 allows at most 1 kg per gripper"}
+  friction: {value: 1.0, unit: "1", status: estimated, source: "not measured"}
+  offset: [-0.16, 0.035]       # in the tote: along the shelf from the tote centre, and inward from the tote front wall
+
+payload:
+  size: {value: [0.20, 0.15, 0.10], unit: m, status: estimated, source: "not in UC1"}
+  mass: {value: 1.0, unit: kg, status: sourced, source: "UC1 item UC1-19, at most 1 kg per gripper in the carry pose"}
+  level: 1                     # stands on work shelf level 1 (1.09 m)
+
+# No free-standing obstacles: the store fixtures are in grocery.
+obstacles: []
+
+# Where the robot is spawned. `origin` has 3 m of free floor ahead of it.
+# `origin` is the robot parking location of the store (spawn and end of the mission). `packing` is derived in
+# grocery_scene.station from grocery.packing_bench.
+stations:
+  origin: {pose: [0.0, 0.0, 0.0], note: "robot parking bay, facing the aisles"}
+  work_shelf: {derived_from: work_shelf, note: "front of the footprint parking_gap from the shelf front, in aisle 1"}
+  aisle_entry: {pose: [1.0, -1.3, 0.0], note: "at the mouth of aisle 1"}
+  packing: {derived_from: grocery.packing_bench, note: "front of the footprint packing_gap from the bench front"}
+
+physics_profiles:
+  fine: {max_step_size: 0.00066667, real_time_factor: 1.0, default: true,
+         source: "1/1500 s, the step of openamr-upperbody-sw #66 worlds/empty.sdf"}
+  fast: {max_step_size: 0.001, real_time_factor: 1.0,
+         source: "1 ms, the step of the two software-in-the-loop worlds"}
+
+map:
+  resolution: {value: 0.05, unit: m, status: derived, source: "PLATFORM nav2_params.yaml costmap resolution"}
+  margin: 1.0
+
+# ---------------------------------------------------------------- grocery dark store (grocery_scene.py)
+grocery:
+  # Shelf rows along +x. `start` is the x, y of the first unit's end on the row line, `run_yaw` the direction the row
+  # runs, `yaw` the unit yaw (0: front faces +y, pi: front faces -y), `skip` the unit indices left out. Row A unit 1 is
+  # the work shelf above. Row B is a gondola of two back-to-back rows. Aisle 1 lies between rows A and B1, aisle 2
+  # between B2 and C, both 2.2 m wide (aisle.width).
+  rows:
+    - {name: row_a, start: [1.6, -2.6], run_yaw: 0.0, yaw: 0.0, units: 4, skip: [1]}
+    - {name: row_b1, start: [1.6, 0.0], run_yaw: 0.0, yaw: 3.14159265, units: 4, back_panel: false}
+    - {name: row_b2, start: [1.6, 0.4], run_yaw: 0.0, yaw: 0.0, units: 4}
+    - {name: row_c, start: [1.6, 3.0], run_yaw: 0.0, yaw: 3.14159265, units: 4}
+  # Board tops of the aisle units. 0.82 and 1.09 are shelf.levels (UC1 site heights); 0.30 is the bottom deck over the
+  # plinth and 1.36 a top board. The work shelf gets the two extra boards as decoration (grocery_scene, deco boards).
+  row_levels:
+    - {value: 0.30, unit: m, status: estimated, source: "not in UC1. Bottom deck above the plinth"}
+    - {value: 0.82, unit: m, status: sourced, source: "UC1 site heights table, 82 cm surface"}
+    - {value: 1.09, unit: m, status: sourced, source: "UC1 site heights table, 109 cm surface"}
+    - {value: 1.36, unit: m, status: estimated, source: "not in UC1. Top board, 0.27 m above 1.09 as 1.09 is above 0.82"}
+  # A closed plinth under each aisle unit (not under the work shelf, which stays open as in Baseline 1): the LiDAR plane
+  # (0.222 m, M-01) sees a continuous row face, so Nav2 never plans under a shelf.
+  plinth:
+    height: {value: 0.28, unit: m, status: estimated, source: "not in UC1. Up to the bottom deck board, above the LiDAR plane"}
+    recess: {value: 0.05, unit: m, status: estimated, source: "not in UC1. Toe recess behind the shelf front edge"}
+  back_panel:
+    thickness: {value: 0.02, unit: m, status: estimated, source: "not in UC1"}
+  # The packing bench. Its top is 0.02 m below shelf level 0, so the held product clears the order tote wall on the way
+  # in and the place lowers the product by about the 0.08 m it was lifted (lift stop L1000, as at the work shelf).
+  packing_bench:
+    pose: [-3.0, -2.6, 0.0]    # x, y, yaw of the bench centre. Its front looks along +y, like the work shelf.
+    size: {value: [1.20, 0.60], unit: m, status: estimated, source: "not in UC1"}
+    height: {value: 0.80, unit: m, status: estimated,
+             source: "not in UC1. 0.02 m below the 0.82 m level 0 surface so the 0.06 m order tote wall is lower than the tray wall"}
+    top_thickness: {value: 0.03, unit: m, status: estimated, source: "not in UC1"}
+    leg: {value: 0.04, unit: m, status: estimated, source: "not in UC1. Corner legs, as the shelf posts"}
+    # The robot stops this close to the bench front: the product, held 0.035 m behind the tray front at the work shelf,
+    # then arrives 0.235 m behind the bench front, over the middle of the order tote.
+    packing_gap: {value: 0.10, unit: m, status: estimated,
+                  source: "not in UC1 (UC1 states 0.30 m for shelves). parking_gap minus 0.20 m, derived from the order tote depth"}
+  # The order tote stands on the bench where the held product arrives (grocery_scene.drop_point). Fixed in the world.
+  order_tote:
+    size: {value: [0.50, 0.40, 0.06], unit: m, status: estimated,
+           source: "not in UC1. Wall as high as the tray wall; 0.23 m and 0.18 m free around the product centre"}
+    wall: {value: 0.01, unit: m, status: estimated, source: "not in UC1"}
+  # Rack-end protection bollards at both ends of every row line (rows B1 and B2 share the gondola line). They cut the
+  # LiDAR plane: features along the aisles for AMCL, which the long straight plinth faces do not give.
+  bollards:
+    size: {value: [0.25, 0.25, 1.00], unit: m, status: estimated, source: "not in UC1. Rack-end protection post"}
+    row_lines_y: [-2.6, 0.2, 3.0]
+    row_ends_x: [1.6, 6.4]
+    offset: {value: 0.30, unit: m, status: estimated, source: "not in UC1. Centre beyond the row end"}
+  walls:
+    thickness: {value: 0.10, unit: m, status: estimated, source: "store walls on the floor edge"}
+    height: {value: 1.20, unit: m, status: estimated, source: "low enough for an overview camera"}
+  # Visual-only filler products on the boards (no collision, not in the map or the planning scene). Sizes in m.
+  products:
+    gap: 0.04
+    deep: 1
+    kinds:
+      - {name: cereal, size: [0.19, 0.07, 0.27]}
+      - {name: can, size: [0.07, 0.07, 0.12]}
+      - {name: bottle, size: [0.08, 0.08, 0.24]}
+      - {name: carton, size: [0.07, 0.07, 0.20]}
+      - {name: snack, size: [0.14, 0.05, 0.18]}
+      - {name: jar, size: [0.09, 0.09, 0.11]}
+  # Floor markings, visual only: the parking bay at stations.origin and the packing bay at stations.packing.
+  markings:
+    line_width: {value: 0.05, unit: m, status: estimated, source: "floor tape"}
+    parking_bay: [1.10, 0.85]
+    packing_bay: [1.10, 0.85]
+    colour: "0.95 0.80 0.10 1"
