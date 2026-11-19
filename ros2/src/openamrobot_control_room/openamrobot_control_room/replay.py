@@ -226,5 +226,7 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):     # Ctrl-C or the launch's SIGINT: a normal stop
         pass
     finally:
+        from openamrobot_control_room.monitor import ignore_further_interrupts
+        ignore_further_interrupts()
         node.destroy_node()
         rclpy.try_shutdown()

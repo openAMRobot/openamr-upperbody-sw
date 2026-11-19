@@ -13,6 +13,7 @@ SPEC.yaml:
         ready: {topic: /control_room/status, type: std_msgs/msg/String}   # or {line: "regex on its output"}
         ready_timeout: 120
         stop_timeout: 60
+        fail_on_log: ["process has died", "Traceback"]   # optional: regexes on its output that fail the cycle
 
 Each process runs in its own session; the stop sends the cycle's signal to its process group (as Ctrl-C does to a
 terminal's foreground group) and waits for the leader. Every process started gets CONTROL_ROOM_SESSION=<id> in its
@@ -21,7 +22,8 @@ environment, inherited by everything it starts. After each cycle the check fails
     is the second net), or a new live process whose command line names a known stack program;
   - a ROS 2 daemon that did not exist before the cycle (a stale daemon left by a ros2 command of the session);
   - a vcan interface that did not exist before the cycle (created by the session and not deleted);
-  - a process that never became ready (the component did not run: a cycle with nothing running is a failure).
+  - a process that never became ready (the component did not run: a cycle with nothing running is a failure);
+  - a line of a process's output that matches one of its `fail_on_log` patterns (a node that died on the stop).
 Leftovers are killed after they are reported, so the next cycle starts clean. Exit 0 only if every cycle passed.
 Simulation tooling only; not hardware, physical acceptance or safety evidence.
 """
@@ -123,6 +125,8 @@ def cycle_verdict(record):
         reasons.append(f"stale ROS 2 daemon {pid}: {info['cmd'][:160]}")
     for name in record["vcan_left"]:
         reasons.append(f"vcan interface {name} created during the cycle and not deleted")
+    for name, lines in record.get("log_failures", {}).items():
+        reasons.append(f"{name} output: {lines[0][:200]}" + (f" (and {len(lines) - 1} more)" if len(lines) > 1 else ""))
     return not reasons, reasons
 
 
@@ -192,6 +196,20 @@ def stop(proc, sig, timeout):
         return {"exited": False, "returncode": None, "timeout": timeout}
 
 
+def log_failures(started):
+    """{name: [matching lines]} of the started processes' output against their fail_on_log patterns."""
+    found = {}
+    for item, _proc, log in started:
+        patterns = [re.compile(p) for p in item.get("fail_on_log") or []]
+        if not patterns:
+            continue
+        with open(log.name, encoding="utf-8", errors="replace") as f:
+            lines = [line.rstrip() for line in f if any(p.search(line) for p in patterns)]
+        if lines:
+            found[item["name"]] = lines
+    return found
+
+
 def kill_all(pids):
     for pid in pids:
         try:
@@ -222,6 +240,7 @@ def run(spec, log_dir, settle=3.0):
             record["stopped"][item["name"]] = stop(proc, getattr(signal, f"SIG{sig_name}"), float(item.get("stop_timeout", 60)))
             log.close()
         time.sleep(settle)
+        record["log_failures"] = log_failures(started)
         after = processes()
         record["leftovers"] = leftovers(before, after, session_id, own_pids={os.getpid()})
         record["daemons"] = new_daemons(before, after)

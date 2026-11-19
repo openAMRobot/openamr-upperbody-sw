@@ -301,6 +301,15 @@ def _r(value, digits=4):
     return None if value is None else round(float(value), digits)
 
 
+def ignore_further_interrupts():
+    """Called once the node stops. Ctrl-C reaches a launched node twice (the terminal signals the whole process group
+    and ros2 launch forwards its own SIGINT); the second one used to raise KeyboardInterrupt inside destroy_node or a
+    thread join, so the node died with a traceback and exit -2 (session run 44590676440). The launch still escalates
+    to SIGTERM and SIGKILL if the cleanup hangs."""
+    import signal
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+
 def make_node(name="control_room_monitor", **kwargs):
     """An rclpy Node without parameter services: nobody can set this node's parameters at run time."""
     from rclpy.node import Node
@@ -318,5 +327,6 @@ def main(args=None):
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        ignore_further_interrupts()
         node.destroy_node()
         rclpy.try_shutdown()

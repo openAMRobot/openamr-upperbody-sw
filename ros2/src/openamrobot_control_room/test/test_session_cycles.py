@@ -99,3 +99,14 @@ def test_a_stale_daemon_fails(tmp_path):
     records = sc.run({"cycles": 1, "processes": [session(f"setsid {stub} & echo ready; wait")]}, str(tmp_path), settle=0.5)
     assert not records[0]["ok"], records[0]
     assert any("stale ROS 2 daemon" in r or "orphan" in r for r in records[0]["reasons"]), records[0]["reasons"]
+
+
+def test_a_process_that_dies_on_the_stop_fails(tmp_path):
+    """fail_on_log: ros2 launch prints "process has died" for a node that ended on a second SIGINT with a traceback
+    (control room nodes in run 44590676440); the cycle must fail even though nothing is left behind."""
+    item = session("echo ready; trap 'echo \"[ERROR] [node-1]: process has died [pid 1, exit code -2]\"; exit 1' INT; "
+                   "sleep 300 & wait", fail_on_log=["process has died", "Traceback"])
+    records = sc.run({"cycles": 1, "processes": [item]}, str(tmp_path), settle=0.5)
+    assert not records[0]["ok"] and any("process has died" in r for r in records[0]["reasons"]), records[0]["reasons"]
+    clean = session("echo ready; exec sleep 300", fail_on_log=["process has died"])
+    assert sc.run({"cycles": 1, "processes": [clean]}, str(tmp_path), settle=0.5)[0]["ok"]
