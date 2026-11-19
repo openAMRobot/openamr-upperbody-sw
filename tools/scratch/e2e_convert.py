@@ -157,6 +157,41 @@ def load_and_check(root):
     }
 
 
+def diagnose(bag, profile):
+    """The converter's own read_bag and align on the subset; where the first frame's samples sit against the origin."""
+    from oa_embodied_ai.recording.bag import align, read_bag
+    from oa_embodied_ai.recording.profile import validate_profile
+
+    out = {}
+    try:
+        validate_profile(profile, development=True)
+        data = read_bag(bag, profile)
+        frames = align(data, profile)
+    except Exception as exc:
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    start = frames[0]["time_ns"]
+    out["aligned_frames"] = len(frames)
+    out["grid_start_ns"] = start
+    out["grid_end_ns"] = frames[-1]["time_ns"]
+    out["first_sample_ns_per_stream"] = {k: v[0].time_ns for k, v in data.items()}
+    out["first_frame_offsets_ns"] = {k: {"selected_minus_origin": smp.time_ns - start, "receipt_minus_origin": smp.receipt_ns - start}
+                                     for k, smp in frames[0]["selected"].items()}
+    neg = {}
+    for i, f in enumerate(frames):
+        for k, smp in f["selected"].items():
+            if smp.time_ns - start < 0 or smp.receipt_ns - start < 0:
+                neg.setdefault(k, []).append(i)
+    out["frames_with_negative_offsets"] = {k: v[:10] for k, v in neg.items()}
+    import numpy as np
+    st = np.array([f["state"] for f in frames]); ac = np.array([f["action"] for f in frames])
+    out["aligned_values"] = {f"state.{n}": [float(st[:, i].min()), float(st[:, i].max())] for i, n in enumerate(profile["state_names"])}
+    out["aligned_values"].update({f"action.{n}": [float(ac[:, i].min()), float(ac[:, i].max())] for i, n in enumerate(profile["action_names"])})
+    t = [f["time_ns"] for f in frames]
+    out["grid_monotonic"] = all(b > a for a, b in zip(t, t[1:]))
+    out["image_shapes"] = {k: list(v.shape) for k, v in frames[0]["images"].items()}
+    return out
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--bag", type=Path, required=True)
@@ -189,6 +224,8 @@ def main():
                 attempt["loader"] = load_and_check(target)
             except Exception:
                 attempt["loader_error"] = traceback.format_exc()[-3000:]
+        if r.returncode != 0:
+            attempt["diagnosis"] = diagnose(a.bag, sub)
         attempts.append(attempt)
     print("=== SUBSET CONVERSION")
     print(json.dumps(attempts))
