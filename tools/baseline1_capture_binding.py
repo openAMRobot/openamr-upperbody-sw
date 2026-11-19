@@ -1,0 +1,367 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Bind a recorded Baseline 1 (or grocery) ROS bag to the C9 capture channels, read only (Proposed).
+
+The bag-to-LeRobot converter is openamrobot-embodied-ai's `oa-convert-bag` (EMBODIED-AI-REPO; Satya's capture
+conversion work). This tool does not convert and does not write a dataset. It reads one recorded bag and states, for
+every channel of the Proposed C9 component profile (openamrobot-interfaces #39) and for the four C9 camera features,
+which recorded topic and field carries it, at what rate, in which unit and within which range, or why nothing does.
+It also writes a candidate capture profile in the converter's `capture_version: 1` shape, with the run's provenance
+(run id, commit SHAs, acceptance profile, pose_source and object_pose_source as declared by /build1/run_info), so the
+converter's own gates can be run against it unchanged (.github/workflows/bag-to-lerobot.yml).
+
+Exit status: 0 when the report was written (whatever it says), 2 when the bag or an input cannot be read.
+Simulation evidence only: never hardware, physical acceptance or safety evidence.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import sys
+from pathlib import Path
+
+# The Build 1 lift command (/sil/lift/command, std_msgs/Int8) is a stop index; rig.py LIFT_STOP_M gives its target.
+LIFT_STOP_M = (0.0, 0.175, 0.350)
+LIFT_STOP_ID = ("L1000", "L1175", "L1350")
+# Recorded JointState topics, in the order a joint is looked up (the component profile names /arm/joint_states).
+JOINT_STATE_TOPICS = ("/arm/joint_states", "/joint_states", "/sil/gz/joint_states")
+C9_CAMERAS = {
+    "observation.images.camera_wrist_left": "left_wrist_camera",
+    "observation.images.camera_wrist_right": "right_wrist_camera",
+    "observation.images.head": "head_camera",
+    "observation.images.base": "base_camera",
+}
+IMAGE_TYPES = ("sensor_msgs/msg/Image", "sensor_msgs/msg/CompressedImage")
+# Upper end of the pinned driver's parallel_link (prismatic) finger range, metres (openarm_ros2 4e837e1).
+PARALLEL_LINK_MAX_M = 0.044
+RANGE_TOL = 1e-3
+
+
+class BagError(Exception):
+    pass
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def stamp_ns(msg):
+    header = getattr(msg, "header", None)
+    if header is None:
+        return None
+    return int(header.stamp.sec) * 1_000_000_000 + int(header.stamp.nanosec)
+
+
+class Series:
+    """Count, time span and value range of one recorded quantity."""
+
+    def __init__(self):
+        self.n, self.t0, self.t1, self.lo, self.hi = 0, None, None, math.inf, -math.inf
+        self.values = set()
+        self.max_header_lag_ns = None
+
+    def add(self, t, value, header_t=None):
+        self.n += 1
+        self.t0 = t if self.t0 is None else min(self.t0, t)
+        self.t1 = t if self.t1 is None else max(self.t1, t)
+        if value is not None and math.isfinite(value):
+            self.lo, self.hi = min(self.lo, value), max(self.hi, value)
+            if len(self.values) < 16:
+                self.values.add(round(value, 6))
+        if header_t is not None:
+            lag = abs(t - header_t)
+            self.max_header_lag_ns = lag if self.max_header_lag_ns is None else max(self.max_header_lag_ns, lag)
+
+    def summary(self):
+        rate = (self.n - 1) / ((self.t1 - self.t0) * 1e-9) if self.n > 1 and self.t1 > self.t0 else None
+        return {"samples": self.n, "rate_hz": None if rate is None else round(rate, 2),
+                "min": None if self.n == 0 or self.lo == math.inf else round(self.lo, 6),
+                "max": None if self.n == 0 or self.hi == -math.inf else round(self.hi, 6),
+                "max_receipt_minus_header_ns": self.max_header_lag_ns}
+
+
+def read(bag_dir, component_profile):
+    from rosbags.highlevel import AnyReader
+    from rosbags.typesys import Stores, get_typestore
+
+    bag_dir = Path(bag_dir)
+    if not (bag_dir / "metadata.yaml").is_file():
+        raise BagError(f"no rosbag2 metadata.yaml in {bag_dir}")
+    joints = [c["joint"] for c in component_profile["channels"] if c.get("joint")]
+    state = {}            # (topic, joint) -> Series of position
+    command = {}          # (topic, joint) -> Series of reference position (JointTrajectoryControllerState)
+    other = {}            # name -> Series
+    frames, run_info, topics = {}, None, {}
+    with AnyReader([bag_dir], default_typestore=get_typestore(Stores.ROS2_JAZZY)) as reader:
+        for c in reader.connections:
+            topics[c.topic] = {"type": c.msgtype, "count": c.msgcount}
+        start, end = reader.start_time, reader.end_time
+        wanted = [c for c in reader.connections if c.msgtype in (
+            "sensor_msgs/msg/JointState", "control_msgs/msg/JointTrajectoryControllerState", "geometry_msgs/msg/Twist",
+            "std_msgs/msg/Int8", "std_msgs/msg/String", "nav_msgs/msg/Odometry", *IMAGE_TYPES)
+            and c.topic != "/build1/rtf_stats"]
+        for conn, t, raw in reader.messages(connections=wanted):
+            msg = reader.deserialize(raw, conn.msgtype)
+            ht = stamp_ns(msg)
+            if ht is not None:
+                frames.setdefault(conn.topic, msg.header.frame_id)
+            if conn.msgtype == "sensor_msgs/msg/JointState":
+                if conn.topic not in JOINT_STATE_TOPICS:
+                    continue
+                for i, name in enumerate(msg.name):
+                    if name in joints and i < len(msg.position):
+                        state.setdefault((conn.topic, name), Series()).add(t, float(msg.position[i]), ht)
+            elif conn.msgtype == "control_msgs/msg/JointTrajectoryControllerState":
+                ref = getattr(msg, "reference", None)
+                positions = list(getattr(ref, "positions", None) if ref is not None and getattr(ref, "positions", None) is not None else [])
+                for i, name in enumerate(msg.joint_names):
+                    if name in joints and i < len(positions):
+                        command.setdefault((conn.topic, name), Series()).add(t, float(positions[i]), ht)
+            elif conn.msgtype == "geometry_msgs/msg/Twist":
+                other.setdefault(conn.topic + ":linear.x", Series()).add(t, float(msg.linear.x))
+                other.setdefault(conn.topic + ":angular.z", Series()).add(t, float(msg.angular.z))
+            elif conn.msgtype == "nav_msgs/msg/Odometry":
+                other.setdefault(conn.topic + ":twist.twist.linear.x", Series()).add(t, float(msg.twist.twist.linear.x), ht)
+                other.setdefault(conn.topic + ":twist.twist.angular.z", Series()).add(t, float(msg.twist.twist.angular.z), ht)
+            elif conn.msgtype == "std_msgs/msg/Int8":
+                other.setdefault(conn.topic + ":data", Series()).add(t, float(msg.data))
+            elif conn.msgtype == "std_msgs/msg/String" and conn.topic == "/build1/run_info" and run_info is None:
+                try:
+                    run_info = json.loads(msg.data)
+                except ValueError:
+                    run_info = {"unparsed": msg.data}
+            elif conn.msgtype in IMAGE_TYPES:
+                other.setdefault(conn.topic + ":image", Series()).add(t, None, ht)
+    return {"topics": topics, "start_ns": start, "end_ns": end, "state": state, "command": command, "other": other,
+            "frames": frames, "run_info": run_info}
+
+
+def bind(data, component_profile):
+    """One entry per component-profile channel: observation and action binding, or the reason there is none."""
+    rows = []
+    for c in component_profile["channels"]:
+        name, joint, rng = c["name"], c.get("joint"), c.get("range")
+        row = {"index": c["index"], "name": name, "component": c["component"], "unit": c["unit"], "range": rng}
+        obs = act = None
+        if joint:
+            for topic in JOINT_STATE_TOPICS:
+                if (topic, joint) in data["state"]:
+                    obs = {"topic": topic, "field": "position", "joint": joint, **data["state"][(topic, joint)].summary()}
+                    break
+            if c["component"] in ("left_arm", "right_arm"):
+                side = c["component"].split("_")[0]
+                key = (f"/{side}_arm_controller/controller_state", joint)
+                if key in data["command"]:
+                    act = {"topic": key[0], "field": "reference.positions", "joint": joint,
+                           "semantics": "JointTrajectoryController reference sent to the position command interface",
+                           **data["command"][key].summary()}
+                else:
+                    act = {"unbound": f"no {key[0]} sample names {joint}"}
+            elif c["component"].endswith("_gripper"):
+                act = {"unbound": "the gripper is commanded by control_msgs/action/GripperCommand goals "
+                                  "(rig.py gripper()); a ROS 2 Jazzy bag records topics, not action goals, and no "
+                                  "gripper command topic is in this bag"}
+            elif c["component"] == "lift":
+                s = data["other"].get("/sil/lift/command:data")
+                if s is not None:
+                    stops = sorted(int(v) for v in s.values)
+                    act = {"topic": "/sil/lift/command", "field": "data", "semantics":
+                           "stop index; target lift_joint position LIFT_STOP_M[index] (rig.py), not a continuous command",
+                           "stop_indices": stops, "targets_m": [LIFT_STOP_M[i] for i in stops if 0 <= i < 3],
+                           **s.summary()}
+                else:
+                    act = {"unbound": "no /sil/lift/command in this bag"}
+            if obs is not None and rng is not None and obs["min"] is not None:
+                obs["within_profile_range"] = (rng[0] - RANGE_TOL <= obs["min"]) and (obs["max"] <= rng[1] + RANGE_TOL)
+        else:
+            field = {"base_linear_x": "linear.x", "base_angular_z": "angular.z"}.get(name)
+            odom = data["other"].get(f"/odom:twist.twist.{field}")
+            obs = ({"topic": "/odom", "field": f"twist.twist.{field}", **odom.summary()} if odom else
+                   {"unbound": "the profile's /odom is not in this bag",
+                    "available_not_bound": "/build1/ground_truth/odom (simulator ground truth, not a robot estimate)"
+                    if "/build1/ground_truth/odom" in data["topics"] else None})
+            cmd = data["other"].get(f"/cmd_vel:{field}")
+            act = ({"topic": "/cmd_vel", "field": field, "semantics": "requested_velocity at the base command input "
+                    "(after Nav2's velocity smoother and collision monitor)", **cmd.summary()} if cmd else
+                   {"unbound": "no /cmd_vel in this bag"})
+        row["observation"] = obs if obs is not None else {"unbound": f"no recorded JointState names {joint}"}
+        row["action"] = act
+        rows.append(row)
+    return rows
+
+
+def gripper_unit(rows):
+    """Finger positions above the parallel_link maximum (0.044) cannot be metres of that branch."""
+    out = {}
+    for r in rows:
+        if r["component"].endswith("_gripper") and "min" in r["observation"]:
+            peak = max(abs(r["observation"]["min"]), abs(r["observation"]["max"]))
+            out[r["name"]] = {"peak_abs": peak, "profile_unit": r["unit"], "range": r["range"],
+                              "verdict": "radians (exceeds the 0.044 m parallel_link maximum)" if peak > PARALLEL_LINK_MAX_M
+                              else "not distinguishable from metres by value (peak <= 0.044)"}
+    return out
+
+
+def cameras(data):
+    images = {t: v for t, v in data["topics"].items() if v["type"] in IMAGE_TYPES}
+    out = {}
+    for key, link in C9_CAMERAS.items():
+        hit = [t for t in images if link in (data["frames"].get(t) or "") or link in t]
+        out[key] = ({"topic": hit[0], "frame_id": data["frames"].get(hit[0]), **data["other"][hit[0] + ":image"].summary()}
+                    if hit else {"unbound": "no image topic of this camera in the bag"})
+    return {"bound": out, "image_topics_in_bag": sorted(images)}
+
+
+def pins(path):
+    """pins.txt of the Baseline 1 artifact: '<checkout dir> <40-hex SHA>' per line."""
+    if not path or not Path(path).is_file():
+        return []
+    out = []
+    for line in Path(path).read_text().splitlines():
+        parts = line.split()
+        if len(parts) == 2 and len(parts[1]) == 40 and all(ch in "0123456789abcdef" for ch in parts[1]):
+            out.append((Path(parts[0]).name, parts[1]))
+    return out
+
+
+def candidate_profile(args, data, rows, component_profile_path, component_profile):
+    """The converter's capture_version 1 shape. status stays proposed: only an owner registers a profile."""
+    info = data["run_info"] or {}
+    streams, seen = [], {}
+
+    def stream(topic, component):
+        if topic in seen:
+            return seen[topic]
+        sid = topic.strip("/").replace("/", "_")
+        streams.append({"id": sid, "component": component, "topic": topic, "type": data["topics"][topic]["type"],
+                        "frame_id": data["frames"].get(topic, ""), "clock_domain": "ros.sim_time",
+                        "timestamp_source": "header" if topic in data["frames"] else "bag",
+                        **({} if topic in data["frames"] else {"frame_id_source": "configuration"})})
+        seen[topic] = sid
+        return sid
+
+    state_channels, action_channels = [], []
+    for r in rows:
+        o, a = r["observation"], r["action"]
+        if "topic" in o:
+            ch = {"name": r["name"], "component": r["component"], "unit": r["unit"], "source_unit": r["unit"],
+                  "field": o["field"], "range": r["range"], "stream": stream(o["topic"], r["component"])}
+            if o.get("joint"):
+                ch["joint"] = o["joint"]
+            state_channels.append(ch)
+        if "topic" in a:
+            ch = {"name": r["name"], "component": r["component"], "unit": r["unit"], "source_unit": r["unit"],
+                  "field": a["field"], "range": r["range"], "stream": stream(a["topic"], r["component"])}
+            if a.get("joint"):
+                ch["joint"] = a["joint"]
+            if r["component"] == "base":
+                ch["semantics"] = "requested_velocity"
+            if r["component"] == "lift":
+                ch["source_unit"] = "stop_index"
+            action_channels.append(ch)
+    commits = dict(pins(args.pins))
+    commits.update({k: v for k, v in {"openamr-upperbody-sw": args.run_sha, "openamr-platform-sw": args.platform_sha,
+                                      "openamrobot-interfaces": args.interfaces_sha}.items() if v})
+    return {
+        "capture_version": 1,
+        "profile_id": "openamrobot-baseline1-gazebo-capture-candidate",
+        "status": "proposed",
+        "origin": "simulation",
+        "episode_id": f"baseline1-run-{args.run_id}",
+        "dataset_id": "openamrobot/baseline1-gazebo-candidate",
+        "dataset_revision": f"run-{args.run_id}",
+        "task": "Baseline 1: drive to the work shelf, lift, grasp the item from the tote, lift it, retreat",
+        "robot_configuration_id": info.get("robot_configuration_id") or "unknown: not declared in /build1/run_info",
+        "fps": args.fps,
+        "max_skew_ns": args.max_skew_ns,
+        "streams": streams,
+        "components": list(dict.fromkeys(r["component"] for r in rows)),
+        "state_channels": state_channels,
+        "action_channels": action_channels,
+        "state_names": [c["name"] for c in state_channels],
+        "action_names": [c["name"] for c in action_channels],
+        "source_commits": commits,
+        "component_contract": {"path": str(component_profile_path), "sha256": sha256_file(component_profile_path)},
+        "provenance": {"run_id": args.run_id, "run_head_sha": args.run_sha, "artifact": args.artifact,
+                       "launch_profile": info.get("profile"), "acceptance_profile": args.acceptance_profile, "pose_source": info.get("planning_pose_source", info.get("pose_source")),
+                       "object_pose_source": info.get("object_pose_source"), "run_info": info,
+                       "time": "simulation time (/clock); bag recorded with --use-sim-time"},
+    }
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--bag", required=True)
+    p.add_argument("--component-profile", required=True, help="interfaces #39 profiles/c9/mobile-lift-qpos-v1-proposed.json")
+    p.add_argument("--out", required=True)
+    p.add_argument("--run-id", default="local")
+    p.add_argument("--run-sha", default=None)
+    p.add_argument("--platform-sha", default=None)
+    p.add_argument("--interfaces-sha", default=None)
+    p.add_argument("--artifact", default=None)
+    p.add_argument("--pins", default=None, help="pins.txt of the run artifact")
+    p.add_argument("--acceptance-profile", default=None, help="as the run's log declares it (sim-oracle | perception)")
+    p.add_argument("--fps", type=int, default=10, help="candidate export grid (not an approved value)")
+    p.add_argument("--max-skew-ns", type=int, default=50_000_000, help="candidate tolerance (not an approved value)")
+    args = p.parse_args(argv)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        profile_path = Path(args.component_profile).resolve()
+        component_profile = json.loads(profile_path.read_text())
+        data = read(args.bag, component_profile)
+    except (BagError, OSError, ValueError, KeyError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    rows = bind(data, component_profile)
+    cams = cameras(data)
+    bound_obs = sum("topic" in r["observation"] for r in rows)
+    bound_act = sum("topic" in r["action"] for r in rows)
+    bound_cam = sum("topic" in v for v in cams["bound"].values())
+    sim_time = data["start_ns"] is not None and data["start_ns"] < 10**15 and "/clock" in data["topics"]
+    report = {
+        "status": "Proposed analysis; simulation evidence only",
+        "bag": {"path": str(args.bag), "start_ns": data["start_ns"], "end_ns": data["end_ns"],
+                "duration_s": None if data["start_ns"] is None else round((data["end_ns"] - data["start_ns"]) * 1e-9, 3),
+                "simulation_time": sim_time,
+                "files_sha256": {f.name: sha256_file(f) for f in sorted(Path(args.bag).iterdir()) if f.is_file()},
+                "topics": data["topics"]},
+        "run_info": data["run_info"],
+        "channels": rows,
+        "cameras": cams,
+        "gripper_unit": gripper_unit(rows),
+        "totals": {"channels": len(rows), "observation_bound": bound_obs, "action_bound": bound_act,
+                   "c9_cameras": len(C9_CAMERAS), "c9_cameras_bound": bound_cam},
+        "c9_v1_complete": bound_cam == len(C9_CAMERAS) and bound_obs == len(rows) and bound_act == len(rows),
+    }
+    (out / "binding.json").write_text(json.dumps(report, indent=1) + "\n")
+    cand = candidate_profile(args, data, rows, profile_path, component_profile)
+    (out / "capture_profile_candidate.json").write_text(json.dumps(cand, indent=1) + "\n")
+    lines = [f"# Bag binding: run {args.run_id}", "",
+             f"Simulation time: {sim_time}; duration {report['bag']['duration_s']} s; "
+             f"acceptance profile {args.acceptance_profile}; launch profile {(data['run_info'] or {}).get('profile')}; planning_pose_source {(data['run_info'] or {}).get('planning_pose_source')}; "
+             f"object_pose_source {(data['run_info'] or {}).get('object_pose_source')}", "",
+             f"Channels {len(rows)}: observation bound {bound_obs}, action bound {bound_act}; "
+             f"C9 cameras bound {bound_cam}/{len(C9_CAMERAS)}; C9 v1 complete: {report['c9_v1_complete']}", "",
+             "| # | channel | unit | observation | rate Hz | min | max | in range | action |", "|---|---|---|---|---|---|---|---|---|"]
+    for r in rows:
+        o, a = r["observation"], r["action"]
+        lines.append(f"| {r['index']} | {r['name']} | {r['unit']} | {o.get('topic', 'UNBOUND')} | {o.get('rate_hz', '')} | "
+                     f"{o.get('min', '')} | {o.get('max', '')} | {o.get('within_profile_range', '')} | "
+                     f"{a.get('topic', 'UNBOUND: ' + a.get('unbound', ''))} |")
+    lines += ["", "| C9 camera | binding |", "|---|---|"]
+    lines += [f"| {k} | {v.get('topic', 'UNBOUND: ' + v.get('unbound', ''))} |" for k, v in cams["bound"].items()]
+    lines += ["", "Gripper unit: " + json.dumps(report["gripper_unit"])]
+    (out / "summary.md").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: MIT
+# Recorded bag to the C9 capture channels and the embodied-AI converter's gates (Proposed, read only).
+#
+# The bag-to-LeRobot converter lives in openamrobot-embodied-ai (decision EMBODIED-AI-REPO: oa-convert-bag, Satya's
+# capture conversion work). This workflow does not convert with a second converter. It downloads the artifact of a
+# recorded Baseline 1 (or grocery) run, binds the bag to the Proposed C9 component profile (openamrobot-interfaces #39)
+# and the four C9 camera features with tools/baseline1_capture_binding.py, writes a candidate capture profile with the
+# run's provenance, and runs the converter's own validate_profile and read_bag on it, unchanged. When the converter
+# accepts the profile and writes a dataset, the LeRobot loader step opens it; until then that step reports NOT RUN.
+# Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+name: Bag to LeRobot (capture binding)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/bag-to-lerobot.yml'
+      - 'tools/baseline1_capture_binding.py'
+      - 'tools/run_capture_gates.py'
+      - 'tools/tests/test_baseline1_capture_binding.py'
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Workflow run whose artifact holds the bag (default: Baseline 1, 8/8, 18 Nov 2026)"
+        default: '44309791416'
+      artifact:
+        description: "Artifact name in that run"
+        default: 'baseline1-acceptance-attempt1'
+
+permissions:
+  contents: read
+
+env:
+  RUN_ID: ${{ github.event.inputs.run_id || '44309791416' }}
+  ARTIFACT: ${{ github.event.inputs.artifact || 'baseline1-acceptance-attempt1' }}
+  # openamrobot-interfaces #39 (SatyaA27, Proposed): the C9 component profile.
+  INTERFACES_SHA: 43ec67747b1087163f3b220fbcf3ee44eb31c2e5
+  # openamrobot-embodied-ai satya/capture-conversion-benchmark: oa-convert-bag and its capture gates.
+  EMBODIED_AI_SHA: 9643da1d836fd63c09182561eb0a1ddb4d6fe91a
+  ROSBAGS_VERSION: '0.11.9'
+
+jobs:
+  tests:
+    name: Binding tool tests (synthetic MCAP fixture)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - run: python -m pip install "rosbags==${ROSBAGS_VERSION}" numpy pytest
+      - name: Tests (a run that collects or executes zero tests fails)
+        run: |
+          set -o pipefail
+          python -m pytest -p no:cacheprovider -v tools/tests/test_baseline1_capture_binding.py | tee pytest.log
+          passed=$(grep -c ' PASSED' pytest.log || true)
+          echo "passed: $passed"; [ "$passed" -gt 0 ] && ! grep -qE ' (SKIPPED|XFAIL)' pytest.log
+
+  bind:
+    name: Bind run ${{ github.event.inputs.run_id || '44309791416' }} and run the converter gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    needs: tests
+    permissions:
+      contents: read
+      actions: read        # download the artifact of another run of this repository and read its log
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-interfaces
+          ref: ${{ env.INTERFACES_SHA }}
+          path: external/openamrobot-interfaces
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-embodied-ai
+          ref: ${{ env.EMBODIED_AI_SHA }}
+          path: external/openamrobot-embodied-ai
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.ARTIFACT }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ github.token }}
+          path: run-artifact
+      - name: Run identity (head SHA, conclusion, acceptance profile from its log)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" \
+            --jq '{id, name, head_branch, head_sha, conclusion, created_at, path}' | tee run.json
+          job=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --jq '.jobs[0].id')
+          gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${job}/logs" > run.log || true
+          grep -m1 -oE 'acceptance profile: [a-z-]+, pose_source: [a-z_]+' run.log | tee acceptance.txt || echo "not in the log" > acceptance.txt
+          grep -m1 -oE 'BASELINE1_STATION_ALIGNMENT: [01]' run.log | tee -a acceptance.txt || true
+          grep -m1 -oE 'Baseline 1 report exit status: [0-9]+' run.log | tee -a acceptance.txt || true
+          ls -la run-artifact run-artifact/ws/build1_logs/bag 2>/dev/null || ls -laR run-artifact | head -40
+          echo "PLATFORM_SHA=$(grep -oE 'platform[^ ]* [0-9a-f]{40}' run-artifact/pins.txt | grep -oE '[0-9a-f]{40}' | head -1)" >> "$GITHUB_ENV"
+          echo "RUN_SHA=$(python3 -c 'import json;print(json.load(open("run.json"))["head_sha"])')" >> "$GITHUB_ENV"
+          echo "ACCEPTANCE=$(grep -oE 'acceptance profile: [a-z-]+' acceptance.txt | cut -d' ' -f3)" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install the converter at its pin (its own extras; LeRobot 0.6.1 and rosbags)
+        run: |
+          python -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e 'external/openamrobot-embodied-ai/python[conversion]' numpy jsonschema
+          python - <<'EOF' | tee lerobot_version.txt
+          import importlib.metadata as m
+          for p in ("lerobot", "rosbags", "torch", "pyarrow"):
+              try:
+                  print(p, m.version(p))
+              except m.PackageNotFoundError:
+                  print(p, "not installed")
+          EOF
+      - name: Bind the bag to the C9 channels and cameras
+        run: |
+          set -e
+          bag=run-artifact/ws/build1_logs/bag
+          python3 tools/baseline1_capture_binding.py --bag "$bag" \
+            --component-profile external/openamrobot-interfaces/profiles/c9/mobile-lift-qpos-v1-proposed.json \
+            --out out --run-id "$RUN_ID" --run-sha "$RUN_SHA" --platform-sha "$PLATFORM_SHA" \
+            --interfaces-sha "$INTERFACES_SHA" --artifact "$ARTIFACT" --pins run-artifact/pins.txt --acceptance-profile "${ACCEPTANCE:-unknown}"
+          cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: The converter's own gates on the candidate profile (unchanged)
+        run: |
+          python3 tools/run_capture_gates.py --profile out/capture_profile_candidate.json \
+            --bag run-artifact/ws/build1_logs/bag --out out/gates.json
+          { echo; echo '### embodied-ai capture gates'; echo '```json'; cat out/gates.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: LeRobot loader on a converted dataset
+        run: |
+          if [ -f out/dataset/meta/info.json ]; then
+            python3 -c "from lerobot.datasets.lerobot_dataset import LeRobotDataset as D; d=D('local', root='out/dataset'); print(len(d), d.fps)"
+          else
+            echo "NOT RUN: the converter wrote no dataset (see out/gates.json); NOT RUN is not PASS" | tee out/loader.txt
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: bag-to-lerobot-${{ env.RUN_ID }}
+          retention-days: 30
+          path: |
+            out/
+            run.json
+            acceptance.txt
+            lerobot_version.txt
+          if-no-files-found: warn
