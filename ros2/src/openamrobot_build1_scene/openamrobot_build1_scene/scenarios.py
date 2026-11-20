@@ -503,8 +503,9 @@ def grasp(rig, log):
             # The reach is a straight line along the fingers with the orientation the approach ended with, 0.02 m above
             # the grasp height: the hand goes 0.10 m back from the item on that line, then in, so that the open fingers
             # pass on both sides of it, and then down onto the grasp height (arm_frames.py, REACH_CLEARANCE_M). It comes
-            # down DESCENT_STANDOFF_M short of the end and moves in along the fingers last, so that the palm does not sweep
-            # down past the item's face (arm_frames.reach_waypoints).
+            # down DESCENT_STANDOFF_M short of the end to DESCENT_RISE_M above the grasp height and closes on a straight
+            # line last, so that the palm does not sweep down past the item's face and the hand does not come down onto
+            # the tote's front wall (arm_frames.reach_waypoints).
             approached = rig.transform("base_footprint", link)
             if not log.require(approached is not None, "no /tf of the hand after the approach"):
                 return

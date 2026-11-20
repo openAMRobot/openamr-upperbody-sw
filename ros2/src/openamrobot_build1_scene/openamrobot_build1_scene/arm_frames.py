@@ -121,16 +121,25 @@ def grasp_line(tcp_point, tcp_offset, hand_quaternion, standoff=REACH_STANDOFF_M
 # point for about 1 s with zero velocity: grasp_reach_servo_torque_max 1.018 N m at the 1 s reading. So the hand comes down
 # DESCENT_STANDOFF_M farther back along the fingers and the reach ends with a straight move of that length along the fingers
 # onto the unchanged end point: the item sits as deep in the fingers as before, and the palm closes on the face head-on.
+# Coming down that far back puts the hand body over the tote's front wall at the grasp height, where MoveIt sees the tote
+# as one unpadded box (planning_scene.py). At the end point the hand body is planned 5.7 to 16.8 mm above the wall in the
+# diagnostics runs of 323a2ce, 87d0f7a and e7a251c, with no wall contact in 25 runs that ended the descent there. Stopping
+# the descent at the grasp height 9 mm back left 7.1 mm (run 5 of 44609269748) and the hand touched the wall in 2 of 5
+# runs (ee_base_link 7.63 N, ee_link1 4.94 N). So the descent stops DESCENT_RISE_M above the grasp height: the end state,
+# which MoveIt has checked against the tote box, raised by the path deviation. The last move is the straight line from
+# there onto the end point, DESCENT_STANDOFF_M along the fingers and DESCENT_RISE_M down (test_arm_frames.py).
 REACH_PATH_DEVIATION_M = 0.009
 DESCENT_STANDOFF_M = REACH_PATH_DEVIATION_M
+DESCENT_RISE_M = REACH_PATH_DEVIATION_M
 
 
-def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None):
+def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None, rise=None):
     """The hand base waypoints of scn04's reach with the orientation `hand_quaternion` held: REACH_STANDOFF_M back along
-    the fingers and REACH_CLEARANCE_M up, in along the fingers to `standoff` short of the end, down onto the grasp height,
-    and in along the fingers onto the end point (the TCP on `tcp_point`). A standoff of 0 is the reach without the last
-    move: [pre_grasp, above, grasp]."""
+    the fingers and REACH_CLEARANCE_M up, in along the fingers to `standoff` short of the end, down to `rise` above the
+    grasp height, and on a straight line onto the end point (the TCP on `tcp_point`). A standoff of 0 is the reach without
+    the last move: [pre_grasp, above, grasp]. A rise of 0 comes down onto the grasp height and moves in along the fingers."""
     standoff = DESCENT_STANDOFF_M if standoff is None else standoff
+    rise = DESCENT_RISE_M if rise is None else rise
     raised = (tcp_point[0], tcp_point[1], tcp_point[2] + REACH_CLEARANCE_M)
     pre_grasp, above = grasp_line(raised, tcp_offset, hand_quaternion)
     _, grasp = grasp_line(tcp_point, tcp_offset, hand_quaternion)
@@ -138,7 +147,8 @@ def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None):
         return [pre_grasp, above, grasp]
     fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
     back = tuple(standoff * f for f in fingers)
-    return [pre_grasp, tuple(above[i] - back[i] for i in range(3)), tuple(grasp[i] - back[i] for i in range(3)), grasp]
+    down = (grasp[0] - back[0], grasp[1] - back[1], grasp[2] - back[2] + rise)
+    return [pre_grasp, tuple(above[i] - back[i] for i in range(3)), down, grasp]
 
 
 def straight_lift(hand_xyz, hand_quaternion, rise):
