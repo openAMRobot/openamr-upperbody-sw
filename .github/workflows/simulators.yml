@@ -63,8 +63,9 @@ jobs:
               assert re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
               print(f"{key}={value}")
           xacro = {e["inputs"]["xacro_package_version"] for e in lock["entries"]}
-          assert len(xacro) == 1, xacro
-          print(f"xacro={xacro.pop()}")
+          assert len(xacro) == 1 and xacro == {lock["xacro"]["version"]}, xacro
+          assert lock["xacro"]["version"].startswith("pypi:xacro=="), lock["xacro"]
+          print(f"xacro={lock['xacro']['version'].split('==', 1)[1]}")
           EOF
           cat "$GITHUB_OUTPUT"
 
@@ -103,23 +104,25 @@ jobs:
           path: ws/src/upstream/openarm_mujoco
           persist-credentials: false
 
-      # The lock's expansion hashes were computed with this xacro build. Another build is another input: the tests then report
-      # NotLocked (BLOCKED), which fails the job instead of comparing unlike things.
-      - name: xacro at the locked version, Python packages at their pins
+      # xacro is a lock input. It comes from PyPI as the hash-pinned wheel of simulation/requirements-xacro.txt, not from the ROS
+      # apt repository, whose builds are replaced at each Jazzy sync. --ignore-installed keeps it in the venv; each step puts the
+      # venv bin first on PATH after sourcing ROS. test_expansion_lock.py fails when the xacro on PATH is not the locked one (version and module files).
+      - name: xacro from the hash-pinned wheel, Python packages at their pins
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends "ros-jazzy-xacro=${{ steps.pins.outputs.xacro }}" \
-            || sudo apt-get install -y --no-install-recommends ros-jazzy-xacro
-          dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-xacro | tee versions.txt
           python3 -m venv --system-site-packages .venv
           .venv/bin/pip install --quiet -r src/openamr-upperbody-sw/simulation/requirements.txt
-          .venv/bin/pip freeze | grep -i -E '^(mujoco|pin|usd-core|trimesh|pycollada|scipy|numpy|pyyaml|jsonschema|pytest)==' | tee -a versions.txt
+          .venv/bin/pip install --require-hashes --no-deps --ignore-installed -r src/openamr-upperbody-sw/simulation/requirements-xacro.txt
+          test "$(.venv/bin/python -c 'import importlib.metadata as m; print(m.version("xacro"))')" = "${{ steps.pins.outputs.xacro }}" \
+            || { echo "installed xacro is not ${{ steps.pins.outputs.xacro }}"; exit 1; }
+          echo "xacro ${{ steps.pins.outputs.xacro }} (PyPI wheel, hash-checked)" | tee versions.txt
+          .venv/bin/pip freeze | grep -i -E '^(mujoco|pin|usd-core|trimesh|pycollada|scipy|numpy|pyyaml|jsonschema|pytest|xacro)==' | tee -a versions.txt
           { echo '### Versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate MJCF and the Isaac import job (bp000, bp050)
         run: |
           set -o pipefail
           source /opt/ros/jazzy/setup.bash
+          export PATH="$GITHUB_WORKSPACE/ws/.venv/bin:$PATH"  # the pinned xacro before any ROS copy
           .venv/bin/python src/openamr-upperbody-sw/simulation/tools/generate.py --isaac \
             --platform-sw src/openamr-platform-sw --openarm-description src/upstream/openarm_description --out build/sim \
             | tee generate.jsonl
@@ -135,6 +138,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
           source /opt/ros/jazzy/setup.bash
+          export PATH="$GITHUB_WORKSPACE/ws/.venv/bin:$PATH"  # the pinned xacro before any ROS copy
           set +e
           .venv/bin/python -m pytest -p no:cacheprovider -rfE --junitxml=simulation-tests.xml src/openamr-upperbody-sw/simulation/tests
           echo "TESTS_RC=$?" >> "$GITHUB_ENV"

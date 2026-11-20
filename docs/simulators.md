@@ -10,7 +10,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 - **One source.** Every backend file is generated from `combined_robot.xacro` with `hardware_profile:=gazebo` for a named
   configuration (`bp000`, `bp050`). That is the text Gazebo gets. Its SHA-256 is checked against the digital-twin lock before
   anything is written (`simulation/expansion_lock.yaml`, a mirror of `digital-twin/phase1/digital_twin.lock.yaml` in
-  openAMRobot/audits at `642c96d`, audits #91, Proposed). A different hash for the same inputs stops the generator (exit 2). When the description files
+  openAMRobot/audits at `d54dcf3`, audits #91, Proposed). A different hash for the same inputs stops the generator (exit 2). When the description files
   differ from every locked commit, the result counts only if the hash is the locked one for the same configuration, pins and xacro
   build; the status then reads `hash in lock, inputs changed (... re-lock pending)`, never `matches lock`. Otherwise the generator
   stops (exit 3, BLOCKED). On PR #66 head `5adeba3` the status is the second one: re-lock in audits is pending.
@@ -35,12 +35,18 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` | `config/upstream_pins.yaml` |
 | enactic/openarm_ros2 (gripper gains) | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` | `config/upstream_pins.yaml` |
 | enactic/openarm_mujoco (comparison only) | `1daab06716b779376dbe7f01fb0548f8b539bb35` | `simulation/sim_pins.yaml` |
-| xacro | `ros-jazzy-xacro 2.1.1-1noble.20261025.230251` (the 20260519 build is superseded: no longer served, expansions byte-identical) | lock input; CI installs it exactly |
+| xacro | PyPI wheel `xacro-2.1.1-py3-none-any.whl` (sha256 `c3b330eb...`, module files = ros/xacro tag 2.1.1); lock input `pypi:xacro==2.1.1`. The deb builds `2.1.1-1noble.20260519.011123` and `2.1.1-1noble.20261025.230251` are superseded in the lock history (same module files, same hashes) | `simulation/requirements-xacro.txt`, installed with `pip --require-hashes` |
 | MuJoCo, pinocchio, usd-core, trimesh, pycollada, numpy | exact versions | `simulation/requirements.txt` |
 | Isaac Sim | 5.1.0, `nvcr.io/nvidia/isaac-sim:5.1.0` | `engine_overrides.yaml` isaac, `simulation/sim_pins.yaml` |
 
 Locked hashes used here: bp000 `5d9a1b51aadd07b0f074beff37cc7ccacab91ec032eee63c39183ae2b79f40ea`,
 bp050 `4d21210ed0b2628f9c11be6312e81b33c58246be7ef8231084d3b6ef3c53eb8a` (gazebo profile, PR #66).
+
+The xacro pin does not depend on the ROS apt repository, whose builds are replaced at each Jazzy sync. Two checks guard it:
+`.github/workflows/xacro-lock-reproduction.yml` recomputes every lock hash (all combined-model entries at their locked commits and the
+base-model entries) with the pinned wheel whenever the pin, the mirror or the expansion code changes, and
+`.github/workflows/upstream-pins-watch.yml` reports daily whether PyPI still serves every pinned package (report only, it changes nothing).
+`test_expansion_lock.py` fails when the xacro on PATH is not the pinned one (lock input and module files).
 
 ## Regenerate
 
@@ -50,6 +56,7 @@ source /opt/ros/jazzy/setup.bash
 
 ```bash
 python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r simulation/requirements.txt
+.venv/bin/pip install --require-hashes --no-deps --ignore-installed -r simulation/requirements-xacro.txt && export PATH="$PWD/.venv/bin:$PATH"
 ```
 
 ```bash
@@ -73,6 +80,7 @@ Refresh the lock mirror after audits re-locks (never by hand):
 ```
 
 CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job `isaac` BLOCKED without a GPU runner.
+All lock hashes with the installed xacro: `.venv/bin/python simulation/tools/reproduce_lock.py --upperbody . --platform-sw <clone> --upstream <dir with openarm_description and openarm_ros2 at the pins>`.
 
 ## What each backend models
 

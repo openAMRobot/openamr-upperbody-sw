@@ -4,7 +4,7 @@ note: Mirror of the combined-model expansion hashes of the digital-twin lock. Ge
   The lock itself is a proposal held in openAMRobot/audits.
 lock:
   repository: openAMRobot/audits
-  commit: 642c96d656e0e43f950cd6e608e60a4912cf15bc
+  commit: d54dcf338433119b88e38e209e52d97f96a2e835
   file: digital-twin/phase1/digital_twin.lock.yaml
   lock_date: '2026-11-15'
   normalisation: banner line removed; prefix path replaced by $PREFIX
@@ -17,7 +17,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: da3b484779b57cff168a7320c20a069c171bb1ad3418b86c2ced5d0405c14aec
   bytes: 100613
   links: 67
@@ -30,7 +30,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: eb26b265af9e8dfb2eca681c67a5f71ebaf06076aab86c8a1448f3d5e997edbf
   bytes: 100813
   links: 67
@@ -43,7 +43,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 9632d21897d630eea6bf479012e901b87cb66fa7bbe9cc2afa8341321782f932
   bytes: 101302
   links: 67
@@ -56,7 +56,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 8ed11ae357a77d9d5ffdc0171783a6ab22e3afe6cfe1f9d09b0631306d68eb64
   bytes: 100613
   links: 67
@@ -69,7 +69,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 12fc21827975896ea89312572d4fed330c6b716ba4894967b63557783583ff7f
   bytes: 100813
   links: 67
@@ -82,7 +82,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 79a2815883f847466fdcfcf9e49be3a6a6b65e458852622f4d2442c761e0bcc2
   bytes: 101302
   links: 67
@@ -95,7 +95,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: da3b484779b57cff168a7320c20a069c171bb1ad3418b86c2ced5d0405c14aec
   bytes: 100613
   links: 67
@@ -108,7 +108,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: eb26b265af9e8dfb2eca681c67a5f71ebaf06076aab86c8a1448f3d5e997edbf
   bytes: 100813
   links: 67
@@ -121,7 +121,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 9632d21897d630eea6bf479012e901b87cb66fa7bbe9cc2afa8341321782f932
   bytes: 101302
   links: 67
@@ -134,7 +134,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 8ed11ae357a77d9d5ffdc0171783a6ab22e3afe6cfe1f9d09b0631306d68eb64
   bytes: 100613
   links: 67
@@ -147,7 +147,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 12fc21827975896ea89312572d4fed330c6b716ba4894967b63557783583ff7f
   bytes: 100813
   links: 67
@@ -160,7 +160,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 79a2815883f847466fdcfcf9e49be3a6a6b65e458852622f4d2442c761e0bcc2
   bytes: 101302
   links: 67
@@ -173,7 +173,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: da3b484779b57cff168a7320c20a069c171bb1ad3418b86c2ced5d0405c14aec
   bytes: 100613
   links: 67
@@ -186,7 +186,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 5d9a1b51aadd07b0f074beff37cc7ccacab91ec032eee63c39183ae2b79f40ea
   bytes: 101629
   links: 67
@@ -199,7 +199,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp000
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 9632d21897d630eea6bf479012e901b87cb66fa7bbe9cc2afa8341321782f932
   bytes: 101302
   links: 67
@@ -212,7 +212,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: mock
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 8ed11ae357a77d9d5ffdc0171783a6ab22e3afe6cfe1f9d09b0631306d68eb64
   bytes: 100613
   links: 67
@@ -225,7 +225,7 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: gazebo
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 4d21210ed0b2628f9c11be6312e81b33c58246be7ef8231084d3b6ef3c53eb8a
   bytes: 101629
   links: 67
@@ -238,14 +238,57 @@ entries:
     openarm_description_pin: 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
     base_plate: bp050
     hardware_profile: real
-    xacro_package_version: 2.1.1-1noble.20261025.230251
+    xacro_package_version: pypi:xacro==2.1.1
   sha256: 79a2815883f847466fdcfcf9e49be3a6a6b65e458852622f4d2442c761e0bcc2
   bytes: 101302
   links: 67
   joints: 84
+base_model:
+- source: platform-sw main
+  commit: 07417783bb602c233f7011599dc12e4d81e38a04
+  file: ros2/src/openamrobot_description/urdf/robo_urdf.urdf.xacro
+  sha256: 6d6b2bf35b1c3c1ffe09e1ce9b348534cf0220ce3bd26a26d64c63cd0b825fb0
+  bytes: 38539
+  links: 25
+  joints: 24
+- source: 'platform-sw PR #105'
+  commit: acc427d7ad9b1f90591011f1824d470a9a3fd883
+  file: ros2/src/openamrobot_description/urdf/robo_urdf.urdf.xacro
+  sha256: 9eaeef509707b85ddc7e9a06eb8a6556ebe861a9d9fdfcd9de03c21a0b7a2cda
+  bytes: 47736
+  links: 25
+  joints: 24
+- source: 'platform-sw PR #138'
+  commit: 9be73229ad60a41a9ba1419d15527199f58c5b41
+  file: ros2/src/openamrobot_description/urdf/robo_urdf.urdf.xacro
+  sha256: 84a1f1dd4d13f2a9e3c490f4ae548ded4753a1bd17eb98df2863713de296759f
+  bytes: 40361
+  links: 25
+  joints: 24
+xacro:
+  version: pypi:xacro==2.1.1
+  requirement: xacro==2.1.1
+  file: xacro-2.1.1-py3-none-any.whl
+  wheel_sha256: c3b330ebd984a3bce6d6482e0047eae5c5333fedd49b30b9b6df863a086b35f7
+  sources_sha256: 02e99edc250a262d517eeafc69a5a74e9d1befdcc22d6ca3e364332d488a4c68
+  upstream: ros/xacro tag 2.1.1, commit 390772abfe1e068f54aed674ce43873229a7db4e; its five module files are identical to the wheel's
 xacro_superseded:
 - version: 2.1.1-1noble.20260519.011123
   superseded: '2026-11-20'
   reason: packages.ros.org no longer serves this build of ros-jazzy-xacro; it serves only 2.1.1-1noble.20261025.230251 (upperbody-sw CI job 135820658446,
     "Version '2.1.1-1noble.20260519.011123' for 'ros-jazzy-xacro' was not found"). Same upstream release 2.1.1, rebuilt at the 25 Oct 2026 Jazzy
     sync.
+  equivalence: 'The hashes below are unchanged; the new build is a lock input only. Evidence (a) CI job 135820658446 (upperbody-sw d3be136, build
+    2.1.1-1noble.20261025.230251) expanded bp000 gazebo to 5d9a1b51aadd07b0f074beff37cc7ccacab91ec032eee63c39183ae2b79f40ea, the locked hash of
+    PR 66; (b) local, 20 Nov 2026, xacro 2.1.1 from PyPI with this tool unchanged reproduced all 18 combined_model and all 3 base_model entries
+    byte for byte (sha256, bytes, links, joints); (c) upperbody-sw CI on the mirror update (PR 104 7aee835, run 44799160542, job 136506468169)
+    with the new build expanded bp000 and bp050 gazebo, mock and real at its head to the locked hashes. Not checked with the new build in CI:
+    the two pre-PR-66 gazebo hashes (eb26b265..., 12fc2182...), which no current head expands.'
+- version: 2.1.1-1noble.20261025.230251
+  superseded: '2026-11-21'
+  reason: Replaced by the hash-pinned PyPI wheel of the same release (xacro_artifact), so the next Jazzy sync cannot remove the lock input again.
+    Same upstream release 2.1.1; the hashes below are unchanged.
+  equivalence: 'The hashes below are unchanged. Evidence (a) upperbody-sw diagnostic run 44838249316 attempt 3, job 136641579876 (scratch branch
+    diag/xacro-pin-probe-20261121, 21 Nov 2026): the module files of this deb build and of the wheel have the same sources_sha256 02e99edc250a262d517eeafc69a5a74e9d1befdcc22d6ca3e364332d488a4c68
+    (five files, xacro 2.1.1); (b) local, 21 Nov 2026, the wheel installed with --require-hashes reproduced all 18 combined_model and all 3 base_model
+    entries byte for byte; (c) the upperbody-sw lock-reproduction CI job on PR 104 recomputes all 21 entries with the wheel (job ID in xacro_artifact.evidence).'
