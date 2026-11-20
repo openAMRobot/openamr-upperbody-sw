@@ -30,6 +30,16 @@ All notable changes to this repository. Evidence for the description is static a
   0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
   In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
 
+### Fixed (20 Nov 2026, night; diagnostic run 44800204846; simulation only)
+
+- Forward retreat: the 0.30 m goal is built from the map pose (`baseline1.map_pose`), the frame it is sent in, not from
+  ground truth. Built from ground truth it was 0.05 m off in map; the base, which cannot reverse, stalled short of it
+  and FollowPath aborted ("Failed to make progress", ABORTED) after 0.305 m of travel.
+- Cancellation goal: on #164's station tree (station goal checker 0.025 m). With bt_navigator's default checker
+  (0.35 m) the 0.5 m goal could succeed after 0.15 m, the cancel distance: it ended SUCCEEDED after 0.088 m of
+  ground-truth travel and the cancel was refused (return code 3). Goal 0.5 m, cancel at 0.15 m and CANCELED-only
+  unchanged; `goal_reached_before_cancel` tests the margin. 3 new tests fail on the previous sources.
+
 ### Changed (20 Nov 2026, evening; Baseline 1 forward retreat, cancel at the end, #98 contact window; simulation only)
 
 - Retreat `forward` (turn in place, then forward, no reverse) is the default of `config/baseline1_mission_options.json`

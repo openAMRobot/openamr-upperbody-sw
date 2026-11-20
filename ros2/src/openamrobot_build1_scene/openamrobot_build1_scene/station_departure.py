@@ -196,8 +196,18 @@ def _sampled_wait(rig, condition, sim_s, what, samples):
     return rig.wait(check, sim_s, what, step=0.05)
 
 
-def run(rig, log, name, config=None):
-    """Leave the station with option `name` ('departure' or 'forward'; 'backup' stays in baseline1.retreat)."""
+def forward_goal(pose, forward_m):
+    """(x, y, yaw) of the forward retreat goal: `forward_m` straight ahead of `pose`, same heading. `pose` must be in
+    the frame the goal is sent in (map): a goal built from ground truth and sent in map is off by the localization
+    error, which a forward-only base cannot take back (diagnostic run 44800204846: 0.05 m, FollowPath "Failed to make
+    progress", ABORTED)."""
+    x, y, yaw = pose
+    return x + forward_m * math.cos(yaw), y + forward_m * math.sin(yaw), yaw
+
+
+def run(rig, log, name, config=None, pose=None):
+    """Leave the station with option `name` ('departure' or 'forward'; 'backup' stays in baseline1.retreat).
+    `pose()` gives the map pose of the base (baseline1.map_pose) for the forward goal; ground truth without it."""
     import time
     c = config or load()
     params, trees = installed_nav2()
@@ -261,11 +271,14 @@ def run(rig, log, name, config=None):
     log.quantity("retreat_turn_heading_change", change, "deg", low=170.0, high=180.0, note="a half turn in place")
     log.quantity("retreat_turn_position_drift", math.hypot(turned[0] - start[0], turned[1] - start[1]), "m",
                  low=0.0, high=0.05, note="turn in place about base_footprint (#93's axis). Guard value, estimated")
-    gx, gy = turned[0] + f["forward_m"] * math.cos(turned[2]), turned[1] + f["forward_m"] * math.sin(turned[2])
+    rig.wait_stopped(10.0)
+    here = pose() if pose is not None else None
+    log.data["baseline1"]["retreat_option"]["goal_from"] = "map pose" if here is not None else "ground truth"
+    gx, gy, gyaw = forward_goal(here or turned, f["forward_m"])
     nav = NavigateToPose.Goal()
     nav.pose.header.frame_id = "map"
     nav.pose.pose.position.x, nav.pose.pose.position.y = float(gx), float(gy)
-    nav.pose.pose.orientation.z, nav.pose.pose.orientation.w = math.sin(turned[2] / 2.0), math.cos(turned[2] / 2.0)
+    nav.pose.pose.orientation.z, nav.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
     # The station tree (#164): its goal checker (0.025 m) ends the goal at the point; the default checker's 0.35 m
     # would count a 0.30 m goal as reached before the base moves.
     from ament_index_python.packages import get_package_share_directory

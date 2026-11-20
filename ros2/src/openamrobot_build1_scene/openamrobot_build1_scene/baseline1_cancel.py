@@ -51,6 +51,27 @@ def enabled(config=None, environ=None):
     return environ.get(name, "0") == "1"
 
 
+def tree_path(name):
+    """The behaviour tree file of the goal: '' is bt_navigator's default; a bare file name is resolved in the installed
+    openamrobot_nav2 share (behavior_trees/). Without that share (the static tests) the bare name is returned; in a run
+    bt_navigator would then refuse the goal and cancel_goal_accepted fails, so nothing passes on a wrong tree."""
+    if not name or os.path.isabs(name):
+        return name or ""
+    try:
+        from ament_index_python.packages import get_package_share_directory
+        return os.path.join(get_package_share_directory("openamrobot_nav2"), "behavior_trees", name)
+    except (ImportError, LookupError):
+        return name
+
+
+def goal_reached_before_cancel(config):
+    """True when the goal checker can accept the goal before the cancel is sent: the base is within
+    goal_xy_tolerance_m of the goal once it has moved goal_distance_m - goal_xy_tolerance_m, which must stay above
+    the end of the mid-way window, or the cancel races a SUCCEEDED (diagnostic run 44800204846: default tree, 0.35 m
+    tolerance on a 0.5 m goal: SUCCEEDED after 0.088 m of ground-truth travel, return code 3)."""
+    return config["goal_distance_m"] - config["goal_xy_tolerance_m"] <= config["mid_way_m"][1]
+
+
 def goal_pose(start, distance):
     """(x, y, yaw) `distance` straight ahead of `start`, same heading."""
     x, y, yaw = start
@@ -181,7 +202,7 @@ def step(rig, log, pose=None, config=None):
     goal.pose.header.frame_id = "map"
     goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
     goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
-    goal.behavior_tree = c.get("behavior_tree", "")
+    goal.behavior_tree = tree_path(c.get("behavior_tree", ""))
     log.event(f"cancel check: goal x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map) on {c['action']}, cancel after "
               f"{c['cancel_at_m']} m")
     handle = rig.send_goal(c["action"], "nav2_msgs.action", "NavigateToPose", goal)
@@ -216,5 +237,6 @@ def step(rig, log, pose=None, config=None):
                      note=check["note"])
     summary = {k: v for k, v in record.items() if k not in ("hold_truth", "hold_odom", "cmd_vel")}
     summary["cmd_vel_messages"] = len(record.get("cmd_vel") or [])
+    summary["behavior_tree"] = goal.behavior_tree
     log.data["baseline1"]["cancel_check"]["record"] = summary
     return record

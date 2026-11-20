@@ -320,7 +320,7 @@ def retreat(rig, log):
     chosen = station_departure.option(retreat_config)
     log.data.setdefault("baseline1", {})["retreat_option"] = {"option": chosen}
     if chosen != "backup":
-        station_departure.run(rig, log, chosen, retreat_config)
+        station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))
         return
     x0, y0, yaw0 = rig.truth()
     goal = BackUp.Goal()

@@ -159,5 +159,18 @@ def test_the_mission_retreat_hands_over_only_for_another_option():
     tree = ast.parse(open(os.path.join(PACKAGE, "openamrobot_build1_scene", "baseline1.py"), encoding="utf-8").read())
     retreat = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "retreat")
     source = ast.unparse(retreat)
-    assert "if chosen != 'backup':" in source and "station_departure.run(rig, log, chosen, retreat_config)" in source
+    assert "if chosen != 'backup':" in source and "station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))" in source
     assert source.index("station_departure.run") < source.index('"/backup"' if '"/backup"' in source else "'/backup'")
+
+
+# ------------------------------------------------------------------ the forward goal is built in the frame it is sent in
+def test_the_forward_goal_comes_from_the_map_pose():
+    """Diagnostic run 44800204846: the goal was built from ground truth and sent in map, 0.05 m off; the base cannot
+    reverse to take that back and FollowPath aborted ("Failed to make progress")."""
+    assert sd.forward_goal((1.0, 2.0, 1.5707963267948966), 0.3) == pytest.approx((1.0, 2.3, 1.5707963267948966))
+    run = ast.unparse(next(n for n in ast.parse(open(sd.__file__, encoding="utf-8").read()).body
+                           if isinstance(n, ast.FunctionDef) and n.name == "run"))
+    assert "here = pose() if pose is not None else None" in run
+    assert "gx, gy, gyaw = forward_goal(here or turned, f['forward_m'])" in run
+    mission = open(os.path.join(PACKAGE, "openamrobot_build1_scene", "baseline1.py"), encoding="utf-8").read()
+    assert "station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))" in mission

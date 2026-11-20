@@ -87,7 +87,9 @@ Cancellation step (`baseline1_cancel.py`, values in `config/baseline1_mission_op
 the last step of the retreat phase, after the turn-and-forward retreat, so the odometry guard at the station
 (`nav_to_station`) is evaluated before it and no turn follows the cancel (at the start of `nav_to_station` the
 following station turn failed the odometry guard, runs 44735544898 and 44736351073). A 0.5 m NavigateToPose goal
-straight ahead of the base on open floor (the mission does not need it) on `/navigate_to_pose`, cancelled through the
+straight ahead of the base's map pose on open floor (the mission does not need it) on `/navigate_to_pose` with #164's
+station tree (station goal checker 0.025 m; the default checker's 0.35 m accepted the goal at the cancel distance,
+diagnostic run 44800204846), cancelled through the
 action's cancel service once ground truth has moved 0.15 m. Checks: goal accepted; cancelled mid-way (0.08 to 0.40 m)
 with the base moving (at least 0.02 m/s); cancel request accepted; terminal status CANCELED (5), whatever the stack
 returns is recorded; stopped within 4 s and 0.10 m (the scn07 time bound); then over 3 s of Gazebo time ground truth
@@ -102,7 +104,7 @@ Settings declared in every leg:
 - Station alignment: openamr-platform-sw #167 on (simulation-only base camera), `station_alignment: 0` is the revert run.
 - Profile: sim-oracle (object and planning poses from simulator ground truth); not a perception result.
 - Retreat: `forward` (Alex, 20 Nov 2026): Nav2 spin by pi in place, then a 0.30 m forward NavigateToPose with #164's
-  station tree, no reverse motion; `BASELINE1_RETREAT: forward` in the workflow, `retreat` in each leg's
+  station tree, the goal built from the map pose, no reverse motion; `BASELINE1_RETREAT: forward` in the workflow, `retreat` in each leg's
   `declaration.json` (the evidence gate requires it). Platform pin with the no-reverse Nav2 configuration:
   openamr-platform-sw #178 (`nav/baseline1-no-reverse-on-175`, 0aa8e14 on 9af88e7), candidate until merged.
 
