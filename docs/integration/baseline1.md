@@ -70,7 +70,7 @@ Settings declared in every leg:
 - Retreat: one straight 0.30 m backup through behavior_server's `backup` action, the mission's last phase, simulation
   only. A declared station departure, not a recovery; general reversing recovery is removed (Alex, 19 Nov 2026).
 
-Pins: openamr-platform-sw integration branch `fb25be1` (#164 at `09f9a85`, BackUp removed from its trees; #167 at
+Pins: openamr-platform-sw `9af88e7`, candidate of integration branch `fb25be1` with #169 merged (#175; repinned to the integration merge commit before merge) (#164 at `09f9a85`, BackUp removed from its trees; #167 at
 `99ec17f`, then `dccd5e0`, test-only change on top), openamrobot-interfaces `50ed777` (StopState, imported by #167's
 node from 99ec17f on).
 

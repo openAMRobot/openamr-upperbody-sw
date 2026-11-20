@@ -20,8 +20,8 @@ pins:
     sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
     use: "provisional: only the package ros2/src/openamrobot_sil is checked out and built, and docs/architecture/sil-topology.md is followed. Contains #141 9913d87, #144 53a69e9 (late SDO reply fix) and main 69847ab"
   platform_sw_sil:
-    sha: "fb25be1b56652316f47b7505cef021576822c558"
-    use: "only the package ros2/src/openamrobot_sil, for build1-scene-tests.yml and build1-arm-diagnostics.yml: openamr-platform-sw integration/baseline1, the PLATFORM_SW_SHA of baseline1-acceptance.yml (clock contract #151/#158, lift on simulation time #162, #166). Replaces the #145 pin there, whose CTL-017 timers ran on host time"
+    sha: "9af88e78bbcd845b1cb6d53d322c08f9dea9dc98"
+    use: "only the package ros2/src/openamrobot_sil, for build1-scene-tests.yml and build1-arm-diagnostics.yml, and the PLATFORM_SW_SHA of baseline1-acceptance.yml: openamr-platform-sw integration/baseline1 fb25be1 (clock contract #151/#158, lift on simulation time #162, #166) with #169 (matched SDO answers, new-sample odometry) merged, CANDIDATE commit of openamr-platform-sw #175 (integration/candidate-169). Repin to the integration merge commit before this PR merges. Replaces the #145 pin, whose CTL-017 timers ran on host time"
   platform_sw_pr139:
     sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
     use: "merged on platform main (squash): openamrobot_sil without Renode. Never merge #139 again"

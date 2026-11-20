@@ -5,6 +5,15 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
+
+- `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample
+  counter), the BMS host (answer counter), the lift host and CTL-017 emulator (count of the host's permit frames) and the
+  arm joint states. A stopped one fails the scene; in the `faults` profile it is recorded, not checked. A failing scene with
+  a dead drive thread stays FAIL and is no longer turned into BLOCKED. `test_component_liveness.py` (9 tests).
+- `pins.yaml` `platform_sw_sil` and `PLATFORM_SW_SHA`: openamr-platform-sw `9af88e7`, the candidate of
+  `integration/baseline1` `fb25be1` with #169 merged (#175), to be repinned to the integration merge commit.
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
