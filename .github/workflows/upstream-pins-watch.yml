@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# Report only: are the pinned simulation packages (the hash-pinned xacro wheel and the exact pins of simulation/requirements.txt)
+# still served by PyPI? Runs daily on main, on demand, and on pull requests that touch the pins. A red run means a pin is gone or
+# changed upstream; it changes nothing and opens nothing. It also prints the ros-jazzy-xacro build packages.ros.org serves today,
+# for information (CI no longer installs xacro from apt). No secrets, no hardware.
+name: Upstream pins watch
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/upstream-pins-watch.yml
+      - simulation/requirements.txt
+      - simulation/requirements-xacro.txt
+      - simulation/tools/check_upstream_pins.py
+
+permissions:
+  contents: read
+
+jobs:
+  pypi-pins:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Pinned packages on PyPI
+        run: python3 simulation/tools/check_upstream_pins.py --summary "$GITHUB_STEP_SUMMARY"
+
+      - name: ros-jazzy-xacro on packages.ros.org (information only)
+        if: always()
+        run: |
+          v=$(curl -fsS -m 120 http://packages.ros.org/ros2/ubuntu/dists/noble/main/binary-amd64/Packages.gz | gunzip \
+            | awk '/^Package: ros-jazzy-xacro$/{f=1;next} f&&/^Version:/{print $2;f=0}' | tr '\n' ' ') || v="not reachable"
+          echo "packages.ros.org serves ros-jazzy-xacro ${v:-none}"
+          { echo "### ros-jazzy-xacro on packages.ros.org (information only)"; echo; echo "${v:-none}"; } >> "$GITHUB_STEP_SUMMARY"

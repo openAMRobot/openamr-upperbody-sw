@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: MIT
+# Recompute every expansion hash of the lock mirror (all combined-model entries at their locked commits and the base-model
+# entries) with the hash-pinned xacro wheel, whenever the xacro pin, the lock mirror or the expansion code changes. A different
+# xacro that changes any expansion fails here before it is locked. Then a copy of the mirror with one altered hash must fail, so
+# the check can fail. Simulation tooling evidence only. No secrets, no hardware.
+name: xacro lock reproduction
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/xacro-lock-reproduction.yml
+      - simulation/requirements-xacro.txt
+      - simulation/expansion_lock.yaml
+      - simulation/openamr_sim/expand.py
+      - simulation/tools/reproduce_lock.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ws
+    steps:
+      - run: mkdir -p ws
+        working-directory: .
+
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Clones holding every locked commit
+        run: |
+          set -eu
+          read -r UB PF OAD OAR <<< "$(python3 - <<'EOF'
+          import yaml
+          lock = yaml.safe_load(open("src/openamr-upperbody-sw/simulation/expansion_lock.yaml"))
+          e = lock["entries"]
+          print(",".join(sorted({x["commit"] for x in e})),
+                ",".join(sorted({x["inputs"]["platform_sw_pin"] for x in e} | {b["commit"] for b in lock.get("base_model", [])})),
+                *sorted({x["inputs"]["openarm_description_pin"] for x in e}),
+                yaml.safe_load(open("src/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml"))["pins"]["openarm_ros2"])
+          EOF
+          )"
+          git -C src/openamr-upperbody-sw fetch -q origin ${UB//,/ }
+          git clone -q https://github.com/openAMRobot/openamr-platform-sw src/openamr-platform-sw
+          git -C src/openamr-platform-sw fetch -q origin ${PF//,/ }
+          git clone -q https://github.com/enactic/openarm_description src/upstream/openarm_description
+          git -C src/upstream/openarm_description checkout -q "$OAD"
+          git clone -q https://github.com/enactic/openarm_ros2 src/upstream/openarm_ros2
+          git -C src/upstream/openarm_ros2 checkout -q "$OAR"
+
+      - name: xacro from the hash-pinned wheel
+        run: |
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --quiet "$(grep -i '^PyYAML==' src/openamr-upperbody-sw/simulation/requirements.txt | cut -d' ' -f1)"
+          .venv/bin/pip install --require-hashes --no-deps --ignore-installed -r src/openamr-upperbody-sw/simulation/requirements-xacro.txt
+
+      - name: Recompute every lock hash
+        run: |
+          set -o pipefail
+          source /opt/ros/jazzy/setup.bash
+          export PATH="$GITHUB_WORKSPACE/ws/.venv/bin:$PATH"
+          .venv/bin/python src/openamr-upperbody-sw/simulation/tools/reproduce_lock.py --upperbody src/openamr-upperbody-sw \
+            --platform-sw src/openamr-platform-sw --upstream src/upstream --json reproduction.json | tee reproduction.txt
+          { echo '### Lock reproduction'; echo '```'; cat reproduction.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: The check can fail (one altered hash)
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          export PATH="$GITHUB_WORKSPACE/ws/.venv/bin:$PATH"
+          python3 -c "
+          import yaml; p='src/openamr-upperbody-sw/simulation/expansion_lock.yaml'; d=yaml.safe_load(open(p))
+          d['entries'][0]['sha256'] = '0' * 64; yaml.safe_dump(d, open('altered_lock.yaml', 'w'), sort_keys=False)"
+          if .venv/bin/python src/openamr-upperbody-sw/simulation/tools/reproduce_lock.py --upperbody src/openamr-upperbody-sw \
+               --platform-sw src/openamr-platform-sw --upstream src/upstream --lock altered_lock.yaml > altered.txt; then
+            echo "an altered lock hash was not detected"; exit 1
+          fi
+          tail -1 altered.txt
+          echo "- altered lock: $(tail -1 altered.txt) (expected one DIFFERENT)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: xacro-lock-reproduction
+          path: |
+            ws/reproduction.json
+            ws/reproduction.txt
+          if-no-files-found: warn

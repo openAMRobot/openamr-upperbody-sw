@@ -14,6 +14,7 @@ package version. Files that xacro does not read (tests, READMEs, the engine-over
 """
 import dataclasses
 import hashlib
+import json
 import os
 import pathlib
 import shutil
@@ -91,9 +92,45 @@ def deps_digest(prefix, description, xacro_file, args, env):
     return digest.hexdigest()
 
 
+# Run by the interpreter of the `xacro` on PATH, with the same environment: the module that command imports, its version and
+# the SHA-256 over its module files (sorted "xacro/<file>\0<sha256 of the file>\n"), the sources_sha256 of the lock.
+_XACRO_PROBE = """
+import hashlib, importlib.metadata as m, json, pathlib, xacro
+d = pathlib.Path(xacro.__file__).resolve().parent
+h = hashlib.sha256()
+for p in sorted(d.glob("*.py")):
+    h.update(f"xacro/{p.name}".encode() + b"\\0" + hashlib.sha256(p.read_bytes()).hexdigest().encode() + b"\\n")
+try:
+    v = m.version("xacro")
+except m.PackageNotFoundError:
+    v = "unknown"
+print(json.dumps({"module": str(d), "version": v, "sources_sha256": h.hexdigest()}))
+"""
+
+
+def xacro_identity():
+    """The xacro that `xacro` on PATH runs. version is the lock input: "pypi:xacro==<v>" for a pip install (CI installs the
+    hash-pinned wheel of simulation/requirements-xacro.txt), the ros-jazzy-xacro build for the ROS deb, "unknown" otherwise."""
+    exe = shutil.which("xacro")
+    if exe is None:
+        return {"version": "unknown", "sources_sha256": None, "module": None}
+    with open(exe, "rb") as f:
+        first = f.readline().decode(errors="replace").strip()
+    interpreter = first[2:].split() if first.startswith("#!") else ["python3"]
+    run = subprocess.run([*interpreter, "-c", _XACRO_PROBE], capture_output=True, text=True)
+    if run.returncode != 0:
+        return {"version": "unknown", "sources_sha256": None, "module": None}
+    found = json.loads(run.stdout)
+    if found["module"].startswith("/opt/ros/"):
+        deb = subprocess.run(["dpkg-query", "-W", "-f=${Version}", "ros-jazzy-xacro"], capture_output=True, text=True)
+        found["version"] = deb.stdout.strip() or "unknown"
+    elif found["version"] != "unknown":
+        found["version"] = f"pypi:xacro=={found['version']}"
+    return found
+
+
 def xacro_version():
-    run = subprocess.run(["dpkg-query", "-W", "-f=${Version}", "ros-jazzy-xacro"], capture_output=True, text=True)
-    return run.stdout.strip() or "unknown"
+    return xacro_identity()["version"]
 
 
 def _make_prefix(prefix, trees):

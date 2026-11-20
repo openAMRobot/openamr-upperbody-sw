@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Write simulation/expansion_lock.yaml from the digital-twin lock in openAMRobot/audits.
 
-The audits repository is internal, so CI here cannot read it. This script copies only the expansion hashes of the combined model and
-their inputs (commit, pins, arguments, xacro version). For each locked entry it adds the digest of the description files that
-xacro reads at that commit (openamr_sim.expand.deps_digest), taken from `git archive`, so a later checkout that feeds xacro the
-same files is the same input. Nothing else from audits is copied.
+The audits repository is internal, so CI here cannot read it. This script copies only the expansion hashes of the combined model
+and their inputs (commit, pins, arguments, xacro version), the base-model hashes, the pinned xacro artifact and its history. For each
+locked entry it adds the digest of the description files that xacro reads at that commit (openamr_sim.expand.deps_digest), taken
+from `git archive`, so a later checkout that feeds xacro the same files is the same input. Nothing else from audits is copied.
 
   source /opt/ros/jazzy/setup.bash
   python3 simulation/tools/mirror_lock.py --lock <audits>/digital-twin/phase1/digital_twin.lock.yaml --audits-commit <sha> \
@@ -82,7 +82,20 @@ def main():
                  "file": "digital-twin/phase1/digital_twin.lock.yaml", "lock_date": str(lock["date"]),
                  "normalisation": lock["expansions"]["normalisation"]},
         "entries": entries,
+        # The platform base-model hashes, so tools/reproduce_lock.py can recompute every lock hash when the xacro pin changes.
+        "base_model": [{"source": b["source"], "commit": b["sha"], "file": b["file"], "sha256": b["sha256"], "bytes": b["bytes"],
+                        "links": b["links"], "joints": b["joints"]} for b in lock["expansions"].get("base_model", [])],
     }
+    # The pinned xacro artifact (CI installs it from simulation/requirements-xacro.txt, hash-checked) and the earlier builds with
+    # why each was replaced and the evidence that the hashes stayed the same. The CI tests name them in their messages.
+    artifact = lock["expansions"].get("xacro_artifact")
+    if artifact:
+        out["xacro"] = {"version": xacro, **{k: artifact[k] for k in ("requirement", "file", "wheel_sha256", "sources_sha256", "upstream")}}
+    history = lock["expansions"].get("xacro_package_version_history") or []
+    if history:
+        out["xacro_superseded"] = [{"version": h["version"], "superseded": str(h["superseded"]),
+                                    **{k: " ".join(str(h[k]).split()) for k in ("reason", "equivalence") if k in h}}
+                                   for h in history]
     pathlib.Path(opts.out).write_text("# SPDX-License-Identifier: MIT\n" + yaml.safe_dump(out, sort_keys=False, width=140))
     print(f"{len(entries)} entries, {len(digests)} commits -> {opts.out}")
 

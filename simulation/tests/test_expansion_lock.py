@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 """The expansion each backend is generated from is the locked one (digital-twin lock, mirrored in simulation/expansion_lock.yaml)."""
 import copy
+import os
 import subprocess
+import sys
 
 import pytest
 
@@ -72,3 +74,70 @@ def test_changed_inputs_with_a_locked_expansion_are_labelled(platform_sw, openar
     monkeypatch.setattr(ex, "load_lock", lambda: lock)
     e = ex.expand("bp000", platform_sw, openarm_description)
     assert e.lock_status.startswith("hash in lock, inputs changed")
+
+
+def test_installed_xacro_is_the_locked_build():
+    """The xacro build is a lock input. The installed one must be the build the lock names; a superseded build is named as such."""
+    locked = {e["inputs"]["xacro_package_version"] for e in ex.load_lock()["entries"]}
+    assert len(locked) == 1, locked
+    installed = ex.xacro_version()
+    if installed == "unknown":
+        pytest.fail("BLOCKED: no xacro on PATH whose version can be read; the installed xacro cannot be compared with the lock",
+                    pytrace=False)
+    superseded = {h["version"]: h["reason"] for h in ex.load_lock().get("xacro_superseded", [])}
+    assert installed not in superseded, f"xacro {installed} is superseded in the lock: {superseded[installed]}"
+    assert installed == locked.pop()
+
+
+def _requirement_lines():
+    lines = (ex.REPO / "simulation" / "requirements-xacro.txt").read_text().splitlines()
+    return [line.split("#")[0].strip() for line in lines if line.split("#")[0].strip()]
+
+
+def test_xacro_install_file_is_the_locked_wheel():
+    """CI installs xacro from requirements-xacro.txt with --require-hashes. That file must name exactly the wheel the lock names."""
+    pin = ex.load_lock()["xacro"]
+    assert {e["inputs"]["xacro_package_version"] for e in ex.load_lock()["entries"]} == {pin["version"]}
+    assert pin["version"] == "pypi:" + pin["requirement"]
+    assert _requirement_lines() == [f"{pin['requirement']} --hash=sha256:{pin['wheel_sha256']}"]
+
+
+def test_installed_xacro_has_the_pinned_module_files(evidence):
+    """The module files the xacro on PATH imports must be those of the pinned wheel (sources_sha256 of the lock). This fails for
+    another release, a locally changed module, or a ROS deb or other copy that shadows the pinned wheel with different files."""
+    pin = ex.load_lock()["xacro"]
+    found = ex.xacro_identity()
+    if found["sources_sha256"] is None:
+        pytest.fail("BLOCKED: no xacro on PATH whose module can be read", pytrace=False)
+    evidence("xacro_installed", {**found, "pinned": pin})
+    assert found["sources_sha256"] == pin["sources_sha256"], (
+        f"xacro module files at {found['module']} ({found['version']}) differ from the pinned wheel {pin['file']}")
+
+
+def test_xacro_identity_tells_apart_same_version_other_files(tmp_path, monkeypatch):
+    """A copy that reports version 2.1.1 but carries other module files is detected by the module digest."""
+    site = tmp_path / "site"
+    (site / "xacro").mkdir(parents=True)
+    (site / "xacro" / "__init__.py").write_text("def main():\n    return 0\n")
+    (site / "xacro-2.1.1.dist-info").mkdir()
+    (site / "xacro-2.1.1.dist-info" / "METADATA").write_text("Metadata-Version: 2.1\nName: xacro\nVersion: 2.1.1\n")
+    (tmp_path / "bin").mkdir()
+    script = tmp_path / "bin" / "xacro"
+    script.write_text(f"#!{sys.executable}\nfrom xacro import main\nmain()\n")
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:{os.environ['PATH']}")
+    monkeypatch.setenv("PYTHONPATH", str(site))
+    found = ex.xacro_identity()
+    assert found["module"] == str((site / "xacro").resolve())
+    assert found["version"] == "pypi:xacro==2.1.1"
+    assert found["sources_sha256"] != ex.load_lock()["xacro"]["sources_sha256"]
+
+
+@pytest.mark.parametrize("base_plate", ["bp000", "bp050"])
+@pytest.mark.parametrize("profile", ["mock", "real"])
+def test_other_profiles_match_lock_with_the_installed_build(platform_sw, openarm_description, monkeypatch, base_plate, profile, evidence):
+    """The lock also holds the mock and real expansions. With the installed xacro build they must still be the locked text."""
+    monkeypatch.setitem(ex.CONFIGURATIONS, "profile_check", {"base_plate": base_plate, "hardware_profile": profile})
+    e = ex.expand("profile_check", platform_sw, openarm_description)
+    assert e.lock_status in ("matches lock", "hash in lock, inputs changed (description digest not locked; re-lock pending)")
+    evidence(f"expansion_{base_plate}_{profile}", {"sha256": e.sha256, "inputs": e.inputs, "status": e.lock_status})

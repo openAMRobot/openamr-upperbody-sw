@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT
+# The xacro that expands the combined model: a lock input (simulation/expansion_lock.yaml, xacro). Installed by CI with
+#   pip install --require-hashes --no-deps --ignore-installed -r simulation/requirements-xacro.txt
+# so a ROS Jazzy sync cannot change or remove it. Release 2.1.1 of https://github.com/ros/xacro (tag 2.1.1, 390772a), BSD-3-Clause.
+# PyYAML, its only dependency, is pinned in requirements.txt. Change only together with the lock in audits.
+xacro==2.1.1 --hash=sha256:c3b330ebd984a3bce6d6482e0047eae5c5333fedd49b30b9b6df863a086b35f7
