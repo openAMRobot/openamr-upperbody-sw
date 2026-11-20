@@ -62,6 +62,7 @@ def test_classify(text, expected):
 def run_mission(failing_reach=False, blocked_lift=False, stop_after_approach=False):
     log, clock = FakeLog(), iter(range(1000))
     tracker = phases.Tracker(log, clock=lambda: float(next(clock)))
+    close_times = tracker.close_times = []
 
     def lift():
         log.quantity("lift_stop_1_gazebo_position", 0.175, "m", low=0.169, high=0.181)
@@ -73,6 +74,8 @@ def run_mission(failing_reach=False, blocked_lift=False, stop_after_approach=Fal
         log.quantity("grasp_reach_moveit_error_code", -1 if failing_reach else 1, "MoveItErrorCodes", low=1, high=1)
         if stop_after_approach:
             return
+        log.quantity("item_pushed_before_closing", 0.0, "m", low=0.0, high=0.05)
+        close_times.append(tracker.clock())                  # the gripper closes here (scenarios.grasp)
         log.quantity("finger_position_on_item", 0.3, "rad", low=0.02, high=0.73)
         log.quantity("grasp_lift_moveit_error_code", 1, "MoveItErrorCodes", low=1, high=1)
         log.quantity("item_height_gain_after_lift", 0.07, "m", low=0.04, high=0.12)
@@ -173,3 +176,16 @@ def test_report_script_exit_status_and_table(tmp_path, capsys):
 def test_a_short_cartesian_path_is_a_planning_failure():
     text = "grasp_lift_cartesian_fraction = 0.9375 1, allowed 0.999 to 1.0"
     assert phases.classify(text) == phases.PLANNING
+
+
+def test_the_gripper_close_is_in_the_grasp_phase():
+    """Diagnostic run 44800204846: grasp opened at finger_position_on_item, after the close, so the fingers closing on
+    the item were tagged arm_approach and failed the contact gate. grasp now opens after item_pushed_before_closing."""
+    log, tracker = run_mission()
+    records = {r["phase"]: r for r in tracker.result()}
+    tags = {q["name"]: q["phase"] for q in log.data["quantities"]}
+    assert tags["item_pushed_before_closing"] == "arm_approach" and tags["finger_position_on_item"] == "grasp"
+    (t_close,) = tracker.close_times
+    assert records["arm_approach"]["sim_end"] <= records["grasp"]["sim_start"] <= t_close <= records["grasp"]["sim_end"]
+    spans = [(r["phase"], r["sim_start"], r["sim_end"]) for r in tracker.result() if r["sim_start"] is not None]
+    assert next(name for name, start, end in spans if start <= t_close <= end) == "grasp"

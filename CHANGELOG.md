@@ -35,6 +35,10 @@ All notable changes to this repository. Evidence for the description is static a
 - Forward retreat: the 0.30 m goal is built from the map pose (`baseline1.map_pose`), the frame it is sent in, not from
   ground truth. Built from ground truth it was 0.05 m off in map; the base, which cannot reverse, stalled short of it
   and FollowPath aborted ("Failed to make progress", ABORTED) after 0.305 m of travel.
+- Phase boundary: `grasp` ("gripper closes on the item") opens right after arm_approach's last check,
+  `item_pushed_before_closing` (`baseline1_phases.SPLIT_AFTER`), so the close and its intended finger contact are in
+  grasp. It opened at `finger_position_on_item`, after the close, and the fingers closing on the item (ee_link1 5.2 N,
+  ee_link2 16.2 N) were tagged arm_approach and failed the strict contact gate. The allow-list is unchanged.
 - Cancellation goal: on #164's station tree (station goal checker 0.025 m). With bt_navigator's default checker
   (0.35 m) the 0.5 m goal could succeed after 0.15 m, the cancel distance: it ended SUCCEEDED after 0.088 m of
   ground-truth travel and the cancel was refused (return code 3). Goal 0.5 m, cancel at 0.15 m and CANCELED-only

@@ -24,7 +24,7 @@ PHASES = (
      "lift_joint in the physics and on /joint_states, CTL-017 fault bits"),
     ("arm_approach", "left arm leaves the activation pose to park, gripper opens, MoveIt approach and reach to the item",
      "MoveIt error codes, servo torque left at the end point, finger opening, item displacement before closing"),
-    ("grasp", "gripper closes on the item",
+    ("grasp", "gripper closes on the item (from the end of arm_approach's checks, so the close is in this phase)",
      "finger position on the item in the physics and on /joint_states, gripper result"),
     ("lift_object", "hand rises 0.08 m with the item, holds 3 s, releases",
      "item height gain and drift from ground truth, MoveIt error code and servo torque"),
@@ -42,6 +42,11 @@ CLASSES = (ENV, BUILD, STARTUP, CONTROL, PLANNING, CONTACT, TIMEOUT)
 # grasp() of scenarios.py covers three phases. The first check of each later phase opens it.
 SPLIT = {"grasp": ("finger_position_on_item", "finger_driver_reading_on_item", "gripper_reported_"),
          "lift_object": ("grasp_lift", "item_height_")}
+# A phase that opens right after a check, not at it: grasp ("gripper closes on the item") begins once arm_approach's
+# last check, the item displacement before closing, is logged, so the close itself and its intended finger contact
+# fall in grasp. Opened at finger_position_on_item alone, the close (seconds of Gazebo time) was tagged arm_approach
+# and its finger contacts failed the strict contact gate (diagnostic run 44800204846).
+SPLIT_AFTER = {"grasp": ("item_pushed_before_closing",)}
 
 # MoveItErrorCodes: CONTROL_FAILED -4, TIMED_OUT -6. Every other code but SUCCESS (1) is a planning outcome.
 MOVEIT_CONTROL, MOVEIT_TIMEOUT = -4, -6
@@ -88,7 +93,9 @@ class Tracker:
 
         def tagged_quantity(name, *args, **kwargs):
             self._maybe_split(name)
-            return self._tagged(lambda: quantity(name, *args, **kwargs))
+            value = self._tagged(lambda: quantity(name, *args, **kwargs))
+            self._maybe_split(name, after=True)
+            return value
 
         def tagged_require(condition, text):
             return self._tagged(lambda: require(condition, text))
@@ -106,9 +113,10 @@ class Tracker:
             record["failures"] += [{"text": text, "class": classify(text)} for text in self.log.failures[f0:]]
         return value
 
-    def _maybe_split(self, name):
+    def _maybe_split(self, name, after=False):
+        table = SPLIT_AFTER if after else SPLIT
         for phase in self._split:
-            if not self.records[phase]["ran"] and name.startswith(SPLIT[phase]):
+            if not self.records[phase]["ran"] and name.startswith(table.get(phase, ())):
                 self._begin(phase)
 
     def _begin(self, phase):
