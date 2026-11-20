@@ -19,7 +19,7 @@ from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
                                                   GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, REACH_CLEARANCE_M,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset, straight_lift, tcp_for_item)
+                                                  side_grasp_offset, straight_lift, tcp_for_item, unmoved_joints)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M,
                                           ScenarioFailed, angle_diff)
@@ -349,18 +349,44 @@ def _mark(rig, label):
         marks.append((label, rig.sim_time()))
 
 
+def _arm_joints(side):
+    return [f"openarm_{side}_joint{i}" for i in range(1, 8)]
+
+
+def _arm_reading(rig, side):
+    """The arm's joints on /joint_states (the driver's reading with devices) and in the physics, as two dicts."""
+    names = _arm_joints(side)
+    return {n: rig.joint(n) for n in names}, {n: rig.physics_joint(n) for n in names}
+
+
+def _require_park_motion(rig, log, side, before, label):
+    """FAIL unless both the reading and the physics moved every commanded joint toward PARK (arm_frames.unmoved_joints): a
+    controller that reports success without motion is not an arrival."""
+    after = _arm_reading(rig, side)
+    target = dict(zip(_arm_joints(side), PARK))
+    short = {source: unmoved_joints(b, a, target) for source, b, a in (("joint_states", before[0], after[0]),
+                                                                       ("physics", before[1], after[1]))}
+    count = sum(len(s) for s in short.values())
+    log.quantity(f"{label}_joints_not_moved", count, "joints", low=0, high=0,
+                 note="commanded joints whose measured travel toward park is below half the command, /joint_states and physics")
+    return log.require(count == 0, f"{label}: the controller reported success but the arm did not move: {short}")
+
+
 def park_arms(rig, log):
     """Move both arms from the activation pose to the park pose with the arm controllers, without MoveIt.
     At the activation pose joint 4 sits on its lower limit of 0. With the real driver the joint then reads a little
     below 0 (seen: -0.00019 rad), and MoveIt refuses to plan from a start state outside the limits. Recorded as
-    what the stack does today: an operator has to leave the activation pose by a joint command first."""
+    what the stack does today: an operator has to leave the activation pose by a joint command first.
+    The arrival is judged on the measured joints, not on the controller's status alone."""
     for side in ("left", "right"):
         before = rig.joint(f"openarm_{side}_joint4")
+        start = _arm_reading(rig, side)
         handle = rig.follow_joint_trajectory(side, PARK, 3.0)
         status = rig.wait_result(handle, 30.0, f"{side} arm to park")[0] if handle is not None else None
         log.quantity(f"{side}_joint4_reading_at_activation_pose", before, "rad",
                      note="/joint_states. Below 0 is outside the joint limit: MoveIt cannot plan from there")
         log.require(rig.succeeded(status), f"the {side} arm did not reach the park pose by a joint command, status {status}")
+        _require_park_motion(rig, log, side, start, f"{side}_park")
     rig.sleep_sim(1.0)
 
 
@@ -1082,9 +1108,11 @@ def base_yaw(rig, log):
         # (config/scene.yaml). After it the robot stands at about (1.6, 0) facing -y; the segments below turn on the spot
         # and end with the straight drive along +x, clear of obstacle_post at (1.5, 1.2) and obstacle_box_a at (2.5, -1.5).
         name = "video_sequence_turn"
+        starts = {side: _arm_reading(rig, side) for side in ("left", "right")}
         handles = {side: rig.follow_joint_trajectory(side, PARK, 3.0) for side in ("left", "right")}
         for side, handle in handles.items():
             log.require(handle is not None and rig.succeeded(rig.wait_result(handle, 23.0, f"{side} park")[0]), f"{side} arm to park")
+            _require_park_motion(rig, log, side, starts[side], f"{name}_{side}_park")
         rig.sleep_sim(1.0)
         start_pose = rig.truth()
         drive.command = (0.2, 0.0)
