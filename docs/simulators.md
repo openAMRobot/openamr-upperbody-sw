@@ -10,7 +10,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 - **One source.** Every backend file is generated from `combined_robot.xacro` with `hardware_profile:=gazebo` for a named
   configuration (`bp000`, `bp050`). That is the text Gazebo gets. Its SHA-256 is checked against the digital-twin lock before
   anything is written (`simulation/expansion_lock.yaml`, a mirror of `digital-twin/phase1/digital_twin.lock.yaml` in
-  openAMRobot/audits at `be17653`). A different hash for the same inputs stops the generator (exit 2). When the description files
+  openAMRobot/audits at `642c96d`, audits #91, Proposed). A different hash for the same inputs stops the generator (exit 2). When the description files
   differ from every locked commit, the result counts only if the hash is the locked one for the same configuration, pins and xacro
   build; the status then reads `hash in lock, inputs changed (... re-lock pending)`, never `matches lock`. Otherwise the generator
   stops (exit 3, BLOCKED). On PR #66 head `5adeba3` the status is the second one: re-lock in audits is pending.
@@ -35,7 +35,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` | `config/upstream_pins.yaml` |
 | enactic/openarm_ros2 (gripper gains) | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` | `config/upstream_pins.yaml` |
 | enactic/openarm_mujoco (comparison only) | `1daab06716b779376dbe7f01fb0548f8b539bb35` | `simulation/sim_pins.yaml` |
-| xacro | `ros-jazzy-xacro 2.1.1-1noble.20260519.011123` | lock input; CI installs it exactly |
+| xacro | `ros-jazzy-xacro 2.1.1-1noble.20261025.230251` (the 20260519 build is superseded: no longer served, expansions byte-identical) | lock input; CI installs it exactly |
 | MuJoCo, pinocchio, usd-core, trimesh, pycollada, numpy | exact versions | `simulation/requirements.txt` |
 | Isaac Sim | 5.1.0, `nvcr.io/nvidia/isaac-sim:5.1.0` | `engine_overrides.yaml` isaac, `simulation/sim_pins.yaml` |
 
@@ -127,6 +127,29 @@ joints, types), limits, actuators and gains, damping, frictionloss, armature, mi
 every joint axis and anchor, camera frames, visual and collision geometry. 2922 checks per configuration, 0 failures locally.
 Ten mutation tests change one value each in the compiled model and must fail. The parity reference (the URDF forward kinematics) is
 itself checked against pinocchio's frame placements.
+
+## Parameter register
+
+`simulation/parameter_register.yaml` (Proposed) lists the physical and mechanical parameters the simulators carry: drive wheel
+radius (nominal and effective), contact height, tyre width, track, wheel axes and torque limit, castor contact radius, base and
+wheel masses, base inertia, total mass, lift stroke, velocity and force, lidar, IMU, base camera and wrist camera frames, camera fields
+of view, base speed ceiling and travel deceleration. Per row: the source, the value, the verification level (placeholder, datasheet,
+design decision, measured), the file that defines it (its authority) and its hand-maintained copies, where each simulator reads it,
+how it is checked, the owner (CODEOWNERS or a Team doc section) and the calibration still needed (measurement plan items). A
+`clocks` section lists the SIL and emulator timers that still run on host time.
+
+It is not a source of values: no generator and no xacro reads it. `simulation/tests/test_parameter_register.py` checks each value
+against its authority file (datums.yaml, roadmap_mass_export.yaml in both repositories, platform-sw sensor_frames.yaml) and then
+every check against the Gazebo expansion, the compiled MJCF and its generator report, and the Isaac importer URDF and job, for bp000
+and bp050. A simulator value that differs from the register fails unless the row declares that deviation with its value and the
+tracking issue (#96); a declared deviation that no longer holds fails too, so a fix updates the register in the same change. Rows
+whose source is a register entry of openAMRobot/.github or a supplier document say `machine_checked: false`: CI does not read those.
+
+Findings at the pin, all declared against #96: drive wheel collision and DiffDrive radius 0.100 against the effective 0.098 (the
+wheel collision sits 2 mm in the floor in the zero pose; MuJoCo lifts the robot 2 mm); tyre width 0.046 against 49.4 mm on the drawing;
+castor sphere r 0.026 against the 35 mm castor wheel; the MuJoCo base camera on the legacy Gate A frame with a 46.8 deg vertical
+field of view against 68 deg; head and wrist cameras at the MuJoCo default 45 deg; DiffDrive at 1.0 m/s against the 0.5 m/s ceiling
+and 0.5 m/s2 against the 1.5 m/s2 travel deceleration.
 
 ## Physics checks (MuJoCo only)
 

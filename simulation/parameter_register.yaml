@@ -1,0 +1,482 @@
+# SPDX-License-Identifier: MIT
+# Simulation parameter register (Proposed). One row per physical or mechanical parameter that the simulators carry: where the
+# value is defined, how sure it is, where each simulator reads it and how that is checked.
+#
+# This file is not a source of values. No generator and no xacro reads it, so it cannot change the expansion or its lock.
+# Each row names its authority (the file that defines the value today, or the register entry of openAMRobot/.github
+# decisions.yaml); test_parameter_register.py checks the value here against that file, then checks every simulator check against
+# the value. A simulator that carries a different value is a failure unless the row declares the deviation with its value and
+# a tracking issue; a declared deviation that no longer holds also fails, so a fix has to update this file in the same change.
+#
+# Simulators: gazebo = the expansion of combined_robot.xacro with hardware_profile:=gazebo (the URDF text Gazebo gets; the
+# URDF to SDF conversion is not run here, platform-sw test_gazebo_friction.py covers the friction tags in SDF); mujoco = the
+# MJCF generated from that expansion (openamr_sim/mjcf.py); isaac = the importer URDF and isaac_job.json (openamr_sim/isaac.py).
+# The USD needs Isaac Sim on a GPU: BLOCKED here, never a pass. sil = openamr-platform-sw openamrobot_sil (not at the pin; listed,
+# not checked here).
+#
+# verification: placeholder = no real source; datasheet = supplier document; design_decision = owner decision or register entry,
+# no measurement; measured = bench or robot record (none exists today).
+# owner: CODEOWNERS of the defining file, or the Team doc section named in the audits reality gap register; otherwise
+# "to be assigned by Alex".
+# calibration: items of audits digital-twin/phase1/measurement_plan.md (MP-x) and reality gap rows (RG-x).
+schema_version: 1
+status: Proposed
+read_on: "2026-11-19"
+pins:
+  note: values at the pins of ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml (platform-sw 8e7a454)
+verification_levels: [placeholder, datasheet, design_decision, measured]
+configurations: [bp000, bp050]
+
+owners:
+  base_description: "@fridayali @panthera-momagdii (platform-sw CODEOWNERS /ros2/src/openamrobot_description/)"
+  upperbody: "@Brinex45 @panthera-momagdii (upperbody-sw CODEOWNERS *)"
+  platform_sw: "@skunal3318 @panthera-momagdii (platform-sw CODEOWNERS *)"
+  register: "platform-lead @BotshareAI (openAMRobot/.github maintainers.yaml, owner of the decisions register entries)"
+
+issues:
+  deviations: "openAMRobot/openamr-upperbody-sw#96"
+
+parameters:
+  # ------------------------------------------------------------------------------------------------ drive wheels and base frame
+  base_link_height_above_floor:
+    quantity: height of base_link (drive-axle midpoint) above base_footprint (floor)
+    unit: m
+    value: 0.098
+    verification: design_decision
+    source: "register FRAMES-REP105 (base_link 0.098 m, axle height); CAD Rev B STEP MMP.00.00.00.000"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/datums.yaml, keys: [datums, base_link_height_above_floor, value]}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro base_footprint_joint origin z (defines it for every simulator)"
+      - "upperbody-sw datums.yaml base_link_height_above_floor (report_only; test_t04 compares it with the expansion)"
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: base_footprint_joint, field: z}
+      - {sim: isaac, read: isaac_urdf.joint, joint: base_footprint_joint, field: z}
+      - {sim: mujoco, read: mujoco.body_offset, body: base_link, relative_to: base_footprint, field: z}
+    validation: "frame check above; MP-03 axle height on the built base"
+    owner: base_description
+    calibration: "MP-03 (RG-MEC-008): axle height on the loaded robot"
+
+  drive_wheel_radius_nominal:
+    quantity: unloaded drive tyre radius
+    unit: m
+    value: 0.100
+    verification: datasheet
+    source: "ZLLG80ASM250-L-B2 V1.01 drawing, tyre 200 +/- 2 mm (openamr-platform-hw datasheets/ZLTech/wheel_ZLLG80ASM250/readme.md); register FRAMES-REP105 (wheel radius 0.100 m with base_link 0.098 m intended)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/datums.yaml, keys: [datums, drive_wheel_radius, value]}
+    copies:
+      - "upperbody-sw datums.yaml drive_wheel_radius (report_only)"
+    checks: []
+    not_carried: "no simulator should read the unloaded radius; contact and odometry use the effective radius (row drive_wheel_radius_effective)"
+    validation: "authority check only"
+    owner: register
+    calibration: "MP-03: tyre diameter on the delivered wheels"
+
+  drive_wheel_radius_effective:
+    quantity: effective rolling radius of the drive wheel under the robot weight (collision radius and odometry radius)
+    unit: m
+    value: 0.098
+    verification: design_decision
+    source: "Owner decision 19 Nov 2026: 0.100 m nominal, 0.098 m effective rolling radius, pending register approval (openAMRobot/.github#94); 2 mm tyre compression per FRAMES-REP105. Implemented in platform-sw#146 (open, 68642a8), not at the pin"
+    authority: {register: FRAMES-REP105, machine_checked: false, note: "the 0.098 m effective value is not yet a register entry (.github#94)"}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro left_wheel_link and right_wheel_link collision cylinder radius (two literals)"
+      - "platform-sw gazebo_control.xacro DiffDrive wheel_radius"
+      - "platform-sw openamrobot_sil/config/sil.yaml drive.wheel_radius (test_sil_config.py compares it with gazebo_control.xacro)"
+      - "upperbody-sw engine_overrides.yaml wheel_velocity_servo reads the collision radius from the expansion (derived, not a copy)"
+    checks:
+      - {sim: gazebo, read: urdf.collision, link: left_wheel_link, field: radius, deviation: {value: 0.100, issue: deviations, note: "pin 8e7a454; platform-sw#146 sets 0.098"}}
+      - {sim: gazebo, read: urdf.collision, link: right_wheel_link, field: radius, deviation: {value: 0.100, issue: deviations, note: "as left"}}
+      - {sim: gazebo, read: gazebo.plugin, plugin: gz-sim-diff-drive-system, tag: wheel_radius, deviation: {value: 0.100, issue: deviations, note: "odometry and command scale 2 % off the effective radius"}}
+      - {sim: mujoco, read: mujoco.geom_size, geom: left_wheel_link__collision_0, index: 0, deviation: {value: 0.100, issue: deviations, note: "generated from the expansion"}}
+      - {sim: mujoco, read: mujoco.report, path: [derived, wheel_servo, left_wheel_joint, radius_m], deviation: {value: 0.100, issue: deviations, note: "wheel velocity servo gain uses it"}}
+      - {sim: isaac, read: isaac_urdf.collision, link: left_wheel_link, field: radius, deviation: {value: 0.100, issue: deviations, note: "importer URDF is the expansion"}}
+    validation: "this test; platform-sw test_ground_contact.py (#146); bench straight-run calibration"
+    owner: base_description
+    calibration: "MP-03 and MP-04 (RG-MEC-008): loaded rolling radius from a measured straight run"
+
+  drive_wheel_contact_height:
+    quantity: lowest point of the drive wheel collision below base_footprint in the zero pose (0 = wheels rest on the floor plane)
+    unit: m
+    value: 0.0
+    verification: design_decision
+    source: "follows from base_link_height_above_floor and drive_wheel_radius_effective (owner decision 15 Nov 2026 in platform-sw#146: wheels and castors on one plane)"
+    authority: {derived: "base_link_height_above_floor - drive_wheel_radius_effective"}
+    checks:
+      - {sim: gazebo, read: urdf.lowest_point, link: left_wheel_link, deviation: {value: -0.002, issue: deviations, note: "collision 2 mm into the floor at spawn"}}
+      - {sim: gazebo, read: urdf.lowest_point, link: right_wheel_link, deviation: {value: -0.002, issue: deviations, note: "as left"}}
+      - {sim: mujoco, read: mujoco.report, path: [derived, spawn_height_m], deviation: {value: 0.002, issue: deviations, note: "the generator lifts the robot 2 mm so the wheels start on the floor; base_link then rides 0.100 m high"}}
+    validation: "this test"
+    owner: base_description
+    calibration: "MP-03"
+
+  drive_wheel_width:
+    quantity: drive tyre width (collision cylinder length)
+    unit: m
+    value: 0.0494
+    verification: datasheet
+    source: "ZLLG80ASM250-L-B2 V1.01 drawing, width 49.4 +/- 1 mm (openamr-platform-hw datasheets/ZLTech/wheel_ZLLG80ASM250/readme.md); the model's 0.046 has no source"
+    authority: {document: "openamr-platform-hw main 8ed2b06 datasheets/ZLTech/wheel_ZLLG80ASM250/readme.md", machine_checked: false}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro left_wheel_link and right_wheel_link collision cylinder length (two literals)"
+    checks:
+      - {sim: gazebo, read: urdf.collision, link: left_wheel_link, field: length, deviation: {value: 0.046, issue: deviations, note: "model value without a source"}}
+      - {sim: mujoco, read: mujoco.geom_size, geom: left_wheel_link__collision_0, index: 1, scale: 2.0, deviation: {value: 0.046, issue: deviations, note: "MuJoCo stores the half length"}}
+      - {sim: isaac, read: isaac_urdf.collision, link: left_wheel_link, field: length, deviation: {value: 0.046, issue: deviations, note: "importer URDF"}}
+    validation: "this test"
+    owner: base_description
+    calibration: "none (supplier drawing); the contact shape decision (sphere or narrow cylinder, platform-sw contact PR) may make the width irrelevant to contact"
+
+  drive_track:
+    quantity: drive wheel separation (track)
+    unit: m
+    value: 0.400
+    verification: placeholder
+    source: "register DRIVE-TRACK (open): model placeholder 0.400 m from the 2023 STEP and general arrangement; Gate A unit measured 0.46 m; the 2.0 wheel assembly will change it"
+    authority: {register: DRIVE-TRACK, machine_checked: false}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro left_wheel_joint y +0.200 and right_wheel_joint y -0.200 (two literals)"
+      - "platform-sw gazebo_control.xacro DiffDrive wheel_separation"
+      - "platform-sw openamrobot_sil/config/sil.yaml drive.wheel_separation"
+    checks:
+      - {sim: gazebo, read: urdf.distance, a: left_wheel_link, b: right_wheel_link}
+      - {sim: gazebo, read: gazebo.plugin, plugin: gz-sim-diff-drive-system, tag: wheel_separation}
+      - {sim: mujoco, read: mujoco.body_distance, a: left_wheel_link, b: right_wheel_link}
+      - {sim: isaac, read: isaac_urdf.distance, a: left_wheel_link, b: right_wheel_link}
+    validation: "this test"
+    owner: register
+    calibration: "CAD of the 2.0 wheel assembly, then MP-03 on the built base (RG-MEC-009)"
+
+  drive_wheel_joint_axis:
+    quantity: drive wheel joint type and axis
+    unit: "1"
+    value: [0.0, 1.0, 0.0]
+    verification: design_decision
+    source: "REP 105 base frame (FRAMES-REP105): wheels turn about base_link y"
+    authority: {derived: "REP 105, y left"}
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: left_wheel_joint, field: axis}
+      - {sim: gazebo, read: urdf.joint, joint: right_wheel_joint, field: axis}
+      - {sim: gazebo, read: urdf.joint, joint: left_wheel_joint, field: type, expect: continuous}
+      - {sim: mujoco, read: mujoco.joint, joint: left_wheel_joint, field: axis}
+      - {sim: mujoco, read: mujoco.joint, joint: right_wheel_joint, field: axis}
+      - {sim: mujoco, read: mujoco.joint, joint: left_wheel_joint, field: type, expect: hinge}
+      - {sim: isaac, read: isaac.drive, joint: left_wheel_joint, field: mode, expect: velocity}
+      - {sim: isaac, read: isaac.drive, joint: right_wheel_joint, field: mode, expect: velocity}
+    validation: "this test; wheel signs on the real drive are open (RG-DRV-011)"
+    owner: base_description
+    calibration: "MP-09: axis signs on CAN1, wheels up"
+
+  drive_wheel_torque_limit:
+    quantity: drive wheel torque limit
+    unit: N*m
+    value: null
+    verification: placeholder
+    source: "motor 16 N*m peak, 5.5 N*m rated (ZLLG80ASM250 drawing via the hw readme); driver current limits unknown (RG-DRV-014). No simulator limits wheel torque"
+    authority: {document: "openamr-platform-hw datasheets/ZLTech/wheel_ZLLG80ASM250/readme.md", machine_checked: false}
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: left_wheel_joint, field: effort, expect: null}
+      - {sim: isaac, read: isaac.drive, joint: left_wheel_joint, field: max_force, expect: null}
+    not_carried: "MuJoCo velocity servo without a force range (engine_overrides.yaml wheel_velocity_servo force_limit unknown); DiffDrive sets wheel velocity without torque"
+    validation: "this test (absence)"
+    owner: "Team doc s7 Firmware and Base Controller (RG-DRV-014)"
+    calibration: "V4.2 driver manual, then MP-09"
+
+  castor_contact_radius:
+    quantity: castor wheel contact sphere radius
+    unit: m
+    value: 0.0175
+    verification: datasheet
+    source: "Blickle LPA-VSTH 35K, wheel diameter 35 mm, 15 mm offset (RG-MEC-013); the model sphere r 0.026 has no source and sits with its bottom 0.4 mm above the floor"
+    authority: {document: "audits digital-twin/phase1 reality_gap_register.csv RG-MEC-013", machine_checked: false}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro fl/fr/bl/br_wheel_link collision sphere radius (four literals)"
+    checks:
+      - {sim: gazebo, read: urdf.collision, link: fl_wheel_link, field: radius, deviation: {value: 0.026, issue: deviations, note: "placeholder sphere"}}
+      - {sim: mujoco, read: mujoco.geom_size, geom: fl_wheel_link__collision_0, index: 0, deviation: {value: 0.026, issue: deviations, note: "generated"}}
+    validation: "this test"
+    owner: base_description
+    calibration: "MP-04 castor rolling and swivel (RG-MEC-013, RG-MEC-014)"
+
+  # ------------------------------------------------------------------------------------------------ mass properties
+  base_link_mass:
+    quantity: base_link mass (chassis, battery, electronics, base camera)
+    unit: kg
+    value: 49.948
+    verification: placeholder
+    source: "estimate under ledger review (register MASS-LEDGER, D-26); roadmap mass export of openamrobot-docs ff8ca57; candidate 53.2 kg in MASS-LEDGER; nothing weighed (RG-MEC-001)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/roadmap_mass_export.yaml, keys: [groups, base, links, base_link, mass_kg]}
+    also_equal: {repo: platform_sw, file: ros2/src/openamrobot_description/config/roadmap_mass_export.yaml, keys: [groups, base, links, base_link, mass_kg]}
+    copies:
+      - "platform-sw config/roadmap_mass_export.yaml and upperbody-sw config/roadmap_mass_export.yaml: two verbatim copies of the docs export (checked equal here)"
+    checks:
+      - {sim: gazebo, read: urdf.mass, link: base_link}
+      - {sim: mujoco, read: mujoco.mass, body: base_link}
+      - {sim: isaac, read: isaac_urdf.mass, link: base_link}
+    tolerance: 1.0e-9
+    validation: "this test; platform-sw test_base_mass.py; upperbody-sw test_mujoco_parity.py (all links)"
+    owner: "ledger: Team doc s7 Mechanical and CAD (MASS-LEDGER owner: mechanical owner)"
+    calibration: "MP-01 weigh, MP-02 centre of mass"
+
+  base_link_inertia:
+    quantity: base_link principal moments of inertia about its centre of mass
+    unit: kg*m^2
+    value: [1.551626, 2.207479, 3.122839]
+    verification: placeholder
+    source: "sum of component boxes, products of inertia not given (roadmap mass export); estimate"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/roadmap_mass_export.yaml, keys: [groups, base, links, base_link, inertia_kgm2], order: [ixx, iyy, izz]}
+    checks:
+      - {sim: gazebo, read: urdf.inertia_diagonal, link: base_link}
+      - {sim: mujoco, read: mujoco.inertia_principal, body: base_link}
+      - {sim: isaac, read: isaac_urdf.inertia_diagonal, link: base_link}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: "ledger: Team doc s7 Mechanical and CAD"
+    calibration: "MP-02"
+
+  drive_wheel_link_mass:
+    quantity: mass on each spinning drive wheel link (whole hub motor, stator included)
+    unit: kg
+    value: 3.45
+    verification: placeholder
+    source: "ledger value from a V1.0 specification that is not filed; filed V1.0 drawing 3.60 kg +/- 5 % (RG-MEC-006); whole motor on the spinning link is a provisional owner decision of 10 Nov 2026, not valid for dynamics acceptance"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/roadmap_mass_export.yaml, keys: [groups, base, links, left_wheel_link, mass_kg]}
+    checks:
+      - {sim: gazebo, read: urdf.mass, link: left_wheel_link}
+      - {sim: gazebo, read: urdf.mass, link: right_wheel_link}
+      - {sim: mujoco, read: mujoco.mass, body: left_wheel_link}
+      - {sim: isaac, read: isaac_urdf.mass, link: left_wheel_link}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: "ledger: Team doc s7 Mechanical and CAD"
+    calibration: "MP-01; ZLTECH rotor and stator split"
+
+  robot_total_mass:
+    quantity: whole robot mass, bp000, DOLD column
+    unit: kg
+    value: 87.11
+    verification: placeholder
+    source: "roadmap mass export totals L1000 (estimate, MASS-LEDGER)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/roadmap_mass_export.yaml, keys: [totals, L1000, mass_kg]}
+    checks:
+      - {sim: gazebo, read: urdf.total_mass}
+      - {sim: mujoco, read: mujoco.total_mass}
+      - {sim: isaac, read: isaac_urdf.total_mass}
+    tolerance: 0.005
+    tolerance_reason: "the export total is rounded to 10 g; the link masses sum to 87.109"
+    validation: "this test"
+    owner: "ledger: Team doc s7 Mechanical and CAD"
+    calibration: "MP-01"
+
+  # ------------------------------------------------------------------------------------------------ lift
+  lift_stroke:
+    quantity: lift_joint travel (lower and upper limit)
+    unit: m
+    value: [0.0, 0.350]
+    verification: datasheet
+    source: "register LIFT: DOLD Hexalift V4 350 mm stroke, column 530 mm retracted, 880 mm extended"
+    authority: {register: LIFT, machine_checked: false}
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: lift_joint, field: limits}
+      - {sim: mujoco, read: mujoco.joint, joint: lift_joint, field: range}
+      - {sim: isaac, read: isaac_urdf.joint, joint: lift_joint, field: limits}
+    validation: "this test; upperbody-sw test_mujoco_parity.py limits"
+    owner: upperbody
+    calibration: "MP-14 (RG-DRV-018 to RG-DRV-021)"
+
+  lift_max_velocity:
+    quantity: lift_joint velocity limit (no-load catalogue speed)
+    unit: m/s
+    value: 0.018
+    verification: datasheet
+    source: "datums.yaml lift_max_velocity_dold_v4_350 (DOLD datasheet 2023_08_16); loaded speed unknown (RG-DRV-018)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/datums.yaml, keys: [datums, lift_max_velocity_dold_v4_350, value]}
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: lift_joint, field: velocity}
+      - {sim: mujoco, read: mujoco.unsupported, item: lift velocity limit, where: lift_joint}
+      - {sim: isaac, read: isaac_urdf.joint, joint: lift_joint, field: velocity}
+    validation: "this test; MuJoCo has no joint velocity limit (declared unsupported in the generator report)"
+    owner: upperbody
+    calibration: "MP-14 loaded speed"
+
+  lift_max_effort:
+    quantity: lift_joint force limit (push rating)
+    unit: N
+    value: 800.0
+    verification: datasheet
+    source: "datums.yaml lift_max_effort_dold_v4_350 (DOLD datasheet 2023_08_16, register LIFT)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/datums.yaml, keys: [datums, lift_max_effort_dold_v4_350, value]}
+    checks:
+      - {sim: gazebo, read: urdf.joint, joint: lift_joint, field: effort}
+      - {sim: mujoco, read: mujoco.actuator_forcerange, actuator: lift_joint_position, field: upper}
+      - {sim: isaac, read: isaac.drive, joint: lift_joint, field: max_force}
+    validation: "this test"
+    owner: upperbody
+    calibration: "MP-14 current against load"
+
+  # ------------------------------------------------------------------------------------------------ sensor frames
+  lidar_pose:
+    quantity: lidar_link pose in base_link (scan plane centre)
+    unit: "m, rad"
+    value: {xyz: [0.330, 0.0, 0.124], rpy: [0.0, 0.0, 3.141592653589793]}
+    verification: design_decision
+    source: "platform-sw config/sensor_frames.yaml lidar_link (status decision, #49; CAD Rev B centre x 0.321, RG-SEN-006)"
+    authority: {repo: platform_sw, file: ros2/src/openamrobot_description/config/sensor_frames.yaml, pose_keys: [frames, lidar_link]}
+    copies:
+      - "platform-sw robo_urdf.urdf.xacro lidar_joint origin (test_description_meshes.py keeps it equal to sensor_frames.yaml)"
+    checks:
+      - {sim: gazebo, read: urdf.pose, frame: lidar_link, relative_to: base_link}
+      - {sim: mujoco, read: mujoco.pose, body: lidar_link, relative_to: base_link}
+      - {sim: isaac, read: isaac_urdf.pose, frame: lidar_link, relative_to: base_link}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: base_description
+    calibration: "MP-03 and MP-17 (RG-SEN-006)"
+
+  imu_pose:
+    quantity: imu_link pose in base_link
+    unit: "m, rad"
+    value: {xyz: [0.0544, 0.0, 0.1210], rpy: [0.0, 0.0, -1.5707963267948966]}
+    verification: design_decision
+    source: "platform-sw config/sensor_frames.yaml imu_link (CAD Rev B, register FRAMES-REP105)"
+    authority: {repo: platform_sw, file: ros2/src/openamrobot_description/config/sensor_frames.yaml, pose_keys: [frames, imu_link]}
+    checks:
+      - {sim: gazebo, read: urdf.pose, frame: imu_link, relative_to: base_link}
+      - {sim: mujoco, read: mujoco.pose, body: imu_link, relative_to: base_link}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: base_description
+    calibration: "MP-19 static test (axis signs), MP-03"
+
+  base_camera_pose:
+    quantity: base_camera_link pose in base_link (Gemini 336L, base_tilt bt10)
+    unit: "m, rad"
+    value: {xyz: [0.387, 0.0, 0.046], rpy: [0.0, -0.1745, 0.0]}
+    verification: design_decision
+    source: "platform-sw config/sensor_frames.yaml base_camera_link (CAD Rev B, register CAMERAS)"
+    authority: {repo: platform_sw, file: ros2/src/openamrobot_description/config/sensor_frames.yaml, pose_keys: [frames, base_camera_link]}
+    checks:
+      - {sim: gazebo, read: urdf.pose, frame: base_camera_link, relative_to: base_link}
+      - {sim: mujoco, read: mujoco.pose, body: base_camera_link, relative_to: base_link}
+      - {sim: mujoco, read: mujoco.camera, camera: base_camera, field: body, expect: base_camera_color_optical_frame, deviation: {value: camera_optical_frame, issue: deviations, note: "the MuJoCo base camera is on the legacy Gate A camera frame (0.35, 0, 0.20), not on the 2.0 Gemini frame"}}
+    tolerance: 1.0e-4
+    tolerance_reason: "sensor_frames.yaml gives the pitch to 1e-4 rad; the xacro computes it from base_tilt"
+    validation: "this test"
+    owner: base_description
+    calibration: "MP-18 extrinsic calibration"
+
+  base_camera_colour_vfov:
+    quantity: base camera colour vertical field of view
+    unit: deg
+    value: 68.0
+    verification: datasheet
+    source: "Gemini 336L colour 94 x 68 deg (vendor page via platform-sw sensor_profiles.yaml, RG-SEN-007); PDF datasheet not filed"
+    authority: {document: "platform-sw main config/sensor_profiles.yaml (not at the pin)", machine_checked: false}
+    checks:
+      - {sim: gazebo, read: gazebo.sensor_on, frame: base_camera_link, expect: [], note: "no sensor on the 2.0 camera frame at the pin"}
+      - {sim: mujoco, read: mujoco.camera, camera: base_camera, field: fovy, deviation: {value: 46.81691743, issue: deviations, note: "derived from the legacy Gazebo camera_sensor, hfov 1.047 rad at 640 x 480"}}
+    tolerance: 1.0e-6
+    not_carried: "Isaac: sensors are not imported"
+    validation: "this test"
+    owner: "Team doc s7 Perception and Simulation (RG-SEN-007)"
+    calibration: "MP-18 intrinsic calibration"
+
+  head_camera_vfov:
+    quantity: head camera (ZED Mini) vertical field of view in the simulators
+    unit: deg
+    value: null
+    verification: placeholder
+    source: "ZED-121210 datasheet not filed; 102 x 57 deg raw, about 85 x 54 deg rectified as quoted in the Use_Case_1 requirements (RG-SEN-029)"
+    authority: {document: "audits reality_gap_register.csv RG-SEN-029", machine_checked: false}
+    checks:
+      - {sim: gazebo, read: gazebo.sensor_on, frame: head_camera_optical_frame, expect: [], note: "no Gazebo sensor in the combined description"}
+      - {sim: mujoco, read: mujoco.camera, camera: head_camera, field: fovy, deviation: {value: 45.0, issue: deviations, note: "MuJoCo default, engine_overrides.yaml head_camera fovy unknown"}}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: "Team doc s7 Perception and Simulation (RG-SEN-029)"
+    calibration: "file the datasheet; MP-18"
+
+  left_wrist_camera_pose:
+    quantity: left wrist camera frame in openarm_left_ee_base_link
+    unit: "m, rad"
+    value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
+    verification: placeholder
+    source: "datums.yaml left_wrist_camera_pose (placeholder, kit datum unknown); upstream camera_view_frame differs by 66.2 mm (platform-sw#168 F3)"
+    authority: {repo: upperbody_sw, file: ros2/src/openamrobot_upperbody_description/config/datums.yaml, pose_keys: [datums, left_wrist_camera_pose, value]}
+    checks:
+      - {sim: gazebo, read: urdf.pose, frame: left_wrist_camera_link, relative_to: openarm_left_ee_base_link}
+      - {sim: mujoco, read: mujoco.pose, body: left_wrist_camera_link, relative_to: openarm_left_ee_base_link}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: "Team doc s7 Manipulation (RG-SEN-030, RG-SEN-031)"
+    calibration: "CAD check of the wrist mount, MP-18"
+
+  wrist_camera_vfov:
+    quantity: wrist camera vertical field of view in the simulators
+    unit: deg
+    value: null
+    verification: placeholder
+    source: "wrist camera SKU, intrinsics and rate unknown (RG-SEN-031)"
+    authority: {document: "audits reality_gap_register.csv RG-SEN-031", machine_checked: false}
+    checks:
+      - {sim: gazebo, read: gazebo.sensor_on, frame: left_wrist_camera_optical_frame, expect: [], note: "no Gazebo sensor in the combined description"}
+      - {sim: mujoco, read: mujoco.camera, camera: left_wrist_camera, field: fovy, deviation: {value: 45.0, issue: deviations, note: "MuJoCo default"}}
+      - {sim: mujoco, read: mujoco.camera, camera: right_wrist_camera, field: fovy, deviation: {value: 45.0, issue: deviations, note: "MuJoCo default"}}
+    tolerance: 1.0e-9
+    validation: "this test"
+    owner: "Team doc s7 Manipulation (RG-SEN-031)"
+    calibration: "kit SKU and datasheet, MP-18"
+
+  # ------------------------------------------------------------------------------------------------ base motion limits
+  base_speed_ceiling:
+    quantity: base linear speed ceiling (Build 1)
+    unit: m/s
+    value: 0.5
+    relation: at_most
+    verification: design_decision
+    source: "register SPEED-CEILING: 0.5 m/s until the measured stop acceptance; Nav2, smoother, ZLAC8015D and Gazebo at or below it"
+    authority: {register: SPEED-CEILING, machine_checked: false}
+    checks:
+      - {sim: gazebo, read: gazebo.plugin, plugin: gz-sim-diff-drive-system, tag: max_linear_velocity, deviation: {value: 1.0, issue: deviations, note: "DiffDrive clamps at 1.0 m/s; the platform-sw limits table and test (separate PR) carry the full layer comparison"}}
+    not_carried: "MuJoCo and Isaac wheel velocity servos have no speed limit; Nav2, smoother and ZLAC8015D are in platform-sw (limits table)"
+    validation: "this test; platform-sw speed and deceleration layer test"
+    owner: register
+    calibration: "recorded stop tests at 0.2, 0.3 and 0.5 m/s (SPEED-CEILING)"
+
+  base_travel_deceleration:
+    quantity: base linear deceleration limit, travel
+    unit: m/s^2
+    value: 1.5
+    verification: design_decision
+    source: "register MASS-LEDGER (D-29): 1.5 m/s2 travel and 1.0 m/s2 hold-and-move, identical in Nav2, the smoother, the ZLAC8015D and Gazebo, in a PR after platform-sw#90"
+    authority: {register: MASS-LEDGER, machine_checked: false}
+    checks:
+      - {sim: gazebo, read: gazebo.plugin, plugin: gz-sim-diff-drive-system, tag: min_linear_acceleration, scale: -1.0, deviation: {value: 0.5, issue: deviations, note: "DiffDrive -0.5 m/s2"}}
+    not_carried: "MuJoCo and Isaac: no acceleration limit on the wheel servos"
+    validation: "this test; platform-sw speed and deceleration layer test"
+    owner: register
+    calibration: "MP-04 stopping"
+
+clocks:
+  note: >-
+    The checked inventory of every SIL timer is platform-sw openamrobot_sil/config/clock_inventory.yaml (platform-sw#158, 607a496);
+    this list repeats only the timers that still run on host time, read on 19 Nov 2026. Not machine-checked here.
+  host_time_remaining:
+    - where: "platform-sw openamrobot_sil/vendor/can_sil/zlac8015d_emulator.py (vendored from platform-fw tools/can_sil)"
+      what: "last receipt time and the 2000h link-loss timeout (time.monotonic)"
+      inventory_status: to_change
+      closes_with: "openAMRobot/openamr-platform-fw#58 (injectable clock, open, ff7e79b), then re-vendor (issue fw#57)"
+    - where: "platform-sw openamrobot_sil/vendor/can_sil/canopen_common.py"
+      what: "node thread tick, the dt of every emulator tick (ZLAC ramp integration, heartbeat period) and the SDO client timeout"
+      inventory_status: to_change
+      closes_with: "openAMRobot/openamr-platform-fw#58, then re-vendor"
+    - where: "upperbody-sw openamrobot_openarm_emulator src/arm_emulator.cpp ArmEmulator::clock_now() (std::chrono::steady_clock)"
+      what: >-
+        frame receipt time, the bus timing model (frame transmission and reply release), the `now` passed to MotorModel::step
+        (can_timeout_s, default 0 = off) and power-on time. The physics step dt and the MIT law run on the controller period
+        (Gazebo time), so the Damiao emulator is mixed
+      inventory_status: "not in a clock inventory (upperbody-sw has none)"
+      closes_with: "to be assigned by Alex (upperbody-sw code owners @Brinex45 @panthera-momagdii)"
+    - where: "firmware in Renode (platform-sw#144, renode_readonly)"
+      what: "Renode virtual time, not locked to Gazebo or host (ratio to wall time 0.55 to 1.07, platform-sw#168)"
+      inventory_status: "outside the clock contract"
+      closes_with: "platform-sw#166 (reconciles #141 with the clock contract)"

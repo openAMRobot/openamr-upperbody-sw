@@ -72,3 +72,25 @@ def test_changed_inputs_with_a_locked_expansion_are_labelled(platform_sw, openar
     monkeypatch.setattr(ex, "load_lock", lambda: lock)
     e = ex.expand("bp000", platform_sw, openarm_description)
     assert e.lock_status.startswith("hash in lock, inputs changed")
+
+
+def test_installed_xacro_is_the_locked_build():
+    """The xacro build is a lock input. The installed one must be the build the lock names; a superseded build is named as such."""
+    locked = {e["inputs"]["xacro_package_version"] for e in ex.load_lock()["entries"]}
+    assert len(locked) == 1, locked
+    installed = ex.xacro_version()
+    if installed == "unknown":
+        pytest.fail("BLOCKED: dpkg-query reports no ros-jazzy-xacro; the installed build cannot be compared with the lock", pytrace=False)
+    superseded = {h["version"]: h["reason"] for h in ex.load_lock().get("xacro_superseded", [])}
+    assert installed not in superseded, f"xacro {installed} is superseded in the lock: {superseded[installed]}"
+    assert installed == locked.pop()
+
+
+@pytest.mark.parametrize("base_plate", ["bp000", "bp050"])
+@pytest.mark.parametrize("profile", ["mock", "real"])
+def test_other_profiles_match_lock_with_the_installed_build(platform_sw, openarm_description, monkeypatch, base_plate, profile, evidence):
+    """The lock also holds the mock and real expansions. With the installed xacro build they must still be the locked text."""
+    monkeypatch.setitem(ex.CONFIGURATIONS, "profile_check", {"base_plate": base_plate, "hardware_profile": profile})
+    e = ex.expand("profile_check", platform_sw, openarm_description)
+    assert e.lock_status in ("matches lock", "hash in lock, inputs changed (description digest not locked; re-lock pending)")
+    evidence(f"expansion_{base_plate}_{profile}", {"sha256": e.sha256, "inputs": e.inputs, "status": e.lock_status})
