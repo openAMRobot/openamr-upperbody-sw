@@ -138,3 +138,60 @@ class Recorders:
             out.close()
         if self.frames is not None:
             self.log.event(f"recording video: {len(os.listdir(self.frames))} frames")
+
+
+class ContactLog:
+    """The contacts of the run, from the gz contact sensors of diagnostics.py (BUILD1_CONTACT_SENSORS=1: the arm links,
+    and the item, tote and fixtures of the world). It observes and commands nothing; a gz contact sensor changes no
+    force. record() returns what the strict verdict checks against config/baseline1_gates.json
+    (baseline1_gates.contacts): every contact event is in the allowed list with its reason, or the run fails."""
+
+    def __init__(self, rig, log):
+        from openamrobot_build1_scene import diagnostics as dx
+        self.rig, self.log, self.rows, self.messages = rig, log, [], {}
+        self.sensors_on = dx.enabled(os.environ)
+        self.links = dx.contact_links() if self.sensors_on else []
+        self.world = [dx.world_contact_link(model) for model in dx.WORLD_SENSOR_MODELS] if self.sensors_on else []
+        if not self.sensors_on:
+            log.event("contacts: BUILD1_CONTACT_SENSORS is not 1, no contact sensors in this run")
+            return
+        import threading
+        from ros_gz_interfaces.msg import Contacts
+        self.lock = threading.Lock()
+        for link in self.links + self.world:
+            rig.node.create_subscription(Contacts, dx.ros_contact_topic(link), lambda m, l=link: self._on(l, m), 50)
+        log.event(f"contacts: {len(self.links)} arm link sensors, world sensors {self.world}")
+
+    def _on(self, sensor, msg):
+        from openamrobot_build1_scene import diagnostics as dx
+        t = self.rig.sim_time()
+        rows = []
+        for contact in msg.contacts:
+            one, two = contact.collision1.name, contact.collision2.name
+            if sensor.startswith("world_"):
+                a, b = one, two                      # both full collision names (model::link::collision)
+            else:
+                a, b = sensor, (two if sensor in one else one)
+            for i in range(max(1, len(contact.positions))):
+                fn = None
+                if i < len(contact.wrenches) and i < len(contact.normals):
+                    force, normal = contact.wrenches[i].body_1_wrench.force, contact.normals[i]
+                    fn, _ft = dx.normal_tangential((force.x, force.y, force.z), (normal.x, normal.y, normal.z))
+                rows.append({"t": t, "a": a, "b": b, "fn": fn})
+        with self.lock:
+            self.messages[sensor] = self.messages.get(sensor, 0) + 1
+            self.rows += rows
+
+    def record(self, phase_records):
+        from openamrobot_build1_scene import baseline1_gates as gates
+        spans = [(r["phase"], r["sim_start"], r["sim_end"]) for r in phase_records
+                 if r.get("sim_start") is not None and r.get("sim_end") is not None]
+
+        def phase_of(t):
+            return next((name for name, start, end in spans if start <= t <= end), None)
+        if not self.sensors_on:
+            return {"sensors_on": False, "sensor_links": [], "messages": {}, "events": []}
+        with self.lock:
+            rows, messages = list(self.rows), dict(self.messages)
+        return {"sensors_on": True, "sensor_links": self.links + self.world, "messages": messages,
+                "events": gates.contact_events(rows, phase_of)}

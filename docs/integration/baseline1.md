@@ -62,6 +62,21 @@ sent the goal through `/station_alignment/navigate_to_station`, and both declare
 (`planning_pose_source: ground_truth` in the run identity). A pull_request run, or `sequence: single`, is one
 validation leg and is reported NOT STRICT. Artifacts per leg and the verdict are kept 90 days.
 
+Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_gates.json`, Proposed;
+`openamrobot_build1_scene/baseline1_gates.py`). Each leg must also show:
+- both legs from the one dispatch (same run id and attempt);
+- mission result PASS and no failed check outside the eight phases (the component liveness checks of `rig.run`
+  sit there);
+- the drive, battery, lift and arm work counters (`live_*` in every trace sample) advancing through the whole run,
+  no gap over 10 s of Gazebo time;
+- the Stop checks of `stop_authorize` all run and pass (base settle, speed, yaw rate, no lift motion without permit,
+  command refused, permit fresh), and at least one `cancel_*` check run and passed. The mission has no cancellation
+  step yet, so no leg can pass this gate until one is added (owner decision);
+- contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase and pair)
+  in the allowed list with its reason; any other contact fails the leg;
+- complete evidence: bag metadata, a non-empty candump of each of the five virtual buses, Gazebo start and end of
+  every phase, run_info, full pinned hashes of all six checkouts, the declared seed equal to the mission's, settings.
+
 Settings declared in every leg:
 - Middleware: CycloneDDS for initial acceptance (Alex, 19 Nov 2026), with the participant index cap raised to 120 as in
   the DDS benchmark (#89). The robot's middleware beyond acceptance stays the owners' decision.

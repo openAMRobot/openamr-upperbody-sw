@@ -71,7 +71,17 @@ class Trace:
                 "map_err": math.hypot(amcl[0] - truth[0], amcl[1] - truth[1]) if truth and amcl else None,
                 "lift": self._read(rig.lift_truth), "lift_js": self._read(lambda: rig.joint("lift_joint")),
                 "finger": self._read(lambda: rig.physics_joint("openarm_left_finger_joint1")),
-                "item_z": item[2] if item else None, "rtf": self._read(rig.rtf)}
+                "item_z": item[2] if item else None, "rtf": self._read(rig.rtf), **self.counters()}
+
+    def counters(self):
+        """The work counter of each component, which only that component's own work advances (baseline1_gates.liveness
+        requires each to advance through the whole run): the drive host's 606Ch samples, the BMS host's answers, the
+        CTL-017 emulator's received permit frames, and the number of /joint_states messages."""
+        rig = self.rig
+        return {"live_drive_samples": self._read(lambda: (rig.get("/sil/drive/status") or {}).get("samples")),
+                "live_bms_answers": self._read(lambda: (rig.get("/sil/bms/status") or {}).get("answers")),
+                "live_lift_permit_rx": self._read(lambda: (rig.get("/sil/lift/emulator_state") or {}).get("permit_rx_count")),
+                "live_joint_states": self._read(lambda: rig.count("/joint_states") or None)}
 
     def _loop(self):
         last = None
@@ -262,10 +272,16 @@ def stop_authorize(rig, log):
     log.require(rig.get(emulator)["permit_gate"], "the permit gate of the CTL-017 emulator is off")
     rig.lift_permit(False)
     rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+    failures = len(log.failures)
     scenarios._lift_refused(rig, log, LIFT_SEQUENCE[0], "authorize")     # scn02's refusal check, unchanged
+    # The refusal as a named check, so the strict verdict can require that it ran (baseline1_gates.stop_cancel).
+    refused = not any("not refused" in text for text in log.failures[failures:])
+    log.quantity("authorize_command_refused", refused, "bool", low=True, high=True,
+                 note="the lift command without permit was refused (scn02's check above)")
     rig.lift_permit(True)
-    log.require(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"),
-                "authorize: the permit did not become fresh")
+    fresh = bool(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"))
+    log.require(fresh, "authorize: the permit did not become fresh")
+    log.quantity("authorize_permit_fresh", fresh, "bool", low=True, high=True, note="the CTL-017 emulator holds a fresh permit")
     rig.lift_permit(False)                                               # lift_move grants it again per move
 
 
@@ -323,6 +339,12 @@ def mission(rig, log):
         recorders.subscribe_frames(rig)
     except Exception as error:  # noqa: BLE001 - a recording is never a check
         log.event(f"recording: {error}")
+    from openamrobot_build1_scene.baseline1_record import ContactLog
+    contacts = None
+    try:
+        contacts = ContactLog(rig, log)
+    except Exception as error:  # noqa: BLE001 - recorded; the strict verdict fails a run without a contact record
+        log.event(f"contacts: {error}")
     trace = Trace(rig, tracker).start()
     try:
         tracker.run("spawn", lambda: spawn(rig, log))
@@ -337,6 +359,8 @@ def mission(rig, log):
         recorders.stop()
         log.data["phases"] = tracker.result()
         log.data["trace"] = trace.samples
+        if contacts is not None:
+            log.data["contacts"] = contacts.record(tracker.result())
         for line in phases.trace_summary(trace.samples, tracker.result()):
             print(f"BASELINE1 TRACE {line}", flush=True)
         for line in phases.trace_table(trace.samples):
