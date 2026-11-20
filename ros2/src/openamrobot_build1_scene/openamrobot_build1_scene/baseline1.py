@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Integrated Digital Twin Baseline 1: one whole-robot mission in one launch, phase by phase.
 
-spawn > nav_to_station > stop_authorize > lift_to_target > arm_approach > grasp > lift_object > retreat.
+spawn > nav_to_station > stop_authorize > lift_to_target > arm_approach > grasp > lift_object > retreat (with the
+declared cancellation check as its last step, baseline1_cancel.py).
 The checks are the existing ones of scenarios.py and rig.py wherever they exist (lift refusal of scn02, park and grasp
 of scn04, lift_move, wait_stopped); this module adds the navigation, authorization, lift and retreat steps around them,
 tags every check with its phase (baseline1_phases.Tracker) and records a synchronized trace of base, lift, hand and
@@ -192,13 +193,8 @@ def scan_returns(rig, log):
 
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
-    from openamrobot_build1_scene import baseline1_cancel
-    # Declared mission option (Proposed): BASELINE1_CANCEL_CHECK=1 first sends a short goal the mission does not need
-    # and cancels it mid-way (baseline1_cancel.py), then the station goal below starts from where the base stopped.
-    options = baseline1_cancel.load()
-    log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": baseline1_cancel.enabled(options)}
-    if baseline1_cancel.enabled(options):
-        baseline1_cancel.step(rig, log, pose=lambda: map_pose(rig), config=options)
+    # The cancellation check runs at the end of the mission (end_of_mission), not here: at the start of nav_to_station
+    # it was followed by the station turn, whose slip failed the odometry guard below (runs 44735544898, 44736351073).
     scan_returns(rig, log)
     amcl_topic = AmclListener(rig)
     rig.sleep_sim(0.5)
@@ -317,8 +313,8 @@ def retreat(rig, log):
         rig.sleep_sim(1.0)
         away = max(abs(rig.physics_joint(f"openarm_{side}_joint{i}") - value) for i, value in enumerate(scenarios.PARK, 1))
         log.quantity(f"retreat_{side}_distance_from_park", away, "rad", low=0.0, high=0.1, note="as in scn03")
-    # How the base leaves the station (station_departure.py, Proposed): BASELINE1_RETREAT backup (default, below),
-    # departure or forward. The acceptance workflow does not set it; the alternatives are not enabled.
+    # How the base leaves the station (station_departure.py): BASELINE1_RETREAT forward (default, turn and forward, no
+    # reverse; Alex 20 Nov 2026), backup (below, needs a reverse-capable Nav2) or departure (not enabled).
     from openamrobot_build1_scene import station_departure
     retreat_config = station_departure.load()
     chosen = station_departure.option(retreat_config)
@@ -342,6 +338,26 @@ def retreat(rig, log):
     log.quantity("retreat_heading_change", math.degrees(angle_diff(yaw1, yaw0)), "deg", low=-5.0, high=5.0, note="as in scn01")
 
 
+def end_of_mission_cancel(rig, log):
+    """The declared cancellation check (BASELINE1_CANCEL_CHECK=1, baseline1_cancel.py) as the last step of the mission:
+    after the retreat, on open floor ahead of the base, so the odometry guard at the station is already evaluated and
+    no turn follows the cancel. Recorded as off when the option is not set."""
+    from openamrobot_build1_scene import baseline1_cancel
+    options = baseline1_cancel.load()
+    enabled = baseline1_cancel.enabled(options)
+    log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": enabled, "position": options.get("position")}
+    if not enabled:
+        return None
+    log.event(f"cancel check at position {options.get('position')}: after the retreat, before the evidence close")
+    return baseline1_cancel.step(rig, log, pose=lambda: map_pose(rig), config=options)
+
+
+def retreat_then_cancel(rig, log):
+    """The retreat phase: leave the station, then the end-of-mission cancellation check."""
+    retreat(rig, log)
+    end_of_mission_cancel(rig, log)
+
+
 def mission(rig, log):
     from openamrobot_build1_scene import scenarios
     log.event(f"Baseline 1 mission, seed {SEED} (BASELINE1_SEED): Python random and the ROS domain of the test. "
@@ -361,6 +377,8 @@ def mission(rig, log):
         contacts = ContactLog(rig, log)
     except Exception as error:  # noqa: BLE001 - recorded; the strict verdict fails a run without a contact record
         log.event(f"contacts: {error}")
+    # Time marks of scenarios._mark (Gazebo time), for the contact windows of config/baseline1_gates.json.
+    rig.marks = []
     trace = Trace(rig, tracker).start()
     try:
         tracker.run("spawn", lambda: spawn(rig, log))
@@ -369,14 +387,15 @@ def mission(rig, log):
         tracker.run("lift_to_target", lambda: lift_to_target(rig, log))
         # scn04's grasp, unchanged: park, open, approach, reach, close, lift 0.08 m, hold, release.
         tracker.run("arm_approach", lambda: scenarios.grasp(rig, log), then=("grasp", "lift_object"))
-        tracker.run("retreat", lambda: retreat(rig, log))
+        tracker.run("retreat", lambda: retreat_then_cancel(rig, log))
     finally:
         trace.stop()
         recorders.stop()
         log.data["phases"] = tracker.result()
         log.data["trace"] = trace.samples
+        log.data["marks"] = [{"label": label, "t": t} for label, t in list(getattr(rig, "marks", None) or [])]
         if contacts is not None:
-            log.data["contacts"] = contacts.record(tracker.result())
+            log.data["contacts"] = contacts.record(tracker.result(), getattr(rig, "marks", None) or [])
         for line in phases.trace_summary(trace.samples, tracker.result()):
             print(f"BASELINE1 TRACE {line}", flush=True)
         for line in phases.trace_table(trace.samples):

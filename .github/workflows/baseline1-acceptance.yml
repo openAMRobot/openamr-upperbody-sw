@@ -99,11 +99,15 @@ env:
   # They observe and change no force. The strict verdict fails a leg whose contacts are not recorded or not all in the
   # allowed list of config/baseline1_gates.json (Alex, 20 Nov 2026).
   BUILD1_CONTACT_SENSORS: '1'
-  # Cancellation check (Proposed for Alex and Mohamed, 20 Nov 2026; baseline1_cancel.py, values in
-  # config/baseline1_mission_options.json): at the start of nav_to_station a short Nav2 goal the mission does not need is
-  # cancelled mid-way through the public action; CANCELED and a still base afterwards are required. Declared in
-  # every leg; the strict verdict's cancellation gate needs its cancel_* checks.
+  # Cancellation check (baseline1_cancel.py, values in config/baseline1_mission_options.json): at the end of the
+  # mission (Alex 20 Nov 2026), as the last step of the retreat phase after the turn-and-forward retreat, a short Nav2
+  # goal on open floor that the mission does not need is cancelled mid-way through the public action; CANCELED is the
+  # only pass and the base must stay still afterwards. The odometry guard at the station runs before it. Goal and pass
+  # rule awaiting Mohamed and Alex. Declared in every leg; the strict verdict's cancellation gate needs its cancel_* checks.
   BASELINE1_CANCEL_CHECK: '1'
+  # Retreat: turn in place and drive forward (station_departure.py "forward", Alex 20 Nov 2026), no reverse motion.
+  # Declared in every leg (declaration.json "retreat").
+  BASELINE1_RETREAT: forward
 
 jobs:
   baseline1:
@@ -355,7 +359,7 @@ jobs:
                     "station_approach": e["BASELINE1_STATION_APPROACH"], "station_alignment": e["BASELINE1_STATION_ALIGNMENT"],
                     "rmw_implementation": e.get("RMW_IMPLEMENTATION"), "rmw_runtime": e.get("RMW_RUNTIME") or None,
                     "cyclonedds_uri": e.get("CYCLONEDDS_URI"), "seed": e["BASELINE1_SEED"],
-                    "cancel_check": e["BASELINE1_CANCEL_CHECK"],
+                    "cancel_check": e["BASELINE1_CANCEL_CHECK"], "retreat": e["BASELINE1_RETREAT"],
                     "build_ok": int(e["BUILD_OK"]), "env_ok": int(e["ENV_OK"]), "env_reason": e.get("ENV_REASON", "")}
           json.dump(record, open("declaration.json", "w"), indent=2, sort_keys=True)
           print(json.dumps(record, indent=2, sort_keys=True))

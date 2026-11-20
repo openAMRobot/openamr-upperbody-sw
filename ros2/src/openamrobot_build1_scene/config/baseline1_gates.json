@@ -26,9 +26,16 @@
   "contacts": {
     "min_sensor_links": 18,
     "min_messages": 1,
+    "windows": {
+      "_comment": "Named Gazebo-time windows from the mission's time marks (scenarios._mark): [start label, end label]. grasp_reach_last_move: from the start of scn04's last reach move (the straight move onto the end point, openamr-upperbody-sw #98) through the 1 s settle that ends grasp_reach.",
+      "grasp_reach_last_move": ["grasp_reach_last_move_start", "grasp_reach_end"]
+    },
     "allowed": [
       {"a": "openarm_(left|right)_ee_link[12]", "b": "item", "phases": ["grasp", "lift_object"],
        "reason": "intended grasp: the fingers close on the item and hold it"},
+      {"a": "openarm_left_(ee_base_link|ee_link1)(::|$)", "b": "^tote::(link::)?front_collision$",
+       "phases": ["arm_approach"], "window": "grasp_reach_last_move", "max_force_n": 6.0,
+       "reason": "residual end-point contact of the hand with the tote front wall, a simulation-model artifact of the base pitch (0.534 deg nose down, 2 mm up in Gazebo against a level planning scene); this exact case only (Mohamed, openamr-upperbody-sw #98, 20 Nov 2026)"},
       {"a": "^item", "b": "^tote", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
                                             "arm_approach", "grasp", "lift_object", "retreat"],
        "reason": "the item stands in the tote (environment only, no robot link)"},
@@ -44,7 +51,7 @@
     "pinned_repositories": ["openamr-upperbody-sw", "openamr-platform-sw", "openamrobot-interfaces", "openarm_ros2",
                             "openarm_can", "openarm_description"],
     "declared_settings": ["profile", "station_approach", "station_alignment", "rmw_implementation", "rmw_runtime",
-                          "cyclonedds_uri", "seed", "run_id", "run_attempt", "cancel_check"],
+                          "cyclonedds_uri", "seed", "run_id", "run_attempt", "cancel_check", "retreat"],
     "phases": ["spawn", "nav_to_station", "stop_authorize", "lift_to_target", "arm_approach", "grasp", "lift_object",
                "retreat"],
     "min_trace_samples": 20

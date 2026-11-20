@@ -282,14 +282,41 @@ def test_the_acceptance_workflow_enables_and_declares_the_option():
     assert "cancel_check" in gates.load()["evidence"]["declared_settings"]
 
 
-def test_the_mission_runs_the_step_at_the_start_of_nav_to_station():
+def _functions():
     path = os.path.join(PACKAGE, "openamrobot_build1_scene", "baseline1.py")
     tree = ast.parse(open(path, encoding="utf-8").read())
-    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "nav_to_station")
-    calls = [n for n in ast.walk(function) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)]
-    step_calls = [c for c in calls if c.func.attr == "step" and getattr(c.func.value, "id", "") == "baseline1_cancel"]
-    goal_calls = [c for c in calls if c.func.attr == "send_goal"]
-    assert step_calls and goal_calls and step_calls[0].lineno < goal_calls[0].lineno
+    return {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+
+def _step_calls(function):
+    return [n for n in ast.walk(function) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "step" and getattr(n.func.value, "id", "") == "baseline1_cancel"]
+
+
+def test_the_step_runs_at_the_end_of_the_mission_after_the_retreat():
+    """Position end_of_mission (Alex 20 Nov 2026): no cancel step in nav_to_station, so the odometry guard at the
+    station runs before it and no turn follows the cancel; the retreat phase leaves the station first, then cancels."""
+    functions = _functions()
+    assert CONFIG["position"] == "end_of_mission" and CONFIG["position"] in CONFIG["positions"]
+    assert not _step_calls(functions["nav_to_station"])
+    assert "nav_odometry_minus_ground_truth" in ast.unparse(functions["nav_to_station"])
+    assert _step_calls(functions["end_of_mission_cancel"])
+    body = [ast.unparse(s) for s in functions["retreat_then_cancel"].body
+            if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call)]
+    assert body == ["retreat(rig, log)", "end_of_mission_cancel(rig, log)"]
+    mission = ast.unparse(functions["mission"])
+    assert "tracker.run('retreat', lambda: retreat_then_cancel(rig, log))" in mission
+    order = [mission.index(f"tracker.run('{p}'") for p in ("nav_to_station", "retreat")]
+    assert order == sorted(order)
+
+
+def test_canceled_is_the_only_pass():
+    assert CONFIG["expected_status"] == cancel.CANCELED
+    for status in (4, 6, None):
+        record = dict(accepted=True, status=status)
+        checks = {c["name"]: c for c in cancel.verdict(record, CONFIG)}
+        status_check = checks["cancel_goal_status"]
+        assert status_check["low"] == status_check["high"] == 5 and status_check["value"] != 5
 
 
 def test_the_short_goal_is_straight_ahead_on_the_spawn_heading():

@@ -1,8 +1,12 @@
 {
   "_comment": "SPDX-License-Identifier: MIT. Declared options of the Baseline 1 mission (openamrobot_build1_scene/baseline1.py). Proposed for Alex and Mohamed, 20 Nov 2026; a change is a reviewed change of this file. Simulation evidence only.",
   "cancel_check": {
-    "_comment": "baseline1_cancel.py. On only when BASELINE1_CANCEL_CHECK=1 (the acceptance workflow sets it). At the start of nav_to_station: one short NavigateToPose goal straight ahead of the spawn pose on open floor (not needed by the mission), cancelled through the public action once the base has moved cancel_at_m, then the base must stay still. The mission then continues with the station goal from where the base stopped. Values Proposed; the stop bounds reuse scn07_cancel_resume where one exists.",
+    "_comment": "baseline1_cancel.py. On only when BASELINE1_CANCEL_CHECK=1 (the acceptance workflow sets it and declares it). Position end_of_mission (Alex 20 Nov 2026; goal and pass rule awaiting Mohamed and Alex): the last step of the retreat phase, after the turn-and-forward retreat, so the odometry guard at the station (nav_to_station) is evaluated before it and no turn follows it. One short NavigateToPose goal straight ahead of the base on open floor (not needed by the mission), cancelled through the public action once the base has moved cancel_at_m, then the base must stay still. CANCELED (5) is the only pass. Values Proposed; the stop bounds reuse scn07_cancel_resume where one exists.",
     "env": "BASELINE1_CANCEL_CHECK",
+    "position": "end_of_mission",
+    "positions": [
+      "end_of_mission"
+    ],
     "action": "/navigate_to_pose",
     "behavior_tree": "",
     "goal_distance_m": 0.5,
@@ -25,9 +29,9 @@
     "cmd_vel_topic": "/cmd_vel"
   },
   "retreat": {
-    "_comment": "station_departure.py. BASELINE1_RETREAT selects how the retreat phase leaves the station; the default 'backup' is today's Nav2 behavior_server backup (unchanged). 'departure' and 'forward' are prepared alternatives, not enabled: Alex decides. Proposed 20 Nov 2026, simulation only.",
+    "_comment": "station_departure.py. BASELINE1_RETREAT selects how the retreat phase leaves the station. Default forward (turn and forward, no reverse; Alex 20 Nov 2026), set and declared by the acceptance workflow. backup (Nav2 behavior_server /backup) needs a reverse-capable Nav2 configuration and fails on the no-reverse one; departure is a prepared alternative, not enabled. Simulation only.",
     "env": "BASELINE1_RETREAT",
-    "default": "backup",
+    "default": "forward",
     "options": [
       "backup",
       "departure",

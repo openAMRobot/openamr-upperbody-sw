@@ -27,7 +27,7 @@ def declaration(leg, **changes):
     value = {"leg": leg, "run_id": 1, "run_attempt": 1, "pins": dict(PINS), "profile": "sim-oracle", "station_approach": "1",
              "station_alignment": "1", "rmw_implementation": "rmw_cyclonedds_cpp", "rmw_runtime": "rmw_cyclonedds_cpp",
              "cyclonedds_uri": URI, "seed": "20261117", "build_ok": 1, "env_ok": 1, "env_reason": "",
-             "cancel_check": "1"}
+             "cancel_check": "1", "retreat": "forward"}
     value.update(changes)
     return value
 
@@ -263,3 +263,47 @@ def test_a_leg_that_does_not_declare_the_cancellation_option_fails(tmp_path):
     del decl["cancel_check"]
     rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=decl)])
     assert rc == 1 and any("setting cancel_check not declared" in p for p in record["problems"])
+
+
+# ------------------------------------------------------------------ #98's residual end-point contact (Mohamed, 20 Nov)
+WALL = {"phase": "arm_approach", "window": "grasp_reach_last_move", "a": "openarm_left_ee_base_link",
+        "b": "tote::link::front_collision", "first_t": 11.0, "last_t": 11.4, "count": 5, "max_force_n": 5.2}
+
+
+def _allowed(event):
+    return gates.contact_allowed(event, gates.load()["contacts"]["allowed"])
+
+
+def test_the_residual_wall_contact_is_allowed_only_as_mohameds_exact_case():
+    assert _allowed(WALL) is not None
+    assert _allowed(dict(WALL, a="openarm_left_ee_link1")) is not None
+    assert _allowed(dict(WALL, a="tote::link::front_collision",
+                         b="robot::openarm_left_ee_base_link::openarm_left_ee_base_link_collision")) is not None
+    assert _allowed(dict(WALL, max_force_n=6.0)) is not None
+    for other in (dict(WALL, max_force_n=6.01), dict(WALL, window=None), dict(WALL, window="other"),
+                  dict(WALL, a="openarm_left_ee_link2"), dict(WALL, a="openarm_left_link7"),
+                  dict(WALL, a="openarm_right_ee_base_link"), dict(WALL, b="tote::link::back_collision"),
+                  dict(WALL, b="fixtures::work_shelf_board_1"), dict(WALL, phase="grasp"),
+                  dict(WALL, phase="lift_object")):
+        assert _allowed(other) is None, other
+
+
+def test_the_wall_contact_passes_the_strict_gate_in_its_window_and_fails_outside_it(tmp_path):
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, WALL)))
+    assert rc == 0, record["problems"]
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = two(other, data2=mission(events=(GRASP, dict(WALL, window=None))))
+    assert rc == 1 and any("unaccounted contact in arm_approach: openarm_left_ee_base_link" in p for p in record["problems"])
+
+
+def test_windows_come_from_the_marks_and_events_carry_their_window():
+    definitions = gates.load()["contacts"]["windows"]
+    marks = [("grasp_reach_start", 10.0), ("grasp_reach_end", 9.0), ("grasp_reach_last_move_start", 11.0),
+             ("grasp_reach_end", 12.0), ("closed", 13.0)]
+    found = gates.windows(marks, {k: v for k, v in definitions.items() if not k.startswith("_")})
+    assert found == {"grasp_reach_last_move": [11.0, 12.0]}
+    assert gates.windows([("grasp_reach_end", 12.0)], {"w": ["grasp_reach_last_move_start", "grasp_reach_end"]}) == {}
+    rows = [{"t": 10.5, "a": "x", "b": "y", "fn": 1.0}, {"t": 11.5, "a": "x", "b": "y", "fn": 2.0}]
+    events = gates.contact_events(rows, lambda t: "arm_approach", gates.window_of(found))
+    assert [(e["window"], e["count"]) for e in events] == [(None, 1), ("grasp_reach_last_move", 1)]

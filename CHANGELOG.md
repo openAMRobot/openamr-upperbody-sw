@@ -30,6 +30,22 @@ All notable changes to this repository. Evidence for the description is static a
   0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
   In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
 
+### Changed (20 Nov 2026, evening; Baseline 1 forward retreat, cancel at the end, #98 contact window; simulation only)
+
+- Retreat `forward` (turn in place, then forward, no reverse) is the default of `config/baseline1_mission_options.json`
+  and set by `baseline1-acceptance.yml` (`BASELINE1_RETREAT: forward`); every leg declares `retreat`, which the evidence
+  gate requires (Alex, 20 Nov 2026).
+- The cancellation step moved from the start of `nav_to_station` to the end of the mission, the last step of the
+  retreat phase (`position: end_of_mission`), so the odometry guard at the station runs before it and no turn follows
+  it. CANCELED stays the only pass and all `cancel_*` assertions are unchanged. Goal and pass rule awaiting Mohamed and
+  Alex.
+- Contact windows: `scenarios._mark` also records `(label, Gazebo time)` in `rig.marks` during the mission;
+  `config/baseline1_gates.json` `contacts.windows` names windows by start and end marks, and an allowed entry with a
+  `window` accounts only for events inside it. One entry added, Mohamed's exact #98 case: `openarm_left_ee_base_link`
+  or `openarm_left_ee_link1` against `tote::front_collision`, `arm_approach`, window `grasp_reach_last_move`, at most 6 N.
+- Tests: 6 new or changed tests fail with the 196dd3f sources (`test_baseline1_cancel.py`, `test_station_departure.py`,
+  `test_baseline1_strict.py`).
+
 ### Added (20 Nov 2026; Baseline 1 retreat options, Proposed, not enabled; simulation only)
 
 - `station_departure.py`: `BASELINE1_RETREAT` selects `backup` (default, today's Nav2 `/backup`, unchanged),

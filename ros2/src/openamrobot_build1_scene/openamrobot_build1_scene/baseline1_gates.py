@@ -116,10 +116,13 @@ def stop_cancel(mission, config):
 
 # ------------------------------------------------------------------ contacts
 def contact_allowed(event, allowed):
-    """The first allowed-list entry that accounts for this contact event, or None."""
+    """The first allowed-list entry that accounts for this contact event, or None. An entry with a `window` accounts
+    only for events inside that named window (config contacts.windows, from the mission's time marks)."""
     a, b = event["a"], event["b"]
     for entry in allowed:
         if event["phase"] not in entry["phases"]:
+            continue
+        if entry.get("window") is not None and event.get("window") != entry["window"]:
             continue
         for x, y in ((a, b), (b, a)):
             if re.search(entry["a"], x) and re.search(entry["b"], y):
@@ -148,22 +151,49 @@ def contacts(mission, config):
                         f"at least {gate['min_messages']} required (the sensors may not publish)")
     unaccounted = [e for e in record.get("events", []) if contact_allowed(e, gate["allowed"]) is None]
     for event in unaccounted[:10]:
-        problems.append(f"contacts: unaccounted contact in {event['phase']}: {event['a']} with {event['b']} "
+        where = event["phase"] + (f" ({event['window']})" if event.get("window") else "")
+        problems.append(f"contacts: unaccounted contact in {where}: {event['a']} with {event['b']} "
                         f"({event.get('count')} samples, max {event.get('max_force_n')} N)")
     if len(unaccounted) > 10:
         problems.append(f"contacts: {len(unaccounted) - 10} more unaccounted contact events")
     return problems
 
 
-def contact_events(rows, phase_of):
-    """Rows {t, a, b, fn} -> events, one per (phase, a, b): first and last Gazebo time, sample count, largest
-    normal force. `phase_of(t)` names the phase running at Gazebo time t (None before and after the mission)."""
+def windows(marks, definitions):
+    """Named Gazebo-time windows from the mission's time marks [(label, t)] (scenarios._mark) and the definitions
+    {name: [start label, end label]} of config contacts.windows: the first start mark, then the first end mark at or
+    after it. A window whose marks are missing is absent, so an entry that needs it accounts for nothing."""
+    found = {}
+    for name, labels in sorted(definitions.items()):
+        if name.startswith("_"):
+            continue
+        start_label, end_label = labels
+        start = next((t for label, t in marks if label == start_label), None)
+        if start is None:
+            continue
+        end = next((t for label, t in marks if label == end_label and t >= start), None)
+        if end is not None:
+            found[name] = [start, end]
+    return found
+
+
+def window_of(found):
+    """-> function(t) naming the window of `found` (windows()) that contains Gazebo time t, else None."""
+    spans = sorted(found.items(), key=lambda item: item[1][0])
+    return lambda t: next((name for name, (start, end) in spans if start <= t <= end), None)
+
+
+def contact_events(rows, phase_of, window_of=None):
+    """Rows {t, a, b, fn} -> events, one per (phase, window, a, b): first and last Gazebo time, sample count, largest
+    normal force. `phase_of(t)` names the phase running at Gazebo time t (None before and after the mission);
+    `window_of(t)` the named contact window (None outside every window, and when no function is given)."""
     events = {}
     for row in rows:
         phase = phase_of(row["t"]) or "outside"
-        key = (phase, row["a"], row["b"])
-        event = events.setdefault(key, {"phase": phase, "a": row["a"], "b": row["b"], "first_t": row["t"],
-                                        "last_t": row["t"], "count": 0, "max_force_n": 0.0})
+        window = window_of(row["t"]) if window_of is not None else None
+        key = (phase, window, row["a"], row["b"])
+        event = events.setdefault(key, {"phase": phase, "window": window, "a": row["a"], "b": row["b"],
+                                        "first_t": row["t"], "last_t": row["t"], "count": 0, "max_force_n": 0.0})
         event["count"] += 1
         event["last_t"] = max(event["last_t"], row["t"])
         fn = row.get("fn")

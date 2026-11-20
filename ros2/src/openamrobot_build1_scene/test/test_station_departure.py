@@ -136,13 +136,23 @@ def test_pose_jitter_between_close_samples_is_not_read_as_reverse():
 
 
 # ------------------------------------------------------------------ nothing is enabled
-def test_the_default_is_backup_and_the_workflow_does_not_choose_another():
-    assert sd.option(CONFIG, environ={}) == "backup"
-    assert sd.option(CONFIG, environ={"BASELINE1_RETREAT": "forward"}) == "forward"
+def test_the_default_is_forward_and_the_workflow_sets_and_declares_it():
+    """Turn-and-forward retreat by default (Alex 20 Nov 2026); the acceptance workflow sets it and every leg declares it."""
+    assert sd.option(CONFIG, environ={}) == "forward"
+    assert sd.option(CONFIG, environ={"BASELINE1_RETREAT": "backup"}) == "backup"
     with pytest.raises(ValueError):
         sd.option(CONFIG, environ={"BASELINE1_RETREAT": "reverse"})
     workflow = open(os.path.join(REPO, ".github", "workflows", "baseline1-acceptance.yml"), encoding="utf-8").read()
-    assert "BASELINE1_RETREAT" not in workflow
+    assert "\n  BASELINE1_RETREAT: forward\n" in workflow
+    assert '"retreat": e["BASELINE1_RETREAT"]' in workflow
+    from openamrobot_build1_scene import baseline1_gates
+    assert "retreat" in baseline1_gates.load()["evidence"]["declared_settings"]
+
+
+def test_the_default_works_on_the_no_reverse_configuration():
+    ok, reasons = sd.allowed(sd.option(CONFIG, environ={}), CONFIG, pr90_set(), TREES)
+    assert ok and not reasons
+    assert sd.reverse_paths(pr90_set(), TREES) == []
 
 
 def test_the_mission_retreat_hands_over_only_for_another_option():

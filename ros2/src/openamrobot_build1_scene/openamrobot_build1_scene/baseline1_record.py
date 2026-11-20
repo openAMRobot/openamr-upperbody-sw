@@ -182,16 +182,18 @@ class ContactLog:
             self.messages[sensor] = self.messages.get(sensor, 0) + 1
             self.rows += rows
 
-    def record(self, phase_records):
+    def record(self, phase_records, marks=()):
+        """`marks` [(label, Gazebo time)] of scenarios._mark give the contact windows of config/baseline1_gates.json."""
         from openamrobot_build1_scene import baseline1_gates as gates
         spans = [(r["phase"], r["sim_start"], r["sim_end"]) for r in phase_records
                  if r.get("sim_start") is not None and r.get("sim_end") is not None]
 
         def phase_of(t):
             return next((name for name, start, end in spans if start <= t <= end), None)
+        windows = gates.windows(marks, gates.load()["contacts"].get("windows", {}))
         if not self.sensors_on:
-            return {"sensors_on": False, "sensor_links": [], "messages": {}, "events": []}
+            return {"sensors_on": False, "sensor_links": [], "messages": {}, "events": [], "windows": windows}
         with self.lock:
             rows, messages = list(self.rows), dict(self.messages)
         return {"sensors_on": True, "sensor_links": self.links + self.world, "messages": messages,
-                "events": gates.contact_events(rows, phase_of)}
+                "windows": windows, "events": gates.contact_events(rows, phase_of, gates.window_of(windows))}

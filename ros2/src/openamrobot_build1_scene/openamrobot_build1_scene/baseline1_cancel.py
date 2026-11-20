@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: MIT
-"""Baseline 1 cancellation check (Proposed for Alex and Mohamed, 20 Nov 2026), in the test harness, not a stop gate.
+"""Baseline 1 cancellation check, in the test harness, not a stop gate. Position end_of_mission (Alex, 20 Nov 2026);
+goal and pass rule awaiting Mohamed and Alex.
 
 On only when the declared mission option BASELINE1_CANCEL_CHECK=1 is set (the acceptance workflow sets it and declares
-it). At the start of nav_to_station, before the station goal: one short NavigateToPose goal straight ahead of the spawn
-pose on open floor, which the mission does not need; once the base has moved cancel_at_m, the goal is cancelled through
+it). At the end of the mission (baseline1.end_of_mission_cancel, the last step of the retreat phase, after the odometry
+guard at the station): one short NavigateToPose goal straight ahead of the base on open floor, which the mission does
+not need; once the base has moved cancel_at_m, the goal is cancelled through
 the public action interface (the action's cancel service, as any client would). Then:
 - the terminal status must be CANCELED (5). Whatever the stack returns is recorded as cancel_goal_status;
 - the base stops within max_time_to_stop_sim_s and max_distance_after_cancel_m;
 - over a declared hold window after the stop, ground truth and odometry move less than max_hold_displacement_m and
   max_hold_yaw_change_rad, and every /cmd_vel message is zero (the last one before the window counts too, since the
   base keeps the last command it was given).
-The mission then goes on with the station goal from where the base stopped.
+CANCELED is the only pass.
 
 verdict() and the helpers have no ROS import: test/test_baseline1_cancel.py runs them on recorded samples. step() runs
 inside the mission. Every check name starts with cancel_, which baseline1_gates.stop_cancel requires.

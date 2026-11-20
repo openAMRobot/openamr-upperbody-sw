@@ -71,22 +71,29 @@ Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_ga
   no gap over 10 s of Gazebo time;
 - the Stop checks of `stop_authorize` all run and pass (base settle, speed, yaw rate, no lift motion without permit,
   command refused, permit fresh), and at least one `cancel_*` check run and passed (the cancellation step below);
-- contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase and pair)
-  in the allowed list with its reason; any other contact fails the leg;
+- contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase, contact
+  window and pair) in the allowed list with its reason; any other contact fails the leg. One entry has a window:
+  `openarm_left_ee_base_link` or `openarm_left_ee_link1` against `tote::front_collision`, in `arm_approach`, inside the
+  window `grasp_reach_last_move` (from the mark `grasp_reach_last_move_start` of the last reach move, #98, through
+  `grasp_reach_end` after the 1 s settle), at most 6 N: the residual end-point contact of the base pitch, the software
+  lead's exact case on #98 (20 Nov 2026). Without the marks there is no window and the entry accounts for nothing;
 - complete evidence: bag metadata, a non-empty candump of each of the five virtual buses, Gazebo start and end of
   every phase, run_info, full pinned hashes of all six checkouts, the declared seed equal to the mission's, settings.
 
-Cancellation step (Proposed for Alex and Mohamed, 20 Nov 2026; `baseline1_cancel.py`, values in
-`config/baseline1_mission_options.json`). On only with the declared mission option `BASELINE1_CANCEL_CHECK=1`, which
-the acceptance workflow sets and writes to each leg's `declaration.json` (`cancel_check`; the evidence gate requires
-it). In the test harness, not in a stop gate. At the start of `nav_to_station`: a 0.5 m NavigateToPose goal straight
-ahead of the spawn pose on open floor (the mission does not need it) on `/navigate_to_pose`, cancelled through the
+Cancellation step (`baseline1_cancel.py`, values in `config/baseline1_mission_options.json`; position decided by Alex
+20 Nov 2026, goal and pass rule awaiting Mohamed and Alex). On only with the declared mission option
+`BASELINE1_CANCEL_CHECK=1`, which the acceptance workflow sets and writes to each leg's `declaration.json`
+(`cancel_check`; the evidence gate requires it). In the test harness, not in a stop gate. Position `end_of_mission`:
+the last step of the retreat phase, after the turn-and-forward retreat, so the odometry guard at the station
+(`nav_to_station`) is evaluated before it and no turn follows the cancel (at the start of `nav_to_station` the
+following station turn failed the odometry guard, runs 44735544898 and 44736351073). A 0.5 m NavigateToPose goal
+straight ahead of the base on open floor (the mission does not need it) on `/navigate_to_pose`, cancelled through the
 action's cancel service once ground truth has moved 0.15 m. Checks: goal accepted; cancelled mid-way (0.08 to 0.40 m)
 with the base moving (at least 0.02 m/s); cancel request accepted; terminal status CANCELED (5), whatever the stack
 returns is recorded; stopped within 4 s and 0.10 m (the scn07 time bound); then over 3 s of Gazebo time ground truth
 and odometry under 0.01 m and 0.02 rad and every `/cmd_vel` message, and the last one before the window, zero
-(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. The station goal then starts from where the
-base stopped. On the integration branch `/navigate_to_pose` is bt_navigator itself; platform-sw #90 puts a proxy on
+(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. CANCELED is the only pass (ABORTED or
+SUCCEEDED fail). On the integration branch `/navigate_to_pose` is bt_navigator itself; platform-sw #90 puts a proxy on
 that name, whose cancels the #90 review found ending ABORTED, so the status check is the one to watch when #90 lands.
 
 Settings declared in every leg:
@@ -94,12 +101,13 @@ Settings declared in every leg:
   the DDS benchmark (#89). The robot's middleware beyond acceptance stays the owners' decision.
 - Station alignment: openamr-platform-sw #167 on (simulation-only base camera), `station_alignment: 0` is the revert run.
 - Profile: sim-oracle (object and planning poses from simulator ground truth); not a perception result.
-- Retreat: one straight 0.30 m backup through behavior_server's `backup` action, the mission's last phase, simulation
-  only. A declared station departure, not a recovery; general reversing recovery is removed (Alex, 19 Nov 2026).
+- Retreat: `forward` (Alex, 20 Nov 2026): Nav2 spin by pi in place, then a 0.30 m forward NavigateToPose with #164's
+  station tree, no reverse motion; `BASELINE1_RETREAT: forward` in the workflow, `retreat` in each leg's
+  `declaration.json` (the evidence gate requires it). Platform pin with the no-reverse Nav2 configuration:
+  openamr-platform-sw #178 (`nav/baseline1-no-reverse-on-175`, 0aa8e14 on 9af88e7), candidate until merged.
 
-Retreat options (Proposed 20 Nov 2026, Alex decides; `station_departure.py`, values in
-`config/baseline1_mission_options.json`, `BASELINE1_RETREAT`, default `backup`; the workflow sets nothing, so no
-alternative is enabled). Today the retreat is `retreat()` in `baseline1.py`: after both arms park, a
+Retreat options (`station_departure.py`, values in `config/baseline1_mission_options.json`, `BASELINE1_RETREAT`,
+default `forward` since 20 Nov 2026, set by the workflow). Before that the retreat was `retreat()` in `baseline1.py`: after both arms park, a
 `nav2_msgs/BackUp` goal on `/backup` (behavior_server's BackUp plugin), 0.30 m at 0.10 m/s, 60 s allowance, through
 `cmd_vel_nav`, velocity_smoother (min_velocity[0] -0.20 lets it through) and collision_monitor. With platform-sw #90's
 behaviour set (spin and wait only, min_velocity[0] 0; openamr-platform-sw `nav/baseline1-no-reverse` 0aa8e14 for this
