@@ -5,6 +5,15 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (20 Nov 2026; platform pin to platform-sw main 69847ab, for v2.0.0-rc.1)
+
+- **Platform pin `8e7a454` -> `69847ab`** (`config/upstream_pins.yaml`, README checkout line): the platform-sw commit proposed for v2.0.0-rc.1.
+  The range is #135 (Gazebo contact friction through `mu1`, `mu2` and `fdir1`, which the URDF to SDF conversion keeps), #138
+  (`sensor_profiles.yaml`, data and tests only) and #139 (`openamrobot_sil`, a separate package). Expanded with xacro at both commits
+  (bp000, mock and gazebo), every link, joint, inertial and mesh is identical; only six `<gazebo>` blocks of the base wheels and casters
+  change. So the masses, the collision matrix and the `roadmap_mass_export.yaml` copy are unchanged; `config_id` changes, because it
+  hashes the expanded URDF and the pins. Datums revision unchanged. A6 and A7 rerun on this pin before merge (PLATFORM-PIN).
+
 ### Added (17 Nov 2026; public model bundle, built by CI)
 
 - **`tools/model_bundle/`**: `build_bundle.py` packs `openamrobot-2.0-model-<version>.zip`: six expanded URDFs (bp000 and bp050 as
