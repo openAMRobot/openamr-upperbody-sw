@@ -142,3 +142,25 @@ def tcp_for_item(item_point, hand_quaternion, depth=ITEM_DEPTH_BEHIND_TCP_M):
     """Where the TCP goes so that the item centre `item_point` sits `depth` behind it along the fingers (toward the palm)."""
     fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
     return tuple(item_point[i] + depth * fingers[i] for i in range(3))
+
+
+# A joint command counts as executed only when the joints were MEASURED to move, never on the controller's status alone:
+# joint_trajectory_controller without goal tolerances (arm_controllers.yaml has none) reports success when the trajectory time has
+# passed, whether the joint moved or not (docs/build1_lift_and_base_diagnosis.md, the lift case). Half the commanded travel separates
+# "did not move" from "moved and is still settling"; how close the joint came is each scenario's own check.
+MIN_TRAVEL_FRACTION = 0.5
+MIN_COMMANDED_TRAVEL_RAD = 0.01     # rad. Joints commanded to stay (reading noise at the activation pose is about 1e-3) are not judged
+
+
+def unmoved_joints(start, end, target, min_fraction=MIN_TRAVEL_FRACTION, min_commanded=MIN_COMMANDED_TRAVEL_RAD):
+    """{joint: (commanded travel, measured travel toward the target)} for every joint commanded to move by more than min_commanded
+    whose measured travel toward the target is below min_fraction of the commanded travel. Empty when every commanded joint moved."""
+    short = {}
+    for name, goal in target.items():
+        commanded = goal - start[name]
+        if abs(commanded) <= min_commanded:
+            continue
+        toward = (end[name] - start[name]) * (1.0 if commanded > 0 else -1.0)
+        if toward < min_fraction * abs(commanded):
+            short[name] = (abs(commanded), toward)
+    return short
