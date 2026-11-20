@@ -80,3 +80,73 @@ def test_mujoco_runs_every_scenario(generated, overrides, evidence):
     assert r["object_contact"]["rest_height_m"] == pytest.approx(0.05, abs=0.001)
     assert r["straight_drive"]["distance_m"] > 1.9
     assert r["lift_move"]["final_position_m"] == pytest.approx(0.35, abs=0.002)
+    assert {k: v["verdict"] for k, v in doc["execution"].items()} == {"joint_step": "PASS", "arm_reach": "PASS", "lift_move": "PASS"}
+
+
+# ------------------------------------------------------------------------- execution: success without motion is FAIL
+# Regression for the Gazebo lift of #106 (CI job 136512164747 on 32995c8): lift_controller returned error_code 0 (SUCCESSFUL),
+# /joint_states read -6.8e-15 m after a commanded 0.35 m, and the comparison took that as the reference.
+def _lift_docs(gazebo_lift_m, mujoco_lift_m=0.3495):
+    spec = bm.load_scenarios()
+    rule = spec["scenarios"]["lift_move"]["execution"]
+    gz = {"results": {"lift_move": {"final_position_m": gazebo_lift_m, "max_tracking_error_m": 0.35 - gazebo_lift_m,
+                                    "base_pitch_change_deg": 0.0}},
+          "execution": {"lift_move": bm.execution(0.35, {"joint_states": abs(gazebo_lift_m), "gazebo_link_pose": abs(gazebo_lift_m)},
+                                                  True, rule)}}
+    mj = {"results": {"lift_move": {"final_position_m": mujoco_lift_m, "max_tracking_error_m": 0.0008, "base_pitch_change_deg": 0.0025}},
+          "execution": {"lift_move": bm.execution(0.35, {"qpos": mujoco_lift_m}, None, rule)}}
+    return spec, gz, mj
+
+
+def test_commanded_lift_move_with_no_measured_motion_is_fail_although_the_controller_reported_success():
+    spec, gz, mj = _lift_docs(-6.810574904812846e-15)
+    ex = gz["execution"]["lift_move"]
+    assert ex["verdict"] == "FAIL" and ex["controller_reported_success"] is True
+    assert "success without motion" in ex["reason"]
+    rows = [r for r in bm.compare({"gazebo": gz, "mujoco": mj}, spec) if r["scenario"] == "lift_move"]
+    assert rows and all(r["verdicts"]["mujoco"] == "FAIL" for r in rows)
+    # base_pitch_change_deg is within its 0.2 deg tolerance (0 against 0.0025) and still may not pass: the lift never rose
+    assert all("not executed in gazebo" in r["notes"]["mujoco"] for r in rows)
+
+
+def test_two_backends_that_both_stood_still_do_not_agree():
+    spec, gz, mj = _lift_docs(0.0, 0.0)
+    rows = [r for r in bm.compare({"gazebo": gz, "mujoco": mj}, spec) if r["scenario"] == "lift_move"]
+    assert all(r["verdicts"]["mujoco"] == "FAIL" for r in rows)
+
+
+def test_one_measurement_short_is_enough_to_fail():
+    rule = bm.load_scenarios()["scenarios"]["lift_move"]["execution"]
+    assert bm.execution(0.35, {"joint_states": 0.35, "gazebo_link_pose": 0.0}, True, rule)["verdict"] == "FAIL"
+    assert bm.execution(0.35, {"joint_states": None, "gazebo_link_pose": None}, True, rule)["verdict"] == "BLOCKED"
+    assert bm.execution(0.35, {"joint_states": 0.3499, "gazebo_link_pose": None}, True, rule)["verdict"] == "PASS"
+
+
+def test_executed_lift_compares_on_its_values():
+    spec, gz, mj = _lift_docs(0.3499)
+    rows = {r["metric"]: r for r in bm.compare({"gazebo": gz, "mujoco": mj}, spec) if r["scenario"] == "lift_move"}
+    assert rows["final_position_m"]["verdicts"]["mujoco"] == "PASS"
+    assert rows["base_pitch_change_deg"]["verdicts"]["mujoco"] == "PASS"
+
+
+def test_a_document_without_an_execution_record_is_blocked_for_commanded_moves():
+    spec, gz, mj = _lift_docs(0.3499)
+    del gz["execution"]
+    rows = [r for r in bm.compare({"gazebo": gz, "mujoco": mj}, spec) if r["scenario"] == "lift_move"]
+    assert all(r["verdicts"]["mujoco"] == "BLOCKED" for r in rows)
+
+
+def test_every_commanded_joint_move_has_an_execution_rule():
+    spec = bm.load_scenarios()
+    for name in ("joint_step", "arm_reach", "lift_move"):
+        rule = spec["scenarios"][name]["execution"]
+        assert 0.0 < rule["min_travel_fraction"] <= 1.0 and rule["why"], name
+
+
+def test_gazebo_runner_never_takes_the_controller_result_as_motion():
+    """Static: every FollowJointTrajectory result in the Gazebo runner feeds bm.execution with a measured travel."""
+    import pathlib
+    text = (pathlib.Path(bm.__file__).resolve().parents[1] / "benchmark" / "gazebo_benchmark.py").read_text()
+    for scen in ("joint_step", "arm_reach", "lift_move"):
+        assert f'executions["{scen}"] = bm.execution(' in text, scen
+    assert '"gazebo_link_pose"' in text and "CARRIAGE" in text

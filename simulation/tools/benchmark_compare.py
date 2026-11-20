@@ -6,7 +6,8 @@
       [--doc isaac=<Isaac result JSON>] --json comparison.json --markdown comparison.md
 
 A missing or failed backend makes its rows BLOCKED (not a pass). A row beyond tolerance is FAIL: a finding to explain in the
-declared differences, never a reason to tune a backend. Exit 0 when every backend ran, 3 when any row is BLOCKED.
+declared differences, never a reason to tune a backend. A commanded joint move that a backend did not execute (measured travel,
+not the controller's status) makes every row of that scenario FAIL. Exit 0 when every backend ran, 3 when any row is BLOCKED.
 """
 import argparse
 import json
@@ -29,14 +30,17 @@ def main():
         p = pathlib.Path(path)
         docs[name] = json.loads(p.read_text()) if p.is_file() else None
     rows = bm.compare(docs)
-    md = bm.table(rows)
+    md = (bm.table(rows) +
+          "\n\nCommanded joint moves, judged on measured travel (a controller's success is recorded, never taken as motion):\n\n" +
+          bm.execution_table(docs))
     counts = {}
     for r in rows:
         for v in r["verdicts"].values():
             counts[v] = counts.get(v, 0) + 1
     if opts.json:
         pathlib.Path(opts.json).write_text(json.dumps({"rows": rows, "verdict_counts": counts,
-                                                       "errors": {k: (d or {}).get("meta", {}).get("error") for k, d in docs.items()}},
+                                                       "errors": {k: (d or {}).get("meta", {}).get("error") for k, d in docs.items()},
+                                                       "execution": {k: (d or {}).get("execution") for k, d in docs.items()}},
                                                       indent=1) + "\n")
     if opts.markdown:
         pathlib.Path(opts.markdown).write_text(md + "\n")

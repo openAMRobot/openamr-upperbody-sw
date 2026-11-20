@@ -9,6 +9,9 @@
 #
 # Tolerances were set before any run, from what each metric can resolve and what a user of the twin would notice. They are not
 # acceptance limits for the robot. A difference beyond tolerance is a finding with a cause, never a reason to tune a backend.
+# Commanded joint moves (joint_step, arm_reach, lift_move) carry an `execution` rule: each backend reports the travel it MEASURED
+# (Gazebo: /joint_states and, for the lift, the simulator's own carriage link pose; MuJoCo: qpos). A controller that reports success
+# while the joint did not move is a FAIL of that backend, and no row of that scenario can then PASS (openamr_sim/benchmark.py execution).
 # Simulation evidence only: not hardware, physical acceptance or safety evidence.
 schema_version: 1
 configuration: bp000
@@ -27,6 +30,7 @@ scenarios:
     target: 1.0
     move_s: 2.0
     hold_s: 1.0
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
     shaping: cubic interpolation from the start position (what JointTrajectoryController does with one point and zero velocities)
     metrics:
       final_error_rad: {tolerance_abs: 0.01, why: "0.01 rad is 3 mm at the 0.3 m forearm; finer than a grasp approach margin"}
@@ -39,6 +43,7 @@ scenarios:
     link: openarm_left_ee_base_link
     move_s: 3.0
     hold_s: 1.5
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
     shaping: cubic interpolation per joint from the start positions
     metrics:
       ee_x_m: {tolerance_abs: 0.005, why: "5 mm: below a grasp approach margin (palm standoff work uses 10 mm)"}
@@ -50,6 +55,7 @@ scenarios:
     from: 0.0
     to: 0.35
     hold_s: 2.0
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
     shaping: linear ramp at the URDF velocity limit, sampled every 0.5 s (Gazebo trajectory points) or every controller period (MuJoCo)
     metrics:
       final_position_m: {tolerance_abs: 0.002, why: "2 mm: the lift calibration stops are stated to 1 mm"}

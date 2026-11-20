@@ -85,7 +85,7 @@ CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job 
 | Damping, friction | URDF `<dynamics>` (PR #66) | damping, frictionloss | damping in the drive; **joint friction not applied** (PhysX coefficient is unitless) |
 | Armature | not applied | from `openarm_v2.yaml` (18 joints) | `physxJoint:armature` |
 | Arm and gripper actuators | gz_ros2_control position interface (ideal servo) | position actuators, the real driver's MIT gains (`control_gains.yaml`; gripper kp 5, kd 0.1), clamped to the URDF effort | position drives, same gains in USD units |
-| Lift | gz_ros2_control position interface | stiff position servo, gains from the carried mass (0.5 mm static sag), 800 N limit | linear position drive, same gains |
+| Lift | gz_ros2_control position interface (in DART it cannot leave its lower limit L1000, see Backend benchmark) | stiff position servo, gains from the carried mass (0.5 mm static sag), 800 N limit | linear position drive, same gains |
 | Wheels | DiffDrive plugin sets wheel velocity | velocity servos, time constant 0.05 s, **no torque limit (unknown)** | velocity drives |
 | Castors | fixed spheres (platform-sw calls them a slider approximation) | **passive swivel and roll hinges** (declared difference) | fixed, as the URDF |
 | finger_joint2 (SW-09) | URDF mimic; held only with Bullet-Featherstone | equality constraint from the URDF mimic | importer mimic joint (`parse_mimic`) |
@@ -259,6 +259,24 @@ For CI, set the repository variable `ISAAC_GPU_RUNNER` to a GPU runner label; th
   copied as numbers. No file of it is copied or loaded into the generated model.
 - PR #66 (sim dynamics, head `5adeba3`) provides the damping, friction and armature profile, the 750 Hz overlay and the 1/1500 s world. This work is
   stacked on it while it is not merged.
+
+## Backend benchmark
+
+`simulation/benchmark/scenarios.yaml` runs the same commanded scenarios in Gazebo (`gazebo_benchmark.py`, the reference) and MuJoCo
+(`openamr_sim/benchmark.py`); `tools/benchmark_compare.py` compares them with the declared tolerances (workflow `sim-benchmark.yml`).
+
+- **Commanded joint moves are judged on measured motion.** For `joint_step`, `arm_reach` and `lift_move` each backend records the travel it
+  measured (Gazebo: `/joint_states`, and for the lift also the pose of `lift_carriage_link` from Gazebo's pose topic; MuJoCo: `qpos`) and
+  the controller's own result. A move whose measured travel is below half the commanded travel is FAIL in that backend, whatever the
+  controller reported, and no row of that scenario can then PASS. A document without that record is BLOCKED for those rows.
+- **Gazebo lift in the bare simulation.** `sim.launch.py` drives `lift_joint` through the position interface of gz_ros2_control, which
+  writes a joint velocity command. DART applies it as a servo constraint and skips it while the joint rests on its lower position limit
+  under load, and L1000 is that limit, so the carriage does not leave it. `lift_controller` has no goal tolerance and reports SUCCESSFUL
+  when the trajectory time has passed. On #106 at `32995c8` (CI job 136512164747): error code 0, `/joint_states` -6.8e-15 m after a
+  commanded 0.350 m. The cause and the fix used by the Build 1 scene (effort interface on the plant model, a 3 mm goal tolerance) are in
+  `docs/build1_lift_and_base_diagnosis.md` on `integration/baseline1`. The Baseline 1 mission is not affected: there the CTL-017 emulator
+  drives the lift in force mode and the mission checks the Gazebo joint position (0.1743 m at L1175 in job 136538636545). Until the bare
+  simulation's lift path is changed, the Gazebo `lift_move` scenario is FAIL (not executed) and is no reference for any backend.
 
 ## Not verified
 

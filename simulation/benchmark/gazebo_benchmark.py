@@ -8,6 +8,12 @@ left_arm_controller and lift_controller, Twist on /cmd_vel to the DiffDrive plug
 (/world/empty/dynamic_pose/info, read with `gz topic`), never /odom or /joint_states, except joint positions, which come from
 /joint_states (joint_state_broadcaster, the controllers' own state).
 
+A controller's action result is recorded and never taken as motion. Each commanded joint move is judged on measured travel
+(openamr_sim/benchmark.py execution): /joint_states, and for the lift also the carriage link pose from Gazebo. In the bare
+simulation (sim.launch.py) lift_controller commands the position interface of gz_ros2_control; on DART the carriage resting on
+its lower limit (L1000) does not leave it and the controller, which has no goal tolerance, still reports SUCCESSFUL
+(docs/build1_lift_and_base_diagnosis.md on integration/baseline1). That result is now a FAIL of the Gazebo lift_move scenario.
+
   source /opt/ros/jazzy/setup.bash && source install/setup.bash
   xvfb-run -a python3 simulation/benchmark/gazebo_benchmark.py --out build/bench/benchmark_gazebo.json
 
@@ -35,6 +41,8 @@ from openamr_sim import benchmark as bm  # noqa: E402
 WORLD = "empty"
 MODEL = "openamrobot"
 BOX = "bench_box"
+CARRIAGE = "lift_carriage_link"       # child of lift_joint: its pose in base_footprint is the simulator's own lift height
+SUCCESSFUL = 0                        # control_msgs/action/FollowJointTrajectory result error_code SUCCESSFUL
 LEFT = [f"openarm_left_joint{k}" for k in range(1, 8)]
 CONTROLLERS = ("joint_state_broadcaster", "left_arm_controller", "lift_controller")
 
@@ -212,13 +220,17 @@ def run(spec, urdf_text, sampler):
     target = dict(start, **{s["joint"]: s["target"]})
     _, p0 = base_pose(read_poses()[1])
     meta["joint_step_error_code"] = b.trajectory("left_arm_controller", LEFT, [(s["move_s"], [target[j] for j in LEFT], [0.0] * 7)])
+    executions = {}
     hold = []
     b.spin_sim(s["hold_s"], lambda t: hold.append(abs(b.joints[s["joint"]] - s["target"])))
     _, p1 = base_pose(read_poses()[1])
     results["joint_step"] = {"final_error_rad": abs(b.q(s["joint"]) - s["target"]), "max_hold_error_rad": max(hold),
                              "base_displacement_m": math.hypot(p1[0] - p0[0], p1[1] - p0[1])}
+    executions["joint_step"] = bm.execution(abs(s["target"] - start[s["joint"]]), {"joint_states": abs(b.q(s["joint"]) - start[s["joint"]])},
+                                            meta["joint_step_error_code"] == SUCCESSFUL, s["execution"])
 
     s = sc["arm_reach"]
+    reach0 = {j: b.q(j) for j in LEFT}
     meta["arm_reach_error_code"] = b.trajectory("left_arm_controller", LEFT,
                                                 [(s["move_s"], [s["targets"][j] for j in LEFT], [0.0] * 7)])
     b.spin_sim(s["hold_s"])
@@ -226,6 +238,9 @@ def run(spec, urdf_text, sampler):
     ee = link_in_base(poses, s["link"])
     results["arm_reach"] = {"ee_x_m": ee[0], "ee_y_m": ee[1], "ee_z_m": ee[2],
                             "max_joint_error_rad": max(abs(b.q(j) - t) for j, t in s["targets"].items())}
+    widest = max(s["targets"], key=lambda j: abs(s["targets"][j] - reach0[j]))
+    executions["arm_reach"] = bm.execution(abs(s["targets"][widest] - reach0[widest]), {"joint_states": abs(b.q(widest) - reach0[widest])},
+                                           meta["arm_reach_error_code"] == SUCCESSFUL, s["execution"])
 
     s = sc["lift_move"]
     import re
@@ -233,7 +248,10 @@ def run(spec, urdf_text, sampler):
     ramp_s = abs(s["to"] - s["from"]) / vel
     times = [min(ramp_s, 0.5 * k) for k in range(1, int(math.ceil(ramp_s / 0.5)) + 1)]
     points = [(t, [bm.lift_ramp(s["from"], s["to"], vel, t)], [vel if t < ramp_s else 0.0]) for t in times]
-    R0, _ = base_pose(read_poses()[1])
+    poses0 = read_poses()[1]
+    R0, _ = base_pose(poses0)
+    lift0 = b.q("lift_joint")
+    carriage0 = link_in_base(poses0, CARRIAGE)[2] if CARRIAGE in poses0 else None
     track = {"max": 0.0}
     t_start = b.now()
 
@@ -244,9 +262,18 @@ def run(spec, urdf_text, sampler):
     meta["lift_error_code"] = b.trajectory("lift_controller", ["lift_joint"], points)
     b.spin_sim(s["hold_s"])
     b.node.destroy_timer(timer)
-    R1, _ = base_pose(read_poses()[1])
-    results["lift_move"] = {"final_position_m": b.q("lift_joint"), "max_tracking_error_m": track["max"],
+    poses1 = read_poses()[1]
+    R1, _ = base_pose(poses1)
+    lift1 = b.q("lift_joint")
+    carriage1 = link_in_base(poses1, CARRIAGE)[2] if CARRIAGE in poses1 else None
+    results["lift_move"] = {"final_position_m": lift1, "max_tracking_error_m": track["max"],
                             "base_pitch_change_deg": bm.pitch_roll_of(R1)[0] - bm.pitch_roll_of(R0)[0], "ramp_velocity_m_s": vel}
+    meta["lift_carriage_ground_truth_m"] = [carriage0, carriage1]
+    executions["lift_move"] = bm.execution(
+        abs(s["to"] - lift0),
+        {"joint_states": abs(lift1 - lift0),
+         "gazebo_link_pose": None if carriage0 is None or carriage1 is None else abs(carriage1 - carriage0)},
+        meta["lift_error_code"] == SUCCESSFUL, s["execution"])
 
     dd = bm.diffdrive_params(urdf_text)
     for name, lin, ang, on_key in (("straight_drive", sc["straight_drive"]["linear"], 0.0, "drive_s"),
@@ -308,7 +335,7 @@ def run(spec, urdf_text, sampler):
         results["object_contact"]["final_speed_m_s"] = speed
     b.node.destroy_node()
     b.rclpy.shutdown()
-    return results, meta
+    return results, meta, executions
 
 
 def main():
@@ -323,7 +350,7 @@ def main():
     launch = subprocess.Popen(["ros2", "launch", "openamrobot_upperbody_gazebo", "sim.launch.py", "headless:=true",
                                f"base_plate:={spec['configuration']}"], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     doc = {"schema": bm.SCHEMA, "backend": "gazebo", "configuration": spec["configuration"], "start_keyframe": spec["start_keyframe"],
-           "results": {}, "meta": {}}
+           "results": {}, "execution": {}, "meta": {}}
     sampler = PoseSampler()
     rc = 1
     try:
@@ -343,8 +370,9 @@ def main():
         doc["meta"]["robot_description_sha256_unnormalised"] = hashlib.sha256(urdf_text.encode()).hexdigest()
         doc["diffdrive"] = bm.diffdrive_params(urdf_text)
         sampler.start()
-        results, meta = run(spec, urdf_text, sampler)
+        results, meta, executions = run(spec, urdf_text, sampler)
         doc["results"] = {k: {mk: float(mv) for mk, mv in v.items()} for k, v in results.items()}
+        doc["execution"] = executions
         doc["meta"].update(meta)
         doc["meta"]["pose_sampler_errors"] = sampler.errors
         rc = 0

@@ -84,6 +84,34 @@ def lift_ramp(start, end, velocity, t):
     return min(end, start + velocity * t) if end >= start else max(end, start - velocity * t)
 
 
+# ---------------------------------------------------------------------------------------------------------- execution check
+def execution(commanded_travel, measured_travel, controller_success, rule):
+    """Whether a commanded joint move was executed, judged from MEASURED motion only.
+
+    commanded_travel: |target - start| of the move. measured_travel: {source: |end - start|} from each measurement the backend
+    has (Gazebo: /joint_states and the simulator's own link pose; MuJoCo: qpos); a source that could not be read is None.
+    controller_success: what the controller reported (True, False, or None where no controller is involved). It is recorded and
+    never decides the verdict: a JointTrajectoryController without goal tolerances reports success when the trajectory time has
+    passed, whether the joint moved or not.
+
+    PASS when every measured source travelled at least rule["min_travel_fraction"] of the commanded travel; FAIL when any source
+    travelled less; BLOCKED when no source could be read."""
+    fraction = float(rule["min_travel_fraction"])
+    read = {k: float(v) for k, v in measured_travel.items() if v is not None}
+    doc = {"commanded_travel": float(commanded_travel), "measured_travel": {k: (None if v is None else float(v))
+                                                                            for k, v in measured_travel.items()},
+           "min_travel_fraction": fraction, "controller_reported_success": controller_success}
+    if not read:
+        doc.update(verdict="BLOCKED", reason="no measurement of the joint could be read")
+    elif all(v >= fraction * abs(commanded_travel) for v in read.values()):
+        doc.update(verdict="PASS", reason="the measured joint moved")
+    else:
+        short = ", ".join(f"{k} {v:.4g}" for k, v in read.items() if v < fraction * abs(commanded_travel))
+        why = "success without motion: the controller reported success" if controller_success else "no measured motion"
+        doc.update(verdict="FAIL", reason=f"{why}; commanded travel {abs(commanded_travel):.4g}, measured {short}")
+    return doc
+
+
 # ---------------------------------------------------------------------------------------------------------------- metrics
 def yaw_of(R):
     return math.atan2(R[1][0], R[0][0])
@@ -198,6 +226,7 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     pitch, roll = pitch_roll_of(R.tolist())
     results["rest"] = {"base_height_m": float(p[2]), "base_pitch_deg": pitch, "base_roll_deg": roll}
 
+    executions = {}
     s = sc["joint_step"]
     jn, q0 = s["joint"], q(s["joint"])
     p0, _ = base()
@@ -210,6 +239,7 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     p1, _ = base()
     results["joint_step"] = {"final_error_rad": abs(q(jn) - s["target"]), "max_hold_error_rad": max(hold),
                              "base_displacement_m": float(np.linalg.norm((p1 - p0)[:2]))}
+    executions["joint_step"] = execution(abs(s["target"] - q0), {"qpos": abs(q(jn) - q0)}, None, s["execution"])
 
     s = sc["arm_reach"]
     start = {j: q(j) for j in s["targets"]}
@@ -223,11 +253,15 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     ee = in_base(Rb.tolist(), pb.tolist(), d.body(s["link"]).xpos.tolist())
     results["arm_reach"] = {"ee_x_m": ee[0], "ee_y_m": ee[1], "ee_z_m": ee[2],
                             "max_joint_error_rad": max(abs(q(j) - t) for j, t in s["targets"].items())}
+    widest = max(s["targets"], key=lambda j: abs(s["targets"][j] - start[j]))
+    executions["arm_reach"] = execution(abs(s["targets"][widest] - start[widest]), {"qpos": abs(q(widest) - start[widest])}, None,
+                                        s["execution"])
 
     s = sc["lift_move"]
     import re as _re
     vel = float(_re.search(r'<joint name="lift_joint"[\s\S]*?velocity="([0-9.eE+-]+)"', urdf_text).group(1))
     ramp_s = abs(s["to"] - s["from"]) / vel
+    lift0 = q("lift_joint")
     _, R0 = base()
     pitch0, _ = pitch_roll_of(R0.tolist())
     track = {"max": 0.0, "target": s["from"]}
@@ -240,6 +274,7 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     pitch1, _ = pitch_roll_of(R1.tolist())
     results["lift_move"] = {"final_position_m": q("lift_joint"), "max_tracking_error_m": track["max"],
                             "base_pitch_change_deg": pitch1 - pitch0, "ramp_velocity_m_s": vel}
+    executions["lift_move"] = execution(abs(s["to"] - lift0), {"qpos": abs(q("lift_joint") - lift0)}, None, s["execution"])
 
     for name, lin, ang, on_key in (("straight_drive", sc["straight_drive"]["linear"], 0.0, "drive_s"),
                                    ("in_place_turn", 0.0, sc["in_place_turn"]["angular"], "turn_s")):
@@ -280,21 +315,25 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     return {"schema": SCHEMA, "backend": "mujoco", "mujoco_version": mj.__version__, "timestep_s": dt,
             "controller_period_s": ctrl_dt, "diffdrive": dd, "configuration": spec["configuration"],
             "start_keyframe": spec["start_keyframe"], "free_joint": FREE_JOINT,
-            "results": {k: {mk: float(mv) for mk, mv in v.items()} for k, v in results.items()}}
+            "results": {k: {mk: float(mv) for mk, mv in v.items()} for k, v in results.items()}, "execution": executions}
 
 
 # ---------------------------------------------------------------------------------------------------------------- comparison
 def compare(docs, spec=None, reference="gazebo"):
     """Rows of (scenario, metric, value per backend, difference to the reference, tolerance, verdict).
 
-    Verdict per backend pair: PASS within tolerance, FAIL beyond it, BLOCKED when either backend has no value (not run)."""
+    Verdict per backend pair: PASS within tolerance, FAIL beyond it, BLOCKED when either backend has no value (not run).
+    A scenario with an `execution` rule (a commanded joint move) is judged first on measured motion in BOTH backends: when either
+    did not execute the move every row of that scenario is FAIL, whatever the values (two backends that both stood still agree,
+    and that is no parity); when either document carries no execution record for it the rows are BLOCKED."""
     spec = spec or load_scenarios()
     rows = []
     others = [b for b in docs if b != reference]
     for scen in ORDER:
+        ruled = "execution" in spec["scenarios"][scen]
         for metric, tol in spec["scenarios"][scen]["metrics"].items():
             ref = ((docs.get(reference) or {}).get("results") or {}).get(scen, {}).get(metric)
-            row = {"scenario": scen, "metric": metric, "values": {}, "tolerance": tol, "verdicts": {}, "differences": {}}
+            row = {"scenario": scen, "metric": metric, "values": {}, "tolerance": tol, "verdicts": {}, "differences": {}, "notes": {}}
             row["values"][reference] = ref
             for b in others:
                 val = ((docs.get(b) or {}).get("results") or {}).get(scen, {}).get(metric)
@@ -302,6 +341,19 @@ def compare(docs, spec=None, reference="gazebo"):
                 if ref is None or val is None:
                     row["verdicts"][b] = "BLOCKED"
                     continue
+                if ruled:
+                    ex = {k: ((docs.get(k) or {}).get("execution") or {}).get(scen) for k in (reference, b)}
+                    failed = [k for k, e in ex.items() if e is not None and e.get("verdict") == "FAIL"]
+                    missing = [k for k, e in ex.items() if e is None or e.get("verdict") not in ("PASS", "FAIL")]
+                    if failed:
+                        row["verdicts"][b] = "FAIL"
+                        row["notes"][b] = "; ".join(f"not executed in {k}: {ex[k]['reason']}" for k in failed)
+                        row["differences"][b] = val - ref
+                        continue
+                    if missing:
+                        row["verdicts"][b] = "BLOCKED"
+                        row["notes"][b] = "no measured execution record in " + ", ".join(missing)
+                        continue
                 diff = val - ref
                 row["differences"][b] = diff
                 limit = tol["tolerance_abs"] if "tolerance_abs" in tol else tol["tolerance_rel"] * abs(ref)
@@ -323,5 +375,19 @@ def table(rows, reference="gazebo"):
         t = f"{tol['tolerance_abs']}" if "tolerance_abs" in tol else f"{tol['tolerance_rel'] * 100:g} %"
         lines.append(f"| {r['scenario']} | {r['metric']} | " + " | ".join(f(r["values"].get(b)) for b in backends) + " | " +
                      " | ".join(f(r["differences"].get(b)) for b in backends[1:]) + f" | {t} | " +
-                     " | ".join(r["verdicts"].get(b, "BLOCKED") for b in backends[1:]) + " |")
+                     " | ".join(r["verdicts"].get(b, "BLOCKED") + (" (not executed)" if "not executed" in
+                                                                   r.get("notes", {}).get(b, "") else "")
+                                for b in backends[1:]) + " |")
+    return "\n".join(lines)
+
+
+def execution_table(docs):
+    """One row per backend and commanded joint move: commanded and measured travel, the controller's own report, the verdict."""
+    lines = ["| Backend | Scenario | Commanded travel | Measured travel | Controller reported success | Execution | Reason |",
+             "|---|---|---|---|---|---|---|"]
+    for backend, doc in docs.items():
+        for scen, ex in sorted(((doc or {}).get("execution") or {}).items(), key=lambda kv: ORDER.index(kv[0])):
+            measured = ", ".join(f"{k} {'unread' if v is None else f'{v:.4f}'}" for k, v in ex["measured_travel"].items())
+            ctrl = {True: "yes", False: "no", None: "no controller"}[ex.get("controller_reported_success")]
+            lines.append(f"| {backend} | {scen} | {ex['commanded_travel']:.4f} | {measured} | {ctrl} | {ex['verdict']} | {ex['reason']} |")
     return "\n".join(lines)
