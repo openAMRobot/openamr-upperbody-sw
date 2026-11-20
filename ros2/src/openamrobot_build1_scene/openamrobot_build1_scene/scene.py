@@ -170,11 +170,12 @@ def shelf_reach_targets(scene):
     (fx, fy), (nx, ny) = work_shelf_front(scene)
     tx, ty = -ny, nx
     targets = {}
+    front = float(os.environ.get("BUILD1_DIAG_REACH_DEPTH") or 0.05)     # scratch (diag/arm-geom-*)
     for index, level in enumerate(scene["shelf"]["levels"]):
         z = value(level) + 0.16
         # The robot faces the shelf, so its left is the shelf's -t side.
-        targets[index] = {"left": (fx - tx * 0.16 + nx * 0.05, fy - ty * 0.16 + ny * 0.05, z),
-                          "right": (fx + tx * 0.16 + nx * 0.05, fy + ty * 0.16 + ny * 0.05, z)}
+        targets[index] = {"left": (fx - tx * 0.16 + nx * front, fy - ty * 0.16 + ny * front, z),
+                          "right": (fx + tx * 0.16 + nx * front, fy + ty * 0.16 + ny * front, z)}
     return targets
 
 

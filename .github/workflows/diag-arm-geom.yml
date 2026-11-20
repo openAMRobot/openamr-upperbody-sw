@@ -1,0 +1,224 @@
+# SPDX-License-Identifier: MIT
+# Scratch (diag/arm-geom-*, not for merge): build1-arm-diagnostics with one leg per matrix entry. Legs g* run diag_grasp
+# (scn04) with BUILD1_DIAG_DESCENT_RISE (0: the e7a251c descent onto the grasp height; empty: the branch default), legs r*
+# run diag_reach_return (scn03 level 0) with BUILD1_DIAG_REACH_DEPTH (the target's distance in front of the shelf edge).
+# Contact sensors on, a time line of the hand, the base tilt and every contact in the log. Simulation evidence only.
+name: diag arm geom
+on:
+  push:
+    branches: ['diag/arm-geom-*']
+    paths: ['.github/diag/arm_geom/run.trigger']
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+
+jobs:
+  run:
+    name: leg ${{ matrix.leg }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        leg: ["g0-1", "g0-2", "g0-3", "g0-4", "g9-1", "g9-2", "g9-3", "g9-4", "g9-5", "r05-1", "r05-2", "r05-3", "r10-1", "r10-2", "r10-3", "r10-4"]
+    steps:
+      # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
+      # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source 1.3.0)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.3.0/ros2-apt-source_1.3.0.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools
+          sudo rosdep init || echo "rosdep init: already initialized"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_main", "platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      # openamr-platform-sw main: description, Nav2, perception and the docking model.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform_sw_main }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      # openamr-platform-sw #145 (open, provisional): only the package openamrobot_sil. Nothing else of that head is built.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform_sw_pr145 }}
+          path: ws/src/pins/platform-pr145
+          sparse-checkout: ros2/src/openamrobot_sil
+          sparse-checkout-cone-mode: true
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout
+        working-directory: ws
+        run: |
+          # platform main has openamrobot_sil since #139 (69847ab). The #145 pin carries the newer copy; colcon refuses
+          # two packages of one name, so main's copy is ignored and only the pinned one is built.
+          touch src/openamr-platform-sw/ros2/src/openamrobot_sil/COLCON_IGNORE
+          ls src src/pins/platform-pr145/ros2/src
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/pins/platform-pr145 src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+          { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # The vcan module is not in the runner's base kernel package; linux-modules-extra carries it. If it cannot be
+      # installed or loaded, setup_vcan_all.sh says BLOCKED, the tests that need vcan report BLOCKED, and Result fails.
+      - name: Virtual CAN interfaces
+        run: |
+          uname -r
+          sudo apt-get update
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" iproute2 can-utils || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed"
+          sudo modprobe can_raw || echo "modprobe can_raw failed"
+          set +e
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh" 2>&1 | tee vcan.txt
+          echo "VCAN_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+          ip -details link show type vcan | tee -a vcan.txt
+          { echo '### Virtual CAN'; echo '```'; cat vcan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # rosdep for the closure of the package. openamr-platform-sw names keys that rosdep does not know
+      # (its own interface package lives in another repository), so unresolved keys are reported, not fatal.
+      - name: rosdep
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" --paths-only)
+          echo "$paths"
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+
+      - name: Package versions
+        run: |
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|ros-gz|gz-|ros2-control|controller-manager|hardware-interface|joint-trajectory-controller|xacro|moveit|navigation2|nav2-bringup)|gz-|libgz-sim|linux-modules-extra|python3-can)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: colcon build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --packages-up-to "$PACKAGE" --event-handlers console_cohesion+
+
+      - name: Diagnostic scenarios
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+          BUILD1_CONTACT_SENSORS: "1"
+          BUILD1_DIAG_DESCENT_RISE: ${{ startsWith(matrix.leg, 'g0') && '0' || '' }}
+          BUILD1_DIAG_REACH_DEPTH: ${{ startsWith(matrix.leg, 'r09') && '0.09' || (startsWith(matrix.leg, 'r10') && '0.10' || '') }}
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/diag/run${{ matrix.leg }}"
+          mkdir -p "$BUILD1_LOG_DIR"
+          nproc
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R "${{ startsWith(matrix.leg, 'g') && '^test_diag_grasp$' || '^test_diag_reach_return$' }}"
+          echo "TEST_RC=$?" >> "$GITHUB_ENV"
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+          ls -la "$BUILD1_LOG_DIR"
+
+      - name: Contact sensors in the converted model
+        if: always()
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          model="diag/run${{ matrix.leg }}/diag_plant_model.urdf"
+          [ -f "$model" ] || { echo "no $model"; exit 0; }
+          export GZ_SIM_RESOURCE_PATH="$(dirname "$(ros2 pkg prefix openarm_description)/share/openarm_description"):$(dirname "$(ros2 pkg prefix openamrobot_description)/share/openamrobot_description")"
+          gz sdf -p "$model" > diag_plant_model.sdf 2> gz_sdf_stderr.txt || echo "gz sdf exit $?"
+          head -c 3000 gz_sdf_stderr.txt
+          python3 - diag_plant_model.sdf <<'EOF'
+          import sys, xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          for link in root.iter("link"):
+              name = link.get("name")
+              if name and ("ee_link" in name or name.endswith("link2")):
+                  print(name, "collisions:", [c.get("name") for c in link.findall("collision")],
+                        "sensors:", [(s.get("name"), s.get("type"), s.findtext("contact/collision"), s.findtext("contact/topic"))
+                                     for s in link.findall("sensor")])
+          EOF
+
+      - name: Per-run table
+        if: always()
+        working-directory: ws
+        run: |
+          echo "## Arm diagnostics, run ${{ matrix.leg }}" >> "$GITHUB_STEP_SUMMARY"
+          python3 "src/openamr-upperbody-sw/ros2/src/$PACKAGE/scripts/diag_table.py" "diag/run${{ matrix.leg }}" --summary "$GITHUB_STEP_SUMMARY"
+          for f in diag/run${{ matrix.leg }}/diag_*.json; do
+            [ -f "$f" ] || continue
+            echo "== $f"; python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('result'), d.get('reason')); print(json.dumps(d.get('diagnostics'), default=str)[:20000])" "$f"
+          done
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: build1-arm-diagnostics-run${{ matrix.leg }}
+          path: |
+            ws/diag/
+            ws/build/openamrobot_build1_scene/test_results/
+            ws/log/latest_test/
+            pins.txt
+            versions.txt
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          echo "colcon test exit status: ${TEST_RC:-not run} (the scn03 and scn04 checks inside the diagnostic runs)"
+          [ "${TEST_RC:-1}" = "0" ]

@@ -191,6 +191,9 @@ class Recorder:
             p, o = item.pose.position, item.pose.orientation
             sample["item"] = ((p.x, p.y, p.z), (o.x, o.y, o.z, o.w))
         odom = self.rig.get("/build1/ground_truth/odom")
+        if odom is not None:      # scratch (diag/arm-geom-*): the base pose with its tilt
+            _p, _o = odom.pose.pose.position, odom.pose.pose.orientation
+            sample["odom"] = ((_p.x, _p.y, _p.z), (_o.x, _o.y, _o.z, _o.w))
         lift = self._joint_map("/sil/gz/joint_states", "position").get("lift_joint")
         with self.lock:
             model = self.model

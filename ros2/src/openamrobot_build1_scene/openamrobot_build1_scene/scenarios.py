@@ -511,7 +511,10 @@ def grasp(rig, log):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
             tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)   # the item 9 mm into the fingers
-            waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
+            _rise = os.environ.get("BUILD1_DIAG_DESCENT_RISE")      # scratch (diag/arm-geom-*): the e7a251c path with 0
+            waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation,
+                                        rise=float(_rise) if _rise not in (None, "") else None)
+            log.event(f"SCRATCH grasp_reach waypoints {[[round(v, 4) for v in w] for w in waypoints]} rise {_rise!r}")
             _mark(rig, "grasp_reach_start")
             reached = _cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)
             rig.sleep_sim(1.0)
@@ -1215,8 +1218,74 @@ def _diag_report(rig, log, recorder, name, grasped, returns):
     for label, numbers in report["returns"].items():
         for key, value in sorted(numbers.items()):
             log.quantity(f"diag_{label}_{key}", value, note="diagnostic, recorded, no limit")
+    try:
+        _scratch_timeline(rig, log, recorder, returns)
+    except Exception as error:  # noqa: BLE001  scratch print only
+        log.event(f"SCRATCH timeline failed: {error!r}")
     log.event(f"trace {recorder.write(directory, name)}")
     log.event(f"bag {recorder.write_bag(directory, name)}")
+
+
+def _scratch_timeline(rig, log, recorder, returns):
+    """Scratch (diag/arm-geom-*, not for merge): per move, the hand base in the world (ground truth odom and the physics
+    joints) against its settled end, the base height and tilt, and every contact with the world, with times."""
+    import numpy as np
+    from openamrobot_build1_scene import diagnostics as dx
+
+    def rp(q):
+        R = dx.quat_matrix(*q)
+        return math.degrees(math.atan2(R[2][1], R[2][2])), math.degrees(-math.asin(max(-1.0, min(1.0, R[2][0]))))
+
+    for side, label in returns:
+        t0, t1 = recorder.mark_time(f"{label}_start"), recorder.mark_time(f"{label}_end", last=True)
+        if t0 is None or t1 is None:
+            continue
+        frame = f"openarm_{side}_ee_base_link"
+        window = [s for s in recorder.samples if "t" in s and t0 <= s["t"] <= t1 and frame in s]
+        plans = [p for p in getattr(rig, "plans", []) if p["label"] == label]
+        result_at = plans[-1]["t_result"] - t0 if plans else None
+        duration = plans[-1]["times"][-1] if plans and plans[-1]["times"] else None
+        log.event(f"SCRATCH TL {label}: window {t1 - t0:.2f} s, MoveIt result at {result_at}, trajectory {duration} s, samples {len(window)}")
+        if window:
+            R_end, p_end = np.array(window[-1][frame][0]), np.array(window[-1][frame][1])
+            fingers = R_end @ np.array((0.0, 0.0, -1.0))
+            log.event(f"SCRATCH TL {label}: settled hand base {np.round(p_end, 4).tolist()} fingers {np.round(fingers, 4).tolist()}")
+            for name in ("first", "last"):
+                s = window[0] if name == "first" else window[-1]
+                od, it = s.get("odom"), s.get("item")
+                if od:
+                    roll, pitch = rp(od[1])
+                    log.event(f"SCRATCH TL {label}: {name} base {np.round(od[0], 4).tolist()} roll {roll:+.3f} deg pitch {pitch:+.3f} deg; item {None if not it else np.round(it[0], 4).tolist()}")
+            last = -1.0
+            for s in window:
+                if s["t"] - last < 0.1:
+                    continue
+                last = s["t"]
+                R, p = np.array(s[frame][0]), np.array(s[frame][1])
+                d = p - p_end
+                fz = float((R @ np.array((0.0, 0.0, -1.0)))[2])
+                od = s.get("odom")
+                tilt = rp(od[1]) if od else (math.nan, math.nan)
+                log.event(f"SCRATCH TL {label} {s['t'] - t0:6.2f} s hand {np.round(p, 4).tolist()} along {d @ fingers * 1000:+7.1f} mm "
+                          f"dz {d[2] * 1000:+6.1f} mm finger pitch {math.degrees(math.asin(max(-1, min(1, fz)))):+.2f} deg "
+                          f"base z {od[0][2] if od else math.nan:+.4f} pitch {tilt[1]:+.3f} deg")
+        rows = [c for c in recorder.contacts_between(t0, t1) if c["link"].startswith(f"openarm_{side}_")]
+        pairs = {}
+        for c in rows:
+            pairs.setdefault((c["link"].replace(f"openarm_{side}_", ""), c["other"]), []).append(c)
+        for (link, other), cs in sorted(pairs.items()):
+            stamps = sorted({c["t"] for c in cs})
+            spans, start, prev = [], stamps[0], stamps[0]
+            for t in stamps[1:]:
+                if t - prev > 0.05:
+                    spans.append((start, prev)); start = t
+                prev = t
+            spans.append((start, prev))
+            peak = max(cs, key=lambda c: 0.0 if math.isnan(c["force"][0]) else math.dist((0, 0, 0), c["force"]))
+            log.event(f"SCRATCH TL {label} contact {link}~{other}: {len(stamps)} stamps, spans "
+                      f"{[(round(a - t0, 2), round(b - t0, 2)) for a, b in spans][:12]}, peak {math.dist((0, 0, 0), peak['force']):.2f} N "
+                      f"at {peak['t'] - t0:.2f} s point {[round(v, 4) for v in peak['point']]} depth {peak['depth']:.5f} "
+                      f"first point {[round(v, 4) for v in cs[0]['point']]}")
 
 
 def diag_grasp(rig, log):
