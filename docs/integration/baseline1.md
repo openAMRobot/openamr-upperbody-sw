@@ -62,15 +62,71 @@ sent the goal through `/station_alignment/navigate_to_station`, and both declare
 (`planning_pose_source: ground_truth` in the run identity). A pull_request run, or `sequence: single`, is one
 validation leg and is reported NOT STRICT. Artifacts per leg and the verdict are kept 90 days.
 
+Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_gates.json`, Proposed;
+`openamrobot_build1_scene/baseline1_gates.py`). Each leg must also show:
+- both legs from the one dispatch (same run id and attempt);
+- mission result PASS and no failed check outside the eight phases (the component liveness checks of `rig.run`
+  sit there);
+- the drive, battery, lift and arm work counters (`live_*` in every trace sample) advancing through the whole run,
+  no gap over 10 s of Gazebo time;
+- the Stop checks of `stop_authorize` all run and pass (base settle, speed, yaw rate, no lift motion without permit,
+  command refused, permit fresh), and at least one `cancel_*` check run and passed (the cancellation step below);
+- contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase, contact
+  window and pair) in the allowed list with its reason; any other contact fails the leg. One entry has a window:
+  `openarm_left_ee_base_link` or `openarm_left_ee_link1` against `tote::front_collision`, in `arm_approach`, inside the
+  window `grasp_reach_last_move` (from the mark `grasp_reach_last_move_start` of the last reach move, #98, through
+  `grasp_reach_end` after the 1 s settle), at most 6 N: the residual end-point contact of the base pitch, the software
+  lead's exact case on #98 (20 Nov 2026). Without the marks there is no window and the entry accounts for nothing;
+- complete evidence: bag metadata, a non-empty candump of each of the five virtual buses, Gazebo start and end of
+  every phase, run_info, full pinned hashes of all six checkouts, the declared seed equal to the mission's, settings.
+
+Cancellation step (`baseline1_cancel.py`, values in `config/baseline1_mission_options.json`; position decided by Alex
+20 Nov 2026, goal and pass rule awaiting Mohamed and Alex). On only with the declared mission option
+`BASELINE1_CANCEL_CHECK=1`, which the acceptance workflow sets and writes to each leg's `declaration.json`
+(`cancel_check`; the evidence gate requires it). In the test harness, not in a stop gate. Position `end_of_mission`:
+the last step of the retreat phase, after the turn-and-forward retreat, so the odometry guard at the station
+(`nav_to_station`) is evaluated before it and no turn follows the cancel (at the start of `nav_to_station` the
+following station turn failed the odometry guard, runs 44735544898 and 44736351073). A 0.5 m NavigateToPose goal
+straight ahead of the base on open floor (the mission does not need it) on `/navigate_to_pose`, cancelled through the
+action's cancel service once ground truth has moved 0.15 m. Checks: goal accepted; cancelled mid-way (0.08 to 0.40 m)
+with the base moving (at least 0.02 m/s); cancel request accepted; terminal status CANCELED (5), whatever the stack
+returns is recorded; stopped within 4 s and 0.10 m (the scn07 time bound); then over 3 s of Gazebo time ground truth
+and odometry under 0.01 m and 0.02 rad and every `/cmd_vel` message, and the last one before the window, zero
+(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. CANCELED is the only pass (ABORTED or
+SUCCEEDED fail). On the integration branch `/navigate_to_pose` is bt_navigator itself; platform-sw #90 puts a proxy on
+that name, whose cancels the #90 review found ending ABORTED, so the status check is the one to watch when #90 lands.
+
 Settings declared in every leg:
 - Middleware: CycloneDDS for initial acceptance (Alex, 19 Nov 2026), with the participant index cap raised to 120 as in
   the DDS benchmark (#89). The robot's middleware beyond acceptance stays the owners' decision.
 - Station alignment: openamr-platform-sw #167 on (simulation-only base camera), `station_alignment: 0` is the revert run.
 - Profile: sim-oracle (object and planning poses from simulator ground truth); not a perception result.
-- Retreat: one straight 0.30 m backup through behavior_server's `backup` action, the mission's last phase, simulation
-  only. A declared station departure, not a recovery; general reversing recovery is removed (Alex, 19 Nov 2026).
+- Retreat: `forward` (Alex, 20 Nov 2026): Nav2 spin by pi in place, then a 0.30 m forward NavigateToPose with #164's
+  station tree, no reverse motion; `BASELINE1_RETREAT: forward` in the workflow, `retreat` in each leg's
+  `declaration.json` (the evidence gate requires it). Platform pin with the no-reverse Nav2 configuration:
+  openamr-platform-sw #178 (`nav/baseline1-no-reverse-on-175`, 0aa8e14 on 9af88e7), candidate until merged.
 
-Pins: openamr-platform-sw `9af88e7`, candidate of integration branch `fb25be1` with #169 merged (#175; repinned to the integration merge commit before merge) (#164 at `09f9a85`, BackUp removed from its trees; #167 at
+Retreat options (`station_departure.py`, values in `config/baseline1_mission_options.json`, `BASELINE1_RETREAT`,
+default `forward` since 20 Nov 2026, set by the workflow). Before that the retreat was `retreat()` in `baseline1.py`: after both arms park, a
+`nav2_msgs/BackUp` goal on `/backup` (behavior_server's BackUp plugin), 0.30 m at 0.10 m/s, 60 s allowance, through
+`cmd_vel_nav`, velocity_smoother (min_velocity[0] -0.20 lets it through) and collision_monitor. With platform-sw #90's
+behaviour set (spin and wait only, min_velocity[0] 0; openamr-platform-sw `nav/baseline1-no-reverse` 0aa8e14 for this
+branch) `/backup` has no server: `send_goal` waits 120 s, the goal is not accepted, the retreat phase fails (STARTUP).
+
+| Option | Motion | Nav2 today (fb25be1) | #90 behaviour set | Trade-off |
+|---|---|---|---|---|
+| `backup` | 0.30 m straight back, Nav2 BackUp | allowed | not possible (no server, smoother clamps reverse) | keeps a general, directly callable reverse action in Nav2 |
+| `departure` | 0.30 m straight back at 0.10 m/s, harness publisher on `cmd_vel_smoothed`, retreat phase only, 10 s cap | refused: 5 reverse paths enabled | allowed, the only reverse of the run | below the smoother; on #90's chain also below the stop gate, so it needs a contract change request there (a mux input and a departure-only smoother exception) |
+| `forward` | Nav2 spin by pi in place, then a 0.30 m forward NavigateToPose with #164's station tree | allowed | allowed, through the normal chain | half turn next to the shelf: 0.141 m measured clearance (#93, closed shelf, base 0.088 m past the station, arms in park), geometry only, carry pose not measured |
+
+Checks per option: `retreat_<option>_allowed` (preconditions), then for `departure` the peak command, time, distance
+along the heading (-0.35 to -0.25 m), heading change and peak reverse speed from ground truth; for `forward` the turn
+status and heading change (170 to 180 deg), drift in the turn (0.05 m), forward status, distance from the station
+(0.25 to 0.35 m) and peak reverse speed (at most 0.02 m/s). `test_station_departure.py` (12 tests) runs every option
+against both configurations.
+
+Pins: openamr-platform-sw `960e2e5` (#178, candidate until merged): integration branch `fb25be1` with #169 merged
+(`9af88e7`, #175) and the no-reverse Nav2 configuration (0aa8e14 cherry-picked) (#164 at `09f9a85`, BackUp removed from its trees; #167 at
 `99ec17f`, then `dccd5e0`, test-only change on top), openamrobot-interfaces `50ed777` (StopState, imported by #167's
 node from 99ec17f on).
 
@@ -177,3 +233,26 @@ Pinned: this branch `d63e9ed`, openamr-platform-sw integration branch `931e631` 
 | [44309784398](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309784398) | off | 7/8 | 0.0639 m | 0.009 rad |
 
 These are three passes in parallel, not a strict consecutive sequence, and the alignment is not adopted into Baseline 1. They used #167 before the review fixes (aa8fd11). Simulation-oracle evidence only, not perception.
+
+## Diagnostic runs, 20 Nov 2026 (cancellation check, retreat options; diagnostic, not acceptance)
+
+Single legs on `diag/` scratch branches, run name DIAGNOSTIC. Profile sim-oracle, CycloneDDS, alignment on.
+
+| Run | Upperbody | Platform | Retreat | Phases | Cancel status | Stop after cancel | Hold (truth, odom, `/cmd_vel` peak) | Failed checks |
+|---|---|---|---|---|---|---|---|---|
+| [44735544898](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44735544898) | `d69415c` | `fb25be1` | backup | 7/8 | 5 CANCELED, cancelled at 0.152 m, 0.195 m/s | 0.111 s, 0.0137 m; last nonzero `/cmd_vel` 0.119 s after the cancel | 0.0 m, 0.0 m, 0.0 over 3 s (30 messages) | `nav_odometry_minus_ground_truth` 0.243 m (limit 0.10) |
+| [44736351073](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44736351073) | `c0af973` | `0aa8e14` (#90's behaviour set) | forward | 6/8 | 5 CANCELED, cancelled at 0.151 m, 0.185 m/s | 0.135 s, 0.0207 m; last nonzero 0.061 s | 0.0 m, 0.0 m, 0.0 over 3 s (46 messages) | `nav_odometry_minus_ground_truth` 0.236 m; `retreat_peak_reverse_speed` 0.236 m/s (a fault of the measure, fixed below) |
+
+- Cancellation: all 13 `cancel_*` checks passed in both runs. Through `/navigate_to_pose` (bt_navigator, no #90 proxy)
+  a public cancel ends CANCELED.
+- Odometry after the step: in both runs the odometry was 0.24 m off ground truth at the station (yaw 0.12 rad),
+  against 0.062 and 0.075 m (yaw 0.031 and 0.033 rad) in runs 44309791416 and 44309804809 without the step. The
+  heading error appears in the 90 deg turn in place that follows the cancelled straight move, as in the turn-slip
+  experiment (`diag/spin-test`: a pi/2 turn after a straight under-rotates by 10.3 %). Ground truth at the station was
+  fine (0.013 m in the second run). Until owners decide, the step fails the leg through the odometry guard.
+- Forward retreat on #90's behaviour set: spin 178.1 deg (status 4), drift 0.014 m, forward goal status 4,
+  0.336 m from the station, base speed at most 0.082 m/s, 54 s of Gazebo time (the backup takes 11 s).
+  `reverse_speed()` divided pose jitter by sample spacings of a few milliseconds; it now measures over at least
+  0.25 s (test added). The no-reverse configuration (`0aa8e14`) also passed the station approach with alignment
+  (0.013 m, 0.003 rad).
+
