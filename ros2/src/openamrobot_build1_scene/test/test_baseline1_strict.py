@@ -307,3 +307,13 @@ def test_windows_come_from_the_marks_and_events_carry_their_window():
     rows = [{"t": 10.5, "a": "x", "b": "y", "fn": 1.0}, {"t": 11.5, "a": "x", "b": "y", "fn": 2.0}]
     events = gates.contact_events(rows, lambda t: "arm_approach", gates.window_of(found))
     assert [(e["window"], e["count"]) for e in events] == [(None, 1), ("grasp_reach_last_move", 1)]
+
+
+def test_the_payload_resting_on_its_shelf_is_environment_only():
+    """Diagnostic run 44800204846: payload::link::body_collision on fixtures::link::work_shelf_board_1_collision in
+    every phase (max 2.45 N, the 1 kg box at rest). Allowed as an environment contact; a robot link on the payload is not."""
+    rest = {"phase": "nav_to_station", "a": "fixtures::link::work_shelf_board_1_collision",
+            "b": "payload::link::body_collision", "count": 31364, "max_force_n": 2.45}
+    assert _allowed(rest) is not None
+    assert _allowed(dict(rest, a="openarm_left_ee_link1")) is None
+    assert _allowed(dict(rest, b="openamrobot::openarm_left_link6::openarm_left_link6_collision")) is None
