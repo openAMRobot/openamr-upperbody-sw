@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: MIT
+# DIAGNOSTIC, scratch branch only, not for merge. Compares three ways to pin xacro for the expansion lock and recomputes every
+# lock hash (18 combined-model, 3 base-model) with (W) the hash-pinned PyPI wheel and (D) the ros-jazzy-xacro build served today.
+# Report only; no secrets, no hardware.
+name: DIAG xacro pin probe
+
+on:
+  push:
+    branches: ['diag/xacro-pin-probe-*']
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ws
+    steps:
+      - run: mkdir -p ws
+        working-directory: .
+
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ws/src/ub
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Clones at the locked commits
+        run: |
+          set -eux
+          git -C src/ub fetch -q origin b15bcb679d49de1720ae8ef8c9c656062b02294c e3b5cb878baa7a130a5014061c1070911e619d5f 6fe5e9cc02a9f5408a875a4b5a43c42655add982
+          git clone -q https://github.com/openAMRobot/openamr-platform-sw src/pf
+          git -C src/pf fetch -q origin 8e7a45428d06b015cdf488ca8e182c450039afbc 07417783bb602c233f7011599dc12e4d81e38a04 \
+            acc427d7ad9b1f90591011f1824d470a9a3fd883 9be73229ad60a41a9ba1419d15527199f58c5b41
+          git clone -q https://github.com/enactic/openarm_description src/oad
+          git -C src/oad checkout -q 14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831
+          git clone -q https://github.com/enactic/openarm_ros2 src/oar
+          git -C src/oar checkout -q 4e837e1d0dae692ff67b560b69d8d281d7a8d4ed
+          for s in $(python3 -c "import yaml;print(' '.join(sorted({e['inputs']['platform_sw_pin'] for e in yaml.safe_load(open('src/ub/simulation/expansion_lock.yaml'))['entries']})))"); do
+            git -C src/pf cat-file -t "$s"; done
+
+      - name: Module digest helper
+        run: |
+          cat > digest.py <<'EOF'
+          import hashlib, importlib.metadata as m, json, pathlib, sys, xacro
+          d = pathlib.Path(xacro.__file__).parent
+          h = hashlib.sha256()
+          for p in sorted(d.glob("*.py")):
+              h.update(f"xacro/{p.name}".encode() + b"\0" + hashlib.sha256(p.read_bytes()).hexdigest().encode() + b"\n")
+          print(json.dumps({"module": str(d), "files": sorted(p.name for p in d.glob("*.py")), "version": m.version("xacro"), "sources_sha256": h.hexdigest()}))
+          EOF
+
+      - name: (W) hash-pinned PyPI wheel, all lock hashes
+        run: |
+          set -o pipefail
+          printf 'xacro==2.1.1 --hash=sha256:c3b330ebd984a3bce6d6482e0047eae5c5333fedd49b30b9b6df863a086b35f7\n' > req-xacro.txt
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --quiet PyYAML==6.0.3
+          .venv/bin/pip install --require-hashes --no-deps --ignore-installed -r req-xacro.txt
+          source /opt/ros/jazzy/setup.bash
+          export PATH="$PWD/.venv/bin:$PATH"
+          command -v xacro; head -1 "$(command -v xacro)"
+          .venv/bin/python digest.py | tee wheel_module.json
+          .venv/bin/python src/ub/diag/reproduce_lock.py --lock src/ub/simulation/expansion_lock.yaml --upperbody src/ub --platform src/pf \
+            --openarm-description src/oad --openarm-ros2 src/oar --label wheel --out wheel.json | tee wheel.txt
+
+      - name: (D) ros-jazzy-xacro served today, all lock hashes
+        run: |
+          set -o pipefail
+          sudo apt-get update -qq
+          apt-cache policy ros-jazzy-xacro
+          apt-cache madison ros-jazzy-xacro
+          sudo apt-get install -y --no-install-recommends ros-jazzy-xacro
+          dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-xacro | tee deb_version.txt
+          source /opt/ros/jazzy/setup.bash
+          command -v xacro
+          /usr/bin/python3 digest.py | tee deb_module.json
+          python3 src/ub/diag/reproduce_lock.py --lock src/ub/simulation/expansion_lock.yaml --upperbody src/ub --platform src/pf \
+            --openarm-description src/oad --openarm-ros2 src/oar --label deb --out deb.json | tee deb.txt
+
+      - name: (b) Jazzy snapshot repository, xacro builds per snapshot
+        continue-on-error: true
+        run: |
+          curl -fsS -m 60 http://snapshots.ros.org/jazzy/ | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort -u > snapshots.txt || true
+          echo "snapshots listed: $(wc -l < snapshots.txt)"; tail -6 snapshots.txt
+          for d in $(tail -6 snapshots.txt); do
+            v=$(curl -fsS -m 120 "http://snapshots.ros.org/jazzy/$d/ubuntu/dists/noble/main/binary-amd64/Packages.gz" | gunzip \
+              | awk '/^Package: ros-jazzy-xacro$/{f=1;next} f&&/^Version:/{print $2;f=0}' | tr '\n' ' ')
+            echo "snapshot $d ros-jazzy-xacro: ${v:-none}"
+          done | tee snapshot_xacro.txt
+          v=$(curl -fsS -m 120 http://packages.ros.org/ros2/ubuntu/dists/noble/main/binary-amd64/Packages.gz | gunzip \
+            | awk '/^Package: ros-jazzy-xacro$/{f=1;next} f&&/^Version:/{print $2;f=0}' | tr '\n' ' ')
+          echo "packages.ros.org ros-jazzy-xacro: $v" | tee -a snapshot_xacro.txt
+
+      - name: (c) container images, is xacro in them
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          docker pull -q ros:jazzy-ros-base
+          docker image inspect --format '{{index .RepoDigests 0}}' ros:jazzy-ros-base
+          docker run --rm ros:jazzy-ros-base bash -c "dpkg-query -W -f='\${Package} \${Version}\n' ros-jazzy-xacro || echo 'ros-jazzy-xacro not in ros:jazzy-ros-base'"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin || true
+          img=ghcr.io/openamrobot/ci-ros2-jazzy@sha256:1653d4bdadce9999a48f73315e2da7aa667d3777579a97b0f1c12146667892d2
+          if docker pull -q "$img"; then
+            docker run --rm --entrypoint bash "$img" -c "dpkg-query -W -f='\${Package} \${Version}\n' ros-jazzy-xacro || echo 'ros-jazzy-xacro not in the image'"
+          else echo "pull of $img failed (access or removed)"; fi
+
+      - name: (a) PyPI record of the pinned wheel
+        continue-on-error: true
+        run: |
+          curl -fsS -m 60 https://pypi.org/pypi/xacro/2.1.1/json | python3 -c "
+          import json,sys; d=json.load(sys.stdin)
+          for f in d['urls']: print(f['filename'], f['digests']['sha256'], 'yanked' if f['yanked'] else 'not yanked', f['upload_time'])"
+
+      - name: Summary
+        if: always()
+        run: |
+          python3 - "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import json, os, sys
+          out = open(sys.argv[1], "a")
+          for label in ("wheel", "deb"):
+              if os.path.exists(f"{label}.json"):
+                  r = json.load(open(f"{label}.json")); out.write(f"- {label}: {r['identical']} of {r['total']} lock hashes identical\n")
+          for f in ("wheel_module.json", "deb_module.json", "deb_version.txt", "snapshot_xacro.txt"):
+              if os.path.exists(f): out.write(f"- {f}: `{open(f).read().strip()}`\n")
+          EOF
+          cat "$GITHUB_STEP_SUMMARY"
