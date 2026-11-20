@@ -17,7 +17,7 @@ from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
-                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, reach_waypoints,
+                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, in_last_move, reach_waypoints,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
                                                   side_grasp_offset, straight_lift, tcp_for_item)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
@@ -338,6 +338,35 @@ def _require_devices(rig):
 PARK = [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]      # the SRDF pose park: joint 4 off its lower limit
 
 
+class LastMoveMark:
+    """Marks grasp_reach_last_move_start (scenarios._mark) the first time the hand base is on the last move of the
+    reach (arm_frames.in_last_move), from /tf in its own thread while the reach executes. Observes only."""
+    LABEL = "grasp_reach_last_move_start"
+
+    def __init__(self, rig, link, waypoints, period_s=0.01):
+        import threading
+        self.rig, self.link, self.waypoints, self.period_s = rig, link, waypoints, period_s
+        self.marked, self.running = False, True
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self):
+        self.thread.start()
+        return self
+
+    def _loop(self):
+        while self.running and not self.marked:
+            found = self.rig.transform("base_footprint", self.link)
+            if found is not None and in_last_move(tuple(found[0]), self.waypoints):
+                self.marked = True
+                _mark(self.rig, self.LABEL)
+                return
+            time.sleep(self.period_s)
+
+    def stop(self):
+        self.running = False
+        self.thread.join(timeout=2.0)
+
+
 def _mark(rig, label):
     """A time mark for the diagnostics recorder, when one runs, and for the Baseline 1 mission's contact windows
     (rig.marks, set by baseline1.mission: (label, Gazebo time)). Nothing otherwise."""
@@ -517,7 +546,11 @@ def grasp(rig, log):
             tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)   # the item 9 mm into the fingers
             waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
             _mark(rig, "grasp_reach_start")
-            reached = _cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)
+            watcher = LastMoveMark(rig, link, waypoints).start()
+            try:
+                reached = _cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)
+            finally:
+                watcher.stop()
             rig.sleep_sim(1.0)
             _mark(rig, "grasp_reach_end")
             if not reached:

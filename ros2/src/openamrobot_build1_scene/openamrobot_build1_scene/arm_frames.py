@@ -152,6 +152,22 @@ def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None, rise=
     return [pre_grasp, tuple(above[i] - back[i] for i in range(3)), down, grasp]
 
 
+LAST_MOVE_TOLERANCE_M = 0.001
+
+
+def in_last_move(hand_xyz, waypoints, tolerance=LAST_MOVE_TOLERANCE_M):
+    """True once the hand base is on the last move of the reach: no farther from the end point than the start of the
+    last move is (waypoints[-2], 'down' of reach_waypoints), plus `tolerance`. Every earlier point of the reach is
+    farther from the end point (the descent comes down onto 'down' from REACH_CLEARANCE_M above), so the first time
+    this holds marks the start of the last move. The executed hand leaves its plan by up to REACH_PATH_DEVIATION_M, so
+    the mark is that close and no closer. Used for the strict contact window grasp_reach_last_move
+    (config/baseline1_gates.json)."""
+    if len(waypoints) < 2:
+        return False
+    end, start = waypoints[-1], waypoints[-2]
+    return math.dist(hand_xyz, end) <= math.dist(start, end) + tolerance
+
+
 def straight_lift(hand_xyz, hand_quaternion, rise):
     """The hand base goal that raises the TCP and the held item by `rise` straight up: the hand translated along z of
     base_footprint with the orientation it has on the item. A translation moves every point of the hand by the same vector."""

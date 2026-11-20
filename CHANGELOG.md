@@ -5,6 +5,14 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (20 Nov 2026; #98 review: last-move mark for the strict contact window; simulation only)
+
+- `arm_frames.in_last_move` and `scenarios.LastMoveMark`: while scn04's reach executes, a thread reads the hand base from
+  /tf and marks `grasp_reach_last_move_start` the first time the hand is on the last move (no farther from the end
+  point than the start of that move, plus 1 mm). With `grasp_reach_end` it bounds the window `grasp_reach_last_move` of
+  `config/baseline1_gates.json`, where the residual hand contact with the tote front wall (at most 6 N) is allowed.
+  It observes only. Base pitch at the source: issue #105. Tests in `test_arm_frames.py` (5, fail without the mark).
+
 ### Fixed (20 Nov 2026; scn04 reach, hand on the tote's front wall; simulation only)
 
 - **The descent stops 9 mm above the grasp height.** Coming down 9 mm back along the fingers (below) put the hand over the

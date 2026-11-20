@@ -586,3 +586,36 @@ def test_the_hand_stays_the_path_deviation_off_the_tote_front_wall_until_the_las
     _assert_the_last_move_is_the_short_push(waypoints, R_held)
     sweeps = _sweeps(waypoints[:-1], clearance)
     assert min(sweeps) >= af.REACH_PATH_DEVIATION_M, f"the hand passes {min(sweeps) * 1000:.2f} mm from the tote front wall"
+
+
+# ------------------------------------------------------------------ the last-move mark (strict contact window, #98 review)
+@pytest.mark.parametrize("yaw", [0.0, 0.2])
+@pytest.mark.parametrize("tilt", [0.0, 0.15])
+def test_the_last_move_mark_fires_where_the_last_move_starts_and_not_before(yaw, tilt):
+    """Walk the planned reach in 0.5 mm steps: in_last_move is false on every earlier move and becomes true within
+    LAST_MOVE_TOLERANCE_M of the start of the last move ('down'), and stays true on it."""
+    x, y, z, w = af.side_grasp(yaw)
+    tx, tw = math.sin(tilt / 2.0), math.cos(tilt / 2.0)
+    q = (w * tx + x * tw, y * tw + z * tx, z * tw - y * tx, w * tw - x * tx)
+    waypoints = af.reach_waypoints((0.75, 0.16, 0.925), (-0.0014, 0.0, -0.138), q)
+    points = [np.array(p) for p in waypoints]
+    path = []
+    for start, end in zip(points[:-1], points[1:]):
+        steps = max(1, int(math.ceil(np.linalg.norm(end - start) / 0.0005)))
+        path += [start + (end - start) * k / steps for k in range(steps)]
+    path.append(points[-1])
+    flags = [af.in_last_move(tuple(p), waypoints) for p in path]
+    first = flags.index(True)
+    assert np.linalg.norm(path[first] - points[-2]) <= af.LAST_MOVE_TOLERANCE_M + 0.0005
+    assert all(flags[first:]), "the mark must hold through the last move"
+    assert not af.in_last_move(tuple(points[0]), waypoints) and not af.in_last_move(tuple(points[1]), waypoints)
+    assert not af.in_last_move((0.0, 0.0, 0.0), [points[-1]])
+
+
+def test_the_grasp_marks_the_last_move_with_the_label_of_the_strict_contact_window():
+    body = _grasp_body()
+    assert "watcher = LastMoveMark(rig, link, waypoints).start()" in body
+    assert body.index("LastMoveMark(rig, link, waypoints)") < body.index('"grasp_reach", 0.1)') < body.index("watcher.stop()")
+    from openamrobot_build1_scene import baseline1_gates, scenarios
+    window = baseline1_gates.load()["contacts"]["windows"]["grasp_reach_last_move"]
+    assert window == [scenarios.LastMoveMark.LABEL, "grasp_reach_end"]
