@@ -5,6 +5,14 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (20 Nov 2026; lift permit waits after a change, review of #94; simulation only)
+
+- `Rig.wait_permit_state(fresh)`: after a permit change the CTL-017 emulator state is read only from the second message
+  that arrives after the call, never the cached one (`wait_permit_fresh_after_grant` is its fresh case, used by
+  `lift_move`). Applied where steps read `permit_fresh` from the cached state: `baseline1.stop_authorize` (withdraw,
+  grant), scn02 (withdraw, grant) and scn05 (grant, fresh again). `test_lift_permit_wait.py` (3 new tests) and
+  `test_permit_waits_static.py` (2): 5 fail with the cached-state waits.
+
 ### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
 
 - `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample

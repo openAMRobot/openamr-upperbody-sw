@@ -123,3 +123,42 @@ def test_the_permit_is_withdrawn_when_the_move_ends_raises_or_fails():
         assert grants == [True, False], (outcome, grants)
         assert rig.commands == [(1, True)], outcome
         assert result == {"arrived": True, "refused": False, "raised": "raised"}[outcome]
+
+
+# ------------------------------------------------------------------ the same wait elsewhere (review of #94, 20 Nov)
+class StaleState(RecordedOrder):
+    """A permit change whose first state after the call is one in flight from before it."""
+
+    def __init__(self, cached, sequence):
+        super().__init__()
+        self.last = {EMULATOR: {"permit_fresh": cached}}
+        self.sequence = list(sequence)
+
+    def change(self):
+        self.pending = list(self.sequence)
+
+
+def test_the_withdrawal_wait_reads_only_states_after_the_change():
+    """stop_authorize and scn02 withdraw the permit and then check the refusal. A cached or in-flight 'not fresh' from
+    before must not end the wait: only the second state after the call counts."""
+    rig = StaleState(cached=False, sequence=[False, True, False, False])
+    rig.change()
+    seen = []
+    original = rig._publish
+    rig._publish = lambda: (original(), seen.append(rig.counts[EMULATOR]))
+    assert Rig.wait_permit_state(rig, False, 3.0) is True
+    assert rig.counts[EMULATOR] >= 10 + 2 and rig.last[EMULATOR]["permit_fresh"] is False
+    assert len(seen) >= 3, "returned on the cached or first state after the call"
+
+
+def test_the_fresh_again_wait_reads_only_states_after_the_change():
+    """scn05: after permit_silent is cleared, a cached 'fresh' from before the silence is not the new permit."""
+    rig = StaleState(cached=True, sequence=[True, False, True, True])
+    rig.change()
+    assert Rig.wait_permit_state(rig, True, 3.0) is True
+    assert rig.counts[EMULATOR] >= 10 + 3, "took the state in flight from before the change"
+
+
+def test_a_wait_without_new_states_fails():
+    rig = StaleState(cached=True, sequence=[])
+    assert Rig.wait_permit_state(rig, True, 0.5) is False

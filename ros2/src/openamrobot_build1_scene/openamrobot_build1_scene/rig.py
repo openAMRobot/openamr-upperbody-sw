@@ -304,6 +304,7 @@ class Rig:
             raise ScenarioFailed("no /build1/run_info: the launch did not start rtf_monitor.py")
         info = self.get("/build1/run_info")
         self.devices = bool(info.get("devices"))
+        self.ready_components = {"lift": bool(lift), "arms": bool(arms)}
         self.physics = "/sim/joint_states" if self.devices else "/arm/joint_states"
         self.log.data["run"] = dict(info, baseline_lock=BASELINE_LOCK)
         from openamrobot_build1_scene.planning_scene import declaration, object_declaration
@@ -484,9 +485,15 @@ class Rig:
         sequence number, which the CTL-017 does not execute again, and the lift stayed at stop 0 without a fault for 60 s.
         So the condition is read only from the second state message that arrives after the call: the first can be on
         its way from before the grant. This only waits; it changes neither the permit nor the emulator's gate."""
+        return self.wait_permit_state(True, sim_s, "permit fresh after the grant", emulator)
+
+    def wait_permit_state(self, fresh, sim_s=3.0, what=None, emulator="/sil/lift/emulator_state"):
+        """Call right after a change of the permit (lift_permit, permit_silent). -> True when the CTL-017 emulator reports
+        permit_fresh == `fresh` in a state message that arrived after the call: the second one, since the first can be on
+        its way from before the change (wait_permit_fresh_after_grant). Never the cached state. Only waits."""
         after = self.count(emulator)
-        return self.wait(lambda: self.count(emulator) >= after + 2 and bool(self.get(emulator)["permit_fresh"]),
-                         sim_s, "permit fresh after the grant")
+        return self.wait(lambda: self.count(emulator) >= after + 2 and bool(self.get(emulator)["permit_fresh"]) == fresh,
+                         sim_s, what or ("permit fresh" if fresh else "permit withdrawn") + " after the change")
 
     def lift_at(self, stop, settle_sim_s=1.0):
         """True when /joint_states shows lift_joint within LIFT_STOP_TOLERANCE_M of the stop, waiting up to settle_sim_s."""
@@ -580,6 +587,48 @@ class Rig:
                 return True
         return False
 
+    def field_moves(self, topic, field, wall_s=3.0):
+        """True when the JSON `field` of `topic` changes within `wall_s` of wall time. None when it is not there."""
+        first = (self.get(topic) or {}).get(field)
+        if first is None:
+            return None
+        end = time.monotonic() + wall_s
+        while time.monotonic() < end:
+            time.sleep(0.2)
+            if (self.get(topic) or {}).get(field) != first:
+                return True
+        return False
+
+    def topic_moves(self, topic, wall_s=3.0):
+        """True when messages keep arriving on `topic` within `wall_s` of wall time."""
+        first = self.count(topic)
+        end = time.monotonic() + wall_s
+        while time.monotonic() < end:
+            time.sleep(0.2)
+            if self.count(topic) != first:
+                return True
+        return False
+
+    def liveness(self):
+        """-> [(name, alive, note)] for the components this run started, each from a counter that only the
+        component's own work advances. A status topic published by a node timer is not used: it keeps coming when
+        the worker thread behind it has ended. Functional simulation checks, not safety evidence."""
+        out = []
+        if self.devices:
+            out.append(("host_client_drive_thread_alive", self.drive_host_alive(),
+                        "the drive host's 606Ch sample counter moves (openamrobot_sil DriveHost)"))
+            out.append(("host_client_bms_alive", self.field_moves("/sil/bms/status", "answers"),
+                        "the BMS host's answer counter moves (openamrobot_sil BmsHost over CAN2)"))
+            components = getattr(self, "ready_components", {})
+            lift = self.get("/sil/lift/emulator_state") or {}
+            if components.get("lift") and lift.get("permit_gate"):
+                out.append(("lift_host_and_emulator_alive", self.field_moves("/sil/lift/emulator_state", "permit_rx_count"),
+                            "the CTL-017 emulator counts the lift host's periodic permit frames on CAN3"))
+        if getattr(self, "ready_components", {}).get("arms"):
+            out.append(("arm_joint_states_alive", self.topic_moves("/joint_states"),
+                        "/joint_states keeps arriving from the controller manager"))
+        return out
+
     def base_stopped(self):
         """The provisional base-stopped rule of the firmware owner decisions of 13 Nov 2026: below 0.01 m/s and
         0.02 rad/s. The caller adds the 500 ms hold. Ground truth speeds."""
@@ -628,9 +677,14 @@ def run(scenario_name, function, needs_devices=False, uses_base=False, **ready):
             else:
                 log.quantity("drive_emulator_plant_switches", rig.plant_switches, "switches", low=0, high=0,
                              note="the drive emulator must stay on Gazebo feedback for the whole run (SW-03)")
-        if rig.devices:
-            log.quantity("host_client_drive_thread_alive", rig.drive_host_alive(), "bool",
-                         note="false: the drive thread of openamrobot_sil's host test client ended during the run")
+        # A scene is whole-robot evidence only while every component it started is still working at its end.
+        # In the faults profile a component may be silent on purpose: recorded, not checked.
+        faults_profile = (rig.get("/build1/run_info") or {}).get("profile") == "faults"
+        for name, alive, note in rig.liveness():
+            if faults_profile:
+                log.observed(name, alive, "bool", note=note)
+            else:
+                log.quantity(name, alive, "bool", low=True, high=True, note=note)
         stats = rig.get("/build1/rtf_stats") or {}
         for key in ("rtf_mean", "rtf_min", "rtf_max"):
             log.quantity(f"gazebo_{key}_whole_run", stats.get(key), "1", note="from rtf_monitor.py since its start")
@@ -645,14 +699,8 @@ def run(scenario_name, function, needs_devices=False, uses_base=False, **ready):
     except Exception as error:  # noqa: BLE001 - the log must say what broke
         reason = f"{type(error).__name__}: {error}"
     finally:
-        try:
-            if result == "FAIL" and uses_base and not rig.drive_host_alive():
-                result = "BLOCKED"
-                reason = ("the drive thread of the host test client stopped during this run (openamrobot_sil of "
-                          "openamr-platform-sw #141: an unexpected SDO reply ends it, seen on slow machines). The base could "
-                          "not be commanded. What failed after that: " + reason)
-        except Exception:  # noqa: BLE001 - the verdict above stands
-            pass
+        # The platform pin carries openamr-platform-sw #169 (matched SDO answers): a drive thread that ends is a
+        # defect of the run, so it stays FAIL and is no longer turned into BLOCKED.
         path = log.write(result, reason=reason)
         rig.close()
     return result, reason, path

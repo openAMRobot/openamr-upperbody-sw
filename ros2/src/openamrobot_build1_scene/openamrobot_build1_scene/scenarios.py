@@ -148,10 +148,10 @@ def lift_permit(rig, log):
     for stop in (1, 2, 0):
         label = f"lift_stop_{stop}"
         rig.lift_permit(False)
-        rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+        rig.wait_permit_state(False, 3.0, "permit withdrawn")
         _lift_refused(rig, log, stop, label)
         rig.lift_permit(True)
-        log.require(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"), f"{label}: the permit did not become fresh")
+        log.require(rig.wait_permit_fresh_after_grant(3.0), f"{label}: the permit did not become fresh")
         rig.sleep_sim(1.0)
         log.quantity(f"{label}_motion_after_permit_without_new_command", rig.get(emulator)["drive_on"], "bool", low=False, high=False,
                      note="a refused command is not replayed")
@@ -339,10 +339,14 @@ PARK = [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]      # the SRDF pose park: joint 4 of
 
 
 def _mark(rig, label):
-    """A time mark for the diagnostics recorder, when one runs. Nothing otherwise."""
+    """A time mark for the diagnostics recorder, when one runs, and for the Baseline 1 mission's contact windows
+    (rig.marks, set by baseline1.mission: (label, Gazebo time)). Nothing otherwise."""
     recorder = getattr(rig, "recorder", None)
     if recorder is not None:
         recorder.mark(label)
+    marks = getattr(rig, "marks", None)
+    if marks is not None:
+        marks.append((label, rig.sim_time()))
 
 
 def park_arms(rig, log):
@@ -686,7 +690,7 @@ def bus_loss(rig, log):
     expected = ref["aux_bus_loss"]["expected"]
     emulator = "/sil/lift/emulator_state"
     rig.lift_permit(True)
-    rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh")
+    rig.wait_permit_fresh_after_grant(3.0)
     stops = rig.get(emulator)["permit_stops"]
     sim0, wall0 = rig.sim_time(), time.monotonic()
     rig.lift_command(2)
@@ -704,7 +708,7 @@ def bus_loss(rig, log):
     log.observed("vcan_aux_target_dropped", rig.get(emulator)["target_stop"] == 0xFF, "bool", expected["target_dropped"], ref["aux_bus_loss"]["source"])
     log.observed("vcan_aux_permit_stops", rig.get(emulator)["permit_stops"] - stops, "events")
     rig.publish("permit_silent", Bool(data=False), repeat=1)
-    rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh again")
+    rig.wait_permit_state(True, 3.0, "permit fresh again")
     rig.sleep_sim(2.0)
     log.observed("vcan_aux_moves_again_without_new_command", abs(rig.lift_truth() - position) > 0.003, "bool",
                  expected["moves_again_without_new_command"], ref["aux_bus_loss"]["source"])
