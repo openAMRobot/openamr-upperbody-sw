@@ -326,13 +326,30 @@ def retreat(rig, log):
     log.quantity("retreat_heading_change", math.degrees(angle_diff(yaw1, yaw0)), "deg", low=-5.0, high=5.0, note="as in scn01")
 
 
+MISSION_STATUS_TOPIC = "/baseline1/mission_status"   # Proposed, openamr-upperbody-sw#82
+
+
+def status_publisher(rig):
+    """A function that publishes a Tracker status as JSON on the latched MISSION_STATUS_TOPIC (Proposed, #82), or None.
+    For viewers (the Digital Twin Control Room); the mission never reads it back."""
+    try:
+        import json
+        from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+        from std_msgs.msg import String
+        pub = rig.node.create_publisher(String, MISSION_STATUS_TOPIC, QoSProfile(
+            depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+    except Exception:  # noqa: BLE001 - no status topic, the mission is unchanged
+        return None
+    return lambda status: pub.publish(String(data=json.dumps(status, sort_keys=True)))
+
+
 def mission(rig, log):
     from openamrobot_build1_scene import scenarios
     log.event(f"Baseline 1 mission, seed {SEED} (BASELINE1_SEED): Python random and the ROS domain of the test. "
               "Gazebo is started without a seed argument; the launch has none")
     log.data["baseline1"] = {"seed": SEED, "spawn": SPAWN_STATION, "station": WORK_STATION, "lift_sequence": list(LIFT_SEQUENCE)}
     from openamrobot_build1_scene.baseline1_record import Recorders
-    tracker = phases.Tracker(log, clock=rig.sim_time)
+    tracker = phases.Tracker(log, clock=rig.sim_time, on_status=status_publisher(rig))
     recorders = Recorders(log)
     try:
         recorders.start(rig)
@@ -358,6 +375,7 @@ def mission(rig, log):
         trace.stop()
         recorders.stop()
         log.data["phases"] = tracker.result()
+        tracker.notify(tracker.final_state())
         log.data["trace"] = trace.samples
         if contacts is not None:
             log.data["contacts"] = contacts.record(tracker.result())

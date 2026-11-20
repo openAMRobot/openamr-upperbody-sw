@@ -173,3 +173,29 @@ def test_report_script_exit_status_and_table(tmp_path, capsys):
 def test_a_short_cartesian_path_is_a_planning_failure():
     text = "grasp_lift_cartesian_fraction = 0.9375 1, allowed 0.999 to 1.0"
     assert phases.classify(text) == phases.PLANNING
+
+
+def test_status_callback_reports_each_phase_and_the_end():
+    """Proposed #82: the status the mission publishes on /baseline1/mission_status, one per phase begin and end."""
+    log, clock, seen = FakeLog(), iter(range(1000)), []
+    tracker = phases.Tracker(log, clock=lambda: float(next(clock)), on_status=lambda status: seen.append(json.loads(json.dumps(status))))
+    tracker.run("spawn", lambda: log.quantity("spawn_position_error", 0.01, "m", low=0.0, high=0.02))
+    tracker.run("nav_to_station", lambda: log.quantity("nav_status", 6, "GoalStatus", low=4, high=4))
+    tracker.notify(tracker.final_state())
+    assert [(s["phase"], s["state"]) for s in seen] == [
+        ("spawn", "running"), (None, "running"), ("nav_to_station", "running"), (None, "running"), (None, "failed")]
+    verdicts = {p["phase"]: p["verdict"] for p in seen[2]["phases"]}
+    assert verdicts["spawn"] == "PASS" and verdicts["nav_to_station"] == "RUNNING" and verdicts["retreat"] == "NOT RUN"
+    assert {p["phase"]: p["verdict"] for p in seen[-1]["phases"]}["nav_to_station"] == "FAIL"
+    assert [p["phase"] for p in seen[-1]["phases"]] == list(phases.PHASE_NAMES)
+    assert all(isinstance(s["sim"], float) for s in seen)
+
+
+def test_status_callback_error_never_reaches_the_mission():
+    log = FakeLog()
+
+    def broken(_status):
+        raise RuntimeError("publisher gone")
+    tracker = phases.Tracker(log, clock=lambda: 0.0, on_status=broken)
+    tracker.run("spawn", lambda: log.quantity("spawn_position_error", 0.01, "m", low=0.0, high=0.02))
+    assert phases.verdict(tracker.records["spawn"]) == "PASS"

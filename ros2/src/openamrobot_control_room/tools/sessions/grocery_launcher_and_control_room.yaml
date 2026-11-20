@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+# Three sessions of the grocery live launcher (demo/grocery-dark-store, run_grocery_demo_gui.sh, headless, no mission)
+# with the control room next to it. The launcher creates the five vcan buses and must delete them on every stop.
+# Diagnostic workflow only (control-room-sessions.yml on a diag branch that merges #84 and #86).
+cycles: 3
+stop_signals: [INT, TERM, INT]
+processes:
+  - name: launcher
+    # --force: a CI runner has no display or GPU; the preflight's FAIL lines are still printed in the cycle's log.
+    command: [bash, "$LAUNCHER", --ws, "$WS", --headless, --no-mission, --force, --log-dir, "$LOGS/launcher",
+              --ready-timeout, "900"]
+    ready: {line: "ready after [0-9]+ s wall"}
+    ready_timeout: 960
+    stop_timeout: 120
+  - name: control_room
+    command: [ros2, launch, openamrobot_control_room, control_room.launch.py, rviz:=false, foxglove:=false, vcan:=true,
+              use_sim_time:=true, scene:=grocery_scene.yaml, station:=packing]
+    ready: {topic: /control_room/status, type: std_msgs/msg/String}
+    # A node that dies on the stop (ros2 launch: "process has died", exit -2 in run 44590676440) fails the cycle.
+    fail_on_log: ["process has died", "Traceback"]
+    ready_timeout: 120
+    stop_timeout: 60

@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: MIT
+# Control room test fixtures from recorded runs: downloads the uploaded build1_logs of one Baseline 1 acceptance run
+# and one grocery dark store run of this repository, cuts selected candump frames, bag messages and the mission log
+# out of them (ros2/src/openamrobot_control_room/tools/extract_run_fixtures.py) and uploads them as an artifact.
+# The same files are printed to this log as a base64 tar.gz between two marker lines, so they can be copied into the
+# package's test fixtures without an artifact download. Reads recordings only: no simulation, no hardware, no secrets
+# beyond this job's read-only token.
+name: Control room evidence
+
+on:
+  push:
+    branches: [demo/control-room]
+    paths:
+      - '.github/workflows/control-room-evidence.yml'
+      - 'ros2/src/openamrobot_control_room/tools/extract_run_fixtures.py'
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+  # Baseline 1 acceptance run 44309817813 (integration/baseline1 d63e9ed, 18 Nov 2026, all eight phases passed) and
+  # grocery dark store run 44299879412 (demo/grocery-dark-store 6170e6a, 18 Nov 2026, mission FAIL).
+  BASELINE1_RUN: '44309817813'
+  GROCERY_RUN: '44299879412'
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: ROS 2 Jazzy (bag reading only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-jazzy-rosbag2-py ros-jazzy-rosbag2-storage-mcap ros-jazzy-nav2-msgs \
+            ros-jazzy-control-msgs ros-jazzy-ros-gz-interfaces
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: baseline1-acceptance-attempt1
+          run-id: ${{ env.BASELINE1_RUN }}
+          github-token: ${{ github.token }}
+          path: runs/baseline1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: grocery-demo-attempt1
+          run-id: ${{ env.GROCERY_RUN }}
+          github-token: ${{ github.token }}
+          path: runs/grocery
+
+      - name: Cut the fixtures
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          find runs -maxdepth 3 -name 'record_candump_*.log' -o -maxdepth 3 -name '*_mission.json' | sort
+          tool=ros2/src/openamrobot_control_room/tools/extract_run_fixtures.py
+          b1=$(dirname "$(find runs/baseline1 -name baseline1_mission.json | head -1)")
+          gr=$(dirname "$(find runs/grocery -name grocery_demo_mission.json | head -1)")
+          python3 -P "$tool" "$b1" fixtures --label "baseline1_${BASELINE1_RUN}"
+          python3 -P "$tool" "$gr" fixtures --label "grocery_${GROCERY_RUN}"
+          du -sh fixtures/*; ls -la fixtures/*
+
+      - name: Fixtures to this log (base64 tar.gz)
+        run: |
+          tar -C fixtures -czf fixtures.tgz .
+          ls -la fixtures.tgz; sha256sum fixtures.tgz
+          echo "=====BEGIN CONTROL ROOM FIXTURES====="
+          base64 -w 0 fixtures.tgz; echo
+          echo "=====END CONTROL ROOM FIXTURES====="
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: control-room-fixtures
+          path: fixtures/
+          retention-days: 30

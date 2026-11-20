@@ -1,0 +1,71 @@
+
+Files:             bag_0.mcap
+Bag size:          3.2 GiB
+Storage id:        mcap
+ROS Distro:        jazzy
+Duration:          231.110000000s
+Start:             Jan  1 1970 00:00:06.020000000 (6.020000000)
+End:               Jan  1 1970 00:03:57.130000000 (237.130000000)
+Messages:          1579030
+Topic information: Topic: /amcl_pose | Type: geometry_msgs/msg/PoseWithCovarianceStamped | Count: 449 | Serialization Format: cdr
+                   Topic: /arm/joint_states | Type: sensor_msgs/msg/JointState | Count: 112992 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_ee_base_link | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_ee_link1 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_ee_link2 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link1 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link2 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link3 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link4 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link5 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_left_link6 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_ee_base_link | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_ee_link1 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_ee_link2 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link1 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link2 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link3 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link4 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link5 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/openarm_right_link6 | Type: ros_gz_interfaces/msg/Contacts | Count: 0 | Serialization Format: cdr
+                   Topic: /build1/contacts/world_fixtures | Type: ros_gz_interfaces/msg/Contacts | Count: 231109 | Serialization Format: cdr
+                   Topic: /build1/contacts/world_item | Type: ros_gz_interfaces/msg/Contacts | Count: 231057 | Serialization Format: cdr
+                   Topic: /build1/contacts/world_tote | Type: ros_gz_interfaces/msg/Contacts | Count: 231109 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/finger_joint_states | Type: sensor_msgs/msg/JointState | Count: 11555 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/item/pose | Type: geometry_msgs/msg/PoseStamped | Count: 11555 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/odom | Type: nav_msgs/msg/Odometry | Count: 11555 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/payload/pose | Type: geometry_msgs/msg/PoseStamped | Count: 11555 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/tote/pose | Type: geometry_msgs/msg/PoseStamped | Count: 11555 | Serialization Format: cdr
+                   Topic: /build1/planning_scene/exclude | Type: std_msgs/msg/String | Count: 3 | Serialization Format: cdr
+                   Topic: /build1/rtf_stats | Type: std_msgs/msg/String | Count: 2134 | Serialization Format: cdr
+                   Topic: /build1/run_info | Type: std_msgs/msg/String | Count: 1 | Serialization Format: cdr
+                   Topic: /clock | Type: rosgraph_msgs/msg/Clock | Count: 231110 | Serialization Format: cdr
+                   Topic: /cmd_vel | Type: geometry_msgs/msg/Twist | Count: 15574 | Serialization Format: cdr
+                   Topic: /cmd_vel_nav | Type: geometry_msgs/msg/Twist | Count: 24479 | Serialization Format: cdr
+                   Topic: /cmd_vel_smoothed | Type: geometry_msgs/msg/Twist | Count: 28612 | Serialization Format: cdr
+                   Topic: /collision_monitor_state | Type: nav2_msgs/msg/CollisionMonitorState | Count: 0 | Serialization Format: cdr
+                   Topic: /grocery_demo/events | Type: std_msgs/msg/String | Count: 26 | Serialization Format: cdr
+                   Topic: /grocery_demo/phase | Type: std_msgs/msg/String | Count: 9 | Serialization Format: cdr
+                   Topic: /joint_states | Type: sensor_msgs/msg/JointState | Count: 11555 | Serialization Format: cdr
+                   Topic: /left_arm_controller/controller_state | Type: control_msgs/msg/JointTrajectoryControllerState | Count: 113014 | Serialization Format: cdr
+                   Topic: /left_arm_gravity_controller/commands | Type: std_msgs/msg/Float64MultiArray | Count: 23110 | Serialization Format: cdr
+                   Topic: /local_costmap/published_footprint | Type: geometry_msgs/msg/PolygonStamped | Count: 21164 | Serialization Format: cdr
+                   Topic: /local_plan | Type: nav_msgs/msg/Path | Count: 17198 | Serialization Format: cdr
+                   Topic: /plan | Type: nav_msgs/msg/Path | Count: 764 | Serialization Format: cdr
+                   Topic: /right_arm_controller/controller_state | Type: control_msgs/msg/JointTrajectoryControllerState | Count: 113011 | Serialization Format: cdr
+                   Topic: /right_arm_gravity_controller/commands | Type: std_msgs/msg/Float64MultiArray | Count: 23110 | Serialization Format: cdr
+                   Topic: /rosout | Type: rcl_interfaces/msg/Log | Count: 4248 | Serialization Format: cdr
+                   Topic: /scan_filtered | Type: sensor_msgs/msg/LaserScan | Count: 2311 | Serialization Format: cdr
+                   Topic: /sil/base/odom | Type: nav_msgs/msg/Odometry | Count: 11555 | Serialization Format: cdr
+                   Topic: /sil/bms/emulator_state | Type: std_msgs/msg/String | Count: 1155 | Serialization Format: cdr
+                   Topic: /sil/bms/status | Type: std_msgs/msg/String | Count: 4622 | Serialization Format: cdr
+                   Topic: /sil/drive/status | Type: std_msgs/msg/String | Count: 4622 | Serialization Format: cdr
+                   Topic: /sil/gz/joint_states | Type: sensor_msgs/msg/JointState | Count: 23110 | Serialization Format: cdr
+                   Topic: /sil/lift/command | Type: std_msgs/msg/Int8 | Count: 3 | Serialization Format: cdr
+                   Topic: /sil/lift/emulator_state | Type: std_msgs/msg/String | Count: 4622 | Serialization Format: cdr
+                   Topic: /sil/lift/permit | Type: std_msgs/msg/Bool | Count: 21 | Serialization Format: cdr
+                   Topic: /sil/lift/status | Type: std_msgs/msg/String | Count: 4622 | Serialization Format: cdr
+                   Topic: /sim/joint_states | Type: sensor_msgs/msg/JointState | Count: 22610 | Serialization Format: cdr
+                   Topic: /tf | Type: tf2_msgs/msg/TFMessage | Count: 6163 | Serialization Format: cdr
+                   Topic: /tf_static | Type: tf2_msgs/msg/TFMessage | Count: 1 | Serialization Format: cdr
+Service:           0
+Service information: 

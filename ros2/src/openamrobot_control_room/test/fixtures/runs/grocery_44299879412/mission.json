@@ -1,0 +1,3993 @@
+{
+ "disclaimer": "Simulation only. Not hardware, physical acceptance or safety evidence.",
+ "events": [
+  {
+   "text": "planning_pose_source: ground_truth (SIMULATION ORACLE: obstacles from Gazebo's ground truth, not from the robot's estimate)",
+   "wall": 1795003725.763
+  },
+  {
+   "text": "run profile firmware_sil, step fast, engine gz-physics-dartsim-plugin, model sha256 fc2bc3f7265259d1880052e80f378f079242efde1c3147e7a20352830344d6b2",
+   "wall": 1795003725.763
+  },
+  {
+   "text": "ready: odometry",
+   "wall": 1795003725.966
+  },
+  {
+   "text": "ready: drive configured over CAN1",
+   "wall": 1795003725.967
+  },
+  {
+   "text": "ready: drive emulator fed by Gazebo",
+   "wall": 1795003725.967
+  },
+  {
+   "text": "ready: BMS answers over CAN2",
+   "wall": 1795003725.967
+  },
+  {
+   "text": "ready: lift idle on CAN3",
+   "wall": 1795003726.369
+  },
+  {
+   "text": "ready: arm joint states",
+   "wall": 1795003735.481
+  },
+  {
+   "text": "ready: /controller_manager has joint_state_broadcaster, left_arm_controller, right_arm_controller, left_gripper_controller, right_gripper_controller active",
+   "wall": 1795003741.599
+  },
+  {
+   "text": "ready: Nav2 lifecycle manager reports active",
+   "wall": 1795003741.771
+  },
+  {
+   "text": "ready: move_group",
+   "wall": 1795003742.464
+  },
+  {
+   "text": "grocery dark store demonstrator, profile sim-oracle, seed 20261117, scene grocery_scene.yaml",
+   "wall": 1795003760.596
+  },
+  {
+   "text": "recording bag: pid 26734",
+   "wall": 1795003760.597
+  },
+  {
+   "text": "recording candump_vcan_drive: pid 26735",
+   "wall": 1795003760.598
+  },
+  {
+   "text": "recording candump_vcan_aux: pid 26736",
+   "wall": 1795003760.601
+  },
+  {
+   "text": "recording candump_vcan_bms: pid 26737",
+   "wall": 1795003760.605
+  },
+  {
+   "text": "recording candump_vcan_arm_l: pid 26738",
+   "wall": 1795003760.606
+  },
+  {
+   "text": "recording candump_vcan_arm_r: pid 26739",
+   "wall": 1795003760.609
+  },
+  {
+   "text": "recording video: store camera spawn exit 0",
+   "wall": 1795003761.909
+  },
+  {
+   "text": "recording camera_bridge: pid 26782",
+   "wall": 1795003761.912
+  },
+  {
+   "text": "phase spawn start",
+   "wall": 1795003762.409
+  },
+  {
+   "text": "profile sim-oracle; planning_scene_loader pose_source: ground_truth",
+   "wall": 1795003767.989
+  },
+  {
+   "text": "phase nav_to_shelf start",
+   "wall": 1795003768.139
+  },
+  {
+   "text": "nav goal work_shelf x 3.400 y -1.685 yaw -1.571 (map), behavior tree /home/runner/work/openamr-upperbody-sw/openamr-upperbody-sw/ws/install/openamrobot_nav2/share/openamrobot_nav2/behavior_trees/navigate_to_station.xml",
+   "wall": 1795003772.793
+  },
+  {
+   "text": "nav result work_shelf: status 4",
+   "wall": 1795004066.244
+  },
+  {
+   "text": "phase stop_authorize start",
+   "wall": 1795004070.574
+  },
+  {
+   "text": "phase lift_to_target start",
+   "wall": 1795004090.95
+  },
+  {
+   "text": "phase arm_approach start",
+   "wall": 1795004248.637
+  },
+  {
+   "text": "The OpenArm motor emulator has an assumed power-up state, assumed thresholds and assumed latency.",
+   "wall": 1795004248.637
+  },
+  {
+   "text": "pick: approach",
+   "wall": 1795004316.838
+  },
+  {
+   "text": "grasp_approach commanded end point {'openarm_left_joint1': -0.48727, 'openarm_left_joint2': -0.06137, 'openarm_left_joint3': -0.17385, 'openarm_left_joint4': 1.64539, 'openarm_left_joint5': 0.09214, 'openarm_left_joint6': -0.46836, 'openarm_left_joint7': -0.25075}",
+   "wall": 1795004348.551
+  },
+  {
+   "text": "grasp_approach reading minus command {'openarm_left_joint1': -6e-05, 'openarm_left_joint2': 0.00167, 'openarm_left_joint3': 0.00085, 'openarm_left_joint4': -0.0018, 'openarm_left_joint5': -0.01032, 'openarm_left_joint6': 0.00582, 'openarm_left_joint7': 0.00794}",
+   "wall": 1795004348.551
+  },
+  {
+   "text": "pick: reach",
+   "wall": 1795004364.69
+  },
+  {
+   "text": "grasp_reach commanded end point {'openarm_left_joint1': -0.97028, 'openarm_left_joint2': -0.07123, 'openarm_left_joint3': -0.12257, 'openarm_left_joint4': 0.77886, 'openarm_left_joint5': 0.11089, 'openarm_left_joint6': -0.08166, 'openarm_left_joint7': -0.16584}",
+   "wall": 1795004404.166
+  },
+  {
+   "text": "grasp_reach reading minus command {'openarm_left_joint1': -0.00229, 'openarm_left_joint2': 0.00161, 'openarm_left_joint3': 0.00031, 'openarm_left_joint4': 0.0003, 'openarm_left_joint5': -0.00541, 'openarm_left_joint6': -0.00551, 'openarm_left_joint7': -0.00602}",
+   "wall": 1795004404.166
+  },
+  {
+   "text": "pick: close",
+   "wall": 1795004411.526
+  },
+  {
+   "text": "pick: lift",
+   "wall": 1795004432.222
+  },
+  {
+   "text": "grasp_lift commanded end point {'openarm_left_joint1': -1.12072, 'openarm_left_joint2': -0.07525, 'openarm_left_joint3': -0.10893, 'openarm_left_joint4': 0.88112, 'openarm_left_joint5': 0.11861, 'openarm_left_joint6': -0.3341, 'openarm_left_joint7': -0.18868}",
+   "wall": 1795004451.188
+  },
+  {
+   "text": "grasp_lift reading minus command {'openarm_left_joint1': -0.00406, 'openarm_left_joint2': 0.00182, 'openarm_left_joint3': -0.00227, 'openarm_left_joint4': 0.00066, 'openarm_left_joint5': -0.01199, 'openarm_left_joint6': 0.00508, 'openarm_left_joint7': 0.005}",
+   "wall": 1795004451.189
+  },
+  {
+   "text": "phase retreat_with_item start",
+   "wall": 1795004498.479
+  },
+  {
+   "text": "backup 0.30 m with the product held",
+   "wall": 1795004498.479
+  },
+  {
+   "text": "phase nav_to_packing start",
+   "wall": 1795004527.658
+  },
+  {
+   "text": "packing approach: turn 0.6 m before the station, then straight in",
+   "wall": 1795004527.658
+  },
+  {
+   "text": "nav goal packing_approach x -3.000 y -1.185 yaw -1.571 (map), behavior tree /home/runner/work/openamr-upperbody-sw/openamr-upperbody-sw/ws/install/openamrobot_nav2/share/openamrobot_nav2/behavior_trees/navigate_to_station.xml",
+   "wall": 1795004531.391
+  },
+  {
+   "text": "nav result packing_approach: status 4",
+   "wall": 1795005107.394
+  },
+  {
+   "text": "drive in 0.585 m to the packing station (drive_on_heading)",
+   "wall": 1795005112.278
+  },
+  {
+   "text": "drive in result: status 4",
+   "wall": 1795005171.48
+  },
+  {
+   "text": "phase place start",
+   "wall": 1795005178.03
+  },
+  {
+   "text": "place: lower 0.073 m",
+   "wall": 1795005178.03
+  },
+  {
+   "text": "place_lower commanded end point {'openarm_left_joint1': -1.28432, 'openarm_left_joint2': -0.49564, 'openarm_left_joint3': 1.33065, 'openarm_left_joint4': 0.79433, 'openarm_left_joint5': -1.24354, 'openarm_left_joint6': 0.17866, 'openarm_left_joint7': 0.26403}",
+   "wall": 1795005248.054
+  },
+  {
+   "text": "place_lower reading minus command {'openarm_left_joint1': -0.00335, 'openarm_left_joint2': -0.00238, 'openarm_left_joint3': -0.00216, 'openarm_left_joint4': 0.0001, 'openarm_left_joint5': 0.00584, 'openarm_left_joint6': -0.01062, 'openarm_left_joint7': -0.01016}",
+   "wall": 1795005248.054
+  },
+  {
+   "text": "place: open",
+   "wall": 1795005257.596
+  },
+  {
+   "text": "gravity feed-forward payload cleared",
+   "wall": 1795005278.923
+  },
+  {
+   "text": "place: withdraw",
+   "wall": 1795005278.923
+  },
+  {
+   "text": "grasp_withdraw commanded end point {'openarm_left_joint1': -1.13272, 'openarm_left_joint2': -0.92112, 'openarm_left_joint3': 1.3445, 'openarm_left_joint4': 1.56433, 'openarm_left_joint5': -1.19489, 'openarm_left_joint6': 0.19274, 'openarm_left_joint7': 0.61991}",
+   "wall": 1795005321.326
+  },
+  {
+   "text": "grasp_withdraw reading minus command {'openarm_left_joint1': -0.00389, 'openarm_left_joint2': 0.00233, 'openarm_left_joint3': -0.0019, 'openarm_left_joint4': -0.00276, 'openarm_left_joint5': -0.00809, 'openarm_left_joint6': -0.00563, 'openarm_left_joint7': -0.0105}",
+   "wall": 1795005321.327
+  },
+  {
+   "text": "phase retreat start",
+   "wall": 1795005351.163
+  },
+  {
+   "text": "retreat_left_to_park commanded end point {'openarm_left_joint1': -0.00906, 'openarm_left_joint2': 0.00245, 'openarm_left_joint3': 0.00707, 'openarm_left_joint4': 0.09764, 'openarm_left_joint5': 0.00886, 'openarm_left_joint6': -0.00576, 'openarm_left_joint7': 0.0031}",
+   "wall": 1795005403.275
+  },
+  {
+   "text": "retreat_left_to_park reading minus command {'openarm_left_joint1': 0.0001, 'openarm_left_joint2': 3e-05, 'openarm_left_joint3': 0.00189, 'openarm_left_joint4': -0.00094, 'openarm_left_joint5': 0.00087, 'openarm_left_joint6': -0.0074, 'openarm_left_joint7': 0.00358}",
+   "wall": 1795005403.277
+  },
+  {
+   "text": "retreat_right_to_park commanded end point {'openarm_right_joint1': -0.00698, 'openarm_right_joint2': 0.00561, 'openarm_right_joint3': 0.00433, 'openarm_right_joint4': 0.09916, 'openarm_right_joint5': -0.00438, 'openarm_right_joint6': -0.00634, 'openarm_right_joint7': 0.0004}",
+   "wall": 1795005423.721
+  },
+  {
+   "text": "retreat_right_to_park reading minus command {'openarm_right_joint1': 0.00145, 'openarm_right_joint2': -0.00274, 'openarm_right_joint3': -0.003, 'openarm_right_joint4': -0.00055, 'openarm_right_joint5': 0.00419, 'openarm_right_joint6': 0.00348, 'openarm_right_joint7': -0.00212}",
+   "wall": 1795005423.721
+  },
+  {
+   "text": "phase return_to_parking start",
+   "wall": 1795005468.628
+  },
+  {
+   "text": "nav goal origin x 0.000 y 0.000 yaw 0.000 (map), behavior tree /home/runner/work/openamr-upperbody-sw/openamr-upperbody-sw/ws/install/openamrobot_nav2/share/openamrobot_nav2/behavior_trees/navigate_to_station.xml",
+   "wall": 1795005473.503
+  },
+  {
+   "text": "nav result origin: status 4",
+   "wall": 1795005873.13
+  },
+  {
+   "text": "camera path: 1094 of 1184 set_pose calls succeeded",
+   "wall": 1795005899.955
+  },
+  {
+   "text": "recording video: 464 frames",
+   "wall": 1795005900.971
+  }
+ ],
+ "evidence_class": "simulation",
+ "failures": [
+  "station_reach_position_error = 0.049706129100954975 m, allowed 0.0 to 0.04",
+  "nav_odometry_minus_ground_truth = 0.9071154959662027 m, allowed 0.0 to 0.56"
+ ],
+ "grocery": {
+  "behavior_tree": "/home/runner/work/openamr-upperbody-sw/openamr-upperbody-sw/ws/install/openamrobot_nav2/share/openamrobot_nav2/behavior_trees/navigate_to_station.xml",
+  "item_end": [
+   -2.7560376589244058,
+   -2.499537643789245,
+   0.8799999808447204
+  ],
+  "item_start": [
+   3.5599999585547946,
+   -2.4349999944391634,
+   0.89499908189717
+  ],
+  "launch_planning_pose_source": "ground_truth",
+  "pack": "packing",
+  "payload_set": false,
+  "pick": "work_shelf",
+  "pose_source": "ground_truth",
+  "profile": "sim-oracle",
+  "scene": "grocery_scene.yaml",
+  "seed": 20261117,
+  "sim_seconds": 231.44,
+  "spawn": "origin",
+  "travelled": 14.872820290991289,
+  "wall_seconds": 2138.6
+ },
+ "phases": [
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "spawn",
+   "quantities": [
+    {
+     "high": 0.02,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "spawn_position_error",
+     "note": "ground truth against stations.origin, the parking bay. Guard value of Baseline 1, estimated",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "m",
+     "value": 0.00015
+    },
+    {
+     "high": 0.02,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "spawn_yaw_error",
+     "note": "guard value of Baseline 1",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "rad",
+     "value": 8e-05
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "spawn_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "s of Gazebo time",
+     "value": 0.0
+    },
+    {
+     "high": 0.02,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "spawn_odometry_minus_ground_truth",
+     "note": "odom starts at the spawn pose, the world origin. Guard value of Baseline 1",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "m",
+     "value": 0.00015
+    },
+    {
+     "high": true,
+     "kind": "measured",
+     "low": true,
+     "name": "spawn_drive_configured",
+     "note": "",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "bool",
+     "value": true
+    },
+    {
+     "high": true,
+     "kind": "measured",
+     "low": true,
+     "name": "profile_pose_source_ground_truth",
+     "note": "the sim-oracle profile declares pose_source: ground_truth (docs/integration/baseline1.md)",
+     "ok": true,
+     "phase": "spawn",
+     "unit": "bool",
+     "value": true
+    }
+   ],
+   "ran": true,
+   "sim_end": 6.296,
+   "sim_start": 5.781000000000001
+  },
+  {
+   "exception": null,
+   "failures": [
+    {
+     "class": "CONTROL",
+     "text": "station_reach_position_error = 0.049706129100954975 m, allowed 0.0 to 0.04"
+    }
+   ],
+   "note": "",
+   "phase": "nav_to_shelf",
+   "quantities": [
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "nav_status",
+     "note": "4 SUCCEEDED, 6 ABORTED, None: no result in time",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_time",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "s of Gazebo time",
+     "value": 34.322
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "s of Gazebo time",
+     "value": 0.043
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_position_error",
+     "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.04971
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_yaw_error",
+     "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.0179
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_path_driven",
+     "note": "ground truth, this phase",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 3.78802
+    },
+    {
+     "high": 0.189,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_odometry_minus_ground_truth",
+     "note": "odometry is never reset: 3.79 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.0731
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_odometry_yaw_minus_ground_truth",
+     "note": "recorded, no limit",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.08815
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_minus_ground_truth",
+     "note": "AMCL against Gazebo",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.04302
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.02268
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_updates_during_nav",
+     "note": "/amcl_pose during nav_to_station",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "messages",
+     "value": 115
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_x",
+     "note": "sqrt of covariance[0], map frame",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.05939
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_y",
+     "note": "sqrt of covariance[7]",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.07378
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_yaw",
+     "note": "sqrt of covariance[35]",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.07224
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_last_update_age",
+     "note": "at the station check",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "s of Gazebo time",
+     "value": 0.485
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_minus_ground_truth",
+     "note": "the last /amcl_pose, not the /tf map pose",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.05005
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.01654
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_scan_beams_with_return",
+     "note": "of 360, at the station",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "beams",
+     "value": 306
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_along_heading",
+     "note": "+ is closer to the fixture",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": -0.00654
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_left",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": -0.04927
+    },
+    {
+     "high": 0.04,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "station_reach_position_error",
+     "note": "the arm-reach budget of Baseline 1 (docs/integration/station_approach.md), derived",
+     "ok": false,
+     "phase": "nav_to_shelf",
+     "unit": "m",
+     "value": 0.04971
+    },
+    {
+     "high": 0.08,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "station_reach_yaw_error",
+     "note": "the arm-reach budget of Baseline 1, derived",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "rad",
+     "value": 0.0179
+    },
+    {
+     "high": true,
+     "kind": "measured",
+     "low": true,
+     "name": "nav_host_client_drive_thread_alive",
+     "note": "",
+     "ok": true,
+     "phase": "nav_to_shelf",
+     "unit": "bool",
+     "value": true
+    }
+   ],
+   "ran": true,
+   "sim_end": 41.82,
+   "sim_start": 6.315
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "stop_authorize",
+   "quantities": [
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "stop_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "stop_authorize",
+     "unit": "s of Gazebo time",
+     "value": 0.0
+    },
+    {
+     "high": 0.01,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "stop_base_speed",
+     "note": "the provisional base-stopped rule of 13 Nov 2026",
+     "ok": true,
+     "phase": "stop_authorize",
+     "unit": "m/s",
+     "value": 0.0
+    },
+    {
+     "high": 0.02,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "stop_base_yaw_rate",
+     "note": "",
+     "ok": true,
+     "phase": "stop_authorize",
+     "unit": "rad/s",
+     "value": 0.0
+    },
+    {
+     "high": 0.003,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "authorize_motion_without_permit",
+     "note": "",
+     "ok": true,
+     "phase": "stop_authorize",
+     "unit": "m",
+     "value": 0.0
+    }
+   ],
+   "ran": true,
+   "sim_end": 44.486000000000004,
+   "sim_start": 41.84
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "lift_to_target",
+   "quantities": [
+    {
+     "high": null,
+     "kind": "expected",
+     "low": null,
+     "name": "lift_stop_1_expected_travel",
+     "note": "",
+     "ok": null,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": 0.175
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "lift_move_to_stop_1_real_time_factor",
+     "note": "while the lift was commanded",
+     "ok": null,
+     "phase": "lift_to_target",
+     "unit": "1",
+     "value": 0.1369
+    },
+    {
+     "high": 0.181,
+     "kind": "measured",
+     "low": 0.16899999999999998,
+     "name": "lift_stop_1_gazebo_position",
+     "note": "the window of scn02",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": 0.17433
+    },
+    {
+     "high": 0.183,
+     "kind": "measured",
+     "low": 0.16699999999999998,
+     "name": "lift_stop_1_joint_state_position",
+     "note": "/joint_states, the window of scn02",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": 0.175
+    },
+    {
+     "high": 0,
+     "kind": "measured",
+     "low": 0,
+     "name": "lift_stop_1_fault_bits",
+     "note": "",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "bits",
+     "value": 0
+    },
+    {
+     "high": null,
+     "kind": "expected",
+     "low": null,
+     "name": "lift_stop_0_expected_travel",
+     "note": "",
+     "ok": null,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": 0.17433
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "lift_move_to_stop_0_real_time_factor",
+     "note": "while the lift was commanded",
+     "ok": null,
+     "phase": "lift_to_target",
+     "unit": "1",
+     "value": 0.13098
+    },
+    {
+     "high": 0.006,
+     "kind": "measured",
+     "low": -0.006,
+     "name": "lift_stop_0_gazebo_position",
+     "note": "the window of scn02",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": 0.00081
+    },
+    {
+     "high": 0.008,
+     "kind": "measured",
+     "low": -0.008,
+     "name": "lift_stop_0_joint_state_position",
+     "note": "/joint_states, the window of scn02",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "m",
+     "value": -0.0003
+    },
+    {
+     "high": 0,
+     "kind": "measured",
+     "low": 0,
+     "name": "lift_stop_0_fault_bits",
+     "note": "",
+     "ok": true,
+     "phase": "lift_to_target",
+     "unit": "bits",
+     "value": 0
+    }
+   ],
+   "ran": true,
+   "sim_end": 65.52300000000001,
+   "sim_start": 44.52
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "arm_approach",
+   "quantities": [
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "item_start_height",
+     "note": "",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "m",
+     "value": 0.895
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_face_yaw",
+     "note": "the side grasp turned about z of base_footprint to the product's face",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": -0.01791
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "tcp_depth_along_fingers",
+     "note": "openarm_left_grasp_frame in openarm_left_ee_base_link, from /tf",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "m",
+     "value": 0.138
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "left_joint4_reading_at_activation_pose",
+     "note": "/joint_states. Below 0 is outside the joint limit: MoveIt cannot plan from there",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": 0.00095
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "right_joint4_reading_at_activation_pose",
+     "note": "/joint_states. Below 0 is outside the joint limit: MoveIt cannot plan from there",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": -0.00019
+    },
+    {
+     "high": 0.8054,
+     "kind": "measured",
+     "low": 0.7054,
+     "name": "finger_open_position",
+     "note": "",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": 0.7834
+    },
+    {
+     "high": 0.03,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "finger_mimic_error_open",
+     "note": "finger_joint2 against finger_joint1 in the physics (SW-09)",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": 0.00214
+    },
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "grasp_approach_moveit_error_code",
+     "note": "1 is SUCCESS",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_approach_planning_time",
+     "note": "",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "s",
+     "value": 0.0
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_approach_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint5",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": 0.01032
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "grasp_approach_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint2. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "N m",
+     "value": 0.11673
+    },
+    {
+     "high": 1.0,
+     "kind": "measured",
+     "low": 0.999,
+     "name": "grasp_reach_cartesian_fraction",
+     "note": "share of the straight line MoveIt found collision-free and reachable",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "1",
+     "value": 1.0
+    },
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "grasp_reach_moveit_error_code",
+     "note": "1 is SUCCESS (/execute_trajectory)",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_reach_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint7",
+     "ok": null,
+     "phase": "arm_approach",
+     "unit": "rad",
+     "value": 0.00602
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "grasp_reach_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "N m",
+     "value": 0.16023
+    },
+    {
+     "high": 0.05,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_pushed_before_closing",
+     "note": "",
+     "ok": true,
+     "phase": "arm_approach",
+     "unit": "m",
+     "value": 0.0
+    }
+   ],
+   "ran": true,
+   "sim_end": 88.757,
+   "sim_start": 65.552
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "grasp",
+   "quantities": [
+    {
+     "high": 0.7353999999999999,
+     "kind": "measured",
+     "low": 0.02,
+     "name": "finger_position_on_item",
+     "note": "above 0 means the fingers stopped on the product and did not close fully",
+     "ok": true,
+     "phase": "grasp",
+     "unit": "rad",
+     "value": 0.14727
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "finger_driver_reading_on_item",
+     "note": "what the driver reads back over CAN",
+     "ok": null,
+     "phase": "grasp",
+     "unit": "rad",
+     "value": 0.14706
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "gripper_reported_stalled",
+     "note": "",
+     "ok": null,
+     "phase": "grasp",
+     "unit": "bool",
+     "value": true
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "gripper_reported_reached_goal",
+     "note": "",
+     "ok": null,
+     "phase": "grasp",
+     "unit": "bool",
+     "value": false
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "gravity_payload_mass",
+     "note": "set after the grasp was reported, at openarm_left_grasp_frame. Estimated",
+     "ok": null,
+     "phase": "grasp",
+     "unit": "kg",
+     "value": 0.15
+    }
+   ],
+   "ran": true,
+   "sim_end": 88.784,
+   "sim_start": 88.757
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "lift_object",
+   "quantities": [
+    {
+     "high": 1.0,
+     "kind": "measured",
+     "low": 0.999,
+     "name": "grasp_lift_cartesian_fraction",
+     "note": "share of the straight line MoveIt found collision-free and reachable",
+     "ok": true,
+     "phase": "lift_object",
+     "unit": "1",
+     "value": 1.0
+    },
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "grasp_lift_moveit_error_code",
+     "note": "1 is SUCCESS (/execute_trajectory)",
+     "ok": true,
+     "phase": "lift_object",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_lift_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint5",
+     "ok": null,
+     "phase": "lift_object",
+     "unit": "rad",
+     "value": 0.01199
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "grasp_lift_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "lift_object",
+     "unit": "N m",
+     "value": 0.28447
+    },
+    {
+     "high": 0.12,
+     "kind": "measured",
+     "low": 0.04,
+     "name": "item_height_gain_after_lift",
+     "note": "",
+     "ok": true,
+     "phase": "lift_object",
+     "unit": "m",
+     "value": 0.07987
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_lift_tcp_rise",
+     "note": "TCP from /tf. Commanded 0.08",
+     "ok": null,
+     "phase": "lift_object",
+     "unit": "m",
+     "value": 0.08302
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_lift_item_rise_minus_tcp_rise",
+     "note": "recorded, no limit: below 0 the product slid down in the fingers",
+     "ok": null,
+     "phase": "lift_object",
+     "unit": "m",
+     "value": -0.00324
+    },
+    {
+     "high": 0.01,
+     "kind": "measured",
+     "low": -0.01,
+     "name": "item_height_drift_while_held",
+     "note": "over 3 s of Gazebo time",
+     "ok": true,
+     "phase": "lift_object",
+     "unit": "m",
+     "value": -8e-05
+    }
+   ],
+   "ran": true,
+   "sim_end": 97.173,
+   "sim_start": 88.784
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "retreat_with_item",
+   "quantities": [
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "retreat_status",
+     "note": "",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "s of Gazebo time",
+     "value": 0.08
+    },
+    {
+     "high": -0.25,
+     "kind": "measured",
+     "low": -0.35,
+     "name": "retreat_along_heading",
+     "note": "negative: away from the shelf. Guard value of Baseline 1",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "m",
+     "value": -0.30554
+    },
+    {
+     "high": 5.0,
+     "kind": "measured",
+     "low": -5.0,
+     "name": "retreat_heading_change",
+     "note": "as in scn01",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "deg",
+     "value": 0.00153
+    },
+    {
+     "high": 0.12,
+     "kind": "measured",
+     "low": 0.04,
+     "name": "item_height_gain_after_backup",
+     "note": "the item rise requirement of scn04 and Baseline 1",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "m",
+     "value": 0.07808
+    },
+    {
+     "high": 0.05,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_distance_to_tcp_after_backup",
+     "note": "product centre (ground truth) to the TCP (/tf on the ground truth base pose). Guard value, estimated",
+     "ok": true,
+     "phase": "retreat_with_item",
+     "unit": "m",
+     "value": 0.0357
+    }
+   ],
+   "ran": true,
+   "sim_end": 100.763,
+   "sim_start": 97.18
+  },
+  {
+   "exception": null,
+   "failures": [
+    {
+     "class": "CONTROL",
+     "text": "nav_odometry_minus_ground_truth = 0.9071154959662027 m, allowed 0.0 to 0.56"
+    }
+   ],
+   "note": "",
+   "phase": "nav_to_packing",
+   "quantities": [
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "nav_status_packing_approach",
+     "note": "an intermediate goal: 4 SUCCEEDED, 6 ABORTED, None: no result in time",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_packing_approach_position_error",
+     "note": "recorded, no limit",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.09085
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_packing_approach_yaw_error",
+     "note": "recorded, no limit",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.04749
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_drive_in_distance",
+     "note": "along the station heading from the AMCL pose (0.585 m before clamping)",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.58503
+    },
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "nav_status",
+     "note": "drive_on_heading: 4 SUCCEEDED",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_time",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "s of Gazebo time",
+     "value": 5.832
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "s of Gazebo time",
+     "value": 0.072
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_position_error",
+     "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.07164
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_yaw_error",
+     "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.03537
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_path_driven",
+     "note": "ground truth, this phase",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.59623
+    },
+    {
+     "high": 0.56,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_odometry_minus_ground_truth",
+     "note": "odometry is never reset: 11.20 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+     "ok": false,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.90712
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_odometry_yaw_minus_ground_truth",
+     "note": "recorded, no limit",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.1835
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_minus_ground_truth",
+     "note": "AMCL against Gazebo",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.08457
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.00485
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_updates_during_nav",
+     "note": "/amcl_pose during nav_to_station",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "messages",
+     "value": 11
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_x",
+     "note": "sqrt of covariance[0], map frame",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.04999
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_y",
+     "note": "sqrt of covariance[7]",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.09357
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_yaw",
+     "note": "sqrt of covariance[35]",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.05722
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_last_update_age",
+     "note": "at the station check",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "s of Gazebo time",
+     "value": 0.742
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_minus_ground_truth",
+     "note": "the last /amcl_pose, not the /tf map pose",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.06795
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "rad",
+     "value": 0.00863
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_scan_beams_with_return",
+     "note": "of 360, at the station",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "beams",
+     "value": 354
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_along_heading",
+     "note": "+ is closer to the fixture",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": -0.03601
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_left",
+     "note": "",
+     "ok": null,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.06192
+    },
+    {
+     "high": true,
+     "kind": "measured",
+     "low": true,
+     "name": "nav_host_client_drive_thread_alive",
+     "note": "",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "bool",
+     "value": true
+    },
+    {
+     "high": 0.12,
+     "kind": "measured",
+     "low": 0.04,
+     "name": "item_height_gain_at_packing",
+     "note": "the item rise requirement of scn04 and Baseline 1",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.07778
+    },
+    {
+     "high": 0.05,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_distance_to_tcp_at_packing",
+     "note": "product centre (ground truth) to the TCP (/tf on the ground truth base pose). Guard value, estimated",
+     "ok": true,
+     "phase": "nav_to_packing",
+     "unit": "m",
+     "value": 0.03585
+    }
+   ],
+   "ran": true,
+   "sim_end": 164.667,
+   "sim_start": 100.813
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "place",
+   "quantities": [
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "place_item_offset_along_tote",
+     "note": "product centre in the order tote frame before lowering",
+     "ok": null,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.07358
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "place_item_offset_deep_tote",
+     "note": "",
+     "ok": null,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.02094
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "place_lowering_distance",
+     "note": "product bottom 0.903 m to 0.02 m above the tote floor",
+     "ok": null,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.07278
+    },
+    {
+     "high": 1.0,
+     "kind": "measured",
+     "low": 0.999,
+     "name": "place_lower_cartesian_fraction",
+     "note": "share of the straight line MoveIt found collision-free and reachable",
+     "ok": true,
+     "phase": "place",
+     "unit": "1",
+     "value": 1.0
+    },
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "place_lower_moveit_error_code",
+     "note": "1 is SUCCESS (/execute_trajectory)",
+     "ok": true,
+     "phase": "place",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "place_lower_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint6",
+     "ok": null,
+     "phase": "place",
+     "unit": "rad",
+     "value": 0.01062
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "place_lower_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "place",
+     "unit": "N m",
+     "value": 0.23457
+    },
+    {
+     "high": 0.8054,
+     "kind": "measured",
+     "low": 0.7054,
+     "name": "finger_open_after_place",
+     "note": "the open window of scn04's finger_open_position",
+     "ok": true,
+     "phase": "place",
+     "unit": "rad",
+     "value": 0.78207
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_withdraw_cartesian_fraction",
+     "note": "share of the straight line MoveIt found collision-free and reachable",
+     "ok": null,
+     "phase": "place",
+     "unit": "1",
+     "value": 1.0
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_withdraw_moveit_error_code",
+     "note": "1 is SUCCESS (/execute_trajectory)",
+     "ok": null,
+     "phase": "place",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_withdraw_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint7",
+     "ok": null,
+     "phase": "place",
+     "unit": "rad",
+     "value": 0.0105
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "grasp_withdraw_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md). Recorded, no limit: a return move",
+     "ok": null,
+     "phase": "place",
+     "unit": "N m",
+     "value": 0.27216
+    },
+    {
+     "high": 0.01,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_speed_after_release",
+     "note": "product centre over 1 s of Gazebo time, 2 s after the withdraw. Guard value, estimated",
+     "ok": true,
+     "phase": "place",
+     "unit": "m/s",
+     "value": 0.0
+    },
+    {
+     "high": 0.24,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_in_tote_along",
+     "note": "|product centre| from the tote centre, inside the inner wall",
+     "ok": true,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.08396
+    },
+    {
+     "high": 0.19,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_in_tote_deep",
+     "note": "",
+     "ok": true,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.03546
+    },
+    {
+     "high": 0.08,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "item_height_above_tote_floor",
+     "note": "product centre above the tote floor: standing (half its height) or lying (less)",
+     "ok": true,
+     "phase": "place",
+     "unit": "m",
+     "value": 0.07
+    }
+   ],
+   "ran": true,
+   "sim_end": 182.20000000000002,
+   "sim_start": 164.68
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "retreat",
+   "quantities": [
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "retreat_left_to_park_moveit_error_code",
+     "note": "1 is SUCCESS",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "retreat_left_to_park_planning_time",
+     "note": "",
+     "ok": null,
+     "phase": "retreat",
+     "unit": "s",
+     "value": 0.0
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "retreat_left_to_park_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint6",
+     "ok": null,
+     "phase": "retreat",
+     "unit": "rad",
+     "value": 0.0074
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_left_to_park_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_left_joint3. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "N m",
+     "value": 0.13243
+    },
+    {
+     "high": 0.1,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_left_distance_from_park",
+     "note": "as in scn03",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "rad",
+     "value": 0.01232
+    },
+    {
+     "high": 1,
+     "kind": "measured",
+     "low": 1,
+     "name": "retreat_right_to_park_moveit_error_code",
+     "note": "1 is SUCCESS",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "MoveItErrorCodes",
+     "value": 1
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "retreat_right_to_park_planning_time",
+     "note": "",
+     "ok": null,
+     "phase": "retreat",
+     "unit": "s",
+     "value": 0.0
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "retreat_right_to_park_tracking_error_max",
+     "note": "largest |/joint_states - last trajectory point|, joint openarm_right_joint5",
+     "ok": null,
+     "phase": "retreat",
+     "unit": "rad",
+     "value": 0.00419
+    },
+    {
+     "high": 0.5,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_right_to_park_servo_torque_max",
+     "note": "largest driver kp * |reading - command|, joint openarm_right_joint3. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "N m",
+     "value": 0.20981
+    },
+    {
+     "high": 0.1,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_right_distance_from_park",
+     "note": "as in scn03",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "rad",
+     "value": 0.00543
+    },
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "retreat_status",
+     "note": "",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "retreat_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "s of Gazebo time",
+     "value": 0.114
+    },
+    {
+     "high": -0.25,
+     "kind": "measured",
+     "low": -0.35,
+     "name": "retreat_along_heading",
+     "note": "negative: away from the shelf. Guard value, estimated",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "m",
+     "value": -0.31148
+    },
+    {
+     "high": 5.0,
+     "kind": "measured",
+     "low": -5.0,
+     "name": "retreat_heading_change",
+     "note": "as in scn01",
+     "ok": true,
+     "phase": "retreat",
+     "unit": "deg",
+     "value": 0.00035
+    }
+   ],
+   "ran": true,
+   "sim_end": 194.68,
+   "sim_start": 182.223
+  },
+  {
+   "exception": null,
+   "failures": [],
+   "note": "",
+   "phase": "return_to_parking",
+   "quantities": [
+    {
+     "high": 4,
+     "kind": "measured",
+     "low": 4,
+     "name": "nav_status",
+     "note": "4 SUCCEEDED, 6 ABORTED, None: no result in time",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "GoalStatus",
+     "value": 4
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_time",
+     "note": "",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "s of Gazebo time",
+     "value": 39.173
+    },
+    {
+     "high": 10.0,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_settle_time",
+     "note": "",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "s of Gazebo time",
+     "value": 0.075
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_position_error",
+     "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.0126
+    },
+    {
+     "high": 0.35,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_ground_truth_yaw_error",
+     "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "rad",
+     "value": 0.05682
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_path_driven",
+     "note": "ground truth, this phase",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 3.36299
+    },
+    {
+     "high": 0.744,
+     "kind": "measured",
+     "low": 0.0,
+     "name": "nav_odometry_minus_ground_truth",
+     "note": "odometry is never reset: 14.87 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.39493
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_odometry_yaw_minus_ground_truth",
+     "note": "recorded, no limit",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "rad",
+     "value": 0.2047
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_minus_ground_truth",
+     "note": "AMCL against Gazebo",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.01291
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_localization_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "rad",
+     "value": 0.03689
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_updates_during_nav",
+     "note": "/amcl_pose during nav_to_station",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "messages",
+     "value": 90
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_x",
+     "note": "sqrt of covariance[0], map frame",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.1115
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_y",
+     "note": "sqrt of covariance[7]",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.05448
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_sigma_yaw",
+     "note": "sqrt of covariance[35]",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "rad",
+     "value": 0.05478
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_last_update_age",
+     "note": "at the station check",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "s of Gazebo time",
+     "value": 0.551
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_minus_ground_truth",
+     "note": "the last /amcl_pose, not the /tf map pose",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": 0.00828
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_amcl_pose_yaw_minus_ground_truth",
+     "note": "",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "rad",
+     "value": 0.01371
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "loc_scan_beams_with_return",
+     "note": "of 360, at the station",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "beams",
+     "value": 360
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_along_heading",
+     "note": "+ is closer to the fixture",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": -0.01
+    },
+    {
+     "high": null,
+     "kind": "measured",
+     "low": null,
+     "name": "nav_station_error_left",
+     "note": "",
+     "ok": null,
+     "phase": "return_to_parking",
+     "unit": "m",
+     "value": -0.00768
+    },
+    {
+     "high": true,
+     "kind": "measured",
+     "low": true,
+     "name": "nav_host_client_drive_thread_alive",
+     "note": "",
+     "ok": true,
+     "phase": "return_to_parking",
+     "unit": "bool",
+     "value": true
+    }
+   ],
+   "ran": true,
+   "sim_end": 235.001,
+   "sim_start": 194.69000000000003
+  }
+ ],
+ "quantities": [
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gazebo_rtf_at_start",
+   "note": "Gazebo time over wall time, 2 s window",
+   "ok": null,
+   "unit": "1",
+   "value": 0.16136
+  },
+  {
+   "high": 0.02,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "spawn_position_error",
+   "note": "ground truth against stations.origin, the parking bay. Guard value of Baseline 1, estimated",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "m",
+   "value": 0.00015
+  },
+  {
+   "high": 0.02,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "spawn_yaw_error",
+   "note": "guard value of Baseline 1",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "rad",
+   "value": 8e-05
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "spawn_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "s of Gazebo time",
+   "value": 0.0
+  },
+  {
+   "high": 0.02,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "spawn_odometry_minus_ground_truth",
+   "note": "odom starts at the spawn pose, the world origin. Guard value of Baseline 1",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "m",
+   "value": 0.00015
+  },
+  {
+   "high": true,
+   "kind": "measured",
+   "low": true,
+   "name": "spawn_drive_configured",
+   "note": "",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": true,
+   "kind": "measured",
+   "low": true,
+   "name": "profile_pose_source_ground_truth",
+   "note": "the sim-oracle profile declares pose_source: ground_truth (docs/integration/baseline1.md)",
+   "ok": true,
+   "phase": "spawn",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "nav_status",
+   "note": "4 SUCCEEDED, 6 ABORTED, None: no result in time",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_time",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "s of Gazebo time",
+   "value": 34.322
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "s of Gazebo time",
+   "value": 0.043
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_position_error",
+   "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.04971
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_yaw_error",
+   "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.0179
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_path_driven",
+   "note": "ground truth, this phase",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 3.78802
+  },
+  {
+   "high": 0.189,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_odometry_minus_ground_truth",
+   "note": "odometry is never reset: 3.79 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.0731
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_odometry_yaw_minus_ground_truth",
+   "note": "recorded, no limit",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.08815
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_minus_ground_truth",
+   "note": "AMCL against Gazebo",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.04302
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.02268
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_updates_during_nav",
+   "note": "/amcl_pose during nav_to_station",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "messages",
+   "value": 115
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_x",
+   "note": "sqrt of covariance[0], map frame",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.05939
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_y",
+   "note": "sqrt of covariance[7]",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.07378
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_yaw",
+   "note": "sqrt of covariance[35]",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.07224
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_last_update_age",
+   "note": "at the station check",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "s of Gazebo time",
+   "value": 0.485
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_minus_ground_truth",
+   "note": "the last /amcl_pose, not the /tf map pose",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.05005
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.01654
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_scan_beams_with_return",
+   "note": "of 360, at the station",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "beams",
+   "value": 306
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_along_heading",
+   "note": "+ is closer to the fixture",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": -0.00654
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_left",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": -0.04927
+  },
+  {
+   "high": 0.04,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "station_reach_position_error",
+   "note": "the arm-reach budget of Baseline 1 (docs/integration/station_approach.md), derived",
+   "ok": false,
+   "phase": "nav_to_shelf",
+   "unit": "m",
+   "value": 0.04971
+  },
+  {
+   "high": 0.08,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "station_reach_yaw_error",
+   "note": "the arm-reach budget of Baseline 1, derived",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "rad",
+   "value": 0.0179
+  },
+  {
+   "high": true,
+   "kind": "measured",
+   "low": true,
+   "name": "nav_host_client_drive_thread_alive",
+   "note": "",
+   "ok": true,
+   "phase": "nav_to_shelf",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "stop_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "stop_authorize",
+   "unit": "s of Gazebo time",
+   "value": 0.0
+  },
+  {
+   "high": 0.01,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "stop_base_speed",
+   "note": "the provisional base-stopped rule of 13 Nov 2026",
+   "ok": true,
+   "phase": "stop_authorize",
+   "unit": "m/s",
+   "value": 0.0
+  },
+  {
+   "high": 0.02,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "stop_base_yaw_rate",
+   "note": "",
+   "ok": true,
+   "phase": "stop_authorize",
+   "unit": "rad/s",
+   "value": 0.0
+  },
+  {
+   "high": 0.003,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "authorize_motion_without_permit",
+   "note": "",
+   "ok": true,
+   "phase": "stop_authorize",
+   "unit": "m",
+   "value": 0.0
+  },
+  {
+   "high": null,
+   "kind": "expected",
+   "low": null,
+   "name": "lift_stop_1_expected_travel",
+   "note": "",
+   "ok": null,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": 0.175
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "lift_move_to_stop_1_real_time_factor",
+   "note": "while the lift was commanded",
+   "ok": null,
+   "phase": "lift_to_target",
+   "unit": "1",
+   "value": 0.1369
+  },
+  {
+   "high": 0.181,
+   "kind": "measured",
+   "low": 0.16899999999999998,
+   "name": "lift_stop_1_gazebo_position",
+   "note": "the window of scn02",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": 0.17433
+  },
+  {
+   "high": 0.183,
+   "kind": "measured",
+   "low": 0.16699999999999998,
+   "name": "lift_stop_1_joint_state_position",
+   "note": "/joint_states, the window of scn02",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": 0.175
+  },
+  {
+   "high": 0,
+   "kind": "measured",
+   "low": 0,
+   "name": "lift_stop_1_fault_bits",
+   "note": "",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "bits",
+   "value": 0
+  },
+  {
+   "high": null,
+   "kind": "expected",
+   "low": null,
+   "name": "lift_stop_0_expected_travel",
+   "note": "",
+   "ok": null,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": 0.17433
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "lift_move_to_stop_0_real_time_factor",
+   "note": "while the lift was commanded",
+   "ok": null,
+   "phase": "lift_to_target",
+   "unit": "1",
+   "value": 0.13098
+  },
+  {
+   "high": 0.006,
+   "kind": "measured",
+   "low": -0.006,
+   "name": "lift_stop_0_gazebo_position",
+   "note": "the window of scn02",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": 0.00081
+  },
+  {
+   "high": 0.008,
+   "kind": "measured",
+   "low": -0.008,
+   "name": "lift_stop_0_joint_state_position",
+   "note": "/joint_states, the window of scn02",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "m",
+   "value": -0.0003
+  },
+  {
+   "high": 0,
+   "kind": "measured",
+   "low": 0,
+   "name": "lift_stop_0_fault_bits",
+   "note": "",
+   "ok": true,
+   "phase": "lift_to_target",
+   "unit": "bits",
+   "value": 0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "item_start_height",
+   "note": "",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "m",
+   "value": 0.895
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_face_yaw",
+   "note": "the side grasp turned about z of base_footprint to the product's face",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": -0.01791
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "tcp_depth_along_fingers",
+   "note": "openarm_left_grasp_frame in openarm_left_ee_base_link, from /tf",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "m",
+   "value": 0.138
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "left_joint4_reading_at_activation_pose",
+   "note": "/joint_states. Below 0 is outside the joint limit: MoveIt cannot plan from there",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": 0.00095
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "right_joint4_reading_at_activation_pose",
+   "note": "/joint_states. Below 0 is outside the joint limit: MoveIt cannot plan from there",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": -0.00019
+  },
+  {
+   "high": 0.8054,
+   "kind": "measured",
+   "low": 0.7054,
+   "name": "finger_open_position",
+   "note": "",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": 0.7834
+  },
+  {
+   "high": 0.03,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "finger_mimic_error_open",
+   "note": "finger_joint2 against finger_joint1 in the physics (SW-09)",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": 0.00214
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "grasp_approach_moveit_error_code",
+   "note": "1 is SUCCESS",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_approach_planning_time",
+   "note": "",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "s",
+   "value": 0.0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_approach_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint5",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": 0.01032
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "grasp_approach_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint2. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "N m",
+   "value": 0.11673
+  },
+  {
+   "high": 1.0,
+   "kind": "measured",
+   "low": 0.999,
+   "name": "grasp_reach_cartesian_fraction",
+   "note": "share of the straight line MoveIt found collision-free and reachable",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "1",
+   "value": 1.0
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "grasp_reach_moveit_error_code",
+   "note": "1 is SUCCESS (/execute_trajectory)",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_reach_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint7",
+   "ok": null,
+   "phase": "arm_approach",
+   "unit": "rad",
+   "value": 0.00602
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "grasp_reach_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "N m",
+   "value": 0.16023
+  },
+  {
+   "high": 0.05,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_pushed_before_closing",
+   "note": "",
+   "ok": true,
+   "phase": "arm_approach",
+   "unit": "m",
+   "value": 0.0
+  },
+  {
+   "high": 0.7353999999999999,
+   "kind": "measured",
+   "low": 0.02,
+   "name": "finger_position_on_item",
+   "note": "above 0 means the fingers stopped on the product and did not close fully",
+   "ok": true,
+   "phase": "grasp",
+   "unit": "rad",
+   "value": 0.14727
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "finger_driver_reading_on_item",
+   "note": "what the driver reads back over CAN",
+   "ok": null,
+   "phase": "grasp",
+   "unit": "rad",
+   "value": 0.14706
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gripper_reported_stalled",
+   "note": "",
+   "ok": null,
+   "phase": "grasp",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gripper_reported_reached_goal",
+   "note": "",
+   "ok": null,
+   "phase": "grasp",
+   "unit": "bool",
+   "value": false
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gravity_payload_mass",
+   "note": "set after the grasp was reported, at openarm_left_grasp_frame. Estimated",
+   "ok": null,
+   "phase": "grasp",
+   "unit": "kg",
+   "value": 0.15
+  },
+  {
+   "high": 1.0,
+   "kind": "measured",
+   "low": 0.999,
+   "name": "grasp_lift_cartesian_fraction",
+   "note": "share of the straight line MoveIt found collision-free and reachable",
+   "ok": true,
+   "phase": "lift_object",
+   "unit": "1",
+   "value": 1.0
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "grasp_lift_moveit_error_code",
+   "note": "1 is SUCCESS (/execute_trajectory)",
+   "ok": true,
+   "phase": "lift_object",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_lift_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint5",
+   "ok": null,
+   "phase": "lift_object",
+   "unit": "rad",
+   "value": 0.01199
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "grasp_lift_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "lift_object",
+   "unit": "N m",
+   "value": 0.28447
+  },
+  {
+   "high": 0.12,
+   "kind": "measured",
+   "low": 0.04,
+   "name": "item_height_gain_after_lift",
+   "note": "",
+   "ok": true,
+   "phase": "lift_object",
+   "unit": "m",
+   "value": 0.07987
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_lift_tcp_rise",
+   "note": "TCP from /tf. Commanded 0.08",
+   "ok": null,
+   "phase": "lift_object",
+   "unit": "m",
+   "value": 0.08302
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_lift_item_rise_minus_tcp_rise",
+   "note": "recorded, no limit: below 0 the product slid down in the fingers",
+   "ok": null,
+   "phase": "lift_object",
+   "unit": "m",
+   "value": -0.00324
+  },
+  {
+   "high": 0.01,
+   "kind": "measured",
+   "low": -0.01,
+   "name": "item_height_drift_while_held",
+   "note": "over 3 s of Gazebo time",
+   "ok": true,
+   "phase": "lift_object",
+   "unit": "m",
+   "value": -8e-05
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "retreat_status",
+   "note": "",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "s of Gazebo time",
+   "value": 0.08
+  },
+  {
+   "high": -0.25,
+   "kind": "measured",
+   "low": -0.35,
+   "name": "retreat_along_heading",
+   "note": "negative: away from the shelf. Guard value of Baseline 1",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "m",
+   "value": -0.30554
+  },
+  {
+   "high": 5.0,
+   "kind": "measured",
+   "low": -5.0,
+   "name": "retreat_heading_change",
+   "note": "as in scn01",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "deg",
+   "value": 0.00153
+  },
+  {
+   "high": 0.12,
+   "kind": "measured",
+   "low": 0.04,
+   "name": "item_height_gain_after_backup",
+   "note": "the item rise requirement of scn04 and Baseline 1",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "m",
+   "value": 0.07808
+  },
+  {
+   "high": 0.05,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_distance_to_tcp_after_backup",
+   "note": "product centre (ground truth) to the TCP (/tf on the ground truth base pose). Guard value, estimated",
+   "ok": true,
+   "phase": "retreat_with_item",
+   "unit": "m",
+   "value": 0.0357
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "nav_status_packing_approach",
+   "note": "an intermediate goal: 4 SUCCEEDED, 6 ABORTED, None: no result in time",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_packing_approach_position_error",
+   "note": "recorded, no limit",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.09085
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_packing_approach_yaw_error",
+   "note": "recorded, no limit",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.04749
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_drive_in_distance",
+   "note": "along the station heading from the AMCL pose (0.585 m before clamping)",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.58503
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "nav_status",
+   "note": "drive_on_heading: 4 SUCCEEDED",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_time",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "s of Gazebo time",
+   "value": 5.832
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "s of Gazebo time",
+   "value": 0.072
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_position_error",
+   "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.07164
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_yaw_error",
+   "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.03537
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_path_driven",
+   "note": "ground truth, this phase",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.59623
+  },
+  {
+   "high": 0.56,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_odometry_minus_ground_truth",
+   "note": "odometry is never reset: 11.20 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+   "ok": false,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.90712
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_odometry_yaw_minus_ground_truth",
+   "note": "recorded, no limit",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.1835
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_minus_ground_truth",
+   "note": "AMCL against Gazebo",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.08457
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.00485
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_updates_during_nav",
+   "note": "/amcl_pose during nav_to_station",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "messages",
+   "value": 11
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_x",
+   "note": "sqrt of covariance[0], map frame",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.04999
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_y",
+   "note": "sqrt of covariance[7]",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.09357
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_yaw",
+   "note": "sqrt of covariance[35]",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.05722
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_last_update_age",
+   "note": "at the station check",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "s of Gazebo time",
+   "value": 0.742
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_minus_ground_truth",
+   "note": "the last /amcl_pose, not the /tf map pose",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.06795
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "rad",
+   "value": 0.00863
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_scan_beams_with_return",
+   "note": "of 360, at the station",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "beams",
+   "value": 354
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_along_heading",
+   "note": "+ is closer to the fixture",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": -0.03601
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_left",
+   "note": "",
+   "ok": null,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.06192
+  },
+  {
+   "high": true,
+   "kind": "measured",
+   "low": true,
+   "name": "nav_host_client_drive_thread_alive",
+   "note": "",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": 0.12,
+   "kind": "measured",
+   "low": 0.04,
+   "name": "item_height_gain_at_packing",
+   "note": "the item rise requirement of scn04 and Baseline 1",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.07778
+  },
+  {
+   "high": 0.05,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_distance_to_tcp_at_packing",
+   "note": "product centre (ground truth) to the TCP (/tf on the ground truth base pose). Guard value, estimated",
+   "ok": true,
+   "phase": "nav_to_packing",
+   "unit": "m",
+   "value": 0.03585
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "place_item_offset_along_tote",
+   "note": "product centre in the order tote frame before lowering",
+   "ok": null,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.07358
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "place_item_offset_deep_tote",
+   "note": "",
+   "ok": null,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.02094
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "place_lowering_distance",
+   "note": "product bottom 0.903 m to 0.02 m above the tote floor",
+   "ok": null,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.07278
+  },
+  {
+   "high": 1.0,
+   "kind": "measured",
+   "low": 0.999,
+   "name": "place_lower_cartesian_fraction",
+   "note": "share of the straight line MoveIt found collision-free and reachable",
+   "ok": true,
+   "phase": "place",
+   "unit": "1",
+   "value": 1.0
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "place_lower_moveit_error_code",
+   "note": "1 is SUCCESS (/execute_trajectory)",
+   "ok": true,
+   "phase": "place",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "place_lower_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint6",
+   "ok": null,
+   "phase": "place",
+   "unit": "rad",
+   "value": 0.01062
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "place_lower_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "place",
+   "unit": "N m",
+   "value": 0.23457
+  },
+  {
+   "high": 0.8054,
+   "kind": "measured",
+   "low": 0.7054,
+   "name": "finger_open_after_place",
+   "note": "the open window of scn04's finger_open_position",
+   "ok": true,
+   "phase": "place",
+   "unit": "rad",
+   "value": 0.78207
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_withdraw_cartesian_fraction",
+   "note": "share of the straight line MoveIt found collision-free and reachable",
+   "ok": null,
+   "phase": "place",
+   "unit": "1",
+   "value": 1.0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_withdraw_moveit_error_code",
+   "note": "1 is SUCCESS (/execute_trajectory)",
+   "ok": null,
+   "phase": "place",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_withdraw_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint7",
+   "ok": null,
+   "phase": "place",
+   "unit": "rad",
+   "value": 0.0105
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "grasp_withdraw_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint1. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md). Recorded, no limit: a return move",
+   "ok": null,
+   "phase": "place",
+   "unit": "N m",
+   "value": 0.27216
+  },
+  {
+   "high": 0.01,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_speed_after_release",
+   "note": "product centre over 1 s of Gazebo time, 2 s after the withdraw. Guard value, estimated",
+   "ok": true,
+   "phase": "place",
+   "unit": "m/s",
+   "value": 0.0
+  },
+  {
+   "high": 0.24,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_in_tote_along",
+   "note": "|product centre| from the tote centre, inside the inner wall",
+   "ok": true,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.08396
+  },
+  {
+   "high": 0.19,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_in_tote_deep",
+   "note": "",
+   "ok": true,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.03546
+  },
+  {
+   "high": 0.08,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "item_height_above_tote_floor",
+   "note": "product centre above the tote floor: standing (half its height) or lying (less)",
+   "ok": true,
+   "phase": "place",
+   "unit": "m",
+   "value": 0.07
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "retreat_left_to_park_moveit_error_code",
+   "note": "1 is SUCCESS",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "retreat_left_to_park_planning_time",
+   "note": "",
+   "ok": null,
+   "phase": "retreat",
+   "unit": "s",
+   "value": 0.0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "retreat_left_to_park_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_left_joint6",
+   "ok": null,
+   "phase": "retreat",
+   "unit": "rad",
+   "value": 0.0074
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_left_to_park_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_left_joint3. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "N m",
+   "value": 0.13243
+  },
+  {
+   "high": 0.1,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_left_distance_from_park",
+   "note": "as in scn03",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "rad",
+   "value": 0.01232
+  },
+  {
+   "high": 1,
+   "kind": "measured",
+   "low": 1,
+   "name": "retreat_right_to_park_moveit_error_code",
+   "note": "1 is SUCCESS",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "MoveItErrorCodes",
+   "value": 1
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "retreat_right_to_park_planning_time",
+   "note": "",
+   "ok": null,
+   "phase": "retreat",
+   "unit": "s",
+   "value": 0.0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "retreat_right_to_park_tracking_error_max",
+   "note": "largest |/joint_states - last trajectory point|, joint openarm_right_joint5",
+   "ok": null,
+   "phase": "retreat",
+   "unit": "rad",
+   "value": 0.00419
+  },
+  {
+   "high": 0.5,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_right_to_park_servo_torque_max",
+   "note": "largest driver kp * |reading - command|, joint openarm_right_joint3. Without the gravity feed-forward 10 N m on joint 1 (docs/build1_arm_diagnosis.md)",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "N m",
+   "value": 0.20981
+  },
+  {
+   "high": 0.1,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_right_distance_from_park",
+   "note": "as in scn03",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "rad",
+   "value": 0.00543
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "retreat_status",
+   "note": "",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "retreat_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "s of Gazebo time",
+   "value": 0.114
+  },
+  {
+   "high": -0.25,
+   "kind": "measured",
+   "low": -0.35,
+   "name": "retreat_along_heading",
+   "note": "negative: away from the shelf. Guard value, estimated",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "m",
+   "value": -0.31148
+  },
+  {
+   "high": 5.0,
+   "kind": "measured",
+   "low": -5.0,
+   "name": "retreat_heading_change",
+   "note": "as in scn01",
+   "ok": true,
+   "phase": "retreat",
+   "unit": "deg",
+   "value": 0.00035
+  },
+  {
+   "high": 4,
+   "kind": "measured",
+   "low": 4,
+   "name": "nav_status",
+   "note": "4 SUCCEEDED, 6 ABORTED, None: no result in time",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "GoalStatus",
+   "value": 4
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_time",
+   "note": "",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "s of Gazebo time",
+   "value": 39.173
+  },
+  {
+   "high": 10.0,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_settle_time",
+   "note": "",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "s of Gazebo time",
+   "value": 0.075
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_position_error",
+   "note": "against the goal. Nav2 xy_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.0126
+  },
+  {
+   "high": 0.35,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_ground_truth_yaw_error",
+   "note": "Nav2 yaw_goal_tolerance of openamr-platform-sw nav2_params.yaml",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "rad",
+   "value": 0.05682
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_path_driven",
+   "note": "ground truth, this phase",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 3.36299
+  },
+  {
+   "high": 0.744,
+   "kind": "measured",
+   "low": 0.0,
+   "name": "nav_odometry_minus_ground_truth",
+   "note": "odometry is never reset: 14.87 m driven since the spawn. Derived from scn01's 0.10 m per 2 m",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.39493
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_odometry_yaw_minus_ground_truth",
+   "note": "recorded, no limit",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "rad",
+   "value": 0.2047
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_minus_ground_truth",
+   "note": "AMCL against Gazebo",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.01291
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_localization_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "rad",
+   "value": 0.03689
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_updates_during_nav",
+   "note": "/amcl_pose during nav_to_station",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "messages",
+   "value": 90
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_x",
+   "note": "sqrt of covariance[0], map frame",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.1115
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_y",
+   "note": "sqrt of covariance[7]",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.05448
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_sigma_yaw",
+   "note": "sqrt of covariance[35]",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "rad",
+   "value": 0.05478
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_last_update_age",
+   "note": "at the station check",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "s of Gazebo time",
+   "value": 0.551
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_minus_ground_truth",
+   "note": "the last /amcl_pose, not the /tf map pose",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": 0.00828
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_amcl_pose_yaw_minus_ground_truth",
+   "note": "",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "rad",
+   "value": 0.01371
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "loc_scan_beams_with_return",
+   "note": "of 360, at the station",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "beams",
+   "value": 360
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_along_heading",
+   "note": "+ is closer to the fixture",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": -0.01
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "nav_station_error_left",
+   "note": "",
+   "ok": null,
+   "phase": "return_to_parking",
+   "unit": "m",
+   "value": -0.00768
+  },
+  {
+   "high": true,
+   "kind": "measured",
+   "low": true,
+   "name": "nav_host_client_drive_thread_alive",
+   "note": "",
+   "ok": true,
+   "phase": "return_to_parking",
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": 0,
+   "kind": "measured",
+   "low": 0,
+   "name": "drive_emulator_plant_switches",
+   "note": "the drive emulator must stay on Gazebo feedback for the whole run (SW-03)",
+   "ok": true,
+   "phase": null,
+   "unit": "switches",
+   "value": 0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "host_client_drive_thread_alive",
+   "note": "false: the drive thread of openamrobot_sil's host test client ended during the run",
+   "ok": null,
+   "phase": null,
+   "unit": "bool",
+   "value": true
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gazebo_rtf_mean_whole_run",
+   "note": "from rtf_monitor.py since its start",
+   "ok": null,
+   "phase": null,
+   "unit": "1",
+   "value": 0.1085
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gazebo_rtf_min_whole_run",
+   "note": "from rtf_monitor.py since its start",
+   "ok": null,
+   "phase": null,
+   "unit": "1",
+   "value": 0.0
+  },
+  {
+   "high": null,
+   "kind": "measured",
+   "low": null,
+   "name": "gazebo_rtf_max_whole_run",
+   "note": "from rtf_monitor.py since its start",
+   "ok": null,
+   "phase": null,
+   "unit": "1",
+   "value": 0.217
+  }
+ ],
+ "reason": "station_reach_position_error = 0.049706129100954975 m, allowed 0.0 to 0.04; nav_odometry_minus_ground_truth = 0.9071154959662027 m, allowed 0.0 to 0.56",
+ "result": "FAIL",
+ "run": {
+  "baseline_lock": "audits audit/2026-09-28 at be17653, digital-twin/phase1/digital_twin.lock.yaml of 2026-11-15 (Proposed)",
+  "contact_sensors": [
+   "openarm_left_link1",
+   "openarm_left_link2",
+   "openarm_left_link3",
+   "openarm_left_link4",
+   "openarm_left_link5",
+   "openarm_left_link6",
+   "openarm_left_ee_base_link",
+   "openarm_left_ee_link1",
+   "openarm_left_ee_link2",
+   "openarm_right_link1",
+   "openarm_right_link2",
+   "openarm_right_link3",
+   "openarm_right_link4",
+   "openarm_right_link5",
+   "openarm_right_link6",
+   "openarm_right_ee_base_link",
+   "openarm_right_ee_link1",
+   "openarm_right_ee_link2"
+  ],
+  "devices": true,
+  "driver_clock": "gazebo",
+  "driver_rate_hz": 500,
+  "emulator_rate_hz": 1000,
+  "finger_joint2_owner": "finger_mimic_follower.py",
+  "gravity_feedforward": true,
+  "model_sha256": "fc2bc3f7265259d1880052e80f378f079242efde1c3147e7a20352830344d6b2",
+  "moveit": true,
+  "nav2": true,
+  "physics_engine": "gz-physics-dartsim-plugin",
+  "physics_step": "fast",
+  "planning_pose_source": "ground_truth",
+  "profile": "firmware_sil",
+  "replayed_buses": [],
+  "scene": "grocery_scene.yaml",
+  "seed": "none set: a repeated run is not guaranteed to be identical",
+  "sensors": true,
+  "sim_state_rate": "100",
+  "station": "origin",
+  "station_alignment": false,
+  "station_camera": "none",
+  "step_s": 0.001,
+  "stm32": "host"
+ },
+ "scenario": "grocery_demo_mission",
+ "started_wall": "2026-11-18T12:08:30Z",
+ "trace": "463 samples, not copied"
+}

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT
+# Topic counts of the control room bag of run 44445938978 (its 'ros2 bag info' output), as metadata.yaml.
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: mcap
+  topics_with_message_count:
+  - topic_metadata:
+      name: /baseline1/mission_status
+      type: std_msgs/msg/String
+      serialization_format: cdr
+    message_count: 13
+  - topic_metadata:
+      name: /robot_description
+      type: std_msgs/msg/String
+      serialization_format: cdr
+    message_count: 1

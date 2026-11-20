@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+# foxglove_bridge (MIT, 3.x on Jazzy) for the Digital Twin Control Room: subscribe only.
+# No capability that writes is offered: no clientPublish (a viewer cannot advertise or publish a topic), no services,
+# no parameters or parametersSubscribe, no assets. The allowlists of those paths match nothing ("(?!)" never matches),
+# so they stay closed even if a capability were added by mistake. test/test_foxglove_readonly.py connects a client and
+# checks that the server offers none of them and that a client advertise creates no ROS publisher.
+control_room_foxglove_bridge:
+  ros__parameters:
+    address: 127.0.0.1
+    port: 8765
+    capabilities: [connectionGraph]
+    topic_whitelist: ['.*']
+    client_topic_whitelist: ['(?!)']
+    service_whitelist: ['(?!)']
+    param_whitelist: ['(?!)']
+    asset_uri_allowlist: ['(?!)']
+    include_hidden: false
+    remote_access: false
+    publish_client_count: false
+    sysinfo: false
+    max_qos_depth: 10

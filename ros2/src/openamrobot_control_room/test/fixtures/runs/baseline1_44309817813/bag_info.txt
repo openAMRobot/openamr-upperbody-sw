@@ -1,0 +1,40 @@
+
+Files:             bag_0.mcap
+Bag size:          189.8 MiB
+Storage id:        mcap
+ROS Distro:        jazzy
+Duration:          110.169000000s
+Start:             Jan  1 1970 00:00:06.841000000 (6.841000000)
+End:               Jan  1 1970 00:01:57.010000000 (117.010000000)
+Messages:          369542
+Topic information: Topic: /amcl_pose | Type: geometry_msgs/msg/PoseWithCovarianceStamped | Count: 81 | Serialization Format: cdr
+                   Topic: /arm/joint_states | Type: sensor_msgs/msg/JointState | Count: 53933 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/finger_joint_states | Type: sensor_msgs/msg/JointState | Count: 5508 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/item/pose | Type: geometry_msgs/msg/PoseStamped | Count: 5508 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/odom | Type: nav_msgs/msg/Odometry | Count: 5508 | Serialization Format: cdr
+                   Topic: /build1/ground_truth/tote/pose | Type: geometry_msgs/msg/PoseStamped | Count: 5508 | Serialization Format: cdr
+                   Topic: /build1/rtf_stats | Type: std_msgs/msg/String | Count: 509 | Serialization Format: cdr
+                   Topic: /build1/run_info | Type: std_msgs/msg/String | Count: 1 | Serialization Format: cdr
+                   Topic: /clock | Type: rosgraph_msgs/msg/Clock | Count: 110169 | Serialization Format: cdr
+                   Topic: /cmd_vel | Type: geometry_msgs/msg/Twist | Count: 2604 | Serialization Format: cdr
+                   Topic: /cmd_vel_nav | Type: geometry_msgs/msg/Twist | Count: 2288 | Serialization Format: cdr
+                   Topic: /cmd_vel_smoothed | Type: geometry_msgs/msg/Twist | Count: 3055 | Serialization Format: cdr
+                   Topic: /collision_monitor_state | Type: nav2_msgs/msg/CollisionMonitorState | Count: 0 | Serialization Format: cdr
+                   Topic: /joint_states | Type: sensor_msgs/msg/JointState | Count: 5508 | Serialization Format: cdr
+                   Topic: /left_arm_controller/controller_state | Type: control_msgs/msg/JointTrajectoryControllerState | Count: 53929 | Serialization Format: cdr
+                   Topic: /left_arm_gravity_controller/commands | Type: std_msgs/msg/Float64MultiArray | Count: 10989 | Serialization Format: cdr
+                   Topic: /local_plan | Type: nav_msgs/msg/Path | Count: 1470 | Serialization Format: cdr
+                   Topic: /odom | Type: nav_msgs/msg/Odometry | Count: 5508 | Serialization Format: cdr
+                   Topic: /plan | Type: nav_msgs/msg/Path | Count: 64 | Serialization Format: cdr
+                   Topic: /right_arm_controller/controller_state | Type: control_msgs/msg/JointTrajectoryControllerState | Count: 53927 | Serialization Format: cdr
+                   Topic: /right_arm_gravity_controller/commands | Type: std_msgs/msg/Float64MultiArray | Count: 10989 | Serialization Format: cdr
+                   Topic: /scan_filtered | Type: sensor_msgs/msg/LaserScan | Count: 1101 | Serialization Format: cdr
+                   Topic: /sil/bms/emulator_state | Type: std_msgs/msg/String | Count: 551 | Serialization Format: cdr
+                   Topic: /sil/gz/joint_states | Type: sensor_msgs/msg/JointState | Count: 11016 | Serialization Format: cdr
+                   Topic: /sil/lift/command | Type: std_msgs/msg/Int8 | Count: 3 | Serialization Format: cdr
+                   Topic: /sil/lift/permit | Type: std_msgs/msg/Bool | Count: 21 | Serialization Format: cdr
+                   Topic: /sim/joint_states | Type: sensor_msgs/msg/JointState | Count: 10798 | Serialization Format: cdr
+                   Topic: /tf | Type: tf2_msgs/msg/TFMessage | Count: 8995 | Serialization Format: cdr
+                   Topic: /tf_static | Type: tf2_msgs/msg/TFMessage | Count: 1 | Serialization Format: cdr
+Service:           0
+Service information: 

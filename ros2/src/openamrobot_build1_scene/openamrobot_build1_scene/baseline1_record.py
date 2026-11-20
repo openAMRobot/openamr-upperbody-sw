@@ -20,7 +20,7 @@ BAG_TOPICS = (
     "/build1/ground_truth/finger_joint_states", "/build1/ground_truth/item/pose", "/build1/ground_truth/tote/pose",
     "/sil/drive/status", "/sil/drive/emulator_state", "/sil/lift/status", "/sil/lift/emulator_state",
     "/sil/bms/status", "/sil/bms/emulator_state", "/sil/fw/status", "/sil/lift/permit", "/sil/lift/command",
-    "/build1/rtf_stats", "/build1/run_info", "/scan_filtered",
+    "/build1/rtf_stats", "/build1/run_info", "/scan_filtered", "/baseline1/mission_status",   # Proposed (#82)
     "/navigate_to_pose/_action/status", "/navigate_to_pose/_action/feedback", "/backup/_action/status",
     "/move_action/_action/status", "/execute_trajectory/_action/status",
 )
