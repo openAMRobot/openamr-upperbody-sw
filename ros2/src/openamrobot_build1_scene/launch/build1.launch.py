@@ -45,6 +45,8 @@ Args
   stm32            host | renode_readonly (default host), as openamrobot_sil's argument. firmware_sil and faults only
   create_vcan      true | false (default true). false: the five interfaces must exist already
   station          origin | work_shelf | aisle_entry (default origin): where the robot is spawned
+  scene            scene file in this package's config directory, or an absolute path (default scene.yaml, the Build 1
+                   scene). grocery_scene.yaml is the grocery dark store demonstrator (docs/demo/grocery_dark_store.md)
   sensors          true | false (default true). false: no rendered sensor, and no Nav2
   extra_sensors    true | false (default true). The RGB-D and wrist cameras this package adds
   nav2, moveit     true | false (default true)
@@ -167,7 +169,8 @@ def launch_setup(context):
     value = lambda name: LaunchConfiguration(name).perform(context)  # noqa: E731
     flag = lambda name: value(name) == "true"                        # noqa: E731
     share = get_package_share_directory(PACKAGE)
-    scene = scene_model.load(os.path.join(share, "config", "scene.yaml"))
+    scene_file = value("scene") if os.path.isabs(value("scene")) else os.path.join(share, "config", value("scene"))
+    scene = scene_model.load(scene_file)
     try:
         run = support.profile(value("profile"), value("step"))
     except ValueError as error:
@@ -219,7 +222,8 @@ def launch_setup(context):
     with open(os.path.join(control_share, "config", "arm_controllers.yaml")) as f:
         arm_controllers = yaml.safe_load(f)
     info = {"profile": run["name"], "physics_step": step, "step_s": support.step_seconds(scene, step), "physics_engine": engine,
-            "devices": devices, "station": value("station"), "sensors": sensors, "nav2": nav2, "moveit": flag("moveit"),
+            "devices": devices, "station": value("station"), "scene": value("scene"), "sensors": sensors, "nav2": nav2,
+            "moveit": flag("moveit"),
             "seed": "none set: a repeated run is not guaranteed to be identical", **info_alignment}
 
     if devices:
@@ -422,7 +426,7 @@ def launch_setup(context):
                                                           # with devices the joint states cross the Damiao position field
                                                           **({"epsilon": support.DAMIAO_POSITION_RESOLUTION} if devices else {})}]))
         actions.append(Node(package=PACKAGE, executable="planning_scene_loader.py", name="planning_scene_loader", output="screen",
-                            parameters=[{"use_sim_time": True, "scene_file": os.path.join(share, "config", "scene.yaml"),
+                            parameters=[{"use_sim_time": True, "scene_file": scene_file,
                                          "spawn_pose": [float(v) for v in spawn], "pose_source": pose_source,
                                          "object_pose_source": object_source}]))
         rviz_parameters += [config.robot_description, config.robot_description_semantic, config.robot_description_kinematics,
@@ -478,6 +482,9 @@ def generate_launch_description():
                               description="Run setup_vcan_all.sh first (needs root or passwordless sudo)"),
         DeclareLaunchArgument("station", default_value="origin", choices=["origin", "work_shelf", "aisle_entry"],
                               description="Where the robot is spawned (config/scene.yaml, stations)"),
+        DeclareLaunchArgument("scene", default_value="scene.yaml",
+                              description="Scene file: a name in this package's config directory or an absolute path. "
+                                          "scene.yaml (Build 1, default) or grocery_scene.yaml (grocery dark store demonstrator)"),
         DeclareLaunchArgument("sensors", default_value="true", choices=boolean, description="Render the sensors"),
         DeclareLaunchArgument("extra_sensors", default_value="true", choices=boolean,
                               description="The RGB-D and wrist cameras this package adds to the model"),
