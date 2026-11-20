@@ -10,7 +10,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 - **One source.** Every backend file is generated from `combined_robot.xacro` with `hardware_profile:=gazebo` for a named
   configuration (`bp000`, `bp050`). That is the text Gazebo gets. Its SHA-256 is checked against the digital-twin lock before
   anything is written (`simulation/expansion_lock.yaml`, a mirror of `digital-twin/phase1/digital_twin.lock.yaml` in
-  openAMRobot/audits at `be17653`). A different hash for the same inputs stops the generator (exit 2). When the description files
+  openAMRobot/audits at `642c96d`, audits #91, Proposed). A different hash for the same inputs stops the generator (exit 2). When the description files
   differ from every locked commit, the result counts only if the hash is the locked one for the same configuration, pins and xacro
   build; the status then reads `hash in lock, inputs changed (... re-lock pending)`, never `matches lock`. Otherwise the generator
   stops (exit 3, BLOCKED). On PR #66 head `5adeba3` the status is the second one: re-lock in audits is pending.
@@ -35,7 +35,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` | `config/upstream_pins.yaml` |
 | enactic/openarm_ros2 (gripper gains) | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` | `config/upstream_pins.yaml` |
 | enactic/openarm_mujoco (comparison only) | `1daab06716b779376dbe7f01fb0548f8b539bb35` | `simulation/sim_pins.yaml` |
-| xacro | `ros-jazzy-xacro 2.1.1-1noble.20260519.011123` | lock input; CI installs it exactly |
+| xacro | `ros-jazzy-xacro 2.1.1-1noble.20261025.230251` (the 20260519 build is superseded: no longer served, expansions byte-identical) | lock input; CI installs it exactly |
 | MuJoCo, pinocchio, usd-core, trimesh, pycollada, numpy | exact versions | `simulation/requirements.txt` |
 | Isaac Sim | 5.1.0, `nvcr.io/nvidia/isaac-sim:5.1.0` | `engine_overrides.yaml` isaac, `simulation/sim_pins.yaml` |
 
