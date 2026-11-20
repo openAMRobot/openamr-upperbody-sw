@@ -99,7 +99,7 @@ def test_the_grasp_line_runs_along_the_fingers_and_ends_with_the_tcp_on_the_poin
 def test_scenario_4_reaches_and_lifts_on_straight_lines_with_the_orientation_held():
     body = _grasp_body()
     assert '_pose_goal(f"{side}_arm", link, hand' not in body and '_pose_goal(f"{side}_arm", link, lifted' not in body
-    assert "_, hand = grasp_line((tcp_x, tcp_y, grasp_z), found[0], held_orientation)" in body
+    assert "waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)" in body
     assert "straight_lift(at_grasp[0], (rotation.x, rotation.y, rotation.z, rotation.w), LIFT_RISE_M)" in body
     assert '_cartesian(rig, log, side, link, [lifted], lift_orientation, "grasp_lift", 0.1)' in body
     assert af.LIFT_RISE_M == 0.08 and af.CARTESIAN_MIN_FRACTION >= 0.99 and af.CARTESIAN_STEP_M <= 0.01
@@ -176,8 +176,8 @@ def test_the_reach_clears_the_tote_wall_and_the_lift_clears_the_board_above(scen
     assert item[1][2] + grasp - af.FINGER_HALF_HEIGHT_M < item_top - 0.06
     body = _grasp_body()
     assert "angle_tolerance=approach_tolerances(quaternion)" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
-    assert "grasp_line((tcp_x, tcp_y, grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)" in body
-    assert '_cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)' in body
+    assert "waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)" in body
+    assert '_cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)' in body
 
 
 def test_the_fixed_boxes_get_the_planning_clearance_and_the_objects_do_not(scene):
@@ -395,3 +395,227 @@ def test_every_run_declares_its_object_pose_source_and_a_run_without_it_is_refus
     assert "self.object_pose_source = None" in rig
     with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
         assert 'arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])' in f.read()
+
+
+@pytest.mark.parametrize("yaw", [0.0, 0.2])
+@pytest.mark.parametrize("tilt", [0.0, 0.15])
+def test_the_reach_comes_down_short_of_the_end_and_above_the_grasp_height_and_closes_on_a_straight_line(yaw, tilt):
+    x, y, z, w = af.side_grasp(yaw)
+    tx, tw = math.sin(tilt / 2.0), math.cos(tilt / 2.0)                        # the approach ended `tilt` off about x
+    q = (w * tx + x * tw, y * tw + z * tx, z * tw - y * tx, w * tw - x * tx)
+    offset, point = (-0.0014, 0.0, -0.138), (0.75, 0.16, 0.925)
+    pre, above, down, end = (np.array(v) for v in af.reach_waypoints(point, offset, q))
+    fingers, up = matrix(*q) @ np.array((0.0, 0.0, -1.0)), np.array((0.0, 0.0, 1.0))
+    assert np.allclose(end, af.grasp_line(point, offset, q)[1], atol=1e-12)          # the end point is unchanged
+    # last: the straight line onto the end point, DESCENT_STANDOFF_M along the fingers and DESCENT_RISE_M down
+    assert np.allclose(end - down, af.DESCENT_STANDOFF_M * fingers - af.DESCENT_RISE_M * up, atol=1e-12)
+    assert np.allclose(down - above, -(af.REACH_CLEARANCE_M - af.DESCENT_RISE_M) * up, atol=1e-12)   # down, short of it
+    assert np.allclose(above - pre, (af.REACH_STANDOFF_M - af.DESCENT_STANDOFF_M) * fingers, atol=1e-12)
+    assert np.allclose(pre, af.grasp_line((point[0], point[1], point[2] + af.REACH_CLEARANCE_M), offset, q)[0], atol=1e-12)
+    old = af.reach_waypoints(point, offset, q, standoff=0.0)
+    assert len(old) == 3 and np.allclose(old[2], end, atol=1e-12) and np.allclose(old[0], pre, atol=1e-12)
+    level = af.reach_waypoints(point, offset, q, rise=0.0)                             # e7a251c: down onto the grasp height
+    assert np.allclose(np.array(level[3]) - np.array(level[2]), af.DESCENT_STANDOFF_M * fingers, atol=1e-12)
+    assert af.DESCENT_STANDOFF_M >= af.REACH_PATH_DEVIATION_M and af.DESCENT_RISE_M >= af.REACH_PATH_DEVIATION_M
+    assert af.DESCENT_RISE_M < af.REACH_CLEARANCE_M
+
+
+# The palm against the item along scn04's reach, from two recorded Baseline 1 missions: the ground truth base pose at
+# arm_approach, the left arm controller's state at the end of the approach (the orientation the reach holds), and the
+# grasp_reach commanded end point the mission logged. Item at its ground truth pose (0.160, -2.835, 0.895), yaw 0.
+REACH_RUNS = {
+    # run 44476577635 (control room end to end, ee36e87): grasp_reach_servo_torque_max 1.018 N m, the palm on the item
+    "44476577635": ((-0.02065, -2.09111, -1.55065), 0.00081,
+                    [-0.45529, -0.02155, -0.08030, 1.74125, 0.10548, -0.63191, -0.14591],
+                    [-0.90234, -0.00542, -0.05834, 0.97391, 0.11682, -0.31423, -0.07811], 0.00155),
+    # run 44470870769, leg 1 (acceptance, eb920f0): 0.158 N m, no contact
+    "44470870769-leg1": ((-0.00872, -2.07965, -1.56224), 0.00078,
+                         [-0.50183, -0.01202, -0.01698, 1.64130, -0.07763, -0.49954, 0.01125],
+                         [-0.93651, -0.02215, -0.00937, 0.85183, -0.07229, -0.14584, -0.01797], 0.00441),
+}
+# The hand on the tote's front wall, from the build1-arm-diagnostics run 44609269748 of e7a251c (diag_grasp, spawned at the
+# work_shelf station, lift at stop 0): the grasp_approach and grasp_reach commanded end points the runs logged. Run 4 put
+# ee_base_link on tote:front_collision (7.63 N), run 5 ee_base_link (0.63 N) and ee_link1 (4.94 N), both in grasp_reach.
+WALL_RUNS = {
+    "44609269748-run4": ((0.0, -2.085, -math.pi / 2.0), 0.0,
+                         [-0.44675, 0.17453, -0.21264, 1.73937, 0.14212, -0.51658, -0.19447],
+                         [-0.90495, 0.09325, -0.2177, 0.92346, 0.10279, -0.16049, -0.08078], 0.00489),
+    "44609269748-run5": ((0.0, -2.085, -math.pi / 2.0), 0.0,
+                         [-0.46728, -0.20396, 0.1277, 1.74437, -0.13721, -0.51415, 0.10058],
+                         [-0.89829, -0.11626, 0.18752, 0.90798, -0.09276, -0.10421, 0.03881], 0.00379),
+}
+ITEM_WORLD = (0.160, -2.835, 0.895)
+HAND_LINKS = ("openarm_left_ee_base_link", "openarm_left_ee_link1", "openarm_left_ee_link2")
+FINGERS_OPEN_RAD = 0.765       # finger_open_position in the runs above (0.7854 commanded, the far limit)
+
+
+def _stl_triangles(path):
+    """Triangles (n, 3, 3) of a binary STL file."""
+    with open(path, "rb") as f:
+        data = f.read()
+    count = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
+    records = np.frombuffer(data, dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]), count=count, offset=84)
+    return records["v"].astype(float)
+
+
+def _palm_points(urdf, link="openarm_left_ee_base_link"):
+    """Points on the collision mesh of `link` in its own frame: vertices and a barycentric grid on every triangle."""
+    import xml.etree.ElementTree as ET
+    from ament_index_python.packages import get_package_share_directory
+    collision = ET.fromstring(urdf).find(f"link[@name='{link}']/collision")
+    origin, mesh = collision.find("origin"), collision.find("geometry/mesh")
+    package, relative = mesh.get("filename")[len("package://"):].split("/", 1)
+    triangles = _stl_triangles(os.path.join(get_package_share_directory(package), relative))
+    triangles = triangles * np.array([float(v) for v in (mesh.get("scale") or "1 1 1").split()])
+    assert [float(v) for v in (origin.get("rpy") or "0 0 0").split()] == [0.0, 0.0, 0.0]
+    weights = np.array([(i, j, 8 - i - j) for i in range(9) for j in range(9 - i)], dtype=float) / 8.0
+    points = np.einsum("wk,tkd->twd", weights, triangles).reshape(-1, 3)
+    return points + np.array([float(v) for v in origin.get("xyz").split()])
+
+
+def _box_clearance(points, half):
+    """Smallest distance of `points` (box frame) to an axis-aligned box of half sizes `half`; minus the depth if inside."""
+    outside = np.linalg.norm(np.maximum(np.abs(points) - half, 0.0), axis=1)
+    inside = np.all(np.abs(points) < half, axis=1)
+    if inside.any():
+        return -float(np.min((half - np.abs(points[inside])).min(axis=1)))
+    return float(outside.min())
+
+
+def _recorded_reach(devices_urdf, run, rise=None):
+    """The reach of a recorded run in base_footprint: (waypoints, held rotation, item centre, item axes, frames(q))."""
+    from openamrobot_build1_scene.gravity import ARM_JOINTS, GravityModel
+    (bx, by, byaw), lift, q_approach, q_end, _ = {**REACH_RUNS, **WALL_RUNS}[run]
+    model, joints = GravityModel(devices_urdf), ARM_JOINTS["left"]
+    hand, tcp_frame = af.HAND_FRAME["left"], af.TCP_FRAME["left"]
+    fingers = {"openarm_left_finger_joint1": FINGERS_OPEN_RAD, "openarm_left_finger_joint2": FINGERS_OPEN_RAD}
+
+    def frames(q):
+        links, _ = model._frames({**dict(zip(joints, q)), "lift_joint": lift, **fingers})
+        R0, p0 = links.get("base_footprint", (np.eye(3), np.zeros(3)))
+        return {name: (R0.T @ R, R0.T @ (p - p0)) for name, (R, p) in links.items()}
+
+    links = frames(q_approach)
+    R_held = links[hand][0]
+    tcp_offset = tuple(R_held.T @ (links[tcp_frame][1] - links[hand][1]))
+    w = math.sqrt(max(0.0, 1.0 + np.trace(R_held))) / 2.0
+    held = ((R_held[2, 1] - R_held[1, 2]) / (4 * w), (R_held[0, 2] - R_held[2, 0]) / (4 * w),
+            (R_held[1, 0] - R_held[0, 1]) / (4 * w), w)
+    c, s = math.cos(byaw), math.sin(byaw)
+    R_world = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])          # world axes in base_footprint
+
+    def in_base(point):
+        return R_world @ (np.array(point[:2] + (point[2],)) - np.array((bx, by, 0.0)))
+
+    item = in_base(ITEM_WORLD)
+    tcp = af.tcp_for_item((item[0], item[1], item[2] + af.GRASP_ABOVE_ITEM_CENTRE_M), held)
+    waypoints = [np.array(v) for v in af.reach_waypoints(tcp, tcp_offset, held, rise=rise)]
+    # The inputs reproduce the run: its logged end point puts the hand where the last waypoint is.
+    assert np.linalg.norm(frames(q_end)[hand][1] - waypoints[-1]) < 0.003
+    return waypoints, R_held, item, R_world, in_base, frames(q_end)
+
+
+def _sweeps(waypoints, clearance, step=0.0005):
+    """The smallest `clearance(position)` of the hand base on each straight move between `waypoints`."""
+    out = []
+    for start, end in zip(waypoints[:-1], waypoints[1:]):
+        move = end - start
+        steps = max(1, int(math.ceil(np.linalg.norm(move) / step)))
+        out.append(min(clearance(start + move * k / steps) for k in range(steps + 1)))
+    return out
+
+
+def _assert_the_last_move_is_the_short_push(waypoints, R_held):
+    """The last move is the straight line onto the end point: DESCENT_STANDOFF_M along the fingers, DESCENT_RISE_M down."""
+    last = waypoints[-1] - waypoints[-2]
+    fingers = R_held @ np.array((0.0, 0.0, -1.0))
+    assert np.allclose(last + af.DESCENT_RISE_M * np.array((0.0, 0.0, 1.0)), af.DESCENT_STANDOFF_M * fingers, atol=1e-9), \
+        "the last move closes on the item along the fingers, besides DESCENT_RISE_M down"
+
+
+@pytest.mark.parametrize("run", sorted(REACH_RUNS))
+def test_the_palm_does_not_sweep_past_the_items_face_within_the_path_deviation(devices_urdf, scene, run):
+    """The item is out of the planning scene for the reach, so MoveIt does not see the palm against it. Every move of the
+    reach but the last keeps the palm's collision mesh REACH_PATH_DEVIATION_M or more from the item; the last one is the
+    short straight push onto the end point. Without the standoff (reach_waypoints standoff 0) the descent of run
+    44476577635 is the last move, 0.02 m long, and sweeps the palm 1.5 mm from the item's top edge, where the run and its
+    reproduction recorded the palm on the item."""
+    from openamrobot_build1_scene import scene as scene_model
+    waypoints, R_held, item, R_item, _, _ = _recorded_reach(devices_urdf, run)
+    half = np.array({name: size for name, size, _, _ in scene_model.collision_boxes(scene)}["item"]) / 2.0
+    palm = _palm_points(devices_urdf)
+
+    def clearance(position):
+        return _box_clearance(((R_held @ palm.T).T + position - item) @ R_item, half)
+
+    assert clearance(waypoints[-1]) == pytest.approx(REACH_RUNS[run][4], abs=0.0005)
+    _assert_the_last_move_is_the_short_push(waypoints, R_held)
+    sweeps = _sweeps(waypoints[:-1], clearance)
+    assert len(sweeps) >= 2, "the reach has a descent before the last move"
+    assert min(sweeps) >= af.REACH_PATH_DEVIATION_M, f"the palm sweeps {min(sweeps) * 1000:.2f} mm from the item"
+
+
+@pytest.mark.parametrize("run", sorted(REACH_RUNS) + sorted(WALL_RUNS))
+def test_the_hand_stays_the_path_deviation_off_the_tote_front_wall_until_the_last_move(devices_urdf, scene, run):
+    """The tote is in the planning scene for the reach as one unpadded box of its outer size, so MoveIt accepts a hand that
+    passes a millimetre over its front wall. The palm (ee_base_link) and the open fingers (ee_link1, ee_link2), by their
+    collision meshes, stay REACH_PATH_DEVIATION_M or more from the front wall as Gazebo builds it (scene._movable_sdf) on
+    every move of the reach but the last, the short push onto the end point that MoveIt has checked against the tote.
+    With the descent onto the grasp height 9 mm back (e7a251c, rise 0) run 5 of 44609269748 comes down with ee_link1
+    7.1 mm over the wall; the run recorded ee_link1 on tote:front_collision at 4.94 N."""
+    from openamrobot_build1_scene import scene as scene_model
+    waypoints, R_held, _, R_world, in_base, at_end = _recorded_reach(devices_urdf, run)
+    tote = scene_model.movable_objects(scene)["tote"]
+    (sx, sy, sz), wall = tote["size"], tote["wall"]
+    tx, ty, tz, tyaw = tote["pose"]
+    assert tyaw == 0.0
+    centre = in_base((tx, ty + sy / 2.0 - wall / 2.0, tz + sz / 2.0))     # the "front" part, the face towards the robot
+    half = np.array((sx, wall, sz)) / 2.0
+    hand = af.HAND_FRAME["left"]
+    meshes = {}
+    for link in HAND_LINKS:
+        R_link, p_link = at_end[link]
+        R_hand, p_hand = at_end[hand]
+        points = _palm_points(devices_urdf, link)
+        meshes[link] = (R_hand.T @ ((R_link @ points.T).T + p_link - p_hand).T).T      # in the hand frame, fingers open
+
+    def clearance(position):
+        return min(_box_clearance(((R_held @ points.T).T + position - centre) @ R_world, half) for points in meshes.values())
+
+    assert clearance(waypoints[-1]) > 0.0, "the end point MoveIt checked against the tote box is off the wall"
+    _assert_the_last_move_is_the_short_push(waypoints, R_held)
+    sweeps = _sweeps(waypoints[:-1], clearance)
+    assert min(sweeps) >= af.REACH_PATH_DEVIATION_M, f"the hand passes {min(sweeps) * 1000:.2f} mm from the tote front wall"
+
+
+# ------------------------------------------------------------------ the last-move mark (strict contact window, #98 review)
+@pytest.mark.parametrize("yaw", [0.0, 0.2])
+@pytest.mark.parametrize("tilt", [0.0, 0.15])
+def test_the_last_move_mark_fires_where_the_last_move_starts_and_not_before(yaw, tilt):
+    """Walk the planned reach in 0.5 mm steps: in_last_move is false on every earlier move and becomes true within
+    LAST_MOVE_TOLERANCE_M of the start of the last move ('down'), and stays true on it."""
+    x, y, z, w = af.side_grasp(yaw)
+    tx, tw = math.sin(tilt / 2.0), math.cos(tilt / 2.0)
+    q = (w * tx + x * tw, y * tw + z * tx, z * tw - y * tx, w * tw - x * tx)
+    waypoints = af.reach_waypoints((0.75, 0.16, 0.925), (-0.0014, 0.0, -0.138), q)
+    points = [np.array(p) for p in waypoints]
+    path = []
+    for start, end in zip(points[:-1], points[1:]):
+        steps = max(1, int(math.ceil(np.linalg.norm(end - start) / 0.0005)))
+        path += [start + (end - start) * k / steps for k in range(steps)]
+    path.append(points[-1])
+    flags = [af.in_last_move(tuple(p), waypoints) for p in path]
+    first = flags.index(True)
+    assert np.linalg.norm(path[first] - points[-2]) <= af.LAST_MOVE_TOLERANCE_M + 0.0005
+    assert all(flags[first:]), "the mark must hold through the last move"
+    assert not af.in_last_move(tuple(points[0]), waypoints) and not af.in_last_move(tuple(points[1]), waypoints)
+    assert not af.in_last_move((0.0, 0.0, 0.0), [points[-1]])
+
+
+def test_the_grasp_marks_the_last_move_with_the_label_of_the_strict_contact_window():
+    body = _grasp_body()
+    assert "watcher = LastMoveMark(rig, link, waypoints).start()" in body
+    assert body.index("LastMoveMark(rig, link, waypoints)") < body.index('"grasp_reach", 0.1)') < body.index("watcher.stop()")
+    from openamrobot_build1_scene import baseline1_gates, scenarios
+    window = baseline1_gates.load()["contacts"]["windows"]["grasp_reach_last_move"]
+    assert window == [scenarios.LastMoveMark.LABEL, "grasp_reach_end"]
