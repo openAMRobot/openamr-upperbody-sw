@@ -169,7 +169,7 @@ def movable_objects(scene):
 # the item's top edge (palm or finger, up to 41.5 N) or knocked the item over in 21 of 22 arm diagnostics runs on 323a2ce,
 # 87d0f7a, e7a251c, ec8d616 and scratch 3a6a511; the item lay on its side in 11 of the 12 runs that logged its pose. In the twelfth the item stayed standing under the palm
 # (33.6 N), held the hand up against work_shelf_board_1, and MoveIt refused the return to park as a start state in
-# collision (-10). At 0.27 m the hand stays beside the tote (test_scn03_reach_targets.py). Level 1 has nothing under its
+# collision (-10). At 0.27 m the hand stays beside the tote (test_scene_reach_targets.py). Level 1 has nothing under its
 # targets and keeps 0.16 m.
 SHELF_REACH_SIDE_M = 0.16
 LEVEL0_REACH_SIDE_M = 0.27

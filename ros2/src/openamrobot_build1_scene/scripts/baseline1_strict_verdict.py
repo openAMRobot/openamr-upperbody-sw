@@ -4,7 +4,7 @@
 
   baseline1_strict_verdict.py [LEG_DIR ...] [--find ROOT] [--expect 2] [--require-profile sim-oracle]
       [--require-rmw rmw_cyclonedds_cpp] [--require-alignment 1] [--min-participant-index 120]
-      [--summary FILE] [--out FILE]
+      [--gates config/baseline1_gates.json] [--summary FILE] [--out FILE]
 
 --find ROOT adds every directory under ROOT that holds a declaration.json: actions/download-artifact puts each
 artifact in its own directory when several match, and one matching artifact straight into ROOT.
@@ -18,7 +18,13 @@ PASS only when all of these hold:
   CycloneDDS MaxAutoParticipantIndex of at least --min-participant-index;
 - every leg declares station alignment on and the mission sent its goal through the alignment action;
 - every leg declares the required profile, and for sim-oracle the run identity says planning_pose_source ground_truth;
-- every leg passed all eight phases (baseline1_phases.complete, the same rule as baseline1_report.py).
+- every leg passed all eight phases (baseline1_phases.complete, the same rule as baseline1_report.py);
+- both legs come from this one dispatch: the same run id and run attempt (two consecutive missions);
+- every leg passes the gates of openamrobot_build1_scene/baseline1_gates.py with the --gates file: the mission result
+  is PASS with no failed check outside the phases; the drive, battery, lift and arm work counters advance through the
+  whole run; the Stop checks of stop_authorize ran and passed and a cancellation check ran and passed; contact sensors
+  were on and every contact is in the allowed list with its reason; the evidence is complete (bag, one candump per
+  virtual bus, every phase timed, run_info, full pinned hashes, seed and settings declared).
 With --expect below 2 the verdict is never PASS: it is NOT STRICT (a single validation run), whatever the phases.
 Exit status 0 only for PASS. No ROS import. Simulation evidence only.
 """
@@ -29,6 +35,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from openamrobot_build1_scene import baseline1_gates as gates  # noqa: E402
 from openamrobot_build1_scene import baseline1_phases as phases  # noqa: E402
 
 ALIGNMENT_ACTION = "/station_alignment/navigate_to_station"   # baseline1.ALIGNMENT_ACTION (that module imports ROS)
@@ -65,7 +72,7 @@ def participant_index(uri):
     return int(match.group(1)) if match else None
 
 
-def check_leg(declaration, mission, args):
+def check_leg(declaration, mission, args, leg_dir="."):
     """Return (phases passed, phase count, problems) for one leg."""
     problems = []
     if declaration is None:
@@ -97,6 +104,7 @@ def check_leg(declaration, mission, args):
         source = (mission.get("run") or {}).get("planning_pose_source")
         if source != "ground_truth":
             problems.append(f"run identity planning_pose_source {source!r}, sim-oracle declares ground_truth")
+    problems += gates.all_gates(leg_dir, declaration, mission, args.gate_config)
     return passed, len(phases.PHASES), problems
 
 
@@ -105,7 +113,7 @@ def decide(legs, args):
     record = {"expect": args.expect, "legs": [], "problems": [], "pins": None}
     numbers = []
     for leg_dir, declaration, mission in legs:
-        passed, total, problems = check_leg(declaration, mission, args)
+        passed, total, problems = check_leg(declaration, mission, args, leg_dir)
         number = (declaration or {}).get("leg")
         numbers.append(number)
         record["legs"].append({"dir": leg_dir, "leg": number, "phases_passed": passed, "phases": total,
@@ -122,6 +130,9 @@ def decide(legs, args):
         record["problems"].append("the legs ran on different pinned commits")
     else:
         record["pins"] = pins[0]
+    dispatch = {((d or {}).get("run_id"), (d or {}).get("run_attempt")) for _dir, d, _m in legs}
+    if len(dispatch) > 1:
+        record["problems"].append(f"the legs come from different dispatches or attempts: {sorted(dispatch, key=str)}")
     settings = [leg["settings"] for leg in record["legs"]]
     if any(s != settings[0] for s in settings):
         record["problems"].append("the legs declare different settings")
@@ -135,7 +146,8 @@ def decide(legs, args):
 def render(record):
     lines = [f"### Strict Baseline 1 verdict: {record['verdict']}", "",
              f"Rule: {record['expect']} consecutive missions in this dispatch, each 8 of 8, same pinned commits, "
-             "CycloneDDS with the raised participant index, station alignment on, declared profile.", "",
+             "CycloneDDS with the raised participant index, station alignment on, declared profile, components alive "
+             "for the whole run, Stop and cancellation checks, no unaccounted contact, complete evidence.", "",
              "| Leg | Run | Phases | Problems |", "|---|---|---|---|"]
     for leg in record["legs"]:
         lines.append(f"| {leg['leg']} | {leg['run_id']} | {leg['phases_passed']} of {leg['phases']} | "
@@ -162,9 +174,11 @@ def main(argv=None):
     parser.add_argument("--require-rmw", default="rmw_cyclonedds_cpp")
     parser.add_argument("--require-alignment", default="1")
     parser.add_argument("--min-participant-index", type=int, default=120)
+    parser.add_argument("--gates", default=gates.GATES_FILE, help="the gate configuration (config/baseline1_gates.json)")
     parser.add_argument("--summary")
     parser.add_argument("--out")
     args = parser.parse_args(argv)
+    args.gate_config = gates.load(args.gates)
     dirs = sorted(set(args.legs) | set(find_legs(args.find) if args.find else []))
     legs = [(d, *read_leg(d)) for d in dirs]
     record = decide(legs, args)
