@@ -38,6 +38,7 @@ def make_prefix(prefix, trees):
     index = prefix / "share" / "ament_index" / "resource_index" / "packages"
     index.mkdir(parents=True)
     for tree in trees:
+        tree = pathlib.Path(tree).resolve()  # absolute, so the symlinks resolve
         for manifest in sorted(pathlib.Path(tree).rglob("package.xml")):
             name = manifest.parent.name
             if (prefix / "share" / name).exists():
@@ -70,6 +71,8 @@ def main():
     p.add_argument("--label", required=True)
     p.add_argument("--out", required=True)
     o = p.parse_args()
+    for k in ("upperbody", "platform", "openarm_description", "openarm_ros2"):
+        setattr(o, k, str(pathlib.Path(getattr(o, k)).resolve()))
     lock = yaml.safe_load(pathlib.Path(o.lock).read_text())
     rows, bad = [], 0
     with tempfile.TemporaryDirectory() as tmp:

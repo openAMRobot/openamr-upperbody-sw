@@ -73,6 +73,7 @@ jobs:
             --openarm-description src/oad --openarm-ros2 src/oar --label wheel --out wheel.json | tee wheel.txt
 
       - name: (D) ros-jazzy-xacro served today, all lock hashes
+        if: always()
         run: |
           set -o pipefail
           sudo apt-get update -qq
@@ -87,6 +88,7 @@ jobs:
             --openarm-description src/oad --openarm-ros2 src/oar --label deb --out deb.json | tee deb.txt
 
       - name: (b) Jazzy snapshot repository, xacro builds per snapshot
+        if: always()
         continue-on-error: true
         run: |
           curl -fsS -m 60 http://snapshots.ros.org/jazzy/ | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort -u > snapshots.txt || true
@@ -101,6 +103,7 @@ jobs:
           echo "packages.ros.org ros-jazzy-xacro: $v" | tee -a snapshot_xacro.txt
 
       - name: (c) container images, is xacro in them
+        if: always()
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,6 +118,7 @@ jobs:
           else echo "pull of $img failed (access or removed)"; fi
 
       - name: (a) PyPI record of the pinned wheel
+        if: always()
         continue-on-error: true
         run: |
           curl -fsS -m 60 https://pypi.org/pypi/xacro/2.1.1/json | python3 -c "
