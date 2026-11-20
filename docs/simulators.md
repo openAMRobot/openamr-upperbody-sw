@@ -220,6 +220,8 @@ and the mimic constraint agree. The differences (a test keeps this table equal t
 
 ## Isaac Sim
 
+To run it on a GPU machine with one script (USD, checks, benchmark scenarios, evidence bundle): `simulation/isaac/RUN_ON_GPU.md`.
+
 Status: **BLOCKED** (no GPU in CI or in the session that wrote this). BLOCKED is not PASS. What runs without a GPU: the import job
 (`generate.py --isaac`), its tests, and the USD checker's self-test on a small USD built with usd-core.
 

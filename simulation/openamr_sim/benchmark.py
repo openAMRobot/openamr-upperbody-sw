@@ -14,15 +14,20 @@ import pathlib
 import re
 import xml.etree.ElementTree as ET
 
-import yaml
-
 SCENARIOS = pathlib.Path(__file__).resolve().parents[1] / "benchmark" / "scenarios.yaml"
 ORDER = ("rest", "joint_step", "arm_reach", "lift_move", "straight_drive", "in_place_turn", "object_contact")
 SCHEMA = "openamr.sim_benchmark.v1"
 
 
 def load_scenarios(path=SCENARIOS):
-    spec = yaml.safe_load(pathlib.Path(path).read_text())
+    """The scenario file. A .json path is read without PyYAML (the Isaac Sim python gets the JSON copy the run kit writes)."""
+    path = pathlib.Path(path)
+    if path.suffix == ".json":
+        import json
+        spec = json.loads(path.read_text())
+    else:
+        import yaml
+        spec = yaml.safe_load(path.read_text())
     if tuple(spec["scenarios"]) != ORDER:
         raise ValueError(f"scenario order {tuple(spec['scenarios'])} is not {ORDER}")
     return spec
