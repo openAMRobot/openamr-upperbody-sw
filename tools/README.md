@@ -141,5 +141,6 @@ commits, xacro arguments, and path, size, sha256, licence and source of every fi
 stops it. The zip is reproducible: sorted entries, fixed timestamps. No MJCF yet: the generator is not on main, and the build
 stops once `simulation/openamr_sim/mjcf.py` exists, so the bundle is wired to it before it is published without it.
 `verify_bundle.py` (no ROS) checks that every referenced mesh is listed and every file's sha256 matches; its tests are
-`tests/test_model_bundle.py`. CI: `.github/workflows/model-bundle.yml` (manual run, `model-v*` tags, and pull requests that
+`tests/test_model_bundle.py`. CI: `.github/workflows/model-bundle.yml` (manual run, `model-<version>` tags such as `model-2.0.0-rc.1` and `model-2.0.0`, checked by
+`model_bundle/release_tag.py`, and pull requests that
 touch this tooling); on a tag it attaches the zip to that tag's release as a draft and never publishes it.

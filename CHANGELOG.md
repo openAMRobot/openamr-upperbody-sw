@@ -12,10 +12,10 @@ All notable changes to this repository. Evidence for the description is static a
   (source commits and the sha256, licence and source of every file), `SHA256SUMS`, `NOTICE.md`, licences and a README with loading
   instructions for RViz and Gazebo and the known limitations. No MJCF: the generator (#69) is not on main. `verify_bundle.py` checks
   a bundle against its lock. Evidence class static; not simulation, hardware or safety evidence.
-- **Workflow `model-bundle.yml`**: manual run, `model-v*` tags (zip attached to the tag's release as a draft, never published by the
+- **Workflow `model-bundle.yml`**: manual run, `model-<version>` tags such as `model-2.0.0-rc.1` and `model-2.0.0` (`release_tag.py` refuses any other name; zip attached to the tag's release as a draft, never published by the
   workflow), and pull requests that touch the bundle tooling.
-- **Tests** `tools/tests/test_model_bundle.py` (13): every referenced mesh listed, every sha256 matching, and each failure the
-  verifier and the builder claim to catch.
+- **Tests** `tools/tests/test_model_bundle.py` (15): every referenced mesh listed, every sha256 matching, and each failure the
+  verifier and the builder claim to catch, and the tag names the workflow accepts.
 
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 

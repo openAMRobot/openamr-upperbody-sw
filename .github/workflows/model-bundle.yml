@@ -2,7 +2,8 @@
 # Builds the public model bundle (tools/model_bundle): the expanded URDFs of bundle.yaml, the meshes they reference, the lock
 # with every commit and sha256, licences and a README, packed as openamrobot-2.0-model-<version>.zip.
 #   - workflow_dispatch: builds the version given and uploads it as an artifact.
-#   - push of a tag model-v<version>: the same, then attaches the zip to that tag's GitHub Release as a DRAFT. Publishing the
+#   - push of a tag model-<version> (model-2.0.0-rc.1, model-2.0.0, model-2.0.<n>; tools/model_bundle/release_tag.py
+#     refuses any other name): the same, then attaches the zip to that tag's GitHub Release as a DRAFT. Publishing the
 #     draft is a person's decision; this workflow never publishes a release and never edits a published one.
 #   - pull_request touching the bundle tooling: builds a dev bundle and uploads it, so a change to the tooling is checked
 #     before it merges. Not on every push or pull request.
@@ -16,7 +17,7 @@ on:
         description: "Bundle version (letters, digits, '.', '+', '-'), for example 0.1.0-rc.1"
         required: true
   push:
-    tags: ["model-v*"]
+    tags: ["model-[0-9]*.[0-9]*.[0-9]*"]
   pull_request:
     paths:
       - tools/model_bundle/**
@@ -59,7 +60,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           case "$EVENT" in
-            push) version="${REF_NAME#model-v}" ;;
+            push) version=$(python3 ws/src/openamr-upperbody-sw/tools/model_bundle/release_tag.py "$REF_NAME") ;;
             workflow_dispatch) version="$INPUT_VERSION" ;;
             pull_request) version="dev-pr${PR_NUMBER}-${HEAD_SHA:0:7}" ;;
           esac
@@ -165,7 +166,7 @@ jobs:
   draft-release:
     name: draft release
     needs: bundle
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/model-v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/model-')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

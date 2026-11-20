@@ -255,3 +255,60 @@ def test_repository_bundle_config_is_complete():
     assert len(ids) == len(set(ids)) and ids
     assert all(c["args"].get("hardware_profile") != "real" for c in config["configurations"])
     assert all(r["licence"] in ("MIT", "CERN-OHL-P-2.0", "Apache-2.0") for r in config["licence_rules"])
+
+
+# The decided model release tags (17 Nov 2026): model-2.0.0-rc.1, then model-2.0.0, then model-2.0.<n>.
+DECIDED_TAGS = {"model-2.0.0-rc.1": "2.0.0-rc.1", "model-2.0.0": "2.0.0", "model-2.0.1": "2.0.1"}
+REFUSED_TAGS = ["model-v2.0.0", "model-v2.0.0-rc.1", "model-2.0", "model-2.0.0-beta", "model-2.0.0-rc.", "model-2.0.0-rc.1/x",
+                "2.0.0-rc.1", "v2.0.0-rc.1", "model-2.0.0 "]
+WORKFLOW = os.path.join(os.path.dirname(os.path.dirname(bb.HERE)), ".github", "workflows", "model-bundle.yml")
+
+
+def _github_glob(pattern):
+    """A GitHub Actions tag filter as a regex: * is any run of characters except /, [..] a character class."""
+    import re
+    out, i = "", 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == "*":
+            out += "[^/]*"
+        elif c == "[":
+            end = pattern.index("]", i)
+            out += pattern[i:end + 1]
+            i = end
+        else:
+            out += re.escape(c)
+        i += 1
+    return re.compile(out)
+
+
+def _workflow():
+    import yaml
+    with open(WORKFLOW) as f:
+        data = yaml.safe_load(f)
+    return data.get("on", data.get(True))
+
+
+def test_release_tag_gives_the_bundle_version():
+    import release_tag
+    for tag, version in DECIDED_TAGS.items():
+        assert release_tag.version_from_tag(tag) == version
+        assert release_tag.main([tag]) == 0
+    for tag in REFUSED_TAGS:
+        with pytest.raises(ValueError):
+            release_tag.version_from_tag(tag)
+        assert release_tag.main([tag]) == 1
+
+
+def test_workflow_triggers_on_the_decided_tags_only():
+    """The push filter of model-bundle.yml fires on every decided tag name; the old model-v* names do not fire it."""
+    filters = _workflow()["push"]["tags"]
+    patterns = [_github_glob(p) for p in filters]
+    for tag in DECIDED_TAGS:
+        assert any(p.fullmatch(tag) for p in patterns), f"{tag} does not trigger {filters}"
+    for tag in ("model-v2.0.0", "model-v2.0.0-rc.1"):
+        assert not any(p.fullmatch(tag) for p in patterns), f"{tag} triggers {filters}"
+    with open(WORKFLOW) as f:
+        text = f.read()
+    assert "tools/model_bundle/release_tag.py \"$REF_NAME\"" in text
+    assert "startsWith(github.ref, 'refs/tags/model-')" in text
