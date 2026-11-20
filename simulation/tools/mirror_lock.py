@@ -83,6 +83,11 @@ def main():
                  "normalisation": lock["expansions"]["normalisation"]},
         "entries": entries,
     }
+    # Earlier xacro builds and why each was replaced: the CI test of the installed build names them in its message.
+    history = lock["expansions"].get("xacro_package_version_history") or []
+    if history:
+        out["xacro_superseded"] = [{"version": h["version"], "superseded": str(h["superseded"]), "reason": " ".join(h["reason"].split())}
+                                   for h in history]
     pathlib.Path(opts.out).write_text("# SPDX-License-Identifier: MIT\n" + yaml.safe_dump(out, sort_keys=False, width=140))
     print(f"{len(entries)} entries, {len(digests)} commits -> {opts.out}")
 
