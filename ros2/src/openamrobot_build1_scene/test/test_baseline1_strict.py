@@ -26,7 +26,8 @@ PINS = {"openamr-upperbody-sw": "a" * 40, "openamr-platform-sw": "b" * 40, "open
 def declaration(leg, **changes):
     value = {"leg": leg, "run_id": 1, "run_attempt": 1, "pins": dict(PINS), "profile": "sim-oracle", "station_approach": "1",
              "station_alignment": "1", "rmw_implementation": "rmw_cyclonedds_cpp", "rmw_runtime": "rmw_cyclonedds_cpp",
-             "cyclonedds_uri": URI, "seed": "20261117", "build_ok": 1, "env_ok": 1, "env_reason": ""}
+             "cyclonedds_uri": URI, "seed": "20261117", "build_ok": 1, "env_ok": 1, "env_reason": "",
+             "cancel_check": "1"}
     value.update(changes)
     return value
 
@@ -205,7 +206,7 @@ def test_a_stop_check_that_did_not_run_fails(tmp_path):
 
 
 def test_a_mission_without_a_cancellation_check_fails(tmp_path):
-    """The Baseline 1 mission of 20 Nov 2026 cancels nothing: the strict verdict cannot pass it."""
+    """A mission without the cancellation step (BASELINE1_CANCEL_CHECK not 1) cannot pass the strict verdict."""
     rc, record = two(tmp_path, data1=mission(cancel=False), data2=mission(cancel=False))
     assert rc == 1 and any("cancellation: 0 cancellation checks ran" in p for p in record["problems"])
 
@@ -255,3 +256,10 @@ def test_contact_events_are_grouped_per_phase_and_pair():
             {"t": 9.0, "a": "x", "b": "y", "fn": float("nan")}]
     events = gates.contact_events(rows, lambda t: "grasp" if t < 5 else None)
     assert [(e["phase"], e["count"], e["max_force_n"]) for e in events] == [("grasp", 2, 3.0), ("outside", 1, 0.0)]
+
+
+def test_a_leg_that_does_not_declare_the_cancellation_option_fails(tmp_path):
+    decl = declaration(2)
+    del decl["cancel_check"]
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=decl)])
+    assert rc == 1 and any("setting cancel_check not declared" in p for p in record["problems"])

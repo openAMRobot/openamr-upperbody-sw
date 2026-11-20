@@ -192,6 +192,13 @@ def scan_returns(rig, log):
 
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
+    from openamrobot_build1_scene import baseline1_cancel
+    # Declared mission option (Proposed): BASELINE1_CANCEL_CHECK=1 first sends a short goal the mission does not need
+    # and cancels it mid-way (baseline1_cancel.py), then the station goal below starts from where the base stopped.
+    options = baseline1_cancel.load()
+    log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": baseline1_cancel.enabled(options)}
+    if baseline1_cancel.enabled(options):
+        baseline1_cancel.step(rig, log, pose=lambda: map_pose(rig), config=options)
     scan_returns(rig, log)
     amcl_topic = AmclListener(rig)
     rig.sleep_sim(0.5)
@@ -202,7 +209,7 @@ def nav_to_station(rig, log):
     goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
     goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
     goal.behavior_tree = station_tree()
-    log.data.setdefault("baseline1", {})["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
+    log.data["baseline1"]["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
     log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map), "
               f"behavior tree {goal.behavior_tree or 'default'}")
     start = rig.sim_time()

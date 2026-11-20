@@ -20,7 +20,7 @@
     "cancellation": {
       "check_pattern": "^cancel_",
       "min_checks": 1,
-      "note": "the Baseline 1 mission cancels nothing yet; a cancellation step (for example a Nav2 or lift goal cancelled with the base and lift held still afterwards) is an owner decision"
+      "note": "the cancellation step of baseline1_cancel.py (Proposed, 20 Nov 2026) runs only with BASELINE1_CANCEL_CHECK=1; without it no cancel_* check runs"
     }
   },
   "contacts": {
@@ -44,7 +44,7 @@
     "pinned_repositories": ["openamr-upperbody-sw", "openamr-platform-sw", "openamrobot-interfaces", "openarm_ros2",
                             "openarm_can", "openarm_description"],
     "declared_settings": ["profile", "station_approach", "station_alignment", "rmw_implementation", "rmw_runtime",
-                          "cyclonedds_uri", "seed", "run_id", "run_attempt"],
+                          "cyclonedds_uri", "seed", "run_id", "run_attempt", "cancel_check"],
     "phases": ["spawn", "nav_to_station", "stop_authorize", "lift_to_target", "arm_approach", "grasp", "lift_object",
                "retreat"],
     "min_trace_samples": 20

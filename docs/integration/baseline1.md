@@ -70,12 +70,24 @@ Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_ga
 - the drive, battery, lift and arm work counters (`live_*` in every trace sample) advancing through the whole run,
   no gap over 10 s of Gazebo time;
 - the Stop checks of `stop_authorize` all run and pass (base settle, speed, yaw rate, no lift motion without permit,
-  command refused, permit fresh), and at least one `cancel_*` check run and passed. The mission has no cancellation
-  step yet, so no leg can pass this gate until one is added (owner decision);
+  command refused, permit fresh), and at least one `cancel_*` check run and passed (the cancellation step below);
 - contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase and pair)
   in the allowed list with its reason; any other contact fails the leg;
 - complete evidence: bag metadata, a non-empty candump of each of the five virtual buses, Gazebo start and end of
   every phase, run_info, full pinned hashes of all six checkouts, the declared seed equal to the mission's, settings.
+
+Cancellation step (Proposed for Alex and Mohamed, 20 Nov 2026; `baseline1_cancel.py`, values in
+`config/baseline1_mission_options.json`). On only with the declared mission option `BASELINE1_CANCEL_CHECK=1`, which
+the acceptance workflow sets and writes to each leg's `declaration.json` (`cancel_check`; the evidence gate requires
+it). In the test harness, not in a stop gate. At the start of `nav_to_station`: a 0.5 m NavigateToPose goal straight
+ahead of the spawn pose on open floor (the mission does not need it) on `/navigate_to_pose`, cancelled through the
+action's cancel service once ground truth has moved 0.15 m. Checks: goal accepted; cancelled mid-way (0.08 to 0.40 m)
+with the base moving (at least 0.02 m/s); cancel request accepted; terminal status CANCELED (5), whatever the stack
+returns is recorded; stopped within 4 s and 0.10 m (the scn07 time bound); then over 3 s of Gazebo time ground truth
+and odometry under 0.01 m and 0.02 rad and every `/cmd_vel` message, and the last one before the window, zero
+(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. The station goal then starts from where the
+base stopped. On the integration branch `/navigate_to_pose` is bt_navigator itself; platform-sw #90 puts a proxy on
+that name, whose cancels the #90 review found ending ABORTED, so the status check is the one to watch when #90 lands.
 
 Settings declared in every leg:
 - Middleware: CycloneDDS for initial acceptance (Alex, 19 Nov 2026), with the participant index cap raised to 120 as in

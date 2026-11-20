@@ -1,0 +1,24 @@
+{
+  "_comment": "SPDX-License-Identifier: MIT. Declared options of the Baseline 1 mission (openamrobot_build1_scene/baseline1.py). Proposed for Alex and Mohamed, 20 Nov 2026; a change is a reviewed change of this file. Simulation evidence only.",
+  "cancel_check": {
+    "_comment": "baseline1_cancel.py. On only when BASELINE1_CANCEL_CHECK=1 (the acceptance workflow sets it). At the start of nav_to_station: one short NavigateToPose goal straight ahead of the spawn pose on open floor (not needed by the mission), cancelled through the public action once the base has moved cancel_at_m, then the base must stay still. The mission then continues with the station goal from where the base stopped. Values Proposed; the stop bounds reuse scn07_cancel_resume where one exists.",
+    "env": "BASELINE1_CANCEL_CHECK",
+    "action": "/navigate_to_pose",
+    "behavior_tree": "",
+    "goal_distance_m": 0.5,
+    "cancel_at_m": 0.15,
+    "mid_way_m": [0.08, 0.40],
+    "min_speed_at_cancel_m_s": 0.02,
+    "move_timeout_sim_s": 60.0,
+    "result_timeout_sim_s": 15.0,
+    "expected_status": 5,
+    "max_time_to_stop_sim_s": 4.0,
+    "max_distance_after_cancel_m": 0.10,
+    "hold_window_sim_s": 3.0,
+    "hold_sample_sim_s": 0.1,
+    "max_hold_displacement_m": 0.01,
+    "max_hold_yaw_change_rad": 0.02,
+    "max_cmd_vel_abs": 0.001,
+    "cmd_vel_topic": "/cmd_vel"
+  }
+}

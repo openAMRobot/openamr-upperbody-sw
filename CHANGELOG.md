@@ -21,6 +21,15 @@ All notable changes to this repository. Evidence for the description is static a
   with every contact in the allowed list, and complete evidence per leg. `baseline1-acceptance.yml` turns the contact
   sensors on. `test_baseline1_strict.py`: 19 tests, 9 of them fail with the 323a2ce verdict script.
 
+### Added (20 Nov 2026; Baseline 1 cancellation check, Proposed for Alex and Mohamed; simulation only)
+
+- `baseline1_cancel.py` and `config/baseline1_mission_options.json`: behind the declared mission option
+  `BASELINE1_CANCEL_CHECK=1` (set and declared by `baseline1-acceptance.yml`), `nav_to_station` first sends a 0.5 m
+  NavigateToPose goal straight ahead on open floor, cancels it through the public action once the base has moved
+  0.15 m, and requires status CANCELED, a stop within 4 s and 0.10 m, then 3 s with ground truth and odometry under
+  0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
+  In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
+
 ### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
 
 - **Lift in `fast` and `fine` on DART.** The lift could not leave its lower limit (L1000) through the position interface of
