@@ -15,6 +15,24 @@ to the stack. What each part of the run is (Gazebo physics, emulator, host stand
 Proposed topic) is shown in the status field `provenance`, the report's components table and
 [can_signal_paths.md](can_signal_paths.md).
 
+## Control room and operator UI
+
+The control room is the engineering monitor. The operator interface is the existing OpenAMRobot UI
+(openamrobot-ui), which connects to the same simulation through its own restricted rosbridge
+(`twin.launch.py` of `openamr_ui_bringup`, openamrobot-ui#62). Both can run on one twin at the same time.
+Neither replaces the other, and no third frontend is planned.
+
+| | Control room (this package) | Operator UI on the twin (openamrobot-ui) |
+| --- | --- | --- |
+| Purpose | engineering view: CAN signal paths, mission phases, replay, offline report | operator view as on the robot: map, pose, readiness, task, goals, Stop (software) and Resume |
+| Commands | none; publishes only under `/control_room/` | `/goal_pose`, the stop lock services and the cancel services, through the command arbiter of openamr-platform-sw#90; never `/cmd_vel`; manual drive disabled on the twin |
+| Bridge | Foxglove bridge, read only; in CI a rosbridge on 9091 with no write, service or action | rosbridge on 9090 with an explicit read and write allowlist, bound to 127.0.0.1 |
+| Mission phase | `/baseline1/mission_status` (Proposed) | the same topic, labelled Proposed |
+| Evidence | simulation only | simulation only |
+
+The operator UI needs #90 on the platform stack for Stop (software), Resume and goals. Without it the UI shows the
+stop state as unknown and sends no goal, while the control room works as before.
+
 ## What it shows and where it comes from
 
 | Display | Source topics | Where |
