@@ -5,6 +5,27 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (20 Nov 2026; platform pin to platform-sw main 69847ab, for v2.0.0-rc.1)
+
+- **Platform pin `8e7a454` -> `69847ab`** (`config/upstream_pins.yaml`, README checkout line): the platform-sw commit proposed for v2.0.0-rc.1.
+  The range is #135 (Gazebo contact friction through `mu1`, `mu2` and `fdir1`, which the URDF to SDF conversion keeps), #138
+  (`sensor_profiles.yaml`, data and tests only) and #139 (`openamrobot_sil`, a separate package). Expanded with xacro at both commits
+  (bp000, mock and gazebo), every link, joint, inertial and mesh is identical; only six `<gazebo>` blocks of the base wheels and casters
+  change. So the masses, the collision matrix and the `roadmap_mass_export.yaml` copy are unchanged; `config_id` changes, because it
+  hashes the expanded URDF and the pins. Datums revision unchanged. A6 and A7 rerun on this pin before merge (PLATFORM-PIN).
+
+### Added (17 Nov 2026; public model bundle, built by CI)
+
+- **`tools/model_bundle/`**: `build_bundle.py` packs `openamrobot-2.0-model-<version>.zip`: six expanded URDFs (bp000 and bp050 as
+  `mock`, `gazebo` and `mock` with `sim_dynamics:=on`), the 30 meshes they reference under `share/<package>/`, `bundle_lock.json`
+  (source commits and the sha256, licence and source of every file), `SHA256SUMS`, `NOTICE.md`, licences and a README with loading
+  instructions for RViz and Gazebo and the known limitations. No MJCF: the generator (#69) is not on main. `verify_bundle.py` checks
+  a bundle against its lock. Evidence class static; not simulation, hardware or safety evidence.
+- **Workflow `model-bundle.yml`**: manual run, `model-<version>` tags such as `model-2.0.0-rc.1` and `model-2.0.0` (`release_tag.py` refuses any other name; zip attached to the tag's release as a draft, never published by the
+  workflow), and pull requests that touch the bundle tooling.
+- **Tests** `tools/tests/test_model_bundle.py` (15): every referenced mesh listed, every sha256 matching, and each failure the
+  verifier and the builder claim to catch, and the tag names the workflow accepts.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,
