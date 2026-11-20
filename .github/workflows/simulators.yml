@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: MIT
 # MuJoCo and Isaac Sim representations of the combined model (issue #58): generated from the pinned gazebo expansion, never committed.
 #   mujoco: expansion hash against the lock mirror, MJCF generation, structural parity, MuJoCo physics checks, arm comparison with
-#           openarm_mujoco, the Isaac import job and the USD checker self-test. Hosted runner, no GPU.
-#   isaac:  the USD import needs Isaac Sim on a GPU. Without a GPU runner (repository variable ISAAC_GPU_RUNNER) the job is BLOCKED and
-#           does not pass. BLOCKED is not PASS.
+#           openarm_mujoco, the Isaac import job and the USD checker self-test (the CPU Isaac checks). Hosted runner, no GPU.
+#           Without a GPU runner it also reports the Isaac USD import as BLOCKED (job summary and a warning annotation).
+#   isaac:  the USD import needs Isaac Sim on a GPU. It runs only when the repository variable ISAAC_GPU_RUNNER names a GPU runner;
+#           otherwise it is skipped, so pull requests are not red for a runner that does not exist. Skipped and BLOCKED are not PASS.
 # Results are simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
 name: Simulators
 
@@ -174,6 +175,18 @@ jobs:
             ws/versions.txt
           if-no-files-found: warn
 
+      - name: Isaac Sim USD import BLOCKED without a GPU runner
+        if: always() && vars.ISAAC_GPU_RUNNER == ''
+        run: |
+          {
+            echo '### Isaac Sim USD import: BLOCKED'
+            echo
+            echo 'No GPU runner (repository variable ISAAC_GPU_RUNNER is not set), so Isaac Sim did not import the model and the `isaac`'
+            echo 'job is skipped. BLOCKED is not PASS. The CPU Isaac checks (import job, USD checker self-test) ran in this job.'
+            echo 'On a machine with an NVIDIA GPU and the Isaac Sim 5.1.0 container, run the commands of docs/simulators.md, section Isaac Sim.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Isaac Sim USD import BLOCKED::No GPU runner (ISAAC_GPU_RUNNER unset); the isaac job is skipped. CPU Isaac checks ran in the mujoco job."
+
       - name: Result
         run: |
           echo "pytest exit status: $TESTS_RC"
@@ -181,8 +194,10 @@ jobs:
 
   isaac:
     name: isaac (USD import, needs a GPU)
-    # A GPU runner is named by the repository variable ISAAC_GPU_RUNNER. Without one the job runs on a hosted runner and is BLOCKED.
-    runs-on: ${{ vars.ISAAC_GPU_RUNNER || 'ubuntu-24.04' }}
+    # Runs only on the GPU runner named by the repository variable ISAAC_GPU_RUNNER. Without one it is skipped (the mujoco job reports
+    # BLOCKED). A named runner without a GPU still fails below: that is a misconfigured runner, not a missing one.
+    if: vars.ISAAC_GPU_RUNNER != ''
+    runs-on: ${{ vars.ISAAC_GPU_RUNNER }}
     timeout-minutes: 90
     steps:
       - name: GPU
@@ -190,13 +205,13 @@ jobs:
         run: |
           if command -v nvidia-smi >/dev/null && nvidia-smi -L; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
 
-      - name: BLOCKED without a GPU
+      - name: BLOCKED, the named GPU runner has no GPU
         if: steps.gpu.outputs.present != 'true'
         run: |
           {
             echo '### Isaac Sim USD: BLOCKED'
             echo
-            echo 'No GPU on this runner, so Isaac Sim cannot import the model. BLOCKED is not PASS.'
+            echo 'ISAAC_GPU_RUNNER names a runner without a GPU, so Isaac Sim cannot import the model. BLOCKED is not PASS.'
             echo 'On a machine with an NVIDIA GPU and the Isaac Sim 5.1.0 container, run the commands of docs/simulators.md, section Isaac Sim:'
             echo
             echo '```bash'
@@ -205,7 +220,7 @@ jobs:
             echo 'python3 simulation/tools/check_usd.py --job build/sim/bp000/isaac/isaac_job.json --platform-sw <pin checkout> --openarm-description <pin checkout>'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "BLOCKED: no GPU on this runner; Isaac Sim USD generation was not run"
+          echo "BLOCKED: the runner named by ISAAC_GPU_RUNNER has no GPU; Isaac Sim USD generation was not run"
           exit 1
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

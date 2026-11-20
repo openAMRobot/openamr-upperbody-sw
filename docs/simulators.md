@@ -72,7 +72,7 @@ Refresh the lock mirror after audits re-locks (never by hand):
 .venv/bin/python simulation/tools/mirror_lock.py --lock <audits>/digital-twin/phase1/digital_twin.lock.yaml --audits-commit <sha> --clone . --platform-sw <clone> --openarm-description <pin>
 ```
 
-CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job `isaac` BLOCKED without a GPU runner.
+CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request (it also runs the CPU Isaac checks: import job and USD checker). Job `isaac` runs only on the GPU runner named by `ISAAC_GPU_RUNNER`; without one it is skipped and the `mujoco` job reports the USD import as BLOCKED (summary and warning annotation).
 
 ## What each backend models
 
@@ -92,13 +92,13 @@ CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job 
 | Collision | URDF shapes and meshes | same shapes; convex hull per mesh; floor only (no self collision) | convex hull per mesh; no self collision |
 | Visuals | meshes | STL copied; DAE converted to OBJ; mirrored meshes rewritten | importer |
 | Contact friction | at the pin, the wheel `<surface>` is dropped (mu 1); #135 gives mu1 1.5, mu2 0.5 | mu 1.5 drive wheels (one coefficient), 1.0 castors and floor | importer defaults |
-| Sensors | lidars, IMU, base camera | four cameras on the optical frames; only the base camera has a sourced field of view | not imported |
+| Sensors | lidars, IMU, base camera | four cameras on the optical frames; only the base camera (Gemini 336L, datasheet) has a sourced field of view | not imported |
 | Step and rate | 1/1500 s, 750 Hz (fine profile) | 1/1500 s; tests write controls at 750 Hz | 1500 steps per second |
 
 ### Unsupported semantics (MuJoCo, from `report_<config>.json`)
 
 73 entries per configuration: 19 joint velocity limits, 1 lift velocity limit, 4 Gazebo plugins, 9 Gazebo sensors (7 lidar-type,
-1 IMU, 1 camera handled as a camera), 27 Gazebo link tags, 2 ros2_control systems, 2 unknown wheel torque limits, 3 unknown camera
+1 IMU, 1 camera: the legacy `camera_link` sensor, not represented), 27 Gazebo link tags, 2 ros2_control systems, 2 unknown wheel torque limits, 3 unknown camera
 fields of view, and one entry each for collision meshes as convex hulls, anisotropic wheel friction, the soft mimic constraint, self
 collision, DAE colours and the castor joints. The Isaac job lists its own five (joint friction, castors, Gazebo items, convex hulls,
 wheel torque).
@@ -149,8 +149,10 @@ Local results, MuJoCo 4.0.1, bp000 (bp050 alike):
    SDF conversion (platform-sw #135 says so and fixes it on main). The combined model still reads the pin.
 3. **openarm base_link CoM.** openarm_description gives the arm base_link CoM at x +2.53 mm, z +0.03 mm in the base frame;
    openarm_mujoco gives the opposite signs. The link is welded to the lift carriage, so arm dynamics do not depend on it.
-4. **Camera fields of view.** Only the base camera has one in the expansion (Gazebo sensor, 1.047 rad). Head and wrist cameras use
-   MuJoCo's 45 degrees until a datasheet is filed.
+4. **Camera fields of view.** The base camera is the Gemini 336L on `base_camera_color_optical_frame` (the C9 `base` stream), with the
+   vertical field of view of its RGB module from the Orbbec Gemini 330 Series Datasheet V1.6, Table 3-4-5: 68 degrees (94 horizontal,
+   16:10, 1280 x 800, tolerance 3 degrees). The legacy `camera_link` and its Gazebo sensor (1.047 rad) are not 2.0 hardware and are
+   not used. Head and wrist cameras use MuJoCo's 45 degrees until a datasheet is filed.
 
 ## The arms against openarm_mujoco
 

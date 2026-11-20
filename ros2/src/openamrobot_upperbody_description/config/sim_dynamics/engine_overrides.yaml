@@ -14,6 +14,7 @@
 #           upstream_sim_asset  written in an upstream simulator asset at a pinned commit
 #           project_proposal    written in a project file at a recorded commit (a proposal, not a measurement)
 #           urdf_geometry       read from the pinned expansion at generation time
+#           datasheet           the manufacturer's published datasheet, document and table named in the locator
 #           engine_choice       a numerical choice of this file, with its method; not a property of the robot
 #           engine_default      the engine's own default, kept on purpose and stated here
 #           unknown             no source gives it; the backend runs without it and the parity report lists it
@@ -50,6 +51,16 @@ sources:
       main on 15 Nov 2026, the friction change of pull request 135. The combined model reads platform-sw at the pin 8e7a454, whose
       wheel <surface> blocks the URDF to SDF conversion drops (so Gazebo at the pin runs the drive wheels and castors at mu 1).
       The values are the ones platform-sw already carried. They are simulation estimates, not measured tyre or castor materials.
+  orbbec_gemini_330_datasheet:
+    document: https://www.orbbec.com/docs/g330-orbbec-gemini-330-series-datasheet/
+    title: Orbbec Gemini 330 Series Datasheet
+    version: V1.6
+    date: "2025-04-10"
+    note: >-
+      The manufacturer's datasheet of the Gemini 330 series, which covers the Gemini 336L (base camera, platform-sw sensors.xacro).
+      Not filed in a project repository (platform-hw datasheets/ has no Orbbec folder). Read as V1.6 from the PDF at
+      https://download.kamami.pl/p1203693-Gemini-330-series-Datasheet-V1.6.pdf; the document URL above is the datasheet link of the
+      Orbbec product page, whose RGB FOV (H94 V68) agrees.
   pinned_expansion:
     repository: https://github.com/openAMRobot/openamr-upperbody-sw
     file: ros2/src/openamrobot_upperbody_description/urdf/combined_robot.xacro
@@ -255,13 +266,17 @@ contact:
 # Cameras. A MuJoCo camera sits on each ROS optical frame (issue #58). The frame is the URDF's. The field of view is not a URDF value.
 # ---------------------------------------------------------------------------------------------------------------------------------
 cameras:
+  # The base camera is the Orbbec Gemini 336L on base_camera_link (platform-sw sensors.xacro, tilt from base_tilt), the C9 `base`
+  # stream. camera_link and its Gazebo sensor camera_sensor (/rgb_image) are not 2.0 hardware (platform-sw robo_urdf.urdf.xacro).
+  # MuJoCo's fovy is the vertical angle: render at the sensor's 16:10 (1280 x 800) for the 94 deg horizontal angle to hold.
   base_camera:
-    frame: camera_optical_frame
+    frame: base_camera_color_optical_frame
     fovy:
-      from_gazebo_sensor: camera_sensor
-      status: urdf_geometry
-      source: pinned_expansion
-      locator: <gazebo reference="camera_link"> sensor camera_sensor, horizontal_fov and image width and height; fovy = 2 atan(tan(hfov / 2) h / w)
+      value: 68.0
+      unit: deg
+      status: datasheet
+      source: orbbec_gemini_330_datasheet
+      locator: Table 3-4-5 RGB module parameters, column Gemini 335L/336L, Vertical FOV 68 deg (Horizontal 94, Diagonal 104, tolerance +-3.0 deg; active pixels 1280 x 800, 16:10)
   head_camera:
     frame: head_camera_optical_frame
     fovy: {value: unknown, status: unknown, needed: head camera field of view from a filed datasheet (the camera datasheet is not filed)}

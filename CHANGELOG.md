@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (17 Nov 2026; simulators, before merge of pull request 69)
+
+- **Base camera.** The MuJoCo `base_camera` moves from `camera_optical_frame` (the legacy `camera_link`, not 2.0 hardware) to
+  `base_camera_color_optical_frame`, the Orbbec Gemini 336L, with fovy 68 degrees from the Gemini 330 Series Datasheet V1.6, Table
+  3-4-5 (was 46.82 from the legacy Gazebo sensor). New override status `datasheet` and a published-document source type in the
+  engine-override schema.
+- **Isaac CI.** The `isaac` job runs only when `ISAAC_GPU_RUNNER` names a GPU runner; without one it is skipped instead of failing
+  on every pull request, and the `mujoco` job (which runs the CPU Isaac checks: import job and USD checker) reports the USD import as
+  BLOCKED in its summary and as a warning annotation. A named runner without a GPU still fails.
+
 ### Added (15 Nov 2026; MuJoCo and Isaac Sim representations of the combined model, issue #58)
 
 Base: main `b15bcb6`, stacked on pull request 66 (head `5adeba3`, not merged). Inputs: the digital-twin lock of audits

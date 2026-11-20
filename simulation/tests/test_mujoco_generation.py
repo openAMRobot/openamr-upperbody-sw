@@ -66,3 +66,16 @@ def test_mesh_conversions(generated):
     for g in generated.values():
         assert set(g["report"]["meshes_converted"]) <= {"dae_to_obj", "mirror_applied", "dae_to_obj+mirror_applied"}
         assert g["report"]["meshes_converted"], "the expansion has DAE visuals and mirrored arm meshes"
+
+
+def test_base_camera_is_the_gemini_336l(models, overrides):
+    """C9's `base` stream is the Orbbec Gemini 336L on base_camera_link (platform-sw sensors.xacro), not the legacy camera_link
+    (not 2.0 hardware). Its vertical field of view is the datasheet's 68 degrees (Gemini 330 Series Datasheet V1.6, Table 3-4-5)."""
+    spec = overrides["cameras"]["base_camera"]
+    assert spec["frame"] == "base_camera_color_optical_frame"
+    assert spec["fovy"]["status"] == "datasheet" and spec["fovy"]["value"] == 68.0
+    assert overrides["sources"][spec["fovy"]["source"]]["version"] == "V1.6"
+    for name, m in models.items():
+        cam = m.camera("base_camera").id
+        assert m.body(m.cam_bodyid[cam]).name == "base_camera_color_optical_frame", name
+        assert m.cam_fovy[cam] == 68.0, name
