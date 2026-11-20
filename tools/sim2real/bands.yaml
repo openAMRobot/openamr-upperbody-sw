@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: MIT
+# Pass bands for compare.py. EVERY BAND IS PROPOSED (status: proposed): a starting point for the bench week, not an accepted
+# requirement and not a safety limit. The owner of each test (docs/sim_to_real_protocol.md, Report) accepts, changes or rejects it.
+# A band is a judgement about what difference is worth investigating, not a measurement; each says why it was chosen.
+#
+#   metric        regex, fullmatched against the metric names of the sessions (and of the bench file when judge is bench)
+#   bench_metric  re.sub replacement giving the bench metric that pairs with a sim metric
+#   judge         robot (the robot session's value), bench (the bench file's value) or delta (bench or robot minus sim)
+#   lo, hi        inclusive; null = unbounded
+status: proposed
+lift_speed_mps: 0.018   # datum lift_max_velocity_dold_v4_350 (datums.yaml); test_bands_match_datum checks the copy
+bands:
+  - test: T1
+    metric: 'speed_ratio_(L\d+)_from_([0-9.]+)'
+    judge: robot
+    lo: 0.5
+    hi: 1.05
+    unit: "1"
+    why: "0.018 m/s is a no-load catalogue speed; under the arms' load the column is slower (datums.yaml lift_max_velocity_dold_v4_350 note). Faster than 5 % above it means the timing or the datum is wrong."
+  - test: T1
+    metric: 'T1_bench_stroke_error_(L\d+)_([0-9.]+)'
+    judge: bench
+    lo: -0.005
+    hi: 0.005
+    unit: m
+    why: "Tape to the plate top face, relative to L1000: 5 mm is a few tape readings; the stop sensors set the real stop."
+  - test: T1
+    metric: 'T1_bench_sag_(L\d+)_([0-9.]+)'
+    judge: bench
+    lo: -0.003
+    hi: 0.003
+    unit: m
+    why: "Rear minus front edge height of the adapter plate with both arms in park: a tilt the rigid model cannot show."
+  - test: T2
+    metric: '(forward|back)_sim_over_commanded'
+    bench_metric: 'T2_bench_\1_real_over_commanded'
+    judge: bench
+    lo: 0.95
+    hi: 1.05
+    unit: "1"
+    why: "Distance by tape over commanded distance, 5 % either way."
+  - test: T2
+    metric: 'T2_bench_(forward|back)_lateral_m'
+    judge: bench
+    lo: -0.05
+    hi: 0.05
+    unit: m
+    why: "Lateral drift over 1 m."
+  - test: T3
+    metric: 'turn(90|180)_sim_over_commanded'
+    bench_metric: 'T3_bench_turn\1_real_over_commanded'
+    judge: bench
+    lo: 0.95
+    hi: 1.05
+    unit: "1"
+    why: "Turn by floor marks over commanded; the DART turn deficit of #75 (4.0 to 4.1 %) is inside this band, so the band does not decide whether the real base shares it: compare the bench value with the sim value."
+  - test: T4
+    metric: 'openarm_(left|right)_joint\d_(home|hands_up|park)_rms_rad'
+    judge: robot
+    lo: 0.0
+    hi: 0.01
+    unit: rad
+  - test: T4
+    metric: 'openarm_(left|right)_joint\d_(home|hands_up|park)_max_rad'
+    judge: robot
+    lo: 0.0
+    hi: 0.02
+    unit: rad
+    why: "V01 item 6 accepts an arm goal within 0.02 rad (docs/v01_visual_check.md, item 6)."
+  - test: T4
+    metric: '(left|right)_(home|hands_up|park)_settle_s'
+    judge: robot
+    lo: 0.0
+    hi: 2.0
+    unit: s
+  - test: T4
+    metric: 'openarm_(left|right)_joint\d_park_m07_margin_rad'
+    judge: robot
+    lo: 0.001
+    hi: null
+    unit: rad
+    why: "datum joint_rest_margin_rad (1e-3 rad, placeholder)."
+  - test: T5
+    metric: '(left|right)_(open|half|closed)_sign_ok'
+    judge: robot
+    lo: 1.0
+    hi: 1.0
+    unit: "1"
+  - test: T5
+    metric: '(left|right)_(open|half|closed)_settle_s'
+    judge: robot
+    lo: 0.0
+    hi: 2.0
+    unit: s
+  - test: T5
+    metric: '(left|right)_(open|half|closed)_model_jaw_gap_m'
+    bench_metric: 'T5_bench_\1_\2_jaw_gap_m'
+    judge: delta
+    lo: -0.005
+    hi: 0.005
+    unit: m
+    why: "Caliper jaw opening minus the model's fingertip gap at the measured angle."
