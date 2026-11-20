@@ -265,6 +265,10 @@ For CI, set the repository variable `ISAAC_GPU_RUNNER` to a GPU runner label; th
 `simulation/benchmark/scenarios.yaml` runs the same commanded scenarios in Gazebo (`gazebo_benchmark.py`, the reference) and MuJoCo
 (`openamr_sim/benchmark.py`); `tools/benchmark_compare.py` compares them with the declared tolerances (workflow `sim-benchmark.yml`).
 
+- **Evidence class.** An isolated physics benchmark of the model in each engine. The base scenarios publish `geometry_msgs/Twist` straight
+  to `/cmd_vel`, the DiffDrive plugin's input, with no command chain in the loop. That is never whole-robot acceptance: a whole-robot run
+  commands the base through the approved chain (twist_mux, stop gate, velocity smoother, collision monitor). Every result document carries
+  `evidence_class`, and the Gazebo runner refuses to start when the graph runs a node of that chain.
 - **Commanded joint moves are judged on measured motion.** For `joint_step`, `arm_reach` and `lift_move` each backend records the travel it
   measured (Gazebo: `/joint_states`, and for the lift also the pose of `lift_carriage_link` from Gazebo's pose topic; MuJoCo: `qpos`) and
   the controller's own result. A move whose measured travel is below half the commanded travel is FAIL in that backend, whatever the

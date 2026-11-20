@@ -2,6 +2,7 @@
 # Backend benchmark (simulation/benchmark/scenarios.yaml): the same commanded scenarios in Gazebo Harmonic and in MuJoCo, compared with
 # the tolerances of that file. Gazebo is the reference. Isaac Sim results join on a GPU machine (simulation/isaac/RUN_ON_GPU.md).
 # Runs when the benchmark files change, or by hand. Simulation evidence only: never hardware, physical acceptance or safety evidence.
+# Isolated physics benchmark: the base scenarios publish /cmd_vel directly. Never whole-robot acceptance, which uses the approved chain.
 # No secrets, no hardware.
 name: Simulator benchmark
 
@@ -159,7 +160,7 @@ jobs:
           python3 simulation/tools/benchmark_compare.py --doc gazebo=results/benchmark-gazebo/bench/benchmark_gazebo.json \
             --doc mujoco=results/benchmark-mujoco/bench/benchmark_mujoco.json --json comparison.json --markdown comparison.md
           rc=$?
-          { echo '### Gazebo vs MuJoCo (Gazebo is the reference; FAIL is a finding, BLOCKED is not a pass)'; echo; cat comparison.md; } \
+          { echo '### Gazebo vs MuJoCo (Gazebo is the reference; FAIL is a finding, BLOCKED is not a pass)'; echo; echo 'Isolated physics benchmark: the base is commanded on /cmd_vel directly. Not whole-robot acceptance.'; echo; cat comparison.md; } \
             >> "$GITHUB_STEP_SUMMARY"
           exit $rc
 

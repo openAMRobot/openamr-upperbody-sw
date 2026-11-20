@@ -14,6 +14,10 @@ simulation (sim.launch.py) lift_controller commands the position interface of gz
 its lower limit (L1000) does not leave it and the controller, which has no goal tolerance, still reports SUCCESSFUL
 (docs/build1_lift_and_base_diagnosis.md on integration/baseline1). That result is now a FAIL of the Gazebo lift_move scenario.
 
+Direct /cmd_vel: the base scenarios publish to the DiffDrive plugin's input with no command chain in the loop. This is an isolated
+physics benchmark only, labelled so in every result document, and the runner refuses to start when the graph runs any node of the
+approved command chain. Whole-robot acceptance commands the base through that chain, never through this runner.
+
   source /opt/ros/jazzy/setup.bash && source install/setup.bash
   xvfb-run -a python3 simulation/benchmark/gazebo_benchmark.py --out build/bench/benchmark_gazebo.json
 
@@ -144,6 +148,13 @@ class Bench:
         self.list_controllers = self.node.create_client(ListControllers, "/controller_manager/list_controllers")
         self.ListControllers = ListControllers
 
+    def cmd_vel_guard(self):
+        """Refuse to publish /cmd_vel directly when the graph runs the approved command chain (see the module docstring)."""
+        names = [f"{ns.rstrip('/')}/{n}" for n, ns in self.node.get_node_names_and_namespaces()]
+        reason = bm.direct_cmd_vel_refusal(names)
+        if reason:
+            raise RuntimeError(reason)
+
     def now(self):
         return self.node.get_clock().now().nanoseconds * 1e-9
 
@@ -208,6 +219,7 @@ def run(spec, urdf_text, sampler):
     b = Bench(spec, urdf_text)
     sc = spec["scenarios"]
     meta = {"controllers": b.wait_ready()}
+    b.cmd_vel_guard()     # after the controllers are up, so the launch's nodes are discovered; raises before any command
     results = {}
     b.spin_sim(spec["settle_s"])
     _, poses = read_poses()
@@ -350,6 +362,7 @@ def main():
     launch = subprocess.Popen(["ros2", "launch", "openamrobot_upperbody_gazebo", "sim.launch.py", "headless:=true",
                                f"base_plate:={spec['configuration']}"], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     doc = {"schema": bm.SCHEMA, "backend": "gazebo", "configuration": spec["configuration"], "start_keyframe": spec["start_keyframe"],
+           "evidence_class": bm.EVIDENCE_CLASS, "base_command_path": "/cmd_vel direct to the DiffDrive plugin (no command chain)",
            "results": {}, "execution": {}, "meta": {}}
     sampler = PoseSampler()
     rc = 1

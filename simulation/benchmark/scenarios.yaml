@@ -12,6 +12,8 @@
 # Commanded joint moves (joint_step, arm_reach, lift_move) carry an `execution` rule: each backend reports the travel it MEASURED
 # (Gazebo: /joint_states and, for the lift, the simulator's own carriage link pose; MuJoCo: qpos). A controller that reports success
 # while the joint did not move is a FAIL of that backend, and no row of that scenario can then PASS (openamr_sim/benchmark.py execution).
+# The base scenarios publish /cmd_vel straight to the DiffDrive plugin: an isolated physics benchmark, never whole-robot acceptance,
+# which commands the base through the approved chain (twist_mux, stop gate, velocity smoother, collision monitor).
 # Simulation evidence only: not hardware, physical acceptance or safety evidence.
 schema_version: 1
 configuration: bp000

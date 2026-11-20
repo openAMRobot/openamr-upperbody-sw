@@ -112,6 +112,25 @@ def execution(commanded_travel, measured_travel, controller_success, rule):
     return doc
 
 
+# --------------------------------------------------------------------------------------------- direct base command guard
+# Evidence class of every result document of this benchmark. The base scenarios publish geometry_msgs/Twist straight to /cmd_vel,
+# the DiffDrive plugin's input. That isolates the physics of the base from the stack and is the only use this benchmark makes of it.
+# It is never whole-robot acceptance: the robot's approved command chain (twist_mux, the stop gate, the velocity smoother, the
+# collision monitor) is not in the loop, and a whole-robot run must command the base through that chain.
+EVIDENCE_CLASS = "isolated physics benchmark (direct /cmd_vel to the DiffDrive plugin); not whole-robot acceptance"
+COMMAND_CHAIN_NODES = ("twist_mux", "velocity_smoother", "collision_monitor", "controller_server", "bt_navigator")
+
+
+def direct_cmd_vel_refusal(node_names):
+    """None when the graph holds no node of the approved command chain, so a direct /cmd_vel publisher bypasses nothing; otherwise
+    the reason to refuse. The benchmark runs only against the bare simulation (sim.launch.py), never against a whole-robot stack."""
+    found = sorted({n for n in node_names if n.rsplit("/", 1)[-1] in COMMAND_CHAIN_NODES or "stop_gate" in n})
+    if found:
+        return ("refused: the graph runs the command chain (" + ", ".join(found) + "); this benchmark publishes /cmd_vel directly "
+                "and is an isolated physics benchmark only. Whole-robot runs command the base through the approved chain.")
+    return None
+
+
 # ---------------------------------------------------------------------------------------------------------------- metrics
 def yaw_of(R):
     return math.atan2(R[1][0], R[0][0])
@@ -314,7 +333,7 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
                                  "final_speed_m_s": float(np.linalg.norm(d.qvel[box_dof:box_dof + 3]))}
     return {"schema": SCHEMA, "backend": "mujoco", "mujoco_version": mj.__version__, "timestep_s": dt,
             "controller_period_s": ctrl_dt, "diffdrive": dd, "configuration": spec["configuration"],
-            "start_keyframe": spec["start_keyframe"], "free_joint": FREE_JOINT,
+            "start_keyframe": spec["start_keyframe"], "free_joint": FREE_JOINT, "evidence_class": EVIDENCE_CLASS,
             "results": {k: {mk: float(mv) for mk, mv in v.items()} for k, v in results.items()}, "execution": executions}
 
 

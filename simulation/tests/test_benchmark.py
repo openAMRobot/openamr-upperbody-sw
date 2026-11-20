@@ -80,6 +80,7 @@ def test_mujoco_runs_every_scenario(generated, overrides, evidence):
     assert r["object_contact"]["rest_height_m"] == pytest.approx(0.05, abs=0.001)
     assert r["straight_drive"]["distance_m"] > 1.9
     assert r["lift_move"]["final_position_m"] == pytest.approx(0.35, abs=0.002)
+    assert doc["evidence_class"] == bm.EVIDENCE_CLASS
     assert {k: v["verdict"] for k, v in doc["execution"].items()} == {"joint_step": "PASS", "arm_reach": "PASS", "lift_move": "PASS"}
 
 
@@ -150,3 +151,18 @@ def test_gazebo_runner_never_takes_the_controller_result_as_motion():
     for scen in ("joint_step", "arm_reach", "lift_move"):
         assert f'executions["{scen}"] = bm.execution(' in text, scen
     assert '"gazebo_link_pose"' in text and "CARRIAGE" in text
+
+
+# ------------------------------------------------------------------------------------- direct /cmd_vel: physics only
+def test_direct_cmd_vel_is_refused_when_the_command_chain_runs():
+    assert bm.direct_cmd_vel_refusal(["/robot_state_publisher", "/controller_manager", "/sim_benchmark"]) is None
+    for chain_node in ("/twist_mux", "/velocity_smoother", "/collision_monitor", "/controller_server", "/bt_navigator", "/ui/stop_gate"):
+        reason = bm.direct_cmd_vel_refusal(["/robot_state_publisher", chain_node])
+        assert reason and "isolated physics benchmark" in reason, chain_node
+
+
+def test_every_result_document_is_labelled_not_whole_robot_acceptance():
+    import pathlib
+    assert "not whole-robot acceptance" in bm.EVIDENCE_CLASS
+    text = (pathlib.Path(bm.__file__).resolve().parents[1] / "benchmark" / "gazebo_benchmark.py").read_text()
+    assert '"evidence_class": bm.EVIDENCE_CLASS' in text and "b.cmd_vel_guard()" in text
