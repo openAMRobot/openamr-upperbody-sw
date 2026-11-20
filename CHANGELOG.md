@@ -13,6 +13,37 @@ All notable changes to this repository. Evidence for the description is static a
   grant), scn02 (withdraw, grant) and scn05 (grant, fresh again). `test_lift_permit_wait.py` (3 new tests) and
   `test_permit_waits_static.py` (2): 5 fail with the cached-state waits.
 
+### Added (20 Nov 2026; #98 review: last-move mark for the strict contact window; simulation only)
+
+- `arm_frames.in_last_move` and `scenarios.LastMoveMark`: while scn04's reach executes, a thread reads the hand base from
+  /tf and marks `grasp_reach_last_move_start` the first time the hand is on the last move (no farther from the end
+  point than the start of that move, plus 1 mm). With `grasp_reach_end` it bounds the window `grasp_reach_last_move` of
+  `config/baseline1_gates.json`, where the residual hand contact with the tote front wall (at most 6 N) is allowed.
+  It observes only. Base pitch at the source: issue #105. Tests in `test_arm_frames.py` (5, fail without the mark).
+
+### Fixed (20 Nov 2026; scn04 reach, hand on the tote's front wall; simulation only)
+
+- **The descent stops 9 mm above the grasp height.** Coming down 9 mm back along the fingers (below) put the hand over the
+  tote's front wall at the grasp height. In diagnostics run 44609269748 the hand touched `tote:front_collision` in 2 of 5
+  runs (`ee_base_link` 7.63 N, `ee_link1` 4.94 N). In scratch run 44645357800 the contact (`ee_base_link`, 1.06 N, on the
+  wall's top edge) lasted from the bottom of the descent through the first 4 mm of the move in. MoveIt sees the tote as
+  one unpadded box and planned the descent 7.1 mm over the wall.
+  `arm_frames.reach_waypoints` now stops the descent `DESCENT_RISE_M` (0.009 m) above the grasp height and ends with the
+  straight line onto the unchanged end point. Grasp depth, end point, limits, thresholds, padding and collision checks are
+  unchanged. Tests: `test_arm_frames.py` (palm and open fingers against the tote front wall along four recorded reaches).
+
+### Fixed (19 Nov 2026; scn04 reach, palm on the item; simulation only)
+
+- **The reach comes down short of the item and moves in along the fingers last.** In control room run 44476577635 the
+  palm (`openarm_left_ee_base_link`) caught the top edge of the item's robot-side face on the way down onto the grasp
+  height and held joint 1 0.016 rad short of its end point for about 1 s: `grasp_reach_servo_torque_max` 1.018 N m against
+  0.5. A grasp-only reproduction from the run's logged approach state with contact sensors on recorded the palm on the item
+  (about 1.5 N, 0.35 mm deep) while joint 1 stood still 0.0166 rad short. The item is out of the planning scene for the
+  reach, and the palm's collision mesh was planned 1.5 mm from that face, inside the 0.009 m path deviation of the
+  executed hand. `arm_frames.reach_waypoints` brings the hand down `DESCENT_STANDOFF_M` (0.009 m) farther back and ends with a
+  straight move of that length along the fingers onto the unchanged end point. Limits, thresholds and collision checks
+  are unchanged. Tests: `test_arm_frames.py` (palm against the item along the reach of runs 44476577635 and 44470870769 leg 1).
+
 ### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
 
 - `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample

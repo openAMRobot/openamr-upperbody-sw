@@ -112,6 +112,62 @@ def grasp_line(tcp_point, tcp_offset, hand_quaternion, standoff=REACH_STANDOFF_M
     return tuple(grasp[i] - standoff * fingers[i] for i in range(3)), grasp
 
 
+# The descent onto the grasp height sweeps the palm (ee_base_link) down past the top edge of the item's face on the robot
+# side, and the item is out of the planning scene for the reach (scenarios.grasp). With the item ITEM_DEPTH_BEHIND_TCP_M
+# into the fingers the palm's collision mesh is planned 1.5 mm (run 44476577635) and 4.4 mm (run 44470870769, leg 1) from
+# that face at the end point; the executed hand leaves its plan by up to REACH_PATH_DEVIATION_M (diagnostics run of d139f76).
+# In run 44476577635 and its grasp-only reproduction from the logged approach state the palm caught the item's top edge on
+# the way down (contact ee_base_link with the item, about 1.5 N, 0.35 mm deep) and held joint 1 0.016 rad short of its end
+# point for about 1 s with zero velocity: grasp_reach_servo_torque_max 1.018 N m at the 1 s reading. So the hand comes down
+# DESCENT_STANDOFF_M farther back along the fingers and the reach ends with a straight move of that length along the fingers
+# onto the unchanged end point: the item sits as deep in the fingers as before, and the palm closes on the face head-on.
+# Coming down that far back puts the hand body over the tote's front wall at the grasp height, where MoveIt sees the tote
+# as one unpadded box (planning_scene.py). At the end point the hand is planned 5.7 to 16.8 mm over the wall (15
+# diagnostics runs of 323a2ce, 87d0f7a and e7a251c), and no run of a head that ended the descent there touched the wall
+# (0 of 25). Stopping the descent at the grasp height 9 mm back left 7.1 mm (run 5 of 44609269748) and the hand touched the
+# wall in 2 of 5 runs (ee_base_link 7.63 N, ee_link1 4.94 N), at the bottom of the descent (scratch run 44645357800). So the
+# descent stops DESCENT_RISE_M above the grasp height: the end state, which MoveIt has checked against the tote box, raised
+# by the path deviation. The last move is the straight line from there onto the end point, DESCENT_STANDOFF_M along the
+# fingers and DESCENT_RISE_M down (test_arm_frames.py).
+REACH_PATH_DEVIATION_M = 0.009
+DESCENT_STANDOFF_M = REACH_PATH_DEVIATION_M
+DESCENT_RISE_M = REACH_PATH_DEVIATION_M
+
+
+def reach_waypoints(tcp_point, tcp_offset, hand_quaternion, standoff=None, rise=None):
+    """The hand base waypoints of scn04's reach with the orientation `hand_quaternion` held: REACH_STANDOFF_M back along
+    the fingers and REACH_CLEARANCE_M up, in along the fingers to `standoff` short of the end, down to `rise` above the
+    grasp height, and on a straight line onto the end point (the TCP on `tcp_point`). A standoff of 0 is the reach without
+    the last move: [pre_grasp, above, grasp]. A rise of 0 comes down onto the grasp height and moves in along the fingers."""
+    standoff = DESCENT_STANDOFF_M if standoff is None else standoff
+    rise = DESCENT_RISE_M if rise is None else rise
+    raised = (tcp_point[0], tcp_point[1], tcp_point[2] + REACH_CLEARANCE_M)
+    pre_grasp, above = grasp_line(raised, tcp_offset, hand_quaternion)
+    _, grasp = grasp_line(tcp_point, tcp_offset, hand_quaternion)
+    if standoff <= 0.0:
+        return [pre_grasp, above, grasp]
+    fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
+    back = tuple(standoff * f for f in fingers)
+    down = (grasp[0] - back[0], grasp[1] - back[1], grasp[2] - back[2] + rise)
+    return [pre_grasp, tuple(above[i] - back[i] for i in range(3)), down, grasp]
+
+
+LAST_MOVE_TOLERANCE_M = 0.001
+
+
+def in_last_move(hand_xyz, waypoints, tolerance=LAST_MOVE_TOLERANCE_M):
+    """True once the hand base is on the last move of the reach: no farther from the end point than the start of the
+    last move is (waypoints[-2], 'down' of reach_waypoints), plus `tolerance`. Every earlier point of the reach is
+    farther from the end point (the descent comes down onto 'down' from REACH_CLEARANCE_M above), so the first time
+    this holds marks the start of the last move. The executed hand leaves its plan by up to REACH_PATH_DEVIATION_M, so
+    the mark is that close and no closer. Used for the strict contact window grasp_reach_last_move
+    (config/baseline1_gates.json)."""
+    if len(waypoints) < 2:
+        return False
+    end, start = waypoints[-1], waypoints[-2]
+    return math.dist(hand_xyz, end) <= math.dist(start, end) + tolerance
+
+
 def straight_lift(hand_xyz, hand_quaternion, rise):
     """The hand base goal that raises the TCP and the held item by `rise` straight up: the hand translated along z of
     base_footprint with the orientation it has on the item. A translation moves every point of the hand by the same vector."""
