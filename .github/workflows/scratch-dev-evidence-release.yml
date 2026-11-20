@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: MIT
+# Scratch (not for merge): preserve the Baseline 1 recording (run 44448676604) and its 543-frame C9 conversion
+# as assets of one pre-release before the workflow artifacts expire (2026-12-19). Byte copies of existing
+# artifacts only: no simulation, no recording, no conversion. No hardware, no secrets beyond the job token.
+# Simulation development evidence only.
+name: Scratch dev evidence release
+
+on:
+  push:
+    branches: [scratch/dev-evidence-release]
+
+permissions:
+  contents: read
+
+env:
+  TAG: dev-evidence-baseline1-c9-2026-11-19
+  # Recording commit of run 44448676604; the tag points at it.
+  TARGET_SHA: a20746338701e7961c28ba4650e11996a1a76919
+  RECORDING_RUN: '44448676604'
+  RECORDING_ARTIFACT: baseline1-acceptance-attempt1
+  REFERENCE_RUN: '44598573882'
+  REFERENCE_ARTIFACT: baseline1-reference-dataset-44448676604
+  EARLIER_RUN: '44521207508'
+  EARLIER_ARTIFACT: baseline1-lerobot-dataset-44448676604-proposed-rules
+
+jobs:
+  release:
+    name: Pre-release of the Baseline 1 bag and C9 dataset (development evidence)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.RECORDING_ARTIFACT }}
+          run-id: ${{ env.RECORDING_RUN }}
+          github-token: ${{ github.token }}
+          path: in/recording
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.REFERENCE_ARTIFACT }}
+          run-id: ${{ env.REFERENCE_RUN }}
+          github-token: ${{ github.token }}
+          path: in/reference
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.EARLIER_ARTIFACT }}
+          run-id: ${{ env.EARLIER_RUN }}
+          github-token: ${{ github.token }}
+          path: in/earlier
+      - name: Inputs against the manifest before packing
+        run: |
+          set -euo pipefail
+          ls -la in/recording/ws/build1_logs/bag in/reference in/earlier
+          python3 -I tools/scratch/verify_dev_evidence.py in/reference/dataset-a in/recording/ws/build1_logs/bag
+          (cd in/reference/dataset-a && find . -type f | sort | xargs sha256sum) > /tmp/files.sha256
+          cmp /tmp/files.sha256 in/reference/dataset-a.sha256 && echo "per-file list identical to run ${REFERENCE_RUN}"
+      - name: Pack assets
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          TAR="tar --sort=name --mtime=2026-11-19T00:00:00Z --owner=0 --group=0 --numeric-owner --format=gnu"
+          BAG=in/recording/ws/build1_logs/bag
+          cp "$BAG/metadata.yaml" assets/baseline1-run44448676604-metadata.yaml
+          size=$(stat -c %s "$BAG/bag_0.mcap")
+          limit=$((2 * 1024 * 1024 * 1024))
+          echo "bag_0.mcap size ${size} bytes; GitHub asset limit ${limit} bytes"
+          if [ "$size" -lt $((limit - 64 * 1024 * 1024)) ]; then
+            cp "$BAG/bag_0.mcap" assets/baseline1-run44448676604-bag_0.mcap
+            echo "bag published whole"
+          else
+            split -b 1900M -d -a 2 "$BAG/bag_0.mcap" assets/baseline1-run44448676604-bag_0.mcap.part-
+            {
+              echo "bag_0.mcap of run 44448676604 is split into parts of 1900 MiB (GitHub asset limit 2 GiB)."
+              echo "Rebuild: cat baseline1-run44448676604-bag_0.mcap.part-* > bag_0.mcap"
+              echo "Check:   echo '4b1f23f220b1b8aaedeff6da34e76131aee62373399683bd083087418459bf50  bag_0.mcap' | sha256sum -c"
+            } > assets/REASSEMBLE.txt
+            echo "bag split"
+          fi
+          $TAR -cf assets/baseline1-reference-dataset-cf7f283.tar -C in/reference/dataset-a .
+          cp in/reference/dataset-a.sha256 assets/baseline1-reference-dataset-cf7f283.files.sha256
+          cp in/reference/recording-job-135306975778.log assets/recording-job-135306975778.log
+          $TAR -cf assets/reference-run-44598573882-reports.tar -C in/reference \
+            $(cd in/reference && ls -d convert-*.log verify-*.json verify-*.log summary.json 2>/dev/null)
+          $TAR -cf assets/earlier-conversion-run-44521207508-8d012ea.tar -C in/earlier .
+          (cd assets && sha256sum $(ls | sort) > SHA256SUMS)
+          cat assets/SHA256SUMS
+          ls -l assets
+      - name: Create the pre-release and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease --target "$TARGET_SHA" \
+            --title "Development evidence: Baseline 1 C9 reference dataset and source bag, 19 Nov 2026 (simulation, not validated)" \
+            --notes-file tools/scratch/dev_evidence_release_notes.md
+          for f in assets/*; do gh release upload "$TAG" "$f" --repo "$GITHUB_REPOSITORY"; done
+      - name: Download from the release and verify every asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p check && cd check
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY"
+          ls -l
+          sha256sum -c SHA256SUMS
+          cmp SHA256SUMS ../assets/SHA256SUMS && echo "SHA256SUMS identical to the packed list"
+          mkdir -p bag dataset
+          if [ -f baseline1-run44448676604-bag_0.mcap ]; then
+            cp baseline1-run44448676604-bag_0.mcap bag/bag_0.mcap
+          else
+            cat baseline1-run44448676604-bag_0.mcap.part-* > bag/bag_0.mcap
+          fi
+          cp baseline1-run44448676604-metadata.yaml bag/metadata.yaml
+          tar -xf baseline1-reference-dataset-cf7f283.tar -C dataset
+          (cd dataset && sha256sum -c ../baseline1-reference-dataset-cf7f283.files.sha256)
+          python3 -I ../tools/scratch/verify_dev_evidence.py dataset bag
+          grep -c '"model_sha256": "e1a3c33d59f6c5628f1329c42fe04b67e11d1720db4a2f65e1dfae211885a2e2"' recording-job-135306975778.log
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.html_url, .prerelease, (.assets[] | "\(.name) \(.size) \(.digest // "")")'
