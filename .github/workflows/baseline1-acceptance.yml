@@ -23,6 +23,7 @@
 # middleware beyond acceptance stays the owners' decision.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
 name: Baseline 1 acceptance
+run-name: "DIAGNOSTIC, not acceptance: #94 #95 #98 #99 on integration 30e7f62, platform 960e2e5 (#178), forward retreat, cancel at end, on ${{ github.ref_name }}"
 
 on:
   pull_request:
