@@ -122,12 +122,13 @@ def grasp_line(tcp_point, tcp_offset, hand_quaternion, standoff=REACH_STANDOFF_M
 # DESCENT_STANDOFF_M farther back along the fingers and the reach ends with a straight move of that length along the fingers
 # onto the unchanged end point: the item sits as deep in the fingers as before, and the palm closes on the face head-on.
 # Coming down that far back puts the hand body over the tote's front wall at the grasp height, where MoveIt sees the tote
-# as one unpadded box (planning_scene.py). At the end point the hand body is planned 5.7 to 16.8 mm above the wall in the
-# diagnostics runs of 323a2ce, 87d0f7a and e7a251c, with no wall contact in 25 runs that ended the descent there. Stopping
-# the descent at the grasp height 9 mm back left 7.1 mm (run 5 of 44609269748) and the hand touched the wall in 2 of 5
-# runs (ee_base_link 7.63 N, ee_link1 4.94 N). So the descent stops DESCENT_RISE_M above the grasp height: the end state,
-# which MoveIt has checked against the tote box, raised by the path deviation. The last move is the straight line from
-# there onto the end point, DESCENT_STANDOFF_M along the fingers and DESCENT_RISE_M down (test_arm_frames.py).
+# as one unpadded box (planning_scene.py). At the end point the hand is planned 5.7 to 16.8 mm over the wall (15
+# diagnostics runs of 323a2ce, 87d0f7a and e7a251c), and no run of a head that ended the descent there touched the wall
+# (0 of 25). Stopping the descent at the grasp height 9 mm back left 7.1 mm (run 5 of 44609269748) and the hand touched the
+# wall in 2 of 5 runs (ee_base_link 7.63 N, ee_link1 4.94 N), at the bottom of the descent (scratch run 44645357800). So the
+# descent stops DESCENT_RISE_M above the grasp height: the end state, which MoveIt has checked against the tote box, raised
+# by the path deviation. The last move is the straight line from there onto the end point, DESCENT_STANDOFF_M along the
+# fingers and DESCENT_RISE_M down (test_arm_frames.py).
 REACH_PATH_DEVIATION_M = 0.009
 DESCENT_STANDOFF_M = REACH_PATH_DEVIATION_M
 DESCENT_RISE_M = REACH_PATH_DEVIATION_M

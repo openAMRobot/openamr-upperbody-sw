@@ -5,6 +5,17 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (20 Nov 2026; scn04 reach, hand on the tote's front wall; simulation only)
+
+- **The descent stops 9 mm above the grasp height.** Coming down 9 mm back along the fingers (below) put the hand over the
+  tote's front wall at the grasp height. In diagnostics run 44609269748 the hand touched `tote:front_collision` in 2 of 5
+  runs (`ee_base_link` 7.63 N, `ee_link1` 4.94 N). In scratch run 44645357800 the contact (`ee_base_link`, 1.06 N, on the
+  wall's top edge) lasted from the bottom of the descent through the first 4 mm of the move in. MoveIt sees the tote as
+  one unpadded box and planned the descent 7.1 mm over the wall.
+  `arm_frames.reach_waypoints` now stops the descent `DESCENT_RISE_M` (0.009 m) above the grasp height and ends with the
+  straight line onto the unchanged end point. Grasp depth, end point, limits, thresholds, padding and collision checks are
+  unchanged. Tests: `test_arm_frames.py` (palm and open fingers against the tote front wall along four recorded reaches).
+
 ### Fixed (19 Nov 2026; scn04 reach, palm on the item; simulation only)
 
 - **The reach comes down short of the item and moves in along the fingers last.** In control room run 44476577635 the
