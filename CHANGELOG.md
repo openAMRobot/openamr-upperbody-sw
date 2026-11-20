@@ -5,14 +5,6 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
-### Added (20 Nov 2026; strict Baseline 1 gates, integration branch only; simulation only)
-
-- `baseline1_gates.py` and `config/baseline1_gates.json`: the strict verdict also requires the mission result PASS
-  with no failed check outside the phases, the drive, battery, lift and arm work counters alive for the whole run
-  (recorded in every trace sample), the Stop checks of `stop_authorize` and a cancellation check, contact sensors on
-  with every contact in the allowed list, and complete evidence per leg. `baseline1-acceptance.yml` turns the contact
-  sensors on. `test_baseline1_strict.py`: 19 tests, 9 of them fail with the 323a2ce verdict script.
-
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
@@ -20,6 +12,14 @@ All notable changes to this repository. Evidence for the description is static a
   a synchronized trace and a final table that reports partial passes apart. `baseline1.py` composes the existing scn02, scn03
   and scn04 checks; `baseline1_phases.py` and `scripts/baseline1_report.py` have no ROS import; `test_baseline1_phases.py`
   (25 tests) runs in the static job. Platform input: openamr-platform-sw `integration/baseline1` `d36b33a`.
+
+### Added (20 Nov 2026; strict Baseline 1 gates, integration branch only; simulation only)
+
+- `baseline1_gates.py` and `config/baseline1_gates.json`: the strict verdict also requires the mission result PASS
+  with no failed check outside the phases, the drive, battery, lift and arm work counters alive for the whole run
+  (recorded in every trace sample), the Stop checks of `stop_authorize` and a cancellation check, contact sensors on
+  with every contact in the allowed list, and complete evidence per leg. `baseline1-acceptance.yml` turns the contact
+  sensors on. `test_baseline1_strict.py`: 19 tests, 9 of them fail with the 323a2ce verdict script.
 
 ### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
 
