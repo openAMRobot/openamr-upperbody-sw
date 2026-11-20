@@ -126,6 +126,15 @@ def test_the_reverse_speed_and_along_heading_measures():
     assert sd.along((0.0, 0.0, 1.5707963), (0.0, -0.3, 1.5707963)) == pytest.approx(-0.3)
 
 
+def test_pose_jitter_between_close_samples_is_not_read_as_reverse():
+    # A turn in place sampled every few ms of Gazebo time, with 1 mm of pose jitter: not a reverse.
+    turn = [(0.004 * i, 0.001 * (i % 2), 0.0, 0.01 * i) for i in range(200)]
+    assert sd.reverse_speed(turn) < 0.01
+    # A real 0.1 m/s reverse sampled the same way is still found.
+    back = [(0.004 * i, -0.0004 * i, 0.0, 0.0) for i in range(200)]
+    assert sd.reverse_speed(back) == pytest.approx(0.1)
+
+
 # ------------------------------------------------------------------ nothing is enabled
 def test_the_default_is_backup_and_the_workflow_does_not_choose_another():
     assert sd.option(CONFIG, environ={}) == "backup"

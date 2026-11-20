@@ -224,3 +224,26 @@ Pinned: this branch `d63e9ed`, openamr-platform-sw integration branch `931e631` 
 | [44309784398](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44309784398) | off | 7/8 | 0.0639 m | 0.009 rad |
 
 These are three passes in parallel, not a strict consecutive sequence, and the alignment is not adopted into Baseline 1. They used #167 before the review fixes (aa8fd11). Simulation-oracle evidence only, not perception.
+
+## Diagnostic runs, 20 Nov 2026 (cancellation check, retreat options; diagnostic, not acceptance)
+
+Single legs on `diag/` scratch branches, run name DIAGNOSTIC. Profile sim-oracle, CycloneDDS, alignment on.
+
+| Run | Upperbody | Platform | Retreat | Phases | Cancel status | Stop after cancel | Hold (truth, odom, `/cmd_vel` peak) | Failed checks |
+|---|---|---|---|---|---|---|---|---|
+| [44735544898](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44735544898) | `d69415c` | `fb25be1` | backup | 7/8 | 5 CANCELED, cancelled at 0.152 m, 0.195 m/s | 0.111 s, 0.0137 m; last nonzero `/cmd_vel` 0.119 s after the cancel | 0.0 m, 0.0 m, 0.0 over 3 s (30 messages) | `nav_odometry_minus_ground_truth` 0.243 m (limit 0.10) |
+| [44736351073](https://github.com/openAMRobot/openamr-upperbody-sw/actions/runs/44736351073) | `c0af973` | `0aa8e14` (#90's behaviour set) | forward | 6/8 | 5 CANCELED, cancelled at 0.151 m, 0.185 m/s | 0.135 s, 0.0207 m; last nonzero 0.061 s | 0.0 m, 0.0 m, 0.0 over 3 s (46 messages) | `nav_odometry_minus_ground_truth` 0.236 m; `retreat_peak_reverse_speed` 0.236 m/s (a fault of the measure, fixed below) |
+
+- Cancellation: all 13 `cancel_*` checks passed in both runs. Through `/navigate_to_pose` (bt_navigator, no #90 proxy)
+  a public cancel ends CANCELED.
+- Odometry after the step: in both runs the odometry was 0.24 m off ground truth at the station (yaw 0.12 rad),
+  against 0.062 and 0.075 m (yaw 0.031 and 0.033 rad) in runs 44309791416 and 44309804809 without the step. The
+  heading error appears in the 90 deg turn in place that follows the cancelled straight move, as in the turn-slip
+  experiment (`diag/spin-test`: a pi/2 turn after a straight under-rotates by 10.3 %). Ground truth at the station was
+  fine (0.013 m in the second run). Until owners decide, the step fails the leg through the odometry guard.
+- Forward retreat on #90's behaviour set: spin 178.1 deg (status 4), drift 0.014 m, forward goal status 4,
+  0.336 m from the station, base speed at most 0.082 m/s, 54 s of Gazebo time (the backup takes 11 s).
+  `reverse_speed()` divided pose jitter by sample spacings of a few milliseconds; it now measures over at least
+  0.25 s (test added). The no-reverse configuration (`0aa8e14`) also passed the station approach with alignment
+  (0.013 m, 0.003 rad).
+

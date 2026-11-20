@@ -173,13 +173,18 @@ def along(start, pose):
     return (pose[0] - start[0]) * math.cos(start[2]) + (pose[1] - start[1]) * math.sin(start[2])
 
 
-def reverse_speed(samples):
-    """samples [(t, x, y, yaw)] -> the largest backward speed along the current heading (0.0 when none)."""
+def reverse_speed(samples, min_dt=0.25):
+    """samples [(t, x, y, yaw)] -> the largest backward speed along the heading (0.0 when none), each over at least
+    min_dt seconds of Gazebo time. Samples a few milliseconds of Gazebo time apart divide pose jitter by almost
+    nothing (diagnostic run 44736351073 read 0.236 m/s in a turn whose largest base speed was 0.082 m/s)."""
     worst = 0.0
-    for (t1, x1, y1, yaw1), (t2, x2, y2, _yaw2) in zip(samples, samples[1:]):
-        if t2 > t1:
-            v = ((x2 - x1) * math.cos(yaw1) + (y2 - y1) * math.sin(yaw1)) / (t2 - t1)
-            worst = max(worst, -v)
+    for i, (t1, x1, y1, yaw1) in enumerate(samples):
+        later = next((s for s in samples[i + 1:] if s[0] - t1 >= min_dt), None)
+        if later is None:
+            break
+        t2, x2, y2, _yaw2 = later
+        v = ((x2 - x1) * math.cos(yaw1) + (y2 - y1) * math.sin(yaw1)) / (t2 - t1)
+        worst = max(worst, -v)
     return worst
 
 
