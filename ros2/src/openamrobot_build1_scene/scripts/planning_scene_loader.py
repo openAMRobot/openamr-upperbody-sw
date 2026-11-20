@@ -14,6 +14,7 @@ before a grasp. The fixed boxes get the planning clearance fixture_padding_m (pl
 side; the tote, the item and the payload get none. Simulation only.
 """
 import math
+import os
 
 import rclpy
 from geometry_msgs.msg import Pose, PoseStamped
@@ -82,6 +83,29 @@ class PlanningSceneLoader(Node):
     def on_truth(self, msg):
         p, q = msg.pose.pose.position, msg.pose.pose.orientation
         self.truth = (p.x, p.y, yaw_of(q))
+        self.truth3 = ((p.x, p.y, p.z), (q.x, q.y, q.z, q.w))     # scratch (diag/arm-geom-*): with the base's z and tilt
+
+    def tilt_corrected(self, centre, quaternion):
+        """Scratch: a box pose in the level base_footprint (z of the world) moved into the tilted base_footprint of the
+        ground truth odom: the base's height and roll and pitch, which the level placement leaves out."""
+        import numpy as np
+        (_, _, bz), (x, y, z, w) = self.truth3
+        R3 = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                       [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                       [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+        yaw = yaw_of(type("Q", (), {"x": x, "y": y, "z": z, "w": w})())
+        c, s_ = math.cos(yaw), math.sin(yaw)
+        R2 = np.array([[c, -s_, 0.0], [s_, c, 0.0], [0.0, 0.0, 1.0]])
+        Rt = R2.T @ R3                                                   # roll and pitch in the base's yaw frame
+        out = Rt.T @ (np.array(centre) - np.array((0.0, 0.0, bz)))
+        qw = math.sqrt(max(0.0, 1.0 + np.trace(Rt))) / 2.0
+        qt = ((Rt[2, 1] - Rt[1, 2]) / (4 * qw), (Rt[0, 2] - Rt[2, 0]) / (4 * qw), (Rt[1, 0] - Rt[0, 1]) / (4 * qw), qw)
+        inv = (-qt[0], -qt[1], -qt[2], qt[3])
+        ax, ay, az, aw = inv
+        bx, by, bz2, bw = quaternion
+        q = (aw * bx + ax * bw + ay * bz2 - az * by, aw * by - ax * bz2 + ay * bw + az * bx,
+             aw * bz2 + ax * by - ay * bx + az * bw, aw * bw - ax * bx - ay * by - az * bz2)
+        return tuple(float(v) for v in out), q
 
     def base_pose(self):
         """(x, y, yaw) of base_footprint in the scene frame and its source: the robot's estimate (pose_source map, the
@@ -137,6 +161,9 @@ class PlanningSceneLoader(Node):
                 box_pose.position.x, box_pose.position.y, box_pose.position.z = c * dx - s * dy, s * dx + c * dy, centre[2]
                 relative = yaw - pose[2]
                 box_pose.orientation.z, box_pose.orientation.w = math.sin(relative / 2.0), math.cos(relative / 2.0)
+            if os.environ.get("BUILD1_DIAG_PLAN_TILT") and getattr(self, "truth3", None) is not None:      # scratch
+                p_, o_ = box_pose.position, box_pose.orientation
+                (p_.x, p_.y, p_.z), (o_.x, o_.y, o_.z, o_.w) = self.tilt_corrected((p_.x, p_.y, p_.z), (o_.x, o_.y, o_.z, o_.w))
             collision = CollisionObject(id=name, operation=CollisionObject.ADD)
             collision.header.frame_id = "base_footprint"
             collision.primitives = [SolidPrimitive(type=SolidPrimitive.BOX, dimensions=[float(v) for v in size])]

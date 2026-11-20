@@ -2,7 +2,8 @@
 # Scratch (diag/arm-geom-*, not for merge): build1-arm-diagnostics with one leg per matrix entry. Legs g* run diag_grasp
 # (scn04) with BUILD1_DIAG_DESCENT_RISE (0: the e7a251c descent onto the grasp height; empty: the branch default), legs r*
 # run diag_reach_return (scn03 level 0) with BUILD1_DIAG_REACH_DEPTH (the target's distance in front of the shelf edge).
-# Contact sensors on, a time line of the hand, the base tilt and every contact in the log. Simulation evidence only.
+# Legs r27: level 0 targets 0.27 m to each side; legs rT: planning scene placed with the base's ground truth height and
+# tilt. Contact sensors on, a time line of the hand, the base tilt and every contact in the log. Simulation evidence only.
 name: diag arm geom
 on:
   push:
@@ -26,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        leg: ["g0-1", "g0-2", "g0-3", "g0-4", "g9-1", "g9-2", "g9-3", "g9-4", "g9-5", "r05-1", "r05-2", "r05-3", "r10-1", "r10-2", "r10-3", "r10-4"]
+        leg: ["r27-1", "r27-2", "r27-3", "r27-4", "r27-5", "rT-1", "rT-2", "rT-3"]
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
@@ -160,6 +161,8 @@ jobs:
           BUILD1_CONTACT_SENSORS: "1"
           BUILD1_DIAG_DESCENT_RISE: ${{ startsWith(matrix.leg, 'g0') && '0' || '' }}
           BUILD1_DIAG_REACH_DEPTH: ${{ startsWith(matrix.leg, 'r09') && '0.09' || (startsWith(matrix.leg, 'r10') && '0.10' || '') }}
+          BUILD1_DIAG_L0_SIDE: ${{ startsWith(matrix.leg, 'r27') && '0.27' || '' }}
+          BUILD1_DIAG_PLAN_TILT: ${{ startsWith(matrix.leg, 'rT') && '1' || '' }}
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash

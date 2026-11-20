@@ -174,8 +174,9 @@ def shelf_reach_targets(scene):
     for index, level in enumerate(scene["shelf"]["levels"]):
         z = value(level) + 0.16
         # The robot faces the shelf, so its left is the shelf's -t side.
-        targets[index] = {"left": (fx - tx * 0.16 + nx * front, fy - ty * 0.16 + ny * front, z),
-                          "right": (fx + tx * 0.16 + nx * front, fy + ty * 0.16 + ny * front, z)}
+        side = float(os.environ.get("BUILD1_DIAG_L0_SIDE") or 0.16) if index == 0 else 0.16     # scratch
+        targets[index] = {"left": (fx - tx * side + nx * front, fy - ty * side + ny * front, z),
+                          "right": (fx + tx * side + nx * front, fy + ty * side + ny * front, z)}
     return targets
 
 
