@@ -44,6 +44,17 @@ All notable changes to this repository. Evidence for the description is static a
   straight move of that length along the fingers onto the unchanged end point. Limits, thresholds and collision checks
   are unchanged. Tests: `test_arm_frames.py` (palm against the item along the reach of runs 44476577635 and 44470870769 leg 1).
 
+### Fixed (20 Nov 2026; scn03 level 0 reach, the left hand on the tote item; simulation only)
+
+- **scn03's level 0 targets go 0.27 m to each side.** The left level 0 target stood over scn04's item in the tote (both
+  0.16 m left of the unit centre). In 21 of 22 arm diagnostics runs on five heads the left hand came in from the side and
+  touched the item's top edge (palm or finger, up to 41.5 N) or knocked it over; where the item stayed standing it held the
+  palm up (33.6 N, `L0_left_servo_torque_max` 0.551 N m) against `work_shelf_board_1` and MoveIt refused the return to
+  park (-10, about 1 run in 5). `scene.shelf_reach_targets` puts the level 0 targets `LEVEL0_REACH_SIDE_M` (0.27 m) to
+  each side, beside the tote; level 1 keeps 0.16 m. Limits, thresholds, the goal tolerances, the planning scene and the
+  item's place are unchanged. Tests: `test_scene_reach_targets.py` (three recorded end states of the left reach, moved
+  with the target, against the item).
+
 ### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
 
 - `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample
