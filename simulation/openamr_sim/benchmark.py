@@ -16,6 +16,8 @@ import xml.etree.ElementTree as ET
 
 import yaml
 
+from . import arm_gravity
+
 SCENARIOS = pathlib.Path(__file__).resolve().parents[1] / "benchmark" / "scenarios.yaml"
 ORDER = ("rest", "joint_step", "arm_reach", "lift_move", "straight_drive", "in_place_turn", "object_contact")
 SCHEMA = "openamr.sim_benchmark.v1"
@@ -180,8 +182,41 @@ def _with_box(xml_text, box):
     return ET.tostring(root, encoding="unicode")
 
 
-def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
-    """Run every scenario in order in one MuJoCo simulation. Returns the result document (schema openamr.sim_benchmark.v1)."""
+# Drive wheel contact shapes of platform-sw pull request 171 (sim/wheel-contact-option, head 747cf28, robo_urdf.urdf.xacro
+# macro drive_wheel_collision; Proposed, awaiting the robot-description owner and the software lead). A diagnostic of the
+# benchmark only: the default "pinned" runs the generated model unchanged. Each other value replaces only the two drive wheel
+# collision geoms of the generated MJCF and the DiffDrive radius used to shape the command, as pull request 171 (on 146, the
+# loaded radius 0.098) sets them. Nothing canonical changes here; the shape is decided in platform-sw.
+WHEEL_CONTACT = {
+    "pinned": None,
+    "cylinder": {"type": "cylinder", "size": "0.098 0.023", "axis_y": True, "radius": 0.098},
+    "narrow_cylinder": {"type": "cylinder", "size": "0.098 0.002", "axis_y": True, "radius": 0.098},
+    "sphere": {"type": "sphere", "size": "0.098", "axis_y": False, "radius": 0.098},
+}
+DRIVE_WHEEL_GEOMS = ("left_wheel_link__collision_0", "right_wheel_link__collision_0")
+
+
+def _with_wheel_contact(root, option):
+    """Replace the drive wheel collision geoms of a parsed MJCF by the pull request 171 shape `option` (in place)."""
+    shape = WHEEL_CONTACT[option]
+    if shape is None:
+        return
+    found = 0
+    for geom in root.iter("geom"):
+        if geom.get("name") in DRIVE_WHEEL_GEOMS:
+            geom.set("type", shape["type"])
+            geom.set("size", shape["size"])
+            geom.set("quat", "0.707106790659974 0.707106771713121 0 0" if shape["axis_y"] else "1 0 0 0")
+            found += 1
+    if found != len(DRIVE_WHEEL_GEOMS):
+        raise ValueError(f"expected {len(DRIVE_WHEEL_GEOMS)} drive wheel collision geoms, found {found}")
+
+
+def run_mujoco(mjcf_path, urdf_text, overrides, spec=None, arm_gravity_mode=None, wheel_contact="pinned"):
+    """Run every scenario in order in one MuJoCo simulation. Returns the result document (schema openamr.sim_benchmark.v1).
+
+    arm_gravity_mode: None takes engine_overrides.yaml actuators.arm_gravity_feedforward (default build1, the real driver path of
+    integration/baseline1); "off" runs the MIT gains with tau 0 (main's real profile). wheel_contact: see WHEEL_CONTACT."""
     import mujoco as mj
     import numpy as np
 
@@ -195,6 +230,10 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     key = base_model.key(spec["start_keyframe"]).id
     start_qpos = base_model.key_qpos[key].copy()
     xml = _with_box(path.read_text(), sc["object_contact"])
+    if wheel_contact != "pinned":
+        tree = ET.fromstring(xml)
+        _with_wheel_contact(tree, wheel_contact)
+        xml = ET.tostring(tree, encoding="unicode")
     cwd = pathlib.Path.cwd()
     try:  # mesh paths in the MJCF are relative to its directory
         import os
@@ -216,7 +255,21 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     for jn, a in pos_act.items():
         d.ctrl[a] = d.qpos[m.jnt_qposadr[m.joint(jn).id]]
     dd = diffdrive_params(urdf_text)
+    if WHEEL_CONTACT[wheel_contact] is not None:
+        dd["wheel_radius"] = WHEEL_CONTACT[wheel_contact]["radius"]
+    grav = arm_gravity.settings(overrides)
+    if arm_gravity_mode is not None:
+        if arm_gravity_mode not in arm_gravity.MODES:
+            raise ValueError(f"arm_gravity_mode {arm_gravity_mode!r} is not one of {arm_gravity.MODES}")
+        grav["mode"] = arm_gravity_mode
+    ff = arm_gravity.GravityFeedForward(m, grav["max_state_age_s"]) if grav["mode"] == "build1" else None
+    ff_period = max(1, int(round(1.0 / (grav["rate_hz"] * dt))))
+    arm_dofs = [m.jnt_dofadr[m.joint(jn).id] for jn in arm_gravity.ARM_JOINTS["left"]]
+    arm_acts = [pos_act[jn] for jn in arm_gravity.ARM_JOINTS["left"]]
+    arm_effort = [float(m.actuator_forcerange[a][1]) for a in arm_acts]
+    usage = {"max": 0.0}
     wl, wr = m.actuator("left_wheel_joint_velocity").id, m.actuator("right_wheel_joint_velocity").id
+    jwl, jwr = m.joint("left_wheel_joint").id, m.joint("right_wheel_joint").id
     state = {"box_free": False, "k": 0}
 
     def q(jn):
@@ -231,6 +284,12 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
         for i in range(n):
             if state["k"] % period == 0 and on_ctrl is not None:
                 on_ctrl(i * dt)
+            if state["k"] % ff_period == 0:
+                if ff is not None:
+                    ff.on_state(d, d.time)
+                    ff.apply(d, ff.command(d.time)[0])
+                usage["max"] = max(usage["max"], max(abs(d.actuator_force[a] + d.qfrc_applied[j]) / e
+                                                     for a, j, e in zip(arm_acts, arm_dofs, arm_effort)))
             if not state["box_free"]:
                 d.qpos[box_adr:box_adr + 7] = box_home
                 d.qvel[box_dof:box_dof + 6] = 0
@@ -304,15 +363,19 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
                                            dd["min_angular_acceleration"], ctrl_dt)
         p0, R0 = base()
         yaws = [yaw_of(R0.tolist())]
+        wheel = {"speed": [], "torque": []}
 
         def drive_ctrl(t, lp=lin_prof, ap=ang_prof):
             i = min(int(round(t / ctrl_dt)), len(lp) - 1)
             left, right = wheel_speeds(lp[i], ap[i], dd["wheel_separation"], dd["wheel_radius"])
             d.ctrl[wl], d.ctrl[wr] = left, right
 
-        def sample(t):
+        def sample(t, on_s=s[on_key]):
             if int(round(t / dt)) % period == 0:
                 yaws.append(yaw_of(d.body("base_footprint").xmat.reshape(3, 3).tolist()))
+                if 2.0 <= t < on_s and d.ctrl[wr] != 0.0:  # steady command: past the acceleration ramp, before the stop
+                    wheel["speed"].append(0.5 * (d.qvel[m.jnt_dofadr[jwl]] / d.ctrl[wl] + d.qvel[m.jnt_dofadr[jwr]] / d.ctrl[wr]))
+                    wheel["torque"].append(0.5 * (abs(d.actuator_force[wl]) + abs(d.actuator_force[wr])))
         step(s[on_key] + s["stop_s"], drive_ctrl, sample)
         d.ctrl[wl] = d.ctrl[wr] = 0.0
         p1, R1 = base()
@@ -323,6 +386,10 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
         else:
             results[name] = {"yaw_over_commanded": mo["yaw_change_rad"] / ang_int, "centre_drift_m": mo["displacement_m"],
                              "commanded_yaw_rad": ang_int}
+        # Where a commanded wheel speed goes: the wheel's own speed over its command and the servo torque, both averaged
+        # over the steady part of the command (diagnostic; not compared, Gazebo does not report them).
+        results[name]["wheel_speed_over_commanded"] = float(np.mean(wheel["speed"])) if wheel["speed"] else float("nan")
+        results[name]["wheel_servo_torque_Nm"] = float(np.mean(wheel["torque"])) if wheel["torque"] else float("nan")
 
     s = sc["object_contact"]
     state["box_free"] = True
@@ -334,6 +401,9 @@ def run_mujoco(mjcf_path, urdf_text, overrides, spec=None):
     return {"schema": SCHEMA, "backend": "mujoco", "mujoco_version": mj.__version__, "timestep_s": dt,
             "controller_period_s": ctrl_dt, "diffdrive": dd, "configuration": spec["configuration"],
             "start_keyframe": spec["start_keyframe"], "free_joint": FREE_JOINT, "evidence_class": EVIDENCE_CLASS,
+            "arm_gravity_feedforward": {"mode": grav["mode"], "rate_hz": grav["rate_hz"], "max_state_age_s": grav["max_state_age_s"],
+                                        "left_arm_max_effort_fraction": usage["max"]},
+            "wheel_contact": wheel_contact,
             "results": {k: {mk: float(mv) for mk, mv in v.items()} for k, v in results.items()}, "execution": executions}
 
 

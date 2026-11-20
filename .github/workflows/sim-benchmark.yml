@@ -11,6 +11,8 @@ on:
     paths:
       - simulation/benchmark/**
       - simulation/openamr_sim/benchmark.py
+      - simulation/openamr_sim/arm_gravity.py
+      - ros2/src/openamrobot_upperbody_description/config/sim_dynamics/engine_overrides.yaml
       - simulation/tools/benchmark_*.py
       - .github/workflows/sim-benchmark.yml
   workflow_dispatch:
@@ -95,6 +97,28 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
             --openarm-description src/upstream/openarm_description --out bench | tee bench_mujoco.log
+          # Diagnostics, not compared as the benchmark result: the arm with tau 0 (main's real profile), and the in-place turn
+          # with each drive wheel contact shape of platform-sw pull request 171 (no other change).
+          .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
+            --openarm-description src/upstream/openarm_description --out bench --arm-gravity off --name benchmark_mujoco_arm_gravity_off \
+            >> bench_mujoco.log
+          for shape in cylinder narrow_cylinder sphere; do
+            .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
+              --openarm-description src/upstream/openarm_description --out bench --wheel-contact "$shape" \
+              --name "wheel_contact_$shape" >> bench_mujoco.log
+          done
+          python3 - <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json
+          rows = [("pinned (r 0.100, 46 mm)", "bench/benchmark_mujoco.json")] + \
+                 [(f"#171 {s} (r 0.098)", f"bench/wheel_contact_{s}.json") for s in ("cylinder", "narrow_cylinder", "sphere")]
+          print("### MuJoCo in-place turn per drive wheel contact shape (diagnostic)\n")
+          print("| Shape | yaw over commanded | wheel speed over commanded | wheel servo torque (N m) | centre drift (m) |")
+          print("|---|---|---|---|---|")
+          for label, path in rows:
+              t = json.load(open(path))["results"]["in_place_turn"]
+              print(f"| {label} | {t['yaw_over_commanded']:.4f} | {t['wheel_speed_over_commanded']:.4f} | "
+                    f"{t['wheel_servo_torque_Nm']:.3f} | {t['centre_drift_m']:.4f} |")
+          EOF
 
       - name: rosdep and colcon build (Gazebo)
         if: matrix.backend == 'gazebo'

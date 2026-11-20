@@ -50,6 +50,13 @@ sources:
       main on 15 Nov 2026, the friction change of pull request 135. The combined model reads platform-sw at the pin 8e7a454, whose
       wheel <surface> blocks the URDF to SDF conversion drops (so Gazebo at the pin runs the drive wheels and castors at mu 1).
       The values are the ones platform-sw already carried. They are simulation estimates, not measured tyre or castor materials.
+  build1_gravity_feedforward:
+    repository: https://github.com/openAMRobot/openamr-upperbody-sw
+    commit: "33219338ad2ed24e2fd4a922ac1590dc2bc4a2be"
+    file: ros2/src/openamrobot_build1_scene/scripts/gravity_feedforward.py
+    note: >-
+      The arm gravity feed-forward of the Build 1 real-driver path, pull request 73, carried by integration/baseline1 (read at
+      3321933 on 21 Nov 2026; gravity.py and gravity_feedforward.py identical to pull request 73 at 6b8b7aa). Proposed there.
   pinned_expansion:
     repository: https://github.com/openAMRobot/openamr-upperbody-sw
     file: ros2/src/openamrobot_upperbody_description/urdf/combined_robot.xacro
@@ -101,7 +108,9 @@ common:
 # Actuators. One per command interface the controllers claim. The controllers are in the control package (arm_controllers.yaml):
 # both arm JointTrajectoryControllers and lift_controller command position; both GripperActionControllers command position on
 # finger_joint1; the base DiffDrive plugin commands wheel velocity. A position actuator here is the MIT law the real driver runs with
-# zero velocity and zero torque feed-forward: tau = kp (q_cmd - q) - kd qdot, clamped to the URDF effort limit.
+# zero velocity feed-forward: tau = kp (q_cmd - q) - kd qdot, clamped to the URDF effort limit. The tau field of the same MIT frame
+# (the gravity feed-forward of the Build 1 real-driver path) is arm_gravity_feedforward below, applied in the control path, not
+# in the MJCF.
 # ---------------------------------------------------------------------------------------------------------------------------------
 actuators:
   arm_position_gains:
@@ -117,6 +126,22 @@ actuators:
       joint5: {kp: 10.0, kd: 0.7}
       joint6: {kp: 10.0, kd: 0.6}
       joint7: {kp: 10.0, kd: 0.5}
+    applies_to: [openarm_left_joint1-7, openarm_right_joint1-7]
+  arm_gravity_feedforward:
+    status: project_proposal
+    source: build1_gravity_feedforward
+    locator: >-
+      integration/baseline1 ros2/src/openamrobot_build1_scene: launch/build1.launch.py argument gravity_feedforward (default
+      true), scripts/gravity_feedforward.py parameters rate_hz and max_state_age_s, openamrobot_build1_scene/gravity.py
+      (FeedForward); docs/architecture/d4_mit_frame_field_ownership.md (Proposed)
+    method: >-
+      The real stack's split: the trajectory controller owns q, the gravity controller owns tau, kp and kd stay the driver's.
+      Per arm, every 1 / rate_hz s, the static holding torque at the measured joint positions (base level, zero velocity, no
+      payload) when all seven joints have a state younger than max_state_age_s, otherwise zeros; held between updates. In
+      MuJoCo the torque is the model's gravity term (simulation/openamr_sim/arm_gravity.py), added as a joint torque.
+    mode: {value: build1, allowed: [build1, off], note: "build1 = the real driver path of integration/baseline1; off = tau 0 (the real profile on main)"}
+    rate_hz: {value: 100.0, unit: Hz, status: project_proposal, source: build1_gravity_feedforward, locator: gravity_feedforward.py rate_hz default}
+    max_state_age_s: {value: 0.2, unit: s, status: project_proposal, source: build1_gravity_feedforward, locator: gravity_feedforward.py max_state_age_s default}
     applies_to: [openarm_left_joint1-7, openarm_right_joint1-7]
   gripper_position_gains:
     status: upstream_driver

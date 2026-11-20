@@ -84,9 +84,10 @@ CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job 
 | Inertials | URDF | mass, CoM, full tensor, never from geometry | importer (`import_inertia_tensor`) |
 | Damping, friction | URDF `<dynamics>` (PR #66) | damping, frictionloss | damping in the drive; **joint friction not applied** (PhysX coefficient is unitless) |
 | Armature | not applied | from `openarm_v2.yaml` (18 joints) | `physxJoint:armature` |
-| Arm and gripper actuators | gz_ros2_control position interface (ideal servo) | position actuators, the real driver's MIT gains (`control_gains.yaml`; gripper kp 5, kd 0.1), clamped to the URDF effort | position drives, same gains in USD units |
+| Arm and gripper actuators | gz_ros2_control position interface: a joint velocity command proportional to the position error, which DART runs as a servo bounded only by the effort limit (ideal: no gains, no sag) | position actuators, the real driver's MIT gains (`control_gains.yaml`; gripper kp 5, kd 0.1), clamped to the URDF effort | position drives, same gains in USD units |
+| Arm gravity feed-forward (tau of the MIT frame) | none needed (the servo holds any load below the effort limit) | `arm_gravity_feedforward` in `engine_overrides.yaml`, default `build1`: the static gravity torque of the model at the measured arm positions, 100 Hz, zeros on a state older than 0.2 s, as the Build 1 real-driver path (`gravity_feedforward`, PR #73); `off` is tau 0 | not applied |
 | Lift | gz_ros2_control position interface (in DART it cannot leave its lower limit L1000, see Backend benchmark) | stiff position servo, gains from the carried mass (0.5 mm static sag), 800 N limit | linear position drive, same gains |
-| Wheels | DiffDrive plugin sets wheel velocity | velocity servos, time constant 0.05 s, **no torque limit (unknown)** | velocity drives |
+| Wheels | DiffDrive plugin sets wheel velocity (a DART servo, ideal motor) | velocity servos, time constant 0.05 s, proportional only, **no torque limit (unknown)** | velocity drives |
 | Castors | fixed spheres (platform-sw calls them a slider approximation) | **passive swivel and roll hinges** (declared difference) | fixed, as the URDF |
 | finger_joint2 (SW-09) | URDF mimic; held only with Bullet-Featherstone | equality constraint from the URDF mimic | importer mimic joint (`parse_mimic`) |
 | Collision | URDF shapes and meshes | same shapes; convex hull per mesh; floor only (no self collision) | convex hull per mesh; no self collision |
