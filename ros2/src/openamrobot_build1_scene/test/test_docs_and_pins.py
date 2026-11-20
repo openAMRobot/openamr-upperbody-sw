@@ -154,3 +154,18 @@ def test_every_code_file_has_the_licence_header():
         head = "\n".join(read(path).splitlines()[:3])
         assert "SPDX-License-Identifier: MIT" in head, path
     assert "<license>MIT</license>" in read(package_path("package.xml"))
+
+
+def test_the_scene_tests_build_openamrobot_sil_with_the_clock_contract():
+    """The scene tests and the arm diagnostics take openamrobot_sil from the same openamr-platform-sw commit as
+    baseline1-acceptance.yml. With the #145 pin (8c5bd52) the CTL-017 timers read host time while the lift moves in
+    Gazebo time: scn02 faulted F02/F03 in every run below a real-time factor of 0.65 (runs 44480278103, 44465602110 and
+    earlier) and passed only at 0.67 to 0.70."""
+    pins = load_yaml("config", "pins.yaml")["pins"]
+    with open(os.path.join(REPOSITORY, ".github", "workflows", "baseline1-acceptance.yml"), encoding="utf-8") as f:
+        acceptance = yaml.safe_load(f)
+    assert pins["platform_sw_sil"]["sha"] == acceptance["env"]["PLATFORM_SW_SHA"]
+    for name in ("build1-scene-tests.yml", "build1-arm-diagnostics.yml"):
+        with open(os.path.join(REPOSITORY, ".github", "workflows", name), encoding="utf-8") as f:
+            text = f.read()
+        assert "steps.pins.outputs.platform_sw_sil" in text and "steps.pins.outputs.platform_sw_pr145" not in text, name

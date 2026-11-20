@@ -5,6 +5,27 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (20 Nov 2026; scn03 level 0 reach, the left hand on the tote item; simulation only)
+
+- **scn03's level 0 targets go 0.27 m to each side.** The left level 0 target stood over scn04's item in the tote (both
+  0.16 m left of the unit centre). In 21 of 22 arm diagnostics runs on five heads the left hand came in from the side and
+  touched the item's top edge (palm or finger, up to 41.5 N) or knocked it over; where the item stayed standing it held the
+  palm up (33.6 N, `L0_left_servo_torque_max` 0.551 N m) against `work_shelf_board_1` and MoveIt refused the return to
+  park (-10, about 1 run in 5). `scene.shelf_reach_targets` puts the level 0 targets `LEVEL0_REACH_SIDE_M` (0.27 m) to
+  each side, beside the tote; level 1 keeps 0.16 m. Limits, thresholds, the goal tolerances, the planning scene and the
+  item's place are unchanged. Tests: `test_scene_reach_targets.py` (three recorded end states of the left reach, moved
+  with the target, against the item).
+
+### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
+
+- `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample
+  counter), the BMS host (answer counter), the lift host and CTL-017 emulator (count of the host's permit frames) and the
+  arm joint states. A stopped one fails the scene; in the `faults` profile it is recorded, not checked. A failing scene with
+  a dead drive thread stays FAIL and is no longer turned into BLOCKED. `test_component_liveness.py` (9 tests).
+- `pins.yaml` `platform_sw_sil` and `PLATFORM_SW_SHA`: openamr-platform-sw `960e2e5` (#178, candidate until merged):
+  `integration/baseline1` `fb25be1` with #169 merged (`9af88e7`, #175) and the no-reverse Nav2 configuration
+  (#90's behaviour set) for the forward retreat. Before 20 Nov evening: `9af88e7`.
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
