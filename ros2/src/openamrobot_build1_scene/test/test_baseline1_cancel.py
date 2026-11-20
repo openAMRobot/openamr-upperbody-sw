@@ -321,3 +321,20 @@ def test_canceled_is_the_only_pass():
 
 def test_the_short_goal_is_straight_ahead_on_the_spawn_heading():
     assert cancel.goal_pose((1.0, 2.0, math.pi / 2), 0.5) == pytest.approx((1.0, 2.5, math.pi / 2))
+
+
+# ------------------------------------------------------------------ 5. the goal checker cannot win the race (run 44800204846)
+def test_the_goal_checker_cannot_accept_the_goal_before_the_cancel():
+    """bt_navigator's default checker (0.35 m) accepts a 0.5 m goal after 0.15 m, the cancel distance: run 44800204846
+    ended SUCCEEDED and the cancel was refused (return code 3). The declared goal uses the station tree (0.025 m)."""
+    assert not cancel.goal_reached_before_cancel(CONFIG)
+    assert CONFIG["behavior_tree"] == "navigate_to_station.xml" and CONFIG["goal_xy_tolerance_m"] == 0.025
+    assert cancel.goal_reached_before_cancel(dict(CONFIG, behavior_tree="", goal_xy_tolerance_m=0.35))
+    assert (CONFIG["goal_distance_m"], CONFIG["cancel_at_m"], CONFIG["expected_status"]) == (0.5, 0.15, 5)
+
+
+def test_a_bare_tree_name_is_resolved_and_the_default_stays_empty():
+    assert cancel.tree_path("") == "" and cancel.tree_path("/x/y.xml") == "/x/y.xml"
+    step = ast.unparse(next(n for n in ast.parse(open(cancel.__file__, encoding="utf-8").read()).body
+                            if isinstance(n, ast.FunctionDef) and n.name == "step"))
+    assert "goal.behavior_tree = tree_path(c.get('behavior_tree', ''))" in step

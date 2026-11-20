@@ -8,7 +8,9 @@
       "end_of_mission"
     ],
     "action": "/navigate_to_pose",
-    "behavior_tree": "",
+    "_behavior_tree_comment": "openamr-platform-sw #164's station tree, whose station goal checker (0.025 m) cannot accept the 0.5 m goal before the cancel. bt_navigator's default checker (xy_goal_tolerance 0.35 m) accepted it after 0.15 m, the cancel distance: a race, lost in diagnostic run 44800204846 (SUCCEEDED, cancel refused). Changed 20 Nov 2026 evening; goal distance, cancel distance and pass rule unchanged.",
+    "behavior_tree": "navigate_to_station.xml",
+    "goal_xy_tolerance_m": 0.025,
     "goal_distance_m": 0.5,
     "cancel_at_m": 0.15,
     "mid_way_m": [
