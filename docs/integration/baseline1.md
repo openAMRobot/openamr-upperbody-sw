@@ -97,6 +97,26 @@ Settings declared in every leg:
 - Retreat: one straight 0.30 m backup through behavior_server's `backup` action, the mission's last phase, simulation
   only. A declared station departure, not a recovery; general reversing recovery is removed (Alex, 19 Nov 2026).
 
+Retreat options (Proposed 20 Nov 2026, Alex decides; `station_departure.py`, values in
+`config/baseline1_mission_options.json`, `BASELINE1_RETREAT`, default `backup`; the workflow sets nothing, so no
+alternative is enabled). Today the retreat is `retreat()` in `baseline1.py`: after both arms park, a
+`nav2_msgs/BackUp` goal on `/backup` (behavior_server's BackUp plugin), 0.30 m at 0.10 m/s, 60 s allowance, through
+`cmd_vel_nav`, velocity_smoother (min_velocity[0] -0.20 lets it through) and collision_monitor. With platform-sw #90's
+behaviour set (spin and wait only, min_velocity[0] 0; openamr-platform-sw `nav/baseline1-no-reverse` 0aa8e14 for this
+branch) `/backup` has no server: `send_goal` waits 120 s, the goal is not accepted, the retreat phase fails (STARTUP).
+
+| Option | Motion | Nav2 today (fb25be1) | #90 behaviour set | Trade-off |
+|---|---|---|---|---|
+| `backup` | 0.30 m straight back, Nav2 BackUp | allowed | not possible (no server, smoother clamps reverse) | keeps a general, directly callable reverse action in Nav2 |
+| `departure` | 0.30 m straight back at 0.10 m/s, harness publisher on `cmd_vel_smoothed`, retreat phase only, 10 s cap | refused: 5 reverse paths enabled | allowed, the only reverse of the run | below the smoother; on #90's chain also below the stop gate, so it needs a contract change request there (a mux input and a departure-only smoother exception) |
+| `forward` | Nav2 spin by pi in place, then a 0.30 m forward NavigateToPose with #164's station tree | allowed | allowed, through the normal chain | half turn next to the shelf: 0.141 m measured clearance (#93, closed shelf, base 0.088 m past the station, arms in park), geometry only, carry pose not measured |
+
+Checks per option: `retreat_<option>_allowed` (preconditions), then for `departure` the peak command, time, distance
+along the heading (-0.35 to -0.25 m), heading change and peak reverse speed from ground truth; for `forward` the turn
+status and heading change (170 to 180 deg), drift in the turn (0.05 m), forward status, distance from the station
+(0.25 to 0.35 m) and peak reverse speed (at most 0.02 m/s). `test_station_departure.py` (12 tests) runs every option
+against both configurations.
+
 Pins: openamr-platform-sw integration branch `fb25be1` (#164 at `09f9a85`, BackUp removed from its trees; #167 at
 `99ec17f`, then `dccd5e0`, test-only change on top), openamrobot-interfaces `50ed777` (StopState, imported by #167's
 node from 99ec17f on).

@@ -30,6 +30,13 @@ All notable changes to this repository. Evidence for the description is static a
   0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
   In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
 
+### Added (20 Nov 2026; Baseline 1 retreat options, Proposed, not enabled; simulation only)
+
+- `station_departure.py`: `BASELINE1_RETREAT` selects `backup` (default, today's Nav2 `/backup`, unchanged),
+  `departure` (a bounded straight move back published by the harness in the retreat phase only, refused while the
+  Nav2 configuration has any reverse path) or `forward` (spin in place, then forward, using #93's measured 0.141 m
+  turn clearance). The acceptance workflow selects none. `test_station_departure.py` (12 tests).
+
 ### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
 
 - **Lift in `fast` and `fine` on DART.** The lift could not leave its lower limit (L1000) through the position interface of

@@ -317,6 +317,15 @@ def retreat(rig, log):
         rig.sleep_sim(1.0)
         away = max(abs(rig.physics_joint(f"openarm_{side}_joint{i}") - value) for i, value in enumerate(scenarios.PARK, 1))
         log.quantity(f"retreat_{side}_distance_from_park", away, "rad", low=0.0, high=0.1, note="as in scn03")
+    # How the base leaves the station (station_departure.py, Proposed): BASELINE1_RETREAT backup (default, below),
+    # departure or forward. The acceptance workflow does not set it; the alternatives are not enabled.
+    from openamrobot_build1_scene import station_departure
+    retreat_config = station_departure.load()
+    chosen = station_departure.option(retreat_config)
+    log.data.setdefault("baseline1", {})["retreat_option"] = {"option": chosen}
+    if chosen != "backup":
+        station_departure.run(rig, log, chosen, retreat_config)
+        return
     x0, y0, yaw0 = rig.truth()
     goal = BackUp.Goal()
     goal.target.x, goal.speed, goal.time_allowance = RETREAT_M, RETREAT_SPEED, scenarios._duration(60.0)
