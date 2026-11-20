@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
+
+- `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample
+  counter), the BMS host (answer counter), the lift host and CTL-017 emulator (count of the host's permit frames) and the
+  arm joint states. A stopped one fails the scene; in the `faults` profile it is recorded, not checked. A failing scene with
+  a dead drive thread stays FAIL and is no longer turned into BLOCKED. `test_component_liveness.py` (9 tests).
+- `pins.yaml` `platform_sw_sil` and `PLATFORM_SW_SHA`: openamr-platform-sw `960e2e5` (#178, candidate until merged):
+  `integration/baseline1` `fb25be1` with #169 merged (`9af88e7`, #175) and the no-reverse Nav2 configuration
+  (#90's behaviour set) for the forward retreat. Before 20 Nov evening: `9af88e7`.
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
@@ -12,6 +22,46 @@ All notable changes to this repository. Evidence for the description is static a
   a synchronized trace and a final table that reports partial passes apart. `baseline1.py` composes the existing scn02, scn03
   and scn04 checks; `baseline1_phases.py` and `scripts/baseline1_report.py` have no ROS import; `test_baseline1_phases.py`
   (25 tests) runs in the static job. Platform input: openamr-platform-sw `integration/baseline1` `d36b33a`.
+
+### Added (20 Nov 2026; strict Baseline 1 gates, integration branch only; simulation only)
+
+- `baseline1_gates.py` and `config/baseline1_gates.json`: the strict verdict also requires the mission result PASS
+  with no failed check outside the phases, the drive, battery, lift and arm work counters alive for the whole run
+  (recorded in every trace sample), the Stop checks of `stop_authorize` and a cancellation check, contact sensors on
+  with every contact in the allowed list, and complete evidence per leg. `baseline1-acceptance.yml` turns the contact
+  sensors on. `test_baseline1_strict.py`: 19 tests, 9 of them fail with the 323a2ce verdict script.
+
+### Added (20 Nov 2026; Baseline 1 cancellation check, Proposed for Alex and Mohamed; simulation only)
+
+- `baseline1_cancel.py` and `config/baseline1_mission_options.json`: behind the declared mission option
+  `BASELINE1_CANCEL_CHECK=1` (set and declared by `baseline1-acceptance.yml`), `nav_to_station` first sends a 0.5 m
+  NavigateToPose goal straight ahead on open floor, cancels it through the public action once the base has moved
+  0.15 m, and requires status CANCELED, a stop within 4 s and 0.10 m, then 3 s with ground truth and odometry under
+  0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
+  In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
+
+### Changed (20 Nov 2026, evening; Baseline 1 forward retreat, cancel at the end, #98 contact window; simulation only)
+
+- Retreat `forward` (turn in place, then forward, no reverse) is the default of `config/baseline1_mission_options.json`
+  and set by `baseline1-acceptance.yml` (`BASELINE1_RETREAT: forward`); every leg declares `retreat`, which the evidence
+  gate requires (Alex, 20 Nov 2026).
+- The cancellation step moved from the start of `nav_to_station` to the end of the mission, the last step of the
+  retreat phase (`position: end_of_mission`), so the odometry guard at the station runs before it and no turn follows
+  it. CANCELED stays the only pass and all `cancel_*` assertions are unchanged. Goal and pass rule awaiting Mohamed and
+  Alex.
+- Contact windows: `scenarios._mark` also records `(label, Gazebo time)` in `rig.marks` during the mission;
+  `config/baseline1_gates.json` `contacts.windows` names windows by start and end marks, and an allowed entry with a
+  `window` accounts only for events inside it. One entry added, Mohamed's exact #98 case: `openarm_left_ee_base_link`
+  or `openarm_left_ee_link1` against `tote::front_collision`, `arm_approach`, window `grasp_reach_last_move`, at most 6 N.
+- Tests: 6 new or changed tests fail with the 196dd3f sources (`test_baseline1_cancel.py`, `test_station_departure.py`,
+  `test_baseline1_strict.py`).
+
+### Added (20 Nov 2026; Baseline 1 retreat options, Proposed, not enabled; simulation only)
+
+- `station_departure.py`: `BASELINE1_RETREAT` selects `backup` (default, today's Nav2 `/backup`, unchanged),
+  `departure` (a bounded straight move back published by the harness in the retreat phase only, refused while the
+  Nav2 configuration has any reverse path) or `forward` (spin in place, then forward, using #93's measured 0.141 m
+  turn clearance). The acceptance workflow selects none. `test_station_departure.py` (12 tests).
 
 ### Fixed (17 Nov 2026; Build 1 scene, W13: lift in DART, base yaw diagnosis)
 
