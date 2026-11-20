@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Integrated Digital Twin Baseline 1: one whole-robot mission in one launch, phase by phase.
 
-spawn > nav_to_station > stop_authorize > lift_to_target > arm_approach > grasp > lift_object > retreat.
+spawn > nav_to_station > stop_authorize > lift_to_target > arm_approach > grasp > lift_object > retreat (with the
+declared cancellation check as its last step, baseline1_cancel.py).
 The checks are the existing ones of scenarios.py and rig.py wherever they exist (lift refusal of scn02, park and grasp
 of scn04, lift_move, wait_stopped); this module adds the navigation, authorization, lift and retreat steps around them,
 tags every check with its phase (baseline1_phases.Tracker) and records a synchronized trace of base, lift, hand and
@@ -71,7 +72,17 @@ class Trace:
                 "map_err": math.hypot(amcl[0] - truth[0], amcl[1] - truth[1]) if truth and amcl else None,
                 "lift": self._read(rig.lift_truth), "lift_js": self._read(lambda: rig.joint("lift_joint")),
                 "finger": self._read(lambda: rig.physics_joint("openarm_left_finger_joint1")),
-                "item_z": item[2] if item else None, "rtf": self._read(rig.rtf)}
+                "item_z": item[2] if item else None, "rtf": self._read(rig.rtf), **self.counters()}
+
+    def counters(self):
+        """The work counter of each component, which only that component's own work advances (baseline1_gates.liveness
+        requires each to advance through the whole run): the drive host's 606Ch samples, the BMS host's answers, the
+        CTL-017 emulator's received permit frames, and the number of /joint_states messages."""
+        rig = self.rig
+        return {"live_drive_samples": self._read(lambda: (rig.get("/sil/drive/status") or {}).get("samples")),
+                "live_bms_answers": self._read(lambda: (rig.get("/sil/bms/status") or {}).get("answers")),
+                "live_lift_permit_rx": self._read(lambda: (rig.get("/sil/lift/emulator_state") or {}).get("permit_rx_count")),
+                "live_joint_states": self._read(lambda: rig.count("/joint_states") or None)}
 
     def _loop(self):
         last = None
@@ -182,6 +193,8 @@ def scan_returns(rig, log):
 
 def nav_to_station(rig, log):
     from nav2_msgs.action import NavigateToPose
+    # The cancellation check runs at the end of the mission (end_of_mission), not here: at the start of nav_to_station
+    # it was followed by the station turn, whose slip failed the odometry guard below (runs 44735544898, 44736351073).
     scan_returns(rig, log)
     amcl_topic = AmclListener(rig)
     rig.sleep_sim(0.5)
@@ -192,7 +205,7 @@ def nav_to_station(rig, log):
     goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
     goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
     goal.behavior_tree = station_tree()
-    log.data.setdefault("baseline1", {})["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
+    log.data["baseline1"]["behavior_tree"] = goal.behavior_tree or "default (bt_navigator)"
     log.event(f"nav goal {WORK_STATION} x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map), "
               f"behavior tree {goal.behavior_tree or 'default'}")
     start = rig.sim_time()
@@ -262,10 +275,16 @@ def stop_authorize(rig, log):
     log.require(rig.get(emulator)["permit_gate"], "the permit gate of the CTL-017 emulator is off")
     rig.lift_permit(False)
     rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+    failures = len(log.failures)
     scenarios._lift_refused(rig, log, LIFT_SEQUENCE[0], "authorize")     # scn02's refusal check, unchanged
+    # The refusal as a named check, so the strict verdict can require that it ran (baseline1_gates.stop_cancel).
+    refused = not any("not refused" in text for text in log.failures[failures:])
+    log.quantity("authorize_command_refused", refused, "bool", low=True, high=True,
+                 note="the lift command without permit was refused (scn02's check above)")
     rig.lift_permit(True)
-    log.require(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"),
-                "authorize: the permit did not become fresh")
+    fresh = bool(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"))
+    log.require(fresh, "authorize: the permit did not become fresh")
+    log.quantity("authorize_permit_fresh", fresh, "bool", low=True, high=True, note="the CTL-017 emulator holds a fresh permit")
     rig.lift_permit(False)                                               # lift_move grants it again per move
 
 
@@ -294,6 +313,15 @@ def retreat(rig, log):
         rig.sleep_sim(1.0)
         away = max(abs(rig.physics_joint(f"openarm_{side}_joint{i}") - value) for i, value in enumerate(scenarios.PARK, 1))
         log.quantity(f"retreat_{side}_distance_from_park", away, "rad", low=0.0, high=0.1, note="as in scn03")
+    # How the base leaves the station (station_departure.py): BASELINE1_RETREAT forward (default, turn and forward, no
+    # reverse; Alex 20 Nov 2026), backup (below, needs a reverse-capable Nav2) or departure (not enabled).
+    from openamrobot_build1_scene import station_departure
+    retreat_config = station_departure.load()
+    chosen = station_departure.option(retreat_config)
+    log.data.setdefault("baseline1", {})["retreat_option"] = {"option": chosen}
+    if chosen != "backup":
+        station_departure.run(rig, log, chosen, retreat_config)
+        return
     x0, y0, yaw0 = rig.truth()
     goal = BackUp.Goal()
     goal.target.x, goal.speed, goal.time_allowance = RETREAT_M, RETREAT_SPEED, scenarios._duration(60.0)
@@ -310,6 +338,26 @@ def retreat(rig, log):
     log.quantity("retreat_heading_change", math.degrees(angle_diff(yaw1, yaw0)), "deg", low=-5.0, high=5.0, note="as in scn01")
 
 
+def end_of_mission_cancel(rig, log):
+    """The declared cancellation check (BASELINE1_CANCEL_CHECK=1, baseline1_cancel.py) as the last step of the mission:
+    after the retreat, on open floor ahead of the base, so the odometry guard at the station is already evaluated and
+    no turn follows the cancel. Recorded as off when the option is not set."""
+    from openamrobot_build1_scene import baseline1_cancel
+    options = baseline1_cancel.load()
+    enabled = baseline1_cancel.enabled(options)
+    log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": enabled, "position": options.get("position")}
+    if not enabled:
+        return None
+    log.event(f"cancel check at position {options.get('position')}: after the retreat, before the evidence close")
+    return baseline1_cancel.step(rig, log, pose=lambda: map_pose(rig), config=options)
+
+
+def retreat_then_cancel(rig, log):
+    """The retreat phase: leave the station, then the end-of-mission cancellation check."""
+    retreat(rig, log)
+    end_of_mission_cancel(rig, log)
+
+
 def mission(rig, log):
     from openamrobot_build1_scene import scenarios
     log.event(f"Baseline 1 mission, seed {SEED} (BASELINE1_SEED): Python random and the ROS domain of the test. "
@@ -323,6 +371,14 @@ def mission(rig, log):
         recorders.subscribe_frames(rig)
     except Exception as error:  # noqa: BLE001 - a recording is never a check
         log.event(f"recording: {error}")
+    from openamrobot_build1_scene.baseline1_record import ContactLog
+    contacts = None
+    try:
+        contacts = ContactLog(rig, log)
+    except Exception as error:  # noqa: BLE001 - recorded; the strict verdict fails a run without a contact record
+        log.event(f"contacts: {error}")
+    # Time marks of scenarios._mark (Gazebo time), for the contact windows of config/baseline1_gates.json.
+    rig.marks = []
     trace = Trace(rig, tracker).start()
     try:
         tracker.run("spawn", lambda: spawn(rig, log))
@@ -331,12 +387,15 @@ def mission(rig, log):
         tracker.run("lift_to_target", lambda: lift_to_target(rig, log))
         # scn04's grasp, unchanged: park, open, approach, reach, close, lift 0.08 m, hold, release.
         tracker.run("arm_approach", lambda: scenarios.grasp(rig, log), then=("grasp", "lift_object"))
-        tracker.run("retreat", lambda: retreat(rig, log))
+        tracker.run("retreat", lambda: retreat_then_cancel(rig, log))
     finally:
         trace.stop()
         recorders.stop()
         log.data["phases"] = tracker.result()
         log.data["trace"] = trace.samples
+        log.data["marks"] = [{"label": label, "t": t} for label, t in list(getattr(rig, "marks", None) or [])]
+        if contacts is not None:
+            log.data["contacts"] = contacts.record(tracker.result(), getattr(rig, "marks", None) or [])
         for line in phases.trace_summary(trace.samples, tracker.result()):
             print(f"BASELINE1 TRACE {line}", flush=True)
         for line in phases.trace_table(trace.samples):

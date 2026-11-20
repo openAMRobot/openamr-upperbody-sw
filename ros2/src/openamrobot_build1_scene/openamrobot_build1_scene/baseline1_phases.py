@@ -15,8 +15,9 @@ import time
 PHASES = (
     ("spawn", "none: the base rests at stations.origin of config/scene.yaml",
      "ground truth pose against the station, base speed, odometry against ground truth"),
-    ("nav_to_station", "Nav2 navigate_to_pose from origin to stations.work_shelf (about 2.4 m and a 90 deg turn)",
-     "Nav2 result, ground truth pose against the goal, odometry against ground truth"),
+    ("nav_to_station", "Nav2 navigate_to_pose from origin to stations.work_shelf (about 2.4 m and a 90 deg turn); with "
+     "BASELINE1_CANCEL_CHECK=1 first a short goal cancelled mid-way",
+     "Nav2 result, ground truth pose against the goal, odometry against ground truth; cancel status, stop and hold"),
     ("stop_authorize", "base stops; the lift refuses a command without permit and does not move; the permit becomes fresh",
      "ground truth base speed, lift travel without permit, CTL-017 permit state"),
     ("lift_to_target", "lift L1000 to L1175 and back to L1000, the grasp height of shelf level 0, with a permit",

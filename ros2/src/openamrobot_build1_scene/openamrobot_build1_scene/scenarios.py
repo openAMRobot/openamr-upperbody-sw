@@ -339,10 +339,14 @@ PARK = [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]      # the SRDF pose park: joint 4 of
 
 
 def _mark(rig, label):
-    """A time mark for the diagnostics recorder, when one runs. Nothing otherwise."""
+    """A time mark for the diagnostics recorder, when one runs, and for the Baseline 1 mission's contact windows
+    (rig.marks, set by baseline1.mission: (label, Gazebo time)). Nothing otherwise."""
     recorder = getattr(rig, "recorder", None)
     if recorder is not None:
         recorder.mark(label)
+    marks = getattr(rig, "marks", None)
+    if marks is not None:
+        marks.append((label, rig.sim_time()))
 
 
 def park_arms(rig, log):
