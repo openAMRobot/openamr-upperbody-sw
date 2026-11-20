@@ -2,7 +2,8 @@
 # Scratch (diag/arm-geom-*, not for merge): build1-arm-diagnostics with one leg per matrix entry. Legs g* run diag_grasp
 # (scn04) with BUILD1_DIAG_DESCENT_RISE (0: the e7a251c descent onto the grasp height; empty: the branch default), legs r*
 # run diag_reach_return (scn03 level 0) with BUILD1_DIAG_REACH_DEPTH (the target's distance in front of the shelf edge).
-# Legs r27: level 0 targets 0.27 m to each side; legs rT: planning scene placed with the base's ground truth height and
+# Legs a*, b*: diag_grasp from the logged approach end state of run 1 of 44657400110 (a) and run 5 of 44609269748 (b),
+# 9: the branch's descent, 0: the e7a251c descent. Legs r27: level 0 targets 0.27 m to each side; legs rT: planning scene placed with the base's ground truth height and
 # tilt. Contact sensors on, a time line of the hand, the base tilt and every contact in the log. Simulation evidence only.
 name: diag arm geom
 on:
@@ -27,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        leg: ["r27-1", "r27-2", "r27-3", "r27-4", "r27-5", "rT-1", "rT-2", "rT-3"]
+        leg: ["a9-1", "a9-2", "a0-1", "a0-2", "b9-1", "b0-1"]
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
@@ -159,7 +160,8 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           BUILD1_CONTACT_SENSORS: "1"
-          BUILD1_DIAG_DESCENT_RISE: ${{ startsWith(matrix.leg, 'g0') && '0' || '' }}
+          BUILD1_DIAG_DESCENT_RISE: ${{ (startsWith(matrix.leg, 'g0') || startsWith(matrix.leg, 'a0') || startsWith(matrix.leg, 'b0')) && '0' || '' }}
+          BUILD1_DIAG_APPROACH_JOINTS: ${{ startsWith(matrix.leg, 'a') && '-0.48517,-0.02516,-0.01123,1.68413,0.11227,-0.48768,-0.07292' || (startsWith(matrix.leg, 'b') && '-0.46728,-0.20396,0.1277,1.74437,-0.13721,-0.51415,0.10058' || '') }}
           BUILD1_DIAG_REACH_DEPTH: ${{ startsWith(matrix.leg, 'r09') && '0.09' || (startsWith(matrix.leg, 'r10') && '0.10' || '') }}
           BUILD1_DIAG_L0_SIDE: ${{ startsWith(matrix.leg, 'r27') && '0.27' || '' }}
           BUILD1_DIAG_PLAN_TILT: ${{ startsWith(matrix.leg, 'rT') && '1' || '' }}
@@ -171,7 +173,7 @@ jobs:
           nproc
           set +e
           colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
-            --ctest-args -R "${{ startsWith(matrix.leg, 'g') && '^test_diag_grasp$' || '^test_diag_reach_return$' }}"
+            --ctest-args -R "${{ startsWith(matrix.leg, 'r') && '^test_diag_reach_return$' || '^test_diag_grasp$' }}"
           echo "TEST_RC=$?" >> "$GITHUB_ENV"
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
           ls -la "$BUILD1_LOG_DIR"
