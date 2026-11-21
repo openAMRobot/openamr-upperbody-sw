@@ -15,6 +15,7 @@ import re
 
 import numpy as np
 
+from .benchmark import diffdrive_params
 from .mjcf import OVERRIDES, PROFILE, load_yaml, subtree_mass
 from .parity import Report, rotation_angle, tolerances
 from .urdf_model import URDF
@@ -104,6 +105,8 @@ def build_job(expansion, out_dir, overrides=OVERRIDES, profile=PROFILE):
                     "gravity": ov["common"]["gravity"]["value"]},
         "articulation_root": articulation_root(u), "importer_deviations": deviations,
         "drives": job_drives, "armature": armature, "mimic": mimic, "castors": ov["isaac"]["drives"]["castors"],
+        # for the benchmark runner (simulation/isaac/isaac_scenarios.py): the DiffDrive values Gazebo runs with, from the expansion
+        "diffdrive": diffdrive_params(expansion.text), "lift_velocity_limit": lift.velocity,
         "unsupported": [
             {"item": "joint friction", "handling": "PhysX joint friction is a unitless coefficient; URDF friction torque not applied"},
             {"item": "passive castors", "handling": "castor joints stay fixed as in the URDF"},
