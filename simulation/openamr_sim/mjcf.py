@@ -8,7 +8,8 @@ Mapping (one URDF link is one MuJoCo body with the same name; one URDF joint is 
   mimic follower         its own joint plus an equality constraint (SW-09)
   passive castors        the two fixed castor joints become passive hinges (engine_overrides.yaml passive_castors)
   inertial               mass, CoM and the full inertia tensor, rotated into the body frame; never computed from geometry
-  visual / collision     geoms in groups 2 and 3; collision geoms collide with the floor only (no self collision, as in Gazebo)
+  visual / collision     geoms in groups 2 and 3; collision geoms collide with the floor and with each other, minus the SRDF's
+                         disabled pairs (MoveIt's allowed collision matrix); Gazebo and Isaac keep self collision off
   command interfaces     one position actuator per position interface (arms, grippers, lift), one velocity actuator per wheel
 
 The root link gets a free joint (base_free_joint). Lift positions are joint state: keyframes, never a model change.
@@ -222,7 +223,8 @@ class Generator:
         else:
             e.set("group", "3")
             e.set("contype", str(CONTYPE_ROBOT))
-            e.set("conaffinity", str(CONAFFINITY_ROBOT))
+            self_collision = self.ov["contact"]["mujoco_self_collision"]["value"]
+            e.set("conaffinity", str(CONAFFINITY_ROBOT | (CONTYPE_ROBOT if self_collision else 0)))
             e.set("mass", "0")
             tr = self.ov["contact"]["torsional_and_rolling_friction"]["value"]
             e.set("friction", fmt([self._contact_friction(link), tr[0], tr[1]]))
@@ -359,6 +361,17 @@ class Generator:
         if followers != set(self.ov["mimic"]["joints"]):
             raise ValueError(f"mimic followers in the expansion {sorted(followers)} differ from engine_overrides {self.ov['mimic']['joints']}")
 
+    def _srdf_excludes(self, root):
+        """One <exclude> per SRDF disable_collisions pair whose two links are bodies here (MoveIt's allowed collision matrix)."""
+        contact = ET.SubElement(root, "contact")
+        pairs = []
+        for p in ET.parse(SRDF).getroot().findall("disable_collisions"):
+            a, b = p.get("link1"), p.get("link2")
+            if a in self.urdf.links and b in self.urdf.links:
+                ET.SubElement(contact, "exclude", name=f"srdf__{a}__{b}", body1=a, body2=b)
+                pairs.append((a, b))
+        self.derived["srdf_excluded_pairs"] = len(pairs)
+
     def _record_unsupported(self):
         u = self.unsupported
         for g in self.urdf.gazebo:
@@ -385,8 +398,6 @@ class Generator:
                   "value": "mu2 0.5 along fdir1 (platform-sw #135)", "handling": "one sliding coefficient per geom (mu1 1.5)"})
         u.append({"item": "mimic joint", "where": ", ".join(self.ov["mimic"]["joints"]), "value": "URDF <mimic>",
                   "handling": "soft equality constraint (solref, solimp from openarm_mujoco); a small tracking error remains"})
-        u.append({"item": "self collision", "where": "all robot collision geoms", "value": None,
-                  "handling": "robot geoms collide with the floor only, as Gazebo without self_collide"})
         dae = sum(1 for m in self.mesh_files.values() if m["converted"] and "dae" in m["converted"])
         u.append({"item": "DAE visual materials", "where": f"{dae} DAE visual meshes", "value": None,
                   "handling": "geometry converted to OBJ; per-face colours of the DAE are not carried"})
@@ -426,6 +437,8 @@ class Generator:
         base = ET.SubElement(world, "body", name=self.urdf.root_link, pos="0 0 0", quat="1 0 0 0")
         ET.SubElement(base, "freejoint", name=FREE_JOINT)
         self._fill(base, self.urdf.root_link)
+        if self.ov["contact"]["mujoco_self_collision"]["value"]:
+            self._srdf_excludes(root)
         actuators = self._actuators(root)
         self._equality(root)
         # Mesh assets are known only after the bodies are written; insert them into <asset>.

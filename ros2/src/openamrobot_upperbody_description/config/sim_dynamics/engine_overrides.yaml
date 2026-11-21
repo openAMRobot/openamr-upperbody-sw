@@ -230,6 +230,14 @@ contact:
     value: 1.0
     unit: '1'
     status: engine_default
+  mujoco_self_collision:
+    value: true
+    status: engine_choice
+    method: >-
+      MuJoCo only (Gazebo and Isaac keep common.self_collision false). Robot collision geoms collide with each other and with the
+      floor, except the pairs the SRDF disables (disable_collisions: MoveIt's allowed collision matrix, derived by
+      scripts/derive_acm.py) and parent-child pairs, which MuJoCo filters itself. Without it 11 to 12 % of random arm configurations
+      put an arm up to 90 mm inside the column, base or other arm with no contact (review of #69, 2000 samples per lift stop).
   torsional_and_rolling_friction:
     value: [0.005, 0.0001]
     unit: [m, m]

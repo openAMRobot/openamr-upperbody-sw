@@ -5,6 +5,14 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (21 Nov 2026; simulators, into pull request 69)
+
+- **Self collision in MuJoCo.** Robot collision geoms now collide with each other, minus the SRDF's disable_collisions pairs
+  (180 excludes, MoveIt's allowed collision matrix) and parent-child pairs. New `contact.mujoco_self_collision` (engine_choice);
+  Gazebo and Isaac keep `common.self_collision` false. Without it 11-12 % of random arm configurations put an arm up to 90 mm
+  inside the column, base or other arm with no contact. All 9 keyframes stay free of self contact; base contact, castor swivel,
+  lift travel and arm holding tests unchanged.
+
 ### Added (15 Nov 2026; MuJoCo and Isaac Sim representations of the combined model, issue #58)
 
 Base: main `b15bcb6`, stacked on pull request 66 (head `5adeba3`, not merged). Inputs: the digital-twin lock of audits

@@ -40,7 +40,7 @@ def test_unsupported_semantics_are_listed(generated):
     for g in generated.values():
         items = {u["item"] for u in g["report"]["unsupported"]}
         for required in ("joint velocity limit", "gazebo plugin", "collision mesh", "drive wheel anisotropic friction", "mimic joint",
-                         "self collision", "DAE visual materials", "castor joints", "wheel torque limit", "lift velocity limit",
+                         "DAE visual materials", "castor joints", "wheel torque limit", "lift velocity limit",
                          "camera field of view", "ros2_control system"):
             assert required in items, required
         velocity = [u for u in g["report"]["unsupported"] if u["item"] == "joint velocity limit"]
@@ -66,3 +66,20 @@ def test_mesh_conversions(generated):
     for g in generated.values():
         assert set(g["report"]["meshes_converted"]) <= {"dae_to_obj", "mirror_applied", "dae_to_obj+mirror_applied"}
         assert g["report"]["meshes_converted"], "the expansion has DAE visuals and mirrored arm meshes"
+
+
+def test_self_collision_uses_the_srdf_matrix(models, overrides):
+    """Robot collision geoms collide with each other (MuJoCo only), minus exactly the SRDF's disabled pairs."""
+    import xml.etree.ElementTree as ET  # noqa: PLC0415
+
+    assert overrides["contact"]["mujoco_self_collision"]["value"] is True
+    srdf = REPO / "ros2/src/openamrobot_upperbody_moveit/config/openamrobot.srdf"
+    for name, m in models.items():
+        bodies = {m.body(b).name for b in range(m.nbody)}
+        want = {frozenset((p.get("link1"), p.get("link2"))) for p in ET.parse(srdf).getroot().findall("disable_collisions")
+                if p.get("link1") in bodies and p.get("link2") in bodies}
+        got = {frozenset((m.body(m.exclude_signature[e] >> 16).name, m.body(m.exclude_signature[e] & 0xFFFF).name))
+               for e in range(m.nexclude)}
+        assert got == want and len(want) > 100, (name, len(got), len(want))
+        robot = [g for g in range(m.ngeom) if m.geom_contype[g] == 1]
+        assert robot and all(m.geom_conaffinity[g] & m.geom_contype[g] for g in robot), name

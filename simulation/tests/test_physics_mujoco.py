@@ -122,3 +122,41 @@ def test_both_arms_hold_against_gravity_at_750_hz(models, generated, name, key, 
         assert abs(v["actuator_torque"] - expected) <= v["frictionloss"] + 1e-3, (jn, v)
     for side, err in r["mimic_error_rad"].items():
         assert abs(err) < 1e-3, (side, err)
+
+
+def _robot_penetrations(m, d, robot):
+    mujoco.mj_kinematics(m, d)
+    mujoco.mj_collision(m, d)
+    return [c for c in d.contact[: d.ncon] if c.geom1 in robot and c.geom2 in robot and c.dist < 0]
+
+
+@pytest.mark.parametrize("name", ["bp000", "bp050"])
+def test_named_poses_have_no_self_contact(models, name):
+    """With self collision on, every keyframe (home, hands_up, park at each lift stop) is free of robot-robot penetration."""
+    m = models[name]
+    d = mujoco.MjData(m)
+    robot = {g for g in range(m.ngeom) if m.geom_contype[g] == 1}
+    for k in range(m.nkey):
+        mujoco.mj_resetDataKeyframe(m, d, k)
+        pen = _robot_penetrations(m, d, robot)
+        assert not pen, (m.key(k).name, [(m.body(m.geom_bodyid[c.geom1]).name, m.body(m.geom_bodyid[c.geom2]).name) for c in pen])
+
+
+@pytest.mark.parametrize("name", ["bp000", "bp050"])
+def test_self_collision_detects_an_arm_inside_the_robot(models, name):
+    """Random arm configurations (uniform in the URDF limits, seed 0) that put an arm into the column, base or other arm produce
+    robot-robot contacts. With self collision off (floor only) none would: the review of #69 measured 11-12 % of such samples."""
+    m = models[name]
+    d = mujoco.MjData(m)
+    robot = {g for g in range(m.ngeom) if m.geom_contype[g] == 1}
+    arm = [m.joint(f"openarm_{s}_joint{i}") for s in ("left", "right") for i in range(1, 8)]
+    rng = np.random.default_rng(0)
+    mujoco.mj_resetDataKeyframe(m, d, m.key("L1000_park").id)
+    q0 = d.qpos.copy()
+    hits = 0
+    for _ in range(200):
+        d.qpos[:] = q0
+        for j in arm:
+            d.qpos[j.qposadr[0]] = rng.uniform(*m.jnt_range[j.id])
+        hits += bool(_robot_penetrations(m, d, robot))
+    assert 5 <= hits <= 60, hits

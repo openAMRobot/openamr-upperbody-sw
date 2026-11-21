@@ -89,7 +89,7 @@ CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job 
 | Wheels | DiffDrive plugin sets wheel velocity | velocity servos, time constant 0.05 s, **no torque limit (unknown)** | velocity drives |
 | Castors | fixed spheres (platform-sw calls them a slider approximation) | **passive swivel and roll hinges** (declared difference) | fixed, as the URDF |
 | finger_joint2 (SW-09) | URDF mimic; held only with Bullet-Featherstone | equality constraint from the URDF mimic | importer mimic joint (`parse_mimic`) |
-| Collision | URDF shapes and meshes | same shapes; convex hull per mesh; floor only (no self collision) | convex hull per mesh; no self collision |
+| Collision | URDF shapes and meshes | same shapes; convex hull per mesh; self collision minus the SRDF's disabled pairs | convex hull per mesh; no self collision |
 | Visuals | meshes | STL copied; DAE converted to OBJ; mirrored meshes rewritten | importer |
 | Contact friction | at the pin, the wheel `<surface>` is dropped (mu 1); #135 gives mu1 1.5, mu2 0.5 | mu 1.5 drive wheels (one coefficient), 1.0 castors and floor | importer defaults |
 | Sensors | lidars, IMU, base camera | four cameras on the optical frames; only the base camera has a sourced field of view | not imported |
@@ -267,5 +267,5 @@ For CI, set the repository variable `ISAAC_GPU_RUNNER` to a GPU runner label; th
 - No value is measured. MuJoCo results say the model follows its parameters, not that it follows the robot.
 - The lift and wheel servo gains are engine choices with a stated method, not actuator data. Wheel torque limits and castor bearing
   friction are unknown and not applied.
-- Self collision is off, as in Gazebo. Arm to arm and arm to body contact is not simulated.
+- Self collision is on in MuJoCo only (minus the SRDF's disabled pairs); Gazebo and Isaac keep it off, as before.
 - The anisotropic drive wheel friction of #135 cannot be represented; one coefficient (1.5) is used.
