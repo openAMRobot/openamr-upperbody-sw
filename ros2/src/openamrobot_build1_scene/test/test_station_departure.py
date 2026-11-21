@@ -174,3 +174,15 @@ def test_the_forward_goal_comes_from_the_map_pose():
     assert "gx, gy, gyaw = forward_goal(here or turned, f['forward_m'])" in run
     mission = open(os.path.join(PACKAGE, "openamrobot_build1_scene", "baseline1.py"), encoding="utf-8").read()
     assert "station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))" in mission
+
+
+def test_the_forward_retreat_reverse_limit_is_the_rc_criterion():
+    """RC C7 (Alex, 21 Nov 2026): peak reverse speed over 0.25 s windows at most 0.010 m/s, unchanged. The mission
+    check must not accept more: diagnostic run 44800204846 read 0.01291 m/s and the old 0.02 limit reported it ok."""
+    import json
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "..", "config", "baseline1_mission_options.json")) as fh:
+        text = fh.read()
+    assert '"max_reverse_speed_m_s": 0.01,' in text
+    assert 0.01291 > 0.01  # the measured value fails the unchanged limit
+    json.loads(text)

@@ -59,7 +59,7 @@
       "forward_m": 0.3,
       "spin_action": "/spin",
       "drive_action": "/navigate_to_pose",
-      "max_reverse_speed_m_s": 0.02,
+      "max_reverse_speed_m_s": 0.01,
       "drive_tree": "navigate_to_station.xml"
     }
   }
