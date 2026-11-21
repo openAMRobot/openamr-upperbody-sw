@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- The plant of the Build 1 scene: combined_robot.xacro unchanged, plus Gazebo-only elements.
+     No link, joint, limit, mass or inertia is added or changed here.
+
+     Added, all inside <gazebo> elements:
+       1. With devices:=true only (run profiles firmware_sil and faults): the lift joint velocity input and the
+          wheel and lift joint state output that openamrobot_sil (openamr-platform-sw #141,
+          urdf/sil_robot.urdf.xacro) needs, same plugins and topics, and one velocity input per wheel.
+       2. Ground truth: an odometry publisher and the finger joint states. Tests read them. The robot never does.
+       3. Camera sensors on frames the description already has. The description gives them no Gazebo sensor.
+          Every camera parameter below is UNVERIFIED: a working value for simulation, not a datasheet value.
+
+     Arguments: all of combined_robot.xacro, plus
+       extra_sensors  true | false. false leaves out part 3 (the base sensors of openamr-platform-sw stay).
+       devices        true | false. false leaves out part 1 (run profiles fast and fine: no device emulator).
+     Simulation only. No safety function. -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openamrobot">
+  <xacro:arg name="extra_sensors" default="true"/>
+  <xacro:arg name="devices" default="true"/>
+  <xacro:arg name="station_camera" default="false"/>
+  <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/combined_robot.xacro"/>
+
+  <gazebo>
+    <!-- 2. Ground truth: the world pose of base_footprint. In every profile. -->
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_frame>world</odom_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <odom_topic>/build1/gz/ground_truth_odom</odom_topic>
+      <tf_topic>/build1/gz/ground_truth_tf</tf_topic>
+      <odom_publish_frequency>50</odom_publish_frequency>
+      <dimensions>3</dimensions>
+    </plugin>
+    <!-- Ground truth of all four finger joints. finger_joint2 is a mimic joint that no controller owns. A test
+         compares it with finger_joint1 in the physics (conflict SW-09 of the phase 1 single-writer map). -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/build1/gz/finger_joint_states</topic>
+      <update_rate>50</update_rate>
+      <joint_name>openarm_left_finger_joint1</joint_name>
+      <joint_name>openarm_left_finger_joint2</joint_name>
+      <joint_name>openarm_right_finger_joint1</joint_name>
+      <joint_name>openarm_right_finger_joint2</joint_name>
+    </plugin>
+  </gazebo>
+
+  <!-- 4. finger_joint2 owner for an engine without the mimic constraint (conflict SW-09). A position controller per
+       second finger, fed by finger_mimic_follower.py with the position of the first finger. With Bullet Featherstone
+       the engine applies the mimic constraint and this block must stay out: finger_follower:=false.
+       UNVERIFIED: the gains are working values. The force limit is the joint's own effort limit of 7 N*m. -->
+  <xacro:arg name="finger_follower" default="false"/>
+  <xacro:if value="$(arg finger_follower)">
+    <xacro:macro name="build1_finger_follower" params="side">
+      <gazebo>
+        <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+          <joint_name>openarm_${side}_finger_joint2</joint_name>
+          <topic>/build1/gz/${side}_finger2_cmd_pos</topic>
+          <p_gain>20.0</p_gain>
+          <i_gain>0.0</i_gain>
+          <d_gain>0.5</d_gain>
+          <cmd_max>7.0</cmd_max>
+          <cmd_min>-7.0</cmd_min>
+        </plugin>
+      </gazebo>
+    </xacro:macro>
+    <xacro:build1_finger_follower side="left"/>
+    <xacro:build1_finger_follower side="right"/>
+  </xacro:if>
+
+  <xacro:if value="$(arg devices)">
+    <gazebo>
+      <!-- 1a. Lift: the CTL-017 emulator commands a velocity. The only command path of lift_joint with devices.
+           Force mode: the plugin turns the velocity error into a joint force through its PID. In velocity mode DART
+           applies the command as a servo of the lowest priority and skips it while the carriage rests on its lower limit
+           (L1000) under gravity, so the lift never left L1000 and the CTL-017 model raised F03, no Hall pulses while
+           driving (Baseline 1 run 44105673151, fault bits 4, lift travel 0.000 m; docs/build1_lift_and_base_diagnosis.md).
+           Gains: UNVERIFIED working values for the 19.8 kg lift subtree (194 N): p 3000 N s/m, i 80000 N/m (a 2.4 mm
+           holding error under 194 N), overdamped (zeta about 1.2) at the 1 ms step. The force is held inside the 800 N
+           effort limit of lift_joint. No joint limit, speed, mass or stop is changed. -->
+      <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+        <joint_name>lift_joint</joint_name>
+        <topic>/sil/gz/lift_cmd_vel</topic>
+        <initial_velocity>0.0</initial_velocity>
+        <use_force_commands>true</use_force_commands>
+        <p_gain>3000.0</p_gain>
+        <i_gain>80000.0</i_gain>
+        <d_gain>0.0</d_gain>
+        <i_max>800.0</i_max>
+        <i_min>-800.0</i_min>
+        <cmd_max>800.0</cmd_max>
+        <cmd_min>-800.0</cmd_min>
+      </plugin>
+      <!-- 1b. Wheels: one velocity input per wheel. The drive emulator's per-wheel demand is applied per wheel.
+           build1.launch.py takes the DiffDrive plugin of the base out of the model for the device profiles, so
+           the drive emulator is the only thing that shapes the wheel command (conflict SW-03). -->
+      <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+        <joint_name>left_wheel_joint</joint_name>
+        <topic>/build1/gz/left_wheel_cmd_vel</topic>
+        <initial_velocity>0.0</initial_velocity>
+      </plugin>
+      <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+        <joint_name>right_wheel_joint</joint_name>
+        <topic>/build1/gz/right_wheel_cmd_vel</topic>
+        <initial_velocity>0.0</initial_velocity>
+      </plugin>
+      <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+        <topic>/sil/gz/joint_states</topic>
+        <update_rate>100</update_rate>
+        <joint_name>left_wheel_joint</joint_name>
+        <joint_name>right_wheel_joint</joint_name>
+        <joint_name>lift_joint</joint_name>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+
+  <xacro:if value="$(arg extra_sensors)">
+    <!-- 3a. Base camera, colour and depth. Block as in openamr-platform-sw #105 (acc427d), which main does not have.
+         UNVERIFIED: field of view, resolution, rate and range are the provisional values of #105. -->
+    <gazebo reference="base_camera_link">
+      <sensor name="base_camera_rgbd_sensor" type="rgbd_camera">
+        <pose relative_to="base_camera_link">0 0 0 0 0 0</pose>
+        <topic>/base_camera/rgbd</topic>
+        <gz_frame_id>base_camera_color_optical_frame</gz_frame_id>
+        <update_rate>6</update_rate>
+        <camera>
+          <horizontal_fov>1.047</horizontal_fov>
+          <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>15.0</far></clip>
+          <optical_frame_id>base_camera_color_optical_frame</optical_frame_id>
+        </camera>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </gazebo>
+    <!-- 3b. Head camera on the lift carriage, colour and depth. The real unit is a stereo camera. One RGB-D
+         sensor stands in for it. UNVERIFIED: field of view, resolution, rate, range and the single-lens model. -->
+    <gazebo reference="head_camera_link">
+      <sensor name="head_camera_rgbd_sensor" type="rgbd_camera">
+        <pose relative_to="head_camera_link">0 0 0 0 0 0</pose>
+        <topic>/head_camera/rgbd</topic>
+        <gz_frame_id>head_camera_optical_frame</gz_frame_id>
+        <update_rate>6</update_rate>
+        <camera>
+          <horizontal_fov>1.57</horizontal_fov>
+          <image><width>640</width><height>360</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>10.0</far></clip>
+          <optical_frame_id>head_camera_optical_frame</optical_frame_id>
+        </camera>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </gazebo>
+    <!-- 3c. Wrist cameras, colour only. UNVERIFIED: camera model, field of view, resolution, rate and view direction. -->
+    <xacro:macro name="build1_wrist_camera" params="side">
+      <gazebo reference="${side}_wrist_camera_link">
+        <sensor name="${side}_wrist_camera_sensor" type="camera">
+          <pose relative_to="${side}_wrist_camera_link">0 0 0 0 0 0</pose>
+          <topic>/${side}_wrist_camera/image</topic>
+          <gz_frame_id>${side}_wrist_camera_optical_frame</gz_frame_id>
+          <update_rate>5</update_rate>
+          <camera>
+            <horizontal_fov>1.2</horizontal_fov>
+            <image><width>320</width><height>240</height><format>R8G8B8</format></image>
+            <clip><near>0.03</near><far>5.0</far></clip>
+            <optical_frame_id>${side}_wrist_camera_optical_frame</optical_frame_id>
+          </camera>
+          <always_on>true</always_on>
+          <visualize>false</visualize>
+        </sensor>
+      </gazebo>
+    </xacro:macro>
+    <xacro:build1_wrist_camera side="left"/>
+    <xacro:build1_wrist_camera side="right"/>
+  </xacro:if>
+
+  <xacro:if value="$(arg station_camera)">
+    <!-- 4. SIMULATION-ONLY station camera, the test sensor of openamr-platform-sw #167 (station_alignment_test_robot.urdf.xacro
+         at 353e3d6), copied unchanged: at the pose of base_camera_link (base_link + (0.387, 0, 0.046), pitch -0.1745 rad,
+         10 deg up), image frame base_camera_color_optical_frame, 640 x 400 at 5 Hz, 94 deg horizontal field of view.
+         It stands in until the description carries a verified base camera sensor (Vineeth; platform-sw #53, audits #89).
+         Every camera value is UNVERIFIED. Read by the station marker detector only. No safety function. -->
+    <gazebo reference="base_link">
+      <sensor name="station_alignment_base_camera" type="camera">
+        <pose>0.387 0 0.046 0 -0.1745 0</pose>
+        <topic>/base_camera/color/image_raw</topic>
+        <gz_frame_id>base_camera_color_optical_frame</gz_frame_id>
+        <update_rate>5</update_rate>
+        <camera>
+          <horizontal_fov>1.6406</horizontal_fov>
+          <image><width>640</width><height>400</height><format>R8G8B8</format></image>
+          <clip><near>0.05</near><far>8.0</far></clip>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
+        </camera>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+      </sensor>
+    </gazebo>
+  </xacro:if>
+</robot>

@@ -1,0 +1,63 @@
+{
+  "_comment": "SPDX-License-Identifier: MIT. Strict Baseline 1 acceptance gates (openamrobot_build1_scene/baseline1_gates.py), Alex 20 Nov 2026. Proposed values; a change is a reviewed change of this file. Simulation evidence only.",
+  "liveness": {
+    "_comment": "Work counters written to every trace sample by baseline1.Trace. Each must advance through the whole mission.",
+    "counters": {
+      "drive": "live_drive_samples",
+      "battery": "live_bms_answers",
+      "lift": "live_lift_permit_rx",
+      "arms": "live_joint_states"
+    },
+    "max_gap_sim_s": 10.0,
+    "end_of_run_checks": ["host_client_drive_thread_alive", "host_client_bms_alive", "lift_host_and_emulator_alive",
+                          "arm_joint_states_alive"]
+  },
+  "stop_cancel": {
+    "required_checks": {
+      "stop_authorize": ["stop_settle_time", "stop_base_speed", "stop_base_yaw_rate", "authorize_motion_without_permit",
+                         "authorize_command_refused", "authorize_permit_fresh"]
+    },
+    "cancellation": {
+      "check_pattern": "^cancel_",
+      "min_checks": 1,
+      "note": "the cancellation step of baseline1_cancel.py (Proposed, 20 Nov 2026) runs only with BASELINE1_CANCEL_CHECK=1; without it no cancel_* check runs"
+    }
+  },
+  "contacts": {
+    "min_sensor_links": 18,
+    "min_messages": 1,
+    "windows": {
+      "_comment": "Named Gazebo-time windows from the mission's time marks (scenarios._mark): [start label, end label]. grasp_reach_last_move: from the start of scn04's last reach move (the straight move onto the end point, openamr-upperbody-sw #98) through the 1 s settle that ends grasp_reach.",
+      "grasp_reach_last_move": ["grasp_reach_last_move_start", "grasp_reach_end"]
+    },
+    "allowed": [
+      {"a": "openarm_(left|right)_ee_link[12]", "b": "item", "phases": ["grasp", "lift_object"],
+       "reason": "intended grasp: the fingers close on the item and hold it"},
+      {"a": "openarm_left_(ee_base_link|ee_link1)(::|$)", "b": "^tote::(link::)?front_collision$",
+       "phases": ["arm_approach"], "window": "grasp_reach_last_move", "max_force_n": 6.0,
+       "reason": "residual end-point contact of the hand with the tote front wall, a simulation-model artifact of the base pitch (0.534 deg nose down, 2 mm up in Gazebo against a level planning scene); this exact case only (Mohamed, openamr-upperbody-sw #98, 20 Nov 2026)"},
+      {"a": "^item", "b": "^tote", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
+                                            "arm_approach", "grasp", "lift_object", "retreat"],
+       "reason": "the item stands in the tote (environment only, no robot link)"},
+      {"a": "^tote", "b": "^fixtures", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
+                                                "arm_approach", "grasp", "lift_object", "retreat"],
+       "reason": "the tote stands on shelf level 0 (environment only, no robot link)"},
+      {"a": "^payload::(link::)?body_collision$", "b": "^fixtures::(link::)?work_shelf_board_1_collision$",
+       "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
+                  "arm_approach", "grasp", "lift_object", "retreat"], "max_force_n": 9.81,
+       "reason": "the 1 kg payload box at rest on work shelf level 1 (environment only, no robot link); this exact pair only, force at most its own weight (measured 2.45 N in every phase, run 44800204846); simulation only (Alex, 21 Nov 2026)"}
+    ]
+  },
+  "evidence": {
+    "log_dirs": ["ws/build1_logs", "build1_logs", "."],
+    "can_buses": ["vcan_drive", "vcan_aux", "vcan_bms", "vcan_arm_l", "vcan_arm_r"],
+    "min_frames_per_bus": 1,
+    "pinned_repositories": ["openamr-upperbody-sw", "openamr-platform-sw", "openamrobot-interfaces", "openarm_ros2",
+                            "openarm_can", "openarm_description"],
+    "declared_settings": ["profile", "station_approach", "station_alignment", "rmw_implementation", "rmw_runtime",
+                          "cyclonedds_uri", "seed", "run_id", "run_attempt", "cancel_check", "retreat"],
+    "phases": ["spawn", "nav_to_station", "stop_authorize", "lift_to_target", "arm_approach", "grasp", "lift_object",
+               "retreat"],
+    "min_trace_samples": 20
+  }
+}

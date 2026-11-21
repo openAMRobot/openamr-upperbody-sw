@@ -1,0 +1,438 @@
+# SPDX-License-Identifier: MIT
+# Integrated Digital Twin Baseline 1: the canonical acceptance run of the whole robot.
+#
+# One launch (firmware_sil: every device on virtual CAN, Nav2, MoveIt 2, Gazebo on simulation time), one mission in
+# eight phases: spawn, nav_to_station, stop_authorize, lift_to_target, arm_approach, grasp, lift_object, retreat
+# (ros2/src/openamrobot_build1_scene/openamrobot_build1_scene/baseline1.py). Every check is tagged with its phase and
+# every failed phase gets a class: ENV/INFRA, BUILD, STARTUP, CONTROL, PLANNING, CONTACT/PHYSICS or TIMEOUT
+# (UNCLASSIFIED when no rule matches). The phase table, the classes and the synchronized trace summary are printed to
+# this log and to the job summary by scripts/baseline1_report.py.
+#
+# Baseline 1 is complete only when all eight phases pass in this one run. Partial passes and the subsystem scenarios
+# of build1-scene-tests.yml are reported apart and never make it complete. The job fails unless it is complete.
+#
+# Strict acceptance (sequence strict, the default of a dispatch): one dispatch runs two missions one after the other
+# (matrix legs 1 and 2, max-parallel 1) on the same pinned commits. The verdict job prints both legs' commits and is
+# PASS only if they are identical and both legs are 8 of 8 with CycloneDDS (raised participant index, checked at
+# runtime), station alignment on and used, and the sim-oracle profile declared
+# (scripts/baseline1_strict_verdict.py, tested in test/test_baseline1_strict.py), and every leg passes the gates of
+# config/baseline1_gates.json (Alex, 20 Nov 2026): mission result PASS, drive, battery, lift and arm work counters
+# alive for the whole run, Stop and cancellation checks, contact sensors on with every contact in the allowed list,
+# complete evidence (bag, candump per bus, phase times, run_info, full pins, seed, settings). A pull_request run is one
+# validation leg and is never strict. Middleware for initial acceptance: CycloneDDS (Alex, 19 Nov 2026); the robot's
+# middleware beyond acceptance stays the owners' decision.
+# Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
+name: Baseline 1 acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/baseline1-acceptance.yml'
+      - 'ros2/src/openamrobot_build1_scene/**'
+  workflow_dispatch:
+    inputs:
+      station_approach:
+        description: "1: Nav2 goal with openamr-platform-sw's navigate_to_station.xml (#164). 0: default tree (revert run)"
+        default: '1'
+        type: choice
+        options: ['1', '0']
+      profile:
+        description: "Acceptance profile (docs/integration/baseline1.md). sim-oracle: planning scene placed from simulator ground truth, declared pose_source ground_truth; integration evidence, not perception. perception: the robot's own estimate (planning_pose_source map); future autonomy profile"
+        default: 'sim-oracle'
+        type: choice
+        options: ['sim-oracle', 'perception']
+      station_alignment:
+        description: "1 (strict acceptance): goal through openamr-platform-sw #167's marker alignment (Proposed; simulation-only station camera), declared in every run. 0: straight to Nav2 with the station tree (revert run; the strict verdict is then FAIL)"
+        default: '1'
+        type: choice
+        options: ['1', '0']
+      sequence:
+        description: "strict: two Baseline 1 missions one after the other in this dispatch, PASS only if both are 8/8 on the same pinned commits. single: one validation mission, never strict"
+        default: 'strict'
+        type: choice
+        options: ['strict', 'single']
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  # openamr-platform-sw integration/baseline1: main 69847ab with #152, #146, #149, #151, #158, #164 (station
+  # approach, AMCL 0.05 m / 0.05 rad, bt_navigator 30000 ms server wait, NOTICE at 194e208), #167 (station marker
+  # alignment, Proposed), #162 (lift firmware-SIL path on the simulation clock) and #166 (#141 reconciled with the clock contract)
+  # merged (docs/integration/baseline1.md). Description, Nav2, perception, docking and openamrobot_sil come from it.
+  # 19 Nov 2026: #167 at 99ec17f (Mohamed's three conditions), then #164 at 09f9a85 (BackUp removed from its trees)
+  # and #167 at dccd5e0 (99ec17f with that base; test-only change).
+  PLATFORM_SW_SHA: fb25be1b56652316f47b7505cef021576822c558
+  # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
+  # (the same pin as openamr-platform-sw station-alignment-tests.yml).
+  INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
+  # ros-infrastructure/ros-apt-source release, pinned: ros-tooling/setup-ros looks the latest tag up through the
+  # unauthenticated GitHub API, which returned no tag on 17 Nov 2026 (rate limit) and made the download 404.
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+  BASELINE1_STATION_APPROACH: ${{ github.event.inputs.station_approach || '1' }}
+  BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '1' }}
+  BASELINE1_SEQUENCE: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.sequence || 'strict') || 'single' }}
+  # CycloneDDS for initial acceptance (Alex, 19 Nov 2026), with the participant index cap raised to 120 as in the DDS
+  # benchmark (#89): at the default cap late participants under ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST did not match.
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  CYCLONEDDS_URI: '<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+  # Acceptance profile (Alex, 18 Nov 2026). sim-oracle sets the planning scene from simulator ground truth and every run
+  # declares it; perception uses the robot's own estimate. A sim-oracle pass is never a perception result.
+  BASELINE1_PROFILE: ${{ github.event.inputs.profile || 'sim-oracle' }}
+  BUILD1_PLANNING_POSE_SOURCE: ${{ (github.event.inputs.profile || 'sim-oracle') == 'sim-oracle' && 'ground_truth' || 'map' }}
+  # The scene's launch calls sil.launch.py's can_nodes(config, stm32, gazebo, renode) and default_renode_args() (#141);
+  # #166 carries that API on the clock contract, so the #145 pin (config/pins.yaml platform_sw_pr145) is not built here.
+  # #144/#145 (transmit audit, pty relay) are not in the platform integration branch.
+  # Gazebo vendor builds as re-pinned by openamr-platform-sw #152 (16 Nov 2026), checked against gz-sim 8.15.0.
+  GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
+  GZ_TOOLS_VENDOR: 0.0.8-1noble.20261025.230735
+  SDFORMAT_VENDOR: 0.0.14-1noble.20261031.120928
+  GZ_SIM_VERSION: 8.15.0
+  SDFORMAT_VERSION: 14.9.0
+  # Deterministic start: Python random (and the ROS domain of the test), hash seed, simulation time everywhere.
+  BASELINE1_SEED: '20261117'
+  PYTHONHASHSEED: '20261117'
+  # Contact sensors on the arm links and on the item, tote and fixtures (diagnostics.py), as in build1-arm-diagnostics.yml.
+  # They observe and change no force. The strict verdict fails a leg whose contacts are not recorded or not all in the
+  # allowed list of config/baseline1_gates.json (Alex, 20 Nov 2026).
+  BUILD1_CONTACT_SENSORS: '1'
+  # Cancellation check (baseline1_cancel.py, values in config/baseline1_mission_options.json): at the end of the
+  # mission (Alex 20 Nov 2026), as the last step of the retreat phase after the turn-and-forward retreat, a short Nav2
+  # goal on open floor that the mission does not need is cancelled mid-way through the public action; CANCELED is the
+  # only pass and the base must stay still afterwards. The odometry guard at the station runs before it. Goal and pass
+  # rule awaiting Mohamed and Alex. Declared in every leg; the strict verdict's cancellation gate needs its cancel_* checks.
+  BASELINE1_CANCEL_CHECK: '1'
+  # Retreat: turn in place and drive forward (station_departure.py "forward", Alex 20 Nov 2026), no reverse motion.
+  # Declared in every leg (declaration.json "retreat").
+  BASELINE1_RETREAT: forward
+
+jobs:
+  baseline1:
+    name: Baseline 1 whole-robot mission, leg ${{ matrix.leg }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    # Legs run one after the other (max-parallel 1) on fresh runners from the same pinned commits; a failed leg does
+    # not cancel the next one, so both are reported.
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        leg: ${{ fromJSON((github.event_name == 'workflow_dispatch' && github.event.inputs.sequence != 'single') && '[1, 2]' || '[1]') }}
+    # Dispatched runs each get their own group, so repeated runs of one SHA run side by side on separate runners;
+    # pull_request runs of one PR still queue behind each other.
+    concurrency:
+      group: baseline1-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'pr' }}-leg${{ matrix.leg }}
+      cancel-in-progress: false
+    steps:
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source, no GitHub API lookup)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ffmpeg
+          sudo rosdep init || echo "rosdep init: already initialized"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ env.PLATFORM_SW_SHA }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamrobot-interfaces
+          ref: ${{ env.INTERFACES_SHA }}
+          path: ws/src/openamrobot-interfaces
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout and pins
+        working-directory: ws
+        run: |
+          # openamrobot_sil is the platform integration branch's (clock contract, #162 lift path, #166 launch API),
+          # no longer the #145 pin.
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/openamrobot-interfaces src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+          echo "wheel_radius in the built openamrobot_sil:"; grep -n wheel_radius src/openamr-platform-sw/ros2/src/openamrobot_sil/config/sil.yaml || true
+          echo "wheel_radius in the integration description:"; grep -rn 'wheel_radius' src/openamr-platform-sw/ros2/src/openamrobot_description/urdf/*.xacro | head -5 || true
+          { echo '### Pins'; echo '```'; cat ../pins.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "ENV/INFRA: virtual CAN"
+        run: |
+          uname -r
+          sudo apt-get update
+          sudo apt-get install -y iproute2 can-utils
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed"
+          sudo modprobe can_raw || echo "modprobe can_raw failed"
+          set +e
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh" 2>&1 | tee vcan.txt
+          rc=${PIPESTATUS[0]}
+          echo "VCAN_RC=$rc" >> "$GITHUB_ENV"
+          ip -details link show type vcan | tee -a vcan.txt
+          [ "$rc" = "0" ] || echo "ENV_REASON=setup_vcan_all.sh exit $rc: virtual CAN unavailable on this runner" >> "$GITHUB_ENV"
+
+      - name: "ENV/INFRA: pinned Gazebo vendor builds (as openamr-platform-sw #152)"
+        id: gazebo
+        run: |
+          sudo apt-get install -y --allow-downgrades \
+            ros-jazzy-gz-sim-vendor=${GZ_SIM_VENDOR} \
+            ros-jazzy-gz-tools-vendor=${GZ_TOOLS_VENDOR} \
+            ros-jazzy-sdformat-vendor=${SDFORMAT_VENDOR}
+          sudo apt-mark hold ros-jazzy-gz-sim-vendor ros-jazzy-gz-tools-vendor ros-jazzy-sdformat-vendor
+
+      - name: "ENV/INFRA: rosdep and the stack"
+        id: deps
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          # The #167 extension package is built only for the opt-in alignment run (station_alignment 1).
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" $extra --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+          # ros-jazzy-rmw-cyclonedds-cpp from packages.ros.org (Eclipse Cyclone DDS: EPL-2.0 / EDL-1.0; rmw_cyclonedds:
+          # Apache-2.0), as in the DDS benchmark workflow (#89). CycloneDDS for initial acceptance, Alex 19 Nov 2026.
+          sudo apt-get install -y ros-jazzy-rmw-cyclonedds-cpp
+          dpkg -s ros-jazzy-rmw-cyclonedds-cpp > /dev/null || { echo "ENV/INFRA: rmw_cyclonedds_cpp missing"; exit 1; }
+
+      - name: "ENV/INFRA: check the pinned versions"
+        id: versions
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sim=$(gz sim --versions); sdf=$(gz sdf --versions)
+          echo "gz sim ${sim}, gz sdf ${sdf}"
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|ros-gz|gz-|ros2-control|controller-manager|hardware-interface|joint-trajectory-controller|xacro|moveit|navigation2|nav2-bringup|rmw-cyclonedds|cyclonedds)|python3-can)' \
+            | sort | tee versions.txt
+          { echo '### Package versions'; echo '```'; cat versions.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          test "${sim}" = "${GZ_SIM_VERSION}" || { echo "ENV/INFRA: expected gz-sim ${GZ_SIM_VERSION}, found ${sim}"; exit 1; }
+          test "${sdf}" = "${SDFORMAT_VERSION}" || { echo "ENV/INFRA: expected sdformat ${SDFORMAT_VERSION}, found ${sdf}"; exit 1; }
+
+      - name: "BUILD: colcon build"
+        id: build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          colcon build --packages-up-to "$PACKAGE" $extra --event-handlers console_cohesion+
+
+      - name: "Mission: eight phases in one launch"
+        id: mission
+        if: steps.build.outcome == 'success' && env.VCAN_RC == '0'
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/build1_logs"
+          mkdir -p "$BUILD1_LOG_DIR"
+          echo "nproc $(nproc)"
+          echo "station approach: BASELINE1_STATION_APPROACH=${BASELINE1_STATION_APPROACH}"
+          echo "acceptance profile: ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE}$( [ "${BUILD1_PLANNING_POSE_SOURCE}" = ground_truth ] && echo ' (SIMULATION ORACLE: integration evidence, not autonomous perception)')"
+          echo "### Acceptance profile: ${BASELINE1_PROFILE}, pose_source: ${BUILD1_PLANNING_POSE_SOURCE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "station alignment: BASELINE1_STATION_ALIGNMENT=${BASELINE1_STATION_ALIGNMENT} (camera: simulation-only test sensor of openamr-platform-sw #167, pending the description's base camera)"
+          echo "### Leg ${{ matrix.leg }} (${BASELINE1_SEQUENCE}): station alignment ${BASELINE1_STATION_ALIGNMENT}, ${RMW_IMPLEMENTATION}, CYCLONEDDS_URI ${CYCLONEDDS_URI}" >> "$GITHUB_STEP_SUMMARY"
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_baseline1_mission$'
+          echo "MISSION_RC=$?" >> "$GITHUB_ENV"
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: Phase table, failure classes and trace summary
+        if: always()
+        run: |
+          set +e
+          env_ok=1
+          reason="${ENV_REASON:-}"
+          [ "${VCAN_RC:-1}" = "0" ] || env_ok=0
+          deps="gazebo pin ${{ steps.gazebo.outcome }}, rosdep ${{ steps.deps.outcome }}, version check ${{ steps.versions.outcome }}"
+          for s in "${{ steps.gazebo.outcome }}" "${{ steps.deps.outcome }}" "${{ steps.versions.outcome }}"; do
+            [ "$s" = "success" ] || { env_ok=0; reason="${reason:+$reason; }a pinned dependency step did not succeed ($deps)"; }
+          done
+          build_ok=1
+          [ "${{ steps.build.outcome }}" = "success" ] || build_ok=0
+          [ "$env_ok" = "1" ] || build_ok=1     # an environment failure is reported as ENV/INFRA, not BUILD
+          python3 "$PACKAGE_DIR/scripts/baseline1_report.py" ws/build1_logs --build-ok "$build_ok" --env-ok "$env_ok" \
+            --env-reason "$reason" --summary "$GITHUB_STEP_SUMMARY"
+          echo "REPORT_RC=$?" >> "$GITHUB_ENV"
+          echo "virtual CAN exit status:  ${VCAN_RC:-not run}"
+          echo "colcon build outcome:     ${{ steps.build.outcome }}"
+          echo "mission colcon test rc:   ${MISSION_RC:-not run}"
+
+      - name: Recordings (bag, CAN, video) summarized to this log
+        if: always()
+        run: |
+          set +e
+          logs=ws/build1_logs
+          frames=$(ls "$logs"/frames/*.ppm 2>/dev/null | wc -l)
+          echo "observer frames: $frames (1 Hz of Gazebo time; a visual record, not evidence)"
+          if [ "$frames" -gt 1 ]; then
+            ffmpeg -y -loglevel error -framerate 8 -pattern_type glob -i "$logs/frames/*.ppm" -c:v libx264 -pix_fmt yuv420p \
+              "$logs/baseline1_observer.mp4" && rm -f "$logs"/frames/*.ppm
+            ls -la "$logs/baseline1_observer.mp4"
+          fi
+          source /opt/ros/jazzy/setup.bash
+          echo "### ROS bag"; ros2 bag info "$logs/bag" 2>&1 | tee "$logs/bag_info.txt" | head -80
+          echo "### CAN (candump -L per virtual bus): frames, then the 8 most frequent IDs"
+          for f in "$logs"/record_candump_*.log; do
+            [ -f "$f" ] || continue
+            echo "$(basename "$f"): $(grep -c '#' "$f") frames"
+            awk '{print $3}' "$f" | cut -d'#' -f1 | sort | uniq -c | sort -rn | head -8
+          done | tee "$logs/can_summary.txt"
+          for f in "$logs"/record_*.log; do echo "== $f"; grep -v '#' "$f" | tail -5; done
+
+      - name: Declaration of this leg (pins, middleware at runtime, settings)
+        if: always()
+        run: |
+          set +e
+          source /opt/ros/jazzy/setup.bash
+          # The identifier rclpy loads with this job's environment: the middleware the mission's processes used.
+          rmw_runtime=$(python3 -c "from rclpy.utilities import get_rmw_implementation_identifier as g; print(g())" 2>/dev/null)
+          echo "middleware at runtime: ${rmw_runtime:-unknown} (RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION})"
+          build_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo 1 || echo 0)
+          env_ok=$([ "${VCAN_RC:-1}" = "0" ] && [ "${{ steps.gazebo.outcome }}" = "success" ] && [ "${{ steps.deps.outcome }}" = "success" ] && [ "${{ steps.versions.outcome }}" = "success" ] && echo 1 || echo 0)
+          RMW_RUNTIME="$rmw_runtime" BUILD_OK="$build_ok" ENV_OK="$env_ok" LEG="${{ matrix.leg }}" python3 - <<'EOF'
+          import json, os, subprocess
+          dirs = {"openamr-upperbody-sw": "ws/src/openamr-upperbody-sw", "openamr-platform-sw": "ws/src/openamr-platform-sw",
+                  "openamrobot-interfaces": "ws/src/openamrobot-interfaces", "openarm_ros2": "ws/src/upstream/openarm_ros2",
+                  "openarm_can": "ws/src/upstream/openarm_can", "openarm_description": "ws/src/upstream/openarm_description"}
+          pins = {}
+          for name, path in dirs.items():
+              out = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True, text=True)
+              pins[name] = out.stdout.strip() if out.returncode == 0 else None
+          e = os.environ
+          record = {"leg": int(e["LEG"]), "run_id": int(e["GITHUB_RUN_ID"]), "run_attempt": int(e["GITHUB_RUN_ATTEMPT"]),
+                    "sequence": e["BASELINE1_SEQUENCE"], "pins": pins, "profile": e["BASELINE1_PROFILE"],
+                    "planning_pose_source": e["BUILD1_PLANNING_POSE_SOURCE"],
+                    "station_approach": e["BASELINE1_STATION_APPROACH"], "station_alignment": e["BASELINE1_STATION_ALIGNMENT"],
+                    "rmw_implementation": e.get("RMW_IMPLEMENTATION"), "rmw_runtime": e.get("RMW_RUNTIME") or None,
+                    "cyclonedds_uri": e.get("CYCLONEDDS_URI"), "seed": e["BASELINE1_SEED"],
+                    "cancel_check": e["BASELINE1_CANCEL_CHECK"], "retreat": e["BASELINE1_RETREAT"],
+                    "build_ok": int(e["BUILD_OK"]), "env_ok": int(e["ENV_OK"]), "env_reason": e.get("ENV_REASON", "")}
+          json.dump(record, open("declaration.json", "w"), indent=2, sort_keys=True)
+          print(json.dumps(record, indent=2, sort_keys=True))
+          EOF
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: baseline1-acceptance-leg${{ matrix.leg }}-attempt${{ github.run_attempt }}
+          retention-days: 90
+          path: |
+            declaration.json
+            ws/build1_logs/
+            ws/build/openamrobot_build1_scene/test_results/
+            ws/log/latest_test/
+            vcan.txt
+            versions.txt
+            pins.txt
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          echo "Baseline 1 report exit status: ${REPORT_RC:-not run} (0: all eight phases passed in this run)"
+          [ "${REPORT_RC:-1}" = "0" ]
+
+  verdict:
+    name: Strict Baseline 1 verdict
+    needs: baseline1
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: baseline1-acceptance-leg*-attempt${{ github.run_attempt }}
+          path: legs
+
+      - name: Verdict logic tests
+        run: |
+          # python3-pytest from Ubuntu noble (MIT); the runner's Python is externally managed, so no pip.
+          sudo apt-get update && sudo apt-get install -y python3-pytest
+          cd ros2/src/openamrobot_build1_scene
+          python3 -m pytest -q test/test_baseline1_strict.py
+
+      - name: Verdict
+        run: |
+          expect=$([ "${BASELINE1_SEQUENCE}" = "strict" ] && echo 2 || echo 1)
+          # One matching artifact is extracted straight into legs/, several into one directory each: --find takes
+          # every directory holding a declaration.json (validation run 44465602026 read files as legs).
+          find legs -name declaration.json | sort
+          python3 ros2/src/openamrobot_build1_scene/scripts/baseline1_strict_verdict.py --find legs --expect "$expect" \
+            --require-profile sim-oracle --require-rmw rmw_cyclonedds_cpp --require-alignment 1 --min-participant-index 120 \
+            --gates ros2/src/openamrobot_build1_scene/config/baseline1_gates.json \
+            --summary "$GITHUB_STEP_SUMMARY" --out verdict.json
+          echo "VERDICT_RC=$?" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: baseline1-strict-verdict-attempt${{ github.run_attempt }}
+          retention-days: 90
+          path: verdict.json
+          if-no-files-found: warn
+
+      - name: Result
+        if: always()
+        run: |
+          # strict: PASS only. single: a validation leg, reported NOT STRICT; the job follows the leg's 8 of 8.
+          if [ "${BASELINE1_SEQUENCE}" = "strict" ]; then [ "${VERDICT_RC:-1}" = "0" ]; else
+            python3 -c "import json,sys; r=json.load(open('verdict.json')); sys.exit(0 if not r['problems'] else 1)"; fi

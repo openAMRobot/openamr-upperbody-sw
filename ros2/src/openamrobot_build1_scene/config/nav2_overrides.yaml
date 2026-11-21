@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: MIT
+# What the Build 1 scene changes in openamr-platform-sw's openamrobot_nav2/config/nav2_params.yaml (main 0741778).
+# build1.launch.py merges this file over the platform file at start and adds the AMCL initial pose of the station.
+# Nothing else is changed: speeds, planners, costmap layers and the collision monitor are the platform's.
+# Empty on purpose. The footprint is not overridden here: footprint_publisher.py publishes it at run time.
+{}
