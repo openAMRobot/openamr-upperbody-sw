@@ -317,3 +317,8 @@ def test_the_payload_resting_on_its_shelf_is_environment_only():
     assert _allowed(rest) is not None
     assert _allowed(dict(rest, a="openarm_left_ee_link1")) is None
     assert _allowed(dict(rest, b="openamrobot::openarm_left_link6::openarm_left_link6_collision")) is None
+    # this exact pair only: another fixture, another payload link or a force above the box's own weight is not allowed
+    assert _allowed(dict(rest, a="fixtures::link::work_shelf_board_0_collision")) is None
+    assert _allowed(dict(rest, a="fixtures::link::floor_collision")) is None
+    assert _allowed(dict(rest, b="payload::link::lid_collision")) is None
+    assert _allowed(dict(rest, max_force_n=9.82)) is None
