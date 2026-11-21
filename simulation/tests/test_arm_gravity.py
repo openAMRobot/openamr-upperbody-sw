@@ -4,6 +4,9 @@
 The feed-forward mirrors the Build 1 real-driver path (pull request 73, integration/baseline1): q from the trajectory, tau
 from the gravity model, kp and kd the driver's, tau 0 on a stale joint state. Simulation evidence only."""
 import math
+import pathlib
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -98,3 +101,10 @@ def test_wheel_contact_option_replaces_only_the_drive_wheel_geoms(generated):
             assert shape["radius"] == pytest.approx(float(shape["size"].split()[0]))
     # platform-sw pull request 171: radius 0.098; cylinder length 0.046, narrow 0.004 (MuJoCo takes the half length)
     assert bm.WHEEL_CONTACT["cylinder"]["size"] == "0.098 0.023" and bm.WHEEL_CONTACT["narrow_cylinder"]["size"] == "0.098 0.002"
+
+
+def test_benchmark_module_imports_without_numpy_or_mujoco():
+    # The comparison job of sim-benchmark.yml installs PyYAML only and imports openamr_sim.benchmark.
+    code = "import sys; sys.modules['numpy'] = None; sys.modules['mujoco'] = None; import openamr_sim.benchmark"
+    run = subprocess.run([sys.executable, "-c", code], cwd=pathlib.Path(__file__).resolve().parents[1], capture_output=True, text=True)
+    assert run.returncode == 0, run.stderr

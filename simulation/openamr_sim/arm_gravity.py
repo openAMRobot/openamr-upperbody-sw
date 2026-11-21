@@ -18,8 +18,6 @@ The masses are the MJCF's, which equal the expansion's (parity A4). Gravity is t
 gravity, 9.81 m/s^2); the real node uses 9.80665 m/s^2, 0.034 % less. A held object (the real node's payload) is not
 modelled: no benchmark scenario holds one. Not a safety function, not a dynamics model, not safety evidence.
 """
-import numpy as np
-
 MODES = ("build1", "off")
 ARM_JOINTS = {side: [f"openarm_{side}_joint{i}" for i in range(1, 8)] for side in ("left", "right")}
 
@@ -62,6 +60,7 @@ class GravityFeedForward:
 
     def torques(self, qpos):
         """Holding torque of every arm joint at qpos: the model's bias force with zero velocity, base level and at rest."""
+        import numpy as np  # here, not at module level: the comparison job imports benchmark.py with PyYAML only
         s = self.scratch
         s.qpos[:] = qpos
         for j in self.free:  # base level: identity orientation, as the real node's root frame on a level floor
