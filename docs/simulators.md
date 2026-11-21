@@ -10,7 +10,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 - **One source.** Every backend file is generated from `combined_robot.xacro` with `hardware_profile:=gazebo` for a named
   configuration (`bp000`, `bp050`). That is the text Gazebo gets. Its SHA-256 is checked against the digital-twin lock before
   anything is written (`simulation/expansion_lock.yaml`, a mirror of `digital-twin/phase1/digital_twin.lock.yaml` in
-  openAMRobot/audits at `be17653`). A different hash for the same inputs stops the generator (exit 2). When the description files
+  openAMRobot/audits at `642c96d`, audits #91, Proposed). A different hash for the same inputs stops the generator (exit 2). When the description files
   differ from every locked commit, the result counts only if the hash is the locked one for the same configuration, pins and xacro
   build; the status then reads `hash in lock, inputs changed (... re-lock pending)`, never `matches lock`. Otherwise the generator
   stops (exit 3, BLOCKED). On PR #66 head `5adeba3` the status is the second one: re-lock in audits is pending.
@@ -35,7 +35,7 @@ Simulation is development evidence only. Nothing here is hardware evidence, phys
 | enactic/openarm_description | `14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831` | `config/upstream_pins.yaml` |
 | enactic/openarm_ros2 (gripper gains) | `4e837e1d0dae692ff67b560b69d8d281d7a8d4ed` | `config/upstream_pins.yaml` |
 | enactic/openarm_mujoco (comparison only) | `1daab06716b779376dbe7f01fb0548f8b539bb35` | `simulation/sim_pins.yaml` |
-| xacro | `ros-jazzy-xacro 2.1.1-1noble.20260519.011123` | lock input; CI installs it exactly |
+| xacro | `ros-jazzy-xacro 2.1.1-1noble.20261025.230251` (the 20260519 build is superseded: no longer served, expansions byte-identical) | lock input; CI installs it exactly |
 | MuJoCo, pinocchio, usd-core, trimesh, pycollada, numpy | exact versions | `simulation/requirements.txt` |
 | Isaac Sim | 5.1.0, `nvcr.io/nvidia/isaac-sim:5.1.0` | `engine_overrides.yaml` isaac, `simulation/sim_pins.yaml` |
 
@@ -84,9 +84,10 @@ CI: `.github/workflows/simulators.yml`, job `mujoco` on every pull request, job 
 | Inertials | URDF | mass, CoM, full tensor, never from geometry | importer (`import_inertia_tensor`) |
 | Damping, friction | URDF `<dynamics>` (PR #66) | damping, frictionloss | damping in the drive; **joint friction not applied** (PhysX coefficient is unitless) |
 | Armature | not applied | from `openarm_v2.yaml` (18 joints) | `physxJoint:armature` |
-| Arm and gripper actuators | gz_ros2_control position interface (ideal servo) | position actuators, the real driver's MIT gains (`control_gains.yaml`; gripper kp 5, kd 0.1), clamped to the URDF effort | position drives, same gains in USD units |
-| Lift | gz_ros2_control position interface | stiff position servo, gains from the carried mass (0.5 mm static sag), 800 N limit | linear position drive, same gains |
-| Wheels | DiffDrive plugin sets wheel velocity | velocity servos, time constant 0.05 s, **no torque limit (unknown)** | velocity drives |
+| Arm and gripper actuators | gz_ros2_control position interface: a joint velocity command proportional to the position error, which DART runs as a servo bounded only by the effort limit (ideal: no gains, no sag) | position actuators, the real driver's MIT gains (`control_gains.yaml`; gripper kp 5, kd 0.1), clamped to the URDF effort | position drives, same gains in USD units |
+| Arm gravity feed-forward (tau of the MIT frame) | none needed (the servo holds any load below the effort limit) | `arm_gravity_feedforward` in `engine_overrides.yaml`, default `build1`: the static gravity torque of the model at the measured arm positions, 100 Hz, zeros on a state older than 0.2 s, as the Build 1 real-driver path (`gravity_feedforward`, PR #73); `off` is tau 0. **Limitation:** computed with the base level and at rest and with no payload; a tilted base, base acceleration or a held object is not compensated and shows as servo error | not applied |
+| Lift | gz_ros2_control position interface (in DART it cannot leave its lower limit L1000, see Backend benchmark) | stiff position servo, gains from the carried mass (0.5 mm static sag), 800 N limit | linear position drive, same gains |
+| Wheels | DiffDrive plugin sets wheel velocity (a DART servo, ideal motor) | velocity servos, time constant 0.05 s, proportional only, **no torque limit (unknown)** | velocity drives |
 | Castors | fixed spheres (platform-sw calls them a slider approximation) | **passive swivel and roll hinges** (declared difference) | fixed, as the URDF |
 | finger_joint2 (SW-09) | URDF mimic; held only with Bullet-Featherstone | equality constraint from the URDF mimic | importer mimic joint (`parse_mimic`) |
 | Collision | URDF shapes and meshes | same shapes; convex hull per mesh; floor only (no self collision) | convex hull per mesh; no self collision |
@@ -259,6 +260,28 @@ For CI, set the repository variable `ISAAC_GPU_RUNNER` to a GPU runner label; th
   copied as numbers. No file of it is copied or loaded into the generated model.
 - PR #66 (sim dynamics, head `5adeba3`) provides the damping, friction and armature profile, the 750 Hz overlay and the 1/1500 s world. This work is
   stacked on it while it is not merged.
+
+## Backend benchmark
+
+`simulation/benchmark/scenarios.yaml` runs the same commanded scenarios in Gazebo (`gazebo_benchmark.py`, the reference) and MuJoCo
+(`openamr_sim/benchmark.py`); `tools/benchmark_compare.py` compares them with the declared tolerances (workflow `sim-benchmark.yml`).
+
+- **Evidence class.** An isolated physics benchmark of the model in each engine. The base scenarios publish `geometry_msgs/Twist` straight
+  to `/cmd_vel`, the DiffDrive plugin's input, with no command chain in the loop. That is never whole-robot acceptance: a whole-robot run
+  commands the base through the approved chain (twist_mux, stop gate, velocity smoother, collision monitor). Every result document carries
+  `evidence_class`, and the Gazebo runner refuses to start when the graph runs a node of that chain.
+- **Commanded joint moves are judged on measured motion.** For `joint_step`, `arm_reach` and `lift_move` each backend records the travel it
+  measured (Gazebo: `/joint_states`, and for the lift also the pose of `lift_carriage_link` from Gazebo's pose topic; MuJoCo: `qpos`) and
+  the controller's own result. A move whose measured travel is below half the commanded travel is FAIL in that backend, whatever the
+  controller reported, and no row of that scenario can then PASS. A document without that record is BLOCKED for those rows.
+- **Gazebo lift in the bare simulation.** `sim.launch.py` drives `lift_joint` through the position interface of gz_ros2_control, which
+  writes a joint velocity command. DART applies it as a servo constraint and skips it while the joint rests on its lower position limit
+  under load, and L1000 is that limit, so the carriage does not leave it. `lift_controller` has no goal tolerance and reports SUCCESSFUL
+  when the trajectory time has passed. On #106 at `32995c8` (CI job 136512164747): error code 0, `/joint_states` -6.8e-15 m after a
+  commanded 0.350 m. The cause and the fix used by the Build 1 scene (effort interface on the plant model, a 3 mm goal tolerance) are in
+  `docs/build1_lift_and_base_diagnosis.md` on `integration/baseline1`. The Baseline 1 mission is not affected: there the CTL-017 emulator
+  drives the lift in force mode and the mission checks the Gazebo joint position (0.1743 m at L1175 in job 136538636545). Until the bare
+  simulation's lift path is changed, the Gazebo `lift_move` scenario is FAIL (not executed) and is no reference for any backend.
 
 ## Not verified
 

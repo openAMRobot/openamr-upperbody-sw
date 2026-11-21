@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: MIT
+# Backend benchmark: the same commanded scenarios in Gazebo, MuJoCo and (on a GPU machine) Isaac Sim, run in this order from one
+# start state (configuration bp000, keyframe L1000_home: lift 0, both arms at the SRDF home pose), in one simulation per backend.
+#
+# Every command is defined here once and fed to each backend the same way. Nothing in this file is tuned per backend: each backend
+# runs its generated model with the values of the expansion and engine_overrides.yaml. Where a backend lacks a mechanism the other
+# has (the DiffDrive plugin's velocity and acceleration limits, a joint trajectory controller's interpolation), the COMMAND is shaped
+# from the source value (read from the expansion) so both backends receive the same reference; that shaping is listed per scenario.
+#
+# Tolerances were set before any run, from what each metric can resolve and what a user of the twin would notice. They are not
+# acceptance limits for the robot. A difference beyond tolerance is a finding with a cause, never a reason to tune a backend.
+# Commanded joint moves (joint_step, arm_reach, lift_move) carry an `execution` rule: each backend reports the travel it MEASURED
+# (Gazebo: /joint_states and, for the lift, the simulator's own carriage link pose; MuJoCo: qpos). A controller that reports success
+# while the joint did not move is a FAIL of that backend, and no row of that scenario can then PASS (openamr_sim/benchmark.py execution).
+# The base scenarios publish /cmd_vel straight to the DiffDrive plugin: an isolated physics benchmark, never whole-robot acceptance,
+# which commands the base through the approved chain (twist_mux, stop gate, velocity smoother, collision monitor).
+# Simulation evidence only: not hardware, physical acceptance or safety evidence.
+schema_version: 1
+configuration: bp000
+start_keyframe: L1000_home
+settle_s: 3.0
+scenarios:
+  rest:
+    what: stand still after spawn and settle
+    metrics:
+      base_height_m: {tolerance_abs: 0.003, why: "3 mm: the wheel contact height finding (2 mm) must show as a difference, not hide in it"}
+      base_pitch_deg: {tolerance_abs: 0.2, why: "0.2 deg is 2 mm at the 0.6 m wheelbase scale; A6 records 0.534 deg in Gazebo"}
+      base_roll_deg: {tolerance_abs: 0.1, why: "symmetric model: roll must be near zero in both"}
+  joint_step:
+    what: openarm_left_joint4 from 0 to 1.0 rad in 2.0 s (cubic, zero end velocities, as a joint trajectory controller with one point), hold 1.0 s
+    joint: openarm_left_joint4
+    target: 1.0
+    move_s: 2.0
+    hold_s: 1.0
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
+    shaping: cubic interpolation from the start position (what JointTrajectoryController does with one point and zero velocities)
+    metrics:
+      final_error_rad: {tolerance_abs: 0.01, why: "0.01 rad is 3 mm at the 0.3 m forearm; finer than a grasp approach margin"}
+      max_hold_error_rad: {tolerance_abs: 0.02, why: "residual oscillation during the hold"}
+      base_displacement_m: {tolerance_abs: 0.005, why: "an arm move must not move the base by more than 5 mm in either"}
+  arm_reach:
+    what: left arm to a reach pose in 3.0 s (cubic), hold 1.5 s; end-effector link openarm_left_ee_base_link (child of joint7) position in base_footprint
+    targets: {openarm_left_joint1: -0.4, openarm_left_joint2: -0.2, openarm_left_joint3: 0.0, openarm_left_joint4: 1.2,
+              openarm_left_joint5: 0.0, openarm_left_joint6: 0.2, openarm_left_joint7: 0.0}
+    link: openarm_left_ee_base_link
+    move_s: 3.0
+    hold_s: 1.5
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
+    shaping: cubic interpolation per joint from the start positions
+    metrics:
+      ee_x_m: {tolerance_abs: 0.005, why: "5 mm: below a grasp approach margin (palm standoff work uses 10 mm)"}
+      ee_y_m: {tolerance_abs: 0.005, why: same}
+      ee_z_m: {tolerance_abs: 0.005, why: "same; sag under gravity shows here"}
+      max_joint_error_rad: {tolerance_abs: 0.02, why: "largest final joint error of the seven"}
+  lift_move:
+    what: lift_joint from 0 to 0.35 m on a linear ramp at its velocity limit (0.018 m/s, from the expansion), hold 2.0 s
+    from: 0.0
+    to: 0.35
+    hold_s: 2.0
+    execution: {min_travel_fraction: 0.5, why: "a commanded move counts as executed only when the measured joint (never the controller status) covered at least half of the commanded travel; below that the scenario is FAIL in that backend"}
+    shaping: linear ramp at the URDF velocity limit, sampled every 0.5 s (Gazebo trajectory points) or every controller period (MuJoCo)
+    metrics:
+      final_position_m: {tolerance_abs: 0.002, why: "2 mm: the lift calibration stops are stated to 1 mm"}
+      max_tracking_error_m: {tolerance_abs: 0.003, why: "lag along the ramp"}
+      base_pitch_change_deg: {tolerance_abs: 0.2, why: "raising the arms shifts the centre of mass forward or back"}
+  straight_drive:
+    what: base forward 0.20 m/s for 10 s, then 0 for 2 s
+    linear: 0.20
+    drive_s: 10.0
+    stop_s: 2.0
+    shaping: the DiffDrive plugin's acceleration and velocity limits from the expansion; MuJoCo wheel servos get v/r with r from the plugin
+    metrics:
+      distance_m: {tolerance_rel: 0.02, why: "2 %: the wheel radius finding (0.100 vs 0.098) is 2 %"}
+      lateral_drift_m: {tolerance_abs: 0.01, why: "a straight command must stay within 1 cm sideways in both"}
+      yaw_change_rad: {tolerance_abs: 0.01, why: "0.01 rad over 2 m"}
+  in_place_turn:
+    what: base turn 0.50 rad/s for 4 pi s (one commanded revolution), then 0 for 2 s
+    angular: 0.50
+    turn_s: 12.566370614359172
+    stop_s: 2.0
+    shaping: as straight_drive; wheel speeds +-w (track / 2) / r with track and r from the plugin
+    metrics:
+      yaw_over_commanded: {tolerance_abs: 0.02, why: "2 %: platform-sw #171 measured 1.6 % in Gazebo for the 46 mm cylinder (base alone)"}
+      centre_drift_m: {tolerance_abs: 0.01, why: "the turn centre must stay within 1 cm"}
+  object_contact:
+    what: a 1 kg box of 0.10 m dropped from 0.05 m above the floor at (-1.5, 1.5), away from the robot; settle 2 s
+    size: 0.10
+    mass: 1.0
+    position: [-1.5, 1.5, 0.10]
+    settle_s: 2.0
+    shaping: none; box inertia is the solid-box formula in both; default contact parameters of each engine
+    metrics:
+      rest_height_m: {tolerance_abs: 0.002, why: "centre at 0.05 m; penetration and soft contact show here"}
+      horizontal_slip_m: {tolerance_abs: 0.005, why: "a dropped box must not slide"}
+      final_speed_m_s: {tolerance_abs: 0.01, why: "at rest after 2 s"}

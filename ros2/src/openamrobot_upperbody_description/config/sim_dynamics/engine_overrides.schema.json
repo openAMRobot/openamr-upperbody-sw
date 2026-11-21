@@ -220,6 +220,7 @@
       "additionalProperties": false,
       "required": [
         "arm_position_gains",
+        "arm_gravity_feedforward",
         "gripper_position_gains",
         "effort_limits",
         "lift_position_servo",
@@ -298,6 +299,36 @@
                 "parameters",
                 "force_limit"
               ]
+            }
+          ]
+        },
+        "arm_gravity_feedforward": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/sourced"
+            },
+            {
+              "required": [
+                "mode",
+                "rate_hz",
+                "max_state_age_s"
+              ],
+              "properties": {
+                "mode": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "enum": [
+                        "build1",
+                        "off"
+                      ]
+                    }
+                  }
+                }
+              }
             }
           ]
         }

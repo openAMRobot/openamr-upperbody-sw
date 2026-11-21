@@ -1,0 +1,198 @@
+# SPDX-License-Identifier: MIT
+# Backend benchmark (simulation/benchmark/scenarios.yaml): the same commanded scenarios in Gazebo Harmonic and in MuJoCo, compared with
+# the tolerances of that file. Gazebo is the reference. Isaac Sim results join on a GPU machine (simulation/isaac/RUN_ON_GPU.md).
+# Runs when the benchmark files change, or by hand. Simulation evidence only: never hardware, physical acceptance or safety evidence.
+# Isolated physics benchmark: the base scenarios publish /cmd_vel directly. Never whole-robot acceptance, which uses the approved chain.
+# No secrets, no hardware.
+name: Simulator benchmark
+
+on:
+  pull_request:
+    paths:
+      - simulation/benchmark/**
+      - simulation/openamr_sim/benchmark.py
+      - simulation/openamr_sim/arm_gravity.py
+      - ros2/src/openamrobot_upperbody_description/config/sim_dynamics/engine_overrides.yaml
+      - simulation/tools/benchmark_*.py
+      - .github/workflows/sim-benchmark.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PINS_FILE: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml
+  LOCK_FILE: ws/src/openamr-upperbody-sw/simulation/expansion_lock.yaml
+  PACKAGES: openamrobot_upperbody_description openamrobot_upperbody_control openamrobot_upperbody_gazebo
+
+jobs:
+  run:
+    name: benchmark (${{ matrix.backend }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [gazebo, mujoco]
+    steps:
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import os, re, yaml
+          pins = yaml.safe_load(open(os.environ["PINS_FILE"]))["pins"]
+          lock = yaml.safe_load(open(os.environ["LOCK_FILE"]))
+          values = {"platform": pins["openamr_platform_sw"], "openarm_description": pins["openarm_description"],
+                    "openarm_ros2": pins["openarm_ros2"]}
+          for key, value in values.items():
+              assert re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          xacro = {e["inputs"]["xacro_package_version"] for e in lock["entries"]}
+          assert len(xacro) == 1, xacro
+          print(f"xacro={xacro.pop()}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ steps.pins.outputs.platform }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - name: MuJoCo run
+        if: matrix.backend == 'mujoco'
+        working-directory: ws
+        run: |
+          set -o pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "ros-jazzy-xacro=${{ steps.pins.outputs.xacro }}"
+          dpkg-query -W -f='${Package} ${Version}\n' ros-jazzy-xacro | tee versions.txt
+          python3 -m venv --system-site-packages .venv
+          .venv/bin/pip install --quiet -r src/openamr-upperbody-sw/simulation/requirements.txt
+          source /opt/ros/jazzy/setup.bash
+          .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
+            --openarm-description src/upstream/openarm_description --out bench | tee bench_mujoco.log
+          # Diagnostics, not compared as the benchmark result: the arm with tau 0 (main's real profile), and the in-place turn
+          # with each drive wheel contact shape of platform-sw pull request 171 (no other change).
+          .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
+            --openarm-description src/upstream/openarm_description --out bench --arm-gravity off --name benchmark_mujoco_arm_gravity_off \
+            >> bench_mujoco.log
+          for shape in cylinder narrow_cylinder sphere; do
+            .venv/bin/python src/openamr-upperbody-sw/simulation/tools/benchmark_mujoco.py --platform-sw src/openamr-platform-sw \
+              --openarm-description src/upstream/openarm_description --out bench --wheel-contact "$shape" \
+              --name "wheel_contact_$shape" >> bench_mujoco.log
+          done
+          python3 - <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json
+          rows = [("pinned (r 0.100, 46 mm)", "bench/benchmark_mujoco.json")] + \
+                 [(f"#171 {s} (r 0.098)", f"bench/wheel_contact_{s}.json") for s in ("cylinder", "narrow_cylinder", "sphere")]
+          print("### MuJoCo in-place turn per drive wheel contact shape (diagnostic)\n")
+          print("| Shape | yaw over commanded | wheel speed over commanded | wheel servo torque (N m) | centre drift (m) |")
+          print("|---|---|---|---|---|")
+          for label, path in rows:
+              t = json.load(open(path))["results"]["in_place_turn"]
+              print(f"| {label} | {t['yaw_over_commanded']:.4f} | {t['wheel_speed_over_commanded']:.4f} | "
+                    f"{t['wheel_servo_torque_Nm']:.3f} | {t['centre_drift_m']:.4f} |")
+          EOF
+
+      - name: rosdep and colcon build (Gazebo)
+        if: matrix.backend == 'gazebo'
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri
+          rosdep update --rosdistro jazzy
+          paths=$(colcon list --base-paths src --packages-up-to $PACKAGES --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y
+          dpkg-query -W -f='${Package} ${Version}\n' | grep -E '^(ros-jazzy-(ros-gz|gz-|gz-ros2-control|ros2-control|controller-manager|xacro|joint-trajectory)|gz-|libgz-sim)' \
+            | sort | tee versions.txt
+          colcon build --packages-up-to $PACKAGES --event-handlers console_cohesion+
+
+      - name: Gazebo run
+        if: matrix.backend == 'gazebo'
+        working-directory: ws
+        timeout-minutes: 45
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          set +e
+          xvfb-run -a -s "-screen 0 1280x1024x24" python3 src/openamr-upperbody-sw/simulation/benchmark/gazebo_benchmark.py \
+            --out bench/benchmark_gazebo.json --launch-log bench/gazebo_launch.log
+          echo "exit status $?"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: benchmark-${{ matrix.backend }}
+          path: |
+            ws/bench/*.json
+            ws/bench/*.log
+            ws/bench_mujoco.log
+            ws/versions.txt
+          if-no-files-found: warn
+
+  compare:
+    name: benchmark (comparison)
+    needs: run
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: benchmark-*
+          path: results
+
+      - name: Compare against Gazebo
+        run: |
+          pip install --quiet "PyYAML==6.0.3"
+          set +e
+          python3 simulation/tools/benchmark_compare.py --doc gazebo=results/benchmark-gazebo/bench/benchmark_gazebo.json \
+            --doc mujoco=results/benchmark-mujoco/bench/benchmark_mujoco.json --json comparison.json --markdown comparison.md
+          rc=$?
+          { echo '### Gazebo vs MuJoCo (Gazebo is the reference; FAIL is a finding, BLOCKED is not a pass)'; echo; echo 'Isolated physics benchmark: the base is commanded on /cmd_vel directly. Not whole-robot acceptance.'; echo; cat comparison.md; } \
+            >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: benchmark-comparison
+          path: |
+            comparison.json
+            comparison.md
+          if-no-files-found: warn

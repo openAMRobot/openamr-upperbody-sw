@@ -12,6 +12,7 @@ Everything is in [docs/simulators.md](../docs/simulators.md): what each backend 
 | `openamr_sim/openarm_compare.py` | Arm comparison with enactic/openarm_mujoco |
 | `openamr_sim/isaac.py` | Isaac import job and the USD checker |
 | `tools/` | `generate.py`, `isaac_generate_usd.py` (inside Isaac Sim), `check_usd.py`, `compare_openarm_mujoco.py`, `mirror_lock.py` |
+| `benchmark/` | backend benchmark: `scenarios.yaml`, the Gazebo runner; an isolated physics benchmark (direct `/cmd_vel`), never whole-robot acceptance |
 | `tests/` | pytest suite, run by `.github/workflows/simulators.yml` |
 
 The backend values that URDF cannot carry are in
