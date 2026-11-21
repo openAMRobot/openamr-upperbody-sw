@@ -42,9 +42,10 @@
       {"a": "^tote", "b": "^fixtures", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
                                                 "arm_approach", "grasp", "lift_object", "retreat"],
        "reason": "the tote stands on shelf level 0 (environment only, no robot link)"},
-      {"a": "^payload", "b": "^fixtures", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
-                                                   "arm_approach", "grasp", "lift_object", "retreat"],
-       "reason": "the payload box stands on shelf level 1 (environment only, no robot link; PROPOSED, awaiting Alex)"}
+      {"a": "^payload::(link::)?body_collision$", "b": "^fixtures::(link::)?work_shelf_board_1_collision$",
+       "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
+                  "arm_approach", "grasp", "lift_object", "retreat"], "max_force_n": 9.81,
+       "reason": "the 1 kg payload box at rest on work shelf level 1 (environment only, no robot link); this exact pair only, force at most its own weight (measured 2.45 N in every phase, run 44800204846); simulation only (Alex, 21 Nov 2026)"}
     ]
   },
   "evidence": {
