@@ -31,9 +31,11 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
 
   # Static tests: no simulator, no virtual CAN. They run on any machine.
-  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record baseline1_strict baseline1_cancel station_departure arm_frames lift_plant diagnostics station_marker)
+  foreach(name scene world_and_map launch_support command_map footprint odometry candump docs_and_pins gravity baseline1_phases baseline1_record baseline1_strict baseline1_cancel station_departure arm_frames lift_plant diagnostics station_marker lift_permit_wait permit_waits_static)
     ament_add_pytest_test(test_${name} test/test_${name}.py TIMEOUT 120)
   endforeach()
+  # Component liveness at the end of every scene (rig.run), static.
+  ament_add_pytest_test(test_component_liveness test/test_component_liveness.py TIMEOUT 120)
 
   # Virtual CAN tests: BLOCKED, never passed, where the interfaces cannot be had.
   ament_add_pytest_test(test_canfd_vcan test/test_canfd_vcan.py TIMEOUT 120)

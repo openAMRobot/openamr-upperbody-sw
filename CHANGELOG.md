@@ -5,6 +5,24 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (20 Nov 2026; lift permit waits after a change, review of #94; simulation only)
+
+- `Rig.wait_permit_state(fresh)`: after a permit change the CTL-017 emulator state is read only from the second message
+  that arrives after the call, never the cached one (`wait_permit_fresh_after_grant` is its fresh case, used by
+  `lift_move`). Applied where steps read `permit_fresh` from the cached state: `baseline1.stop_authorize` (withdraw,
+  grant), scn02 (withdraw, grant) and scn05 (grant, fresh again). `test_lift_permit_wait.py` (3 new tests) and
+  `test_permit_waits_static.py` (2): 5 fail with the cached-state waits.
+
+### Changed (20 Nov 2026; scene tests on the acceptance platform pin; simulation only)
+
+- `rig.run`: every scene checks at its end that the components it started still work: the drive host (606Ch sample
+  counter), the BMS host (answer counter), the lift host and CTL-017 emulator (count of the host's permit frames) and the
+  arm joint states. A stopped one fails the scene; in the `faults` profile it is recorded, not checked. A failing scene with
+  a dead drive thread stays FAIL and is no longer turned into BLOCKED. `test_component_liveness.py` (9 tests).
+- `pins.yaml` `platform_sw_sil` and `PLATFORM_SW_SHA`: openamr-platform-sw `960e2e5` (#178, candidate until merged):
+  `integration/baseline1` `fb25be1` with #169 merged (`9af88e7`, #175) and the no-reverse Nav2 configuration
+  (#90's behaviour set) for the forward retreat. Before 20 Nov evening: `9af88e7`.
+
 ### Added (17 Nov 2026; Integrated Digital Twin Baseline 1, integration branch only; simulation only)
 
 - `baseline1-acceptance.yml`: one whole-robot mission in eight phases (spawn, nav_to_station, stop_authorize, lift_to_target,
