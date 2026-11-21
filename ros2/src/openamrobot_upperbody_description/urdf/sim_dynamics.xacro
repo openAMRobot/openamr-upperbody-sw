@@ -44,7 +44,10 @@
                       value="${xacro.fatal('sim_dynamics: joint ' + str(openamr_dynamics_joint) + ' is not in config/sim_dynamics/openarm_v2.yaml; every movable OpenArm joint needs an entry with its sources')}"/>
     </xacro:unless>
     <xacro:property name="openamr_joint_dynamics" lazy_eval="false" value="${openamr_sim_dynamics['joints'][openamr_dynamics_joint]}"/>
-    <dynamics damping="${openamr_joint_dynamics['damping']['value']}" friction="${openamr_joint_dynamics['friction']['value']}"/>
+    <!-- #101: no <dynamics> on the finger joints. With damping 0.6 the DART grippers do not move at max_effort 5.0. -->
+    <xacro:unless value="${'finger_joint' in openamr_dynamics_joint}">
+      <dynamics damping="${openamr_joint_dynamics['damping']['value']}" friction="${openamr_joint_dynamics['friction']['value']}"/>
+    </xacro:unless>
   </xacro:macro>
 
 </robot>
