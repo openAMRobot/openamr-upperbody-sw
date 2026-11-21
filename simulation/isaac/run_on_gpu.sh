@@ -89,12 +89,22 @@ cpu() {  # cpu <command>: in the ROS image with xacro at the locked build and th
   docker run --rm -v "$REPO":"$REPO" -w "$REPO" -e HOME=/tmp "$ROS_IMAGE" bash -lc "
     set -euo pipefail
     apt-get update -qq >/dev/null
-    apt-get install -y -qq --no-install-recommends 'ros-jazzy-xacro=$XACRO' python3-venv git >/dev/null
+    if [ -f simulation/requirements-xacro.txt ]; then
+      apt-get install -y -qq --no-install-recommends python3-venv git >/dev/null
+    else
+      apt-get install -y -qq --no-install-recommends 'ros-jazzy-xacro=$XACRO' python3-venv git >/dev/null
+    fi
     git config --global --add safe.directory '*'
     source /opt/ros/jazzy/setup.bash
     [ -x '$KIT/venv/bin/python' ] || python3 -m venv --system-site-packages '$KIT/venv'
     '$KIT/venv/bin/pip' install --quiet -r simulation/requirements.txt
-    dpkg-query -W -f='\${Package} \${Version}\n' ros-jazzy-xacro > '$KIT/logs/xacro_version.txt'
+    if [ -f simulation/requirements-xacro.txt ]; then
+      # same installation as CI (upperbody-sw #104): the hash-pinned xacro 2.1.1 wheel, independent of the ROS apt server
+      '$KIT/venv/bin/pip' install --quiet --require-hashes --no-deps --ignore-installed -r simulation/requirements-xacro.txt
+      '$KIT/venv/bin/python' -c 'import importlib.metadata as m; print(\"pypi xacro\", m.version(\"xacro\"))' > '$KIT/logs/xacro_version.txt'
+    else
+      dpkg-query -W -f='\${Package} \${Version}\n' ros-jazzy-xacro > '$KIT/logs/xacro_version.txt'
+    fi
     $1
     chmod -R a+rwX '$KIT'"
 }

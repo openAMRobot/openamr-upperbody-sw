@@ -32,7 +32,7 @@ It should print `System checking result: PASSED`.
 |---|---|---|
 | Isaac Sim | 5.1.0, `nvcr.io/nvidia/isaac-sim:5.1.0`, importer `isaacsim.asset.importer.urdf` | `simulation/sim_pins.yaml`, `engine_overrides.yaml` |
 | Expansion | bp000 `5d9a1b51aadd07b0f074beff37cc7ccacab91ec032eee63c39183ae2b79f40ea`, bp050 `4d21210ed0b2628f9c11be6312e81b33c58246be7ef8231084d3b6ef3c53eb8a` | `simulation/expansion_lock.yaml` |
-| xacro | the lock's build (`ros-jazzy-xacro 2.1.1-1noble.20261025.230251`) in `ros:jazzy-ros-base-noble` | `simulation/expansion_lock.yaml` |
+| xacro | the same installation as CI: the hash-pinned PyPI wheel `xacro==2.1.1` from `simulation/requirements-xacro.txt` (upperbody-sw #104, Proposed); until #104 is in this branch, the lock's apt build `ros-jazzy-xacro 2.1.1-1noble.20261025.230251` | `simulation/expansion_lock.yaml`, `simulation/requirements-xacro.txt` |
 | platform-sw, openarm_description | the commits of `upstream_pins.yaml`; the script clones them | `ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml` |
 | Python packages | exact versions | `simulation/requirements.txt` |
 
@@ -104,7 +104,8 @@ Do not edit any generated file. Do not change any value to make a check pass: a 
 | `docker: could not select device driver "" with capabilities: [[gpu]]` | NVIDIA Container Toolkit missing or Docker not restarted after installing it |
 | pull of nvcr.io fails with `unauthorized` | `docker login nvcr.io` with user `$oauthtoken` and an NGC API key |
 | `BLOCKED: ... no lock entry` or exit 3 in step 3 | the checkout or a pin differs from the lock; run the commit you were given, unchanged |
-| `apt-get install ros-jazzy-xacro=...` fails | packages.ros.org no longer serves the lock's build; report it, do not install another build |
+| `apt-get install ros-jazzy-xacro=...` fails | packages.ros.org no longer serves the lock's build; this only happens before #104 is in the branch. Report it, do not install another build |
+| `pip install --require-hashes ... requirements-xacro.txt` fails with a hash mismatch | PyPI served a different file; report it, do not edit the hash |
 | `expected one articulation, the importer wrote N` | importer behaviour differs from 5.1.0; send the log, this is a result |
 | `importer has no setting [...]` | the image is not 5.1.0 |
 | permission denied writing `build/isaac_kit` | the Isaac container runs as another user; the script makes the folder writable, rerun after `sudo chown -R $USER build` |

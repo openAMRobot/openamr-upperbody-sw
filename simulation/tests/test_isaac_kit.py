@@ -88,3 +88,12 @@ def test_collector_passes_a_complete_run_and_fails_a_split_or_short_one(kit):
     _fake_gpu_run(root, job_dir, job, ["/openamrobot/base_footprint"], expected - 1, results)
     r = collect_result.collect(root)
     assert r["status"] == "FAIL" and any(c["check"] == "bp000.dof_count" and c["status"] == "FAIL" for c in r["checks"])
+
+def test_run_script_installs_xacro_the_same_way_as_ci():
+    """When the hash-pinned wheel file exists (upperbody-sw #104), the kit installs xacro from it with --require-hashes,
+    exactly as CI does, and does not install the apt build; before that it falls back to the lock's apt build."""
+    text = (KIT / "run_on_gpu.sh").read_text()
+    assert "--require-hashes --no-deps --ignore-installed -r simulation/requirements-xacro.txt" in text
+    assert "if [ -f simulation/requirements-xacro.txt ]" in text
+    pip_branch = text.split("if [ -f simulation/requirements-xacro.txt ]; then", 1)[1].split("else", 1)[0]
+    assert "ros-jazzy-xacro=" not in pip_branch
