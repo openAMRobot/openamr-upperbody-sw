@@ -127,7 +127,8 @@ status and heading change (170 to 180 deg), drift in the turn (0.05 m), forward 
 (0.25 to 0.35 m) and peak reverse speed (at most 0.02 m/s). `test_station_departure.py` (12 tests) runs every option
 against both configurations.
 
-Pins: openamr-platform-sw integration branch `fb25be1` (#164 at `09f9a85`, BackUp removed from its trees; #167 at
+Pins: openamr-platform-sw `960e2e5` (#178, candidate until merged): integration branch `fb25be1` with #169 merged
+(`9af88e7`, #175) and the no-reverse Nav2 configuration (0aa8e14 cherry-picked) (#164 at `09f9a85`, BackUp removed from its trees; #167 at
 `99ec17f`, then `dccd5e0`, test-only change on top), openamrobot-interfaces `50ed777` (StopState, imported by #167's
 node from 99ec17f on).
 
