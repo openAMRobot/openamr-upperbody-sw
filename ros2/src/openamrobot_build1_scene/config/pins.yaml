@@ -14,7 +14,7 @@ pins:
     sha: "d1515b194a22a8801209453bd5f9646058838020"
     use: "read only: the actuator ledger. Not merged, nothing here reads it"
   platform_sw_main:
-    sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
+    sha: "cced705baed45050993b515193c7f411538aae5e"
     use: "checked out as openamr-platform-sw: description with wheel friction (#135), sensor profiles (#138), openamrobot_sil (#139), Nav2, perception, docking model. Nav2, description and docking unchanged since 0741778"
   platform_sw_pr145:
     sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
