@@ -273,7 +273,7 @@ def test_the_item_sits_in_the_fingers_short_of_the_palm():
     assert np.allclose(tcp - np.array(item), af.ITEM_DEPTH_BEHIND_TCP_M * fingers, atol=1e-12)
     assert 0.008 <= af.ITEM_DEPTH_BEHIND_TCP_M <= af.TCP_ALONG_FINGERS_M - af.PALM_ALONG_FINGERS_M - 0.0175
     body = _grasp_body()
-    assert "tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)" in body
+    assert "tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation, depth)" in body
 
 
 def _yaw_quaternion(yaw):
@@ -619,3 +619,184 @@ def test_the_grasp_marks_the_last_move_with_the_label_of_the_strict_contact_wind
     from openamrobot_build1_scene import baseline1_gates, scenarios
     window = baseline1_gates.load()["contacts"]["windows"]["grasp_reach_last_move"]
     assert window == [scenarios.LastMoveMark.LABEL, "grasp_reach_end"]
+
+
+# ------------------------------------------------------------------ the palm against the item at the close (22 Nov 2026)
+# The five Baseline 1 legs of 22 Nov (sim-oracle, CycloneDDS, seed 20261117), from their job logs: the ground truth base
+# pose at the station (nav_station_error_along_heading, nav_station_error_left, grasp_face_yaw against the station
+# (0, -2.085, -pi/2)), lift_stop_0_gazebo_position, the grasp_approach reading at its end (commanded end point plus
+# reading minus command: the orientation the reach holds), the grasp_reach commanded end point, and whether the strict
+# verdict reported the palm on the item. Only leg 1 of 44983640874 did: item::link::body_collision with
+# openarm_left_ee_base_link in the grasp phase, 13 samples, at most 0.349 N (verdict job 137098486132).
+LEGS_22_NOV = {
+    "44983640874-leg1": ((-0.00061, -2.07844, -1.57085), 0.00078,
+                         [-0.48924, -0.14324, 0.11044, 1.64817, -0.12531, -0.57812, 0.10777],
+                         [-0.95839, -0.08724, 0.15461, 0.88495, -0.10741, -0.28747, 0.05704], True),
+    "44983640874-leg2": ((-0.01844, -2.07819, -1.54541), 0.00083,
+                         [-1.04010, -0.84973, 1.21939, 1.65426, -1.11449, 0.01888, 0.72843],
+                         [-1.23458, -0.40167, 1.23358, 0.80720, -1.10233, 0.10143, 0.35251], False),
+    "44978148412-leg1": ((-0.00932, -2.07773, -1.57519), 0.00067,
+                         [-0.44689, -0.06924, -0.01392, 1.70920, -0.07382, -0.49649, 0.01278],
+                         [-0.93434, -0.05559, 0.01839, 0.84466, -0.05597, -0.11895, -0.00784], False),
+    "44979089718-leg1": ((-0.01627, -2.07083, -1.59800), 0.00067,
+                         [-0.48085, -0.05322, -0.12341, 1.66686, 0.12265, -0.53845, -0.15278],
+                         [-0.96715, -0.06341, -0.09054, 0.82248, 0.13710, -0.18307, -0.08520], False),
+    "44981210512-leg1": ((-0.01356, -2.07584, -1.56559), 0.00076,
+                         [-0.61818, -0.48276, 0.45262, 1.61879, -0.54799, -0.35305, 0.39502],
+                         [-1.01581, -0.26231, 0.55086, 0.79924, -0.47448, -0.03167, 0.16548], False),
+}
+
+
+def _leg_close(devices_urdf, scene, leg):
+    """The close of a recorded leg in base_footprint: the held orientation, TCP offset, item centre and yaw, and the
+    full-mesh palm clearance of the planned end point at a given item depth: (frames(q), held, offset, item, yaw, gap(depth))."""
+    from openamrobot_build1_scene import scene as scene_model
+    from openamrobot_build1_scene.gravity import ARM_JOINTS, GravityModel
+    (bx, by, byaw), lift, q_approach, q_end, _ = LEGS_22_NOV[leg]
+    model, joints = GravityModel(devices_urdf), ARM_JOINTS["left"]
+    hand, tcp_frame = af.HAND_FRAME["left"], af.TCP_FRAME["left"]
+    fingers = {"openarm_left_finger_joint1": FINGERS_OPEN_RAD, "openarm_left_finger_joint2": FINGERS_OPEN_RAD}
+
+    def frames(q):
+        links, _ = model._frames({**dict(zip(joints, q)), "lift_joint": lift, **fingers})
+        R0, p0 = links.get("base_footprint", (np.eye(3), np.zeros(3)))
+        return {name: (R0.T @ R, R0.T @ (p - p0)) for name, (R, p) in links.items()}
+
+    links = frames(q_approach)
+    R_held = links[hand][0]
+    offset = tuple(R_held.T @ (links[tcp_frame][1] - links[hand][1]))
+    w = math.sqrt(max(0.0, 1.0 + np.trace(R_held))) / 2.0
+    held = ((R_held[2, 1] - R_held[1, 2]) / (4 * w), (R_held[0, 2] - R_held[2, 0]) / (4 * w),
+            (R_held[1, 0] - R_held[0, 1]) / (4 * w), w)
+    c, s = math.cos(byaw), math.sin(byaw)
+    R_world = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    item = tuple(R_world @ (np.array(ITEM_WORLD) - np.array((bx, by, 0.0))))
+    yaw = af.face_yaw(byaw, 0.0)
+    grasp_point = (item[0], item[1], item[2] + af.GRASP_ABOVE_ITEM_CENTRE_M)
+    half = np.array({name: size for name, size, _, _ in scene_model.collision_boxes(scene)}["item"]) / 2.0
+    palm = _palm_points(devices_urdf)
+    Ry = np.array([[math.cos(yaw), -math.sin(yaw), 0.0], [math.sin(yaw), math.cos(yaw), 0.0], [0.0, 0.0, 1.0]])
+
+    def gap(depth):
+        tcp = af.tcp_for_item(grasp_point, held, depth)
+        end = np.array(af.reach_waypoints((tcp[0], tcp[1], grasp_point[2]), offset, held)[-1])
+        return _box_clearance(((R_held @ palm.T).T + end - np.array(item)) @ Ry, half)
+
+    # The inputs reproduce the leg: its logged end point puts the hand where the planned end point at the old depth is.
+    tcp = af.tcp_for_item(grasp_point, held)
+    end = np.array(af.reach_waypoints((tcp[0], tcp[1], grasp_point[2]), offset, held)[-1])
+    assert np.linalg.norm(frames(q_end)[hand][1] - end) < 0.003
+    return frames, held, offset, item, yaw, grasp_point, gap
+
+
+def _runtime_palm():
+    """The palm points scn04 uses (arm_frames.palm_points on the model's mesh)."""
+    from ament_index_python.packages import get_package_share_directory
+    return af.palm_points(os.path.join(get_package_share_directory(af.PALM_MESH[0]), af.PALM_MESH[1]))
+
+
+def test_the_palm_mesh_of_the_scenario_is_the_models(devices_urdf):
+    """PALM_MESH, its origin and scale are ee_base_link's collision in the expanded URDF, and palm_points samples it as
+    the static tests do (_palm_points), keeping the part PALM_FRONT_FROM_M or more along the fingers."""
+    import xml.etree.ElementTree as ET
+    collision = ET.fromstring(devices_urdf).find("link[@name='openarm_left_ee_base_link']/collision")
+    mesh = collision.find("geometry/mesh")
+    assert mesh.get("filename") == "package://" + "/".join(af.PALM_MESH)
+    assert tuple(float(v) for v in mesh.get("scale").split()) == af.PALM_MESH_SCALE
+    assert np.allclose([float(v) for v in collision.find("origin").get("xyz").split()], af.PALM_MESH_ORIGIN_M)
+    ours = np.array(_runtime_palm())
+    theirs = _palm_points(devices_urdf)
+    theirs = theirs[-theirs[:, 2] >= af.PALM_FRONT_FROM_M]
+    assert len(ours) == len(np.unique(np.round(theirs, 9), axis=0))
+    assert np.allclose(np.sort(ours, axis=0), np.sort(np.unique(np.round(theirs, 9), axis=0), axis=0), atol=1e-6)
+    along = -ours[:, 2]
+    assert along.min() >= af.PALM_FRONT_FROM_M and along.max() == pytest.approx(af.PALM_ALONG_FINGERS_M, abs=1e-4)
+
+
+def test_the_item_half_size_is_the_scenes(scene):
+    from openamrobot_build1_scene import scene as scene_model
+    size = {name: s for name, s, _, _ in scene_model.collision_boxes(scene)}["item"]
+    assert np.allclose(af.ITEM_HALF_SIZE_M, np.array(size) / 2.0, atol=1e-9)
+
+
+@pytest.mark.parametrize("leg", sorted(LEGS_22_NOV))
+def test_the_palm_keeps_its_clearance_from_the_item_at_the_close(devices_urdf, scene, leg):
+    """At the old fixed depth the palm's whole mesh is planned within PALM_CLEARANCE_M of the item in the leg that
+    recorded the palm on the item (1.1 mm); with palm_safe_depth every leg's planned end point keeps the whole mesh
+    PALM_CLEARANCE_M or more from the item, a leg that had that room keeps its old end point, and the cut is no larger
+    than the missing clearance needs. 44979089718 leg 1 (2.4 mm, no contact recorded) is cut as well."""
+    _, held, offset, item, yaw, grasp_point, gap = _leg_close(devices_urdf, scene, leg)
+    old = gap(af.ITEM_DEPTH_BEHIND_TCP_M)
+    if LEGS_22_NOV[leg][4]:
+        assert old < af.PALM_CLEARANCE_M, f"{leg}: palm {old * 1000:.2f} mm from the item at the old depth"
+    depth = af.palm_safe_depth(_runtime_palm(), item, grasp_point, offset, held, yaw)
+    assert depth <= af.ITEM_DEPTH_BEHIND_TCP_M
+    assert gap(depth) >= af.PALM_CLEARANCE_M - 1e-4, f"{leg}: palm {gap(depth) * 1000:.2f} mm from the item"
+    if old >= af.PALM_CLEARANCE_M:
+        assert depth == af.ITEM_DEPTH_BEHIND_TCP_M, "a leg with room keeps its end point"
+    else:
+        assert af.ITEM_DEPTH_BEHIND_TCP_M - depth <= 1.5 * (af.PALM_CLEARANCE_M - old), "the cut is the missing clearance"
+
+
+@pytest.mark.parametrize("leg", sorted(LEGS_22_NOV))
+def test_the_shallower_end_point_does_not_bring_the_hand_closer_to_the_tote_front_wall(devices_urdf, scene, leg):
+    """The cut moves the hand back along the fingers, over the tote's front wall (the item stands 0.035 m behind it).
+    The palm and the open fingers, by their collision meshes, are no closer to the wall at the new end point than at the
+    old one (old: 6.9 to 14.2 mm in the five legs)."""
+    from openamrobot_build1_scene import scene as scene_model
+    frames, held, offset, item, yaw, grasp_point, _ = _leg_close(devices_urdf, scene, leg)
+    (bx, by, byaw), _, _, q_end, _ = LEGS_22_NOV[leg]
+    tote = scene_model.movable_objects(scene)["tote"]
+    (sx, sy, sz), wall = tote["size"], tote["wall"]
+    tx, ty, tz, _ = tote["pose"]
+    c, s = math.cos(byaw), math.sin(byaw)
+    R_world = np.array([[c, s, 0.0], [-s, c, 0.0], [0.0, 0.0, 1.0]])
+    centre = R_world @ (np.array((tx, ty + sy / 2.0 - wall / 2.0, tz + sz / 2.0)) - np.array((bx, by, 0.0)))
+    half = np.array((sx, wall, sz)) / 2.0
+    at_end, hand = frames(q_end), af.HAND_FRAME["left"]
+    R_held = np.array(af.quaternion_matrix(held))
+    meshes = []
+    for link in HAND_LINKS:
+        (R_link, p_link), (R_hand, p_hand) = at_end[link], at_end[hand]
+        meshes.append((R_hand.T @ ((R_link @ _palm_points(devices_urdf, link).T).T + p_link - p_hand).T).T)
+
+    def clearance(depth):
+        tcp = af.tcp_for_item(grasp_point, held, depth)
+        end = np.array(af.reach_waypoints((tcp[0], tcp[1], grasp_point[2]), offset, held)[-1])
+        return min(_box_clearance(((R_held @ m.T).T + end - centre) @ R_world, half) for m in meshes)
+
+    depth = af.palm_safe_depth(_runtime_palm(), item, grasp_point, offset, held, yaw)
+    assert clearance(depth) >= clearance(af.ITEM_DEPTH_BEHIND_TCP_M) - 1e-6 > 0.0
+
+
+def test_the_depth_cut_follows_the_hand_pitch():
+    """Synthetic: the item square in front of the hand, the side grasp tilted about the hand's lateral axis. Fingers
+    pointing down bring the palm's upper bump onto the item's face and need a shallower item; well up they do not.
+    No mesh: a two-point palm whose upper point is the bump (0.02 m above the hand axis, 0.1106 m along the fingers)."""
+    palm = [(0.02, 0.0, -af.PALM_ALONG_FINGERS_M), (-0.03, 0.0, -0.0934)]
+    offset = (-0.0014, 0.0, -af.TCP_ALONG_FINGERS_M)
+    item = (0.75, 0.16, 0.895)
+    grasp_point = (item[0], item[1], item[2] + af.GRASP_ABOVE_ITEM_CENTRE_M)
+
+    def pitched(angle):     # fingers turned up by `angle` about y of base_footprint
+        x, y, z, w = af.SIDE_GRASP
+        py, pw = math.sin(-angle / 2.0), math.cos(-angle / 2.0)
+        return (pw * x + py * z, pw * y + py * w, pw * z - py * x, pw * w - py * y)
+
+    fingers_up = matrix(*pitched(0.05)) @ np.array((0.0, 0.0, -1.0))
+    assert fingers_up[2] > 0.0, "the helper turns the fingers up"
+    depths = {a: af.palm_safe_depth(palm, item, grasp_point, offset, pitched(a), 0.0) for a in (-0.03, 0.0, 0.15)}
+    assert depths[0.15] == af.ITEM_DEPTH_BEHIND_TCP_M
+    assert depths[-0.03] < depths[0.0] <= af.ITEM_DEPTH_BEHIND_TCP_M
+    for a, depth in depths.items():
+        tcp = af.tcp_for_item(grasp_point, pitched(a), depth)
+        assert af.palm_clearance(palm, (tcp[0], tcp[1], grasp_point[2]), offset, pitched(a), item, 0.0) >= \
+            af.PALM_CLEARANCE_M - 1e-6
+
+
+def test_scenario_4_cuts_the_item_depth_for_the_palm():
+    body = _grasp_body()
+    assert "palm = palm_points(os.path.join(get_package_share_directory(PALM_MESH[0]), PALM_MESH[1]))" in body
+    assert "depth = palm_safe_depth(palm, item, (item[0], item[1], grasp_z), found[0], held_orientation, yaw)" in body
+    assert body.index("depth = palm_safe_depth(") < body.index("tcp_for_item((item[0], item[1], grasp_z), held_orientation, depth)")
+    assert 'log.quantity("item_depth_behind_tcp", depth' in body
