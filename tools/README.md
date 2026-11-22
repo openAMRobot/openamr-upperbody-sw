@@ -123,3 +123,24 @@ bp000 and bp050, lift at 0 (L1000), every arm and finger joint at 0 (the stack's
 links with collision geometry) it reports the minimum distance to the base top cover twice: MoveIt's distance to base_link's collision box (top
 0.295 m, what planning sees; SRDF not consulted) and the exact triangle distance to the visual cover mesh `base_covers.stl` (0 when the
 meshes cross; vertex-face and edge-edge otherwise), with the height gap as a certified lower bound. Exit 0 whatever it finds.
+
+## `model_bundle/`: the public model bundle
+
+```bash
+python3 tools/model_bundle/build_bundle.py --version 0.1.0 --out dist --zip \
+    --pins ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml \
+    --source openamr-upperbody-sw=. --source openamr-platform-sw=<checkout> --source openarm_description=<checkout>
+python3 tools/model_bundle/verify_bundle.py dist/openamrobot-2.0-model-0.1.0.zip
+```
+
+`build_bundle.py` needs a sourced workspace with the description installed. It expands `combined_robot.xacro` for each
+configuration of `bundle.yaml` (bp000 and bp050, each as `mock`, `gazebo` and `mock` with `sim_dynamics:=on`; never `real`),
+removes the source comments, copies each `package://` mesh to `share/<package>/<path>`, and writes `bundle_lock.json` (source
+commits, xacro arguments, and path, size, sha256, licence and source of every file), `SHA256SUMS`, `NOTICE.md`, the licences and
+`README.md` (from `README.bundle.md`). A dirty checkout, a checkout off its pin, a mesh that is missing or matches no licence rule
+stops it. The zip is reproducible: sorted entries, fixed timestamps. No MJCF yet: the generator is not on main, and the build
+stops once `simulation/openamr_sim/mjcf.py` exists, so the bundle is wired to it before it is published without it.
+`verify_bundle.py` (no ROS) checks that every referenced mesh is listed and every file's sha256 matches; its tests are
+`tests/test_model_bundle.py`. CI: `.github/workflows/model-bundle.yml` (manual run, `model-<version>` tags such as `model-2.0.0-rc.1` and `model-2.0.0`, checked by
+`model_bundle/release_tag.py`, and pull requests that
+touch this tooling); on a tag it attaches the zip to that tag's release as a draft and never publishes it.
