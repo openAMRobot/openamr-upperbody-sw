@@ -203,6 +203,8 @@ jobs:
           export BUILD1_LOG_DIR="$PWD/build1_logs"
           mkdir -p "$BUILD1_LOG_DIR"
           nproc
+          command -v candump || sudo apt-get install -y -q can-utils
+          command -v candump
           set +e
           rc_all=0
           for rep in 1 2 3; do
