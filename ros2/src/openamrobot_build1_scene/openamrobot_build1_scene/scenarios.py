@@ -19,7 +19,7 @@ from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
                                                   GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, REACH_CLEARANCE_M,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset, straight_lift, tcp_for_item)
+                                                  side_grasp_offset, straight_lift, tcp_for_item, HAND_FRAME, retract_out_of_shelf)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M,
                                           ScenarioFailed, angle_diff)
@@ -419,11 +419,37 @@ def _reach(rig, log, stop, level, side, targets, scale):
                      note="largest joint difference between /joint_states and /sim/joint_states")
 
 
+def _retract_from_shelf(rig, log, side, label, scale):
+    """Before the park plan: the hand straight out of the work shelf along its outward normal, orientation held, until the
+    fingertips are clear of the front plane (arm_frames.retract_out_of_shelf). Recorded, no limit: when the line is not
+    found or not executed, the park plan runs from where the hand is, as before, and the park check decides."""
+    from openamrobot_build1_scene import scene as scene_model
+    from ament_index_python.packages import get_package_share_directory
+    link = HAND_FRAME[side]
+    hand = rig.transform("base_footprint", link)
+    if hand is None:
+        log.event(f"{label}: no /tf of the hand, no retract before the park plan")
+        return False
+    scene = scene_model.load(os.path.join(get_package_share_directory("openamrobot_build1_scene"), "config", "scene.yaml"))
+    (fx, fy), (nx, ny) = scene_model.work_shelf_front(scene)
+    front = _in_base(rig, (fx, fy, 0.0))
+    outward = rotate_z((nx, ny, 0.0), -rig.truth()[2])
+    orientation = (hand[1].x, hand[1].y, hand[1].z, hand[1].w)
+    goal = retract_out_of_shelf(hand[0], orientation, front, outward)
+    if goal is None:
+        log.event(f"{label}: the fingertips are out of the shelf, no retract before the park plan")
+        return True
+    log.quantity(f"{label}_retract_distance", math.dist(goal, hand[0]), "m",
+                 note="hand base straight out of the shelf before the park plan. Recorded, no limit: a return move")
+    return _cartesian(rig, log, side, link, [goal], orientation, f"{label}_retract", scale, required=False)
+
+
 def _back_to_park(rig, log, stop, side, scale):
     """scn03's return move: a MoveIt joint goal to park, then the distance of the physical arm from park."""
     park = {f"openarm_{side}_joint{i}": (0.1 if i == 4 else 0.0) for i in range(1, 8)}
     label = f"L{stop}_{side}_back_to_park"
     _mark(rig, f"{label}_start")
+    _retract_from_shelf(rig, log, side, label, scale)
     _move_group(rig, log, _joint_goal(f"{side}_arm", park, scale), label, required=False, attempts=3)
     rig.sleep_sim(1.0)
     _mark(rig, f"{label}_end")

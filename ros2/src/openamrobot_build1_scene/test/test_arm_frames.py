@@ -395,3 +395,56 @@ def test_every_run_declares_its_object_pose_source_and_a_run_without_it_is_refus
     assert "self.object_pose_source = None" in rig
     with open(os.path.join(HERE, "build1_harness.py"), encoding="utf-8") as f:
         assert 'arguments.setdefault("object_pose_source", os.environ["BUILD1_OBJECT_POSE_SOURCE"])' in f.read()
+
+
+# ------------------------------------------------------------- the return to park leaves the shelf first
+# Diagnostics run 5 of #99 (8878aaf, job 136508288405): the left hand base where the level 0 reach left it, in base_footprint
+# (from the driver's joint states), the robot at the work_shelf station. MoveIt then refused 3 of 3 park plans (-2), a finger
+# through work_shelf_board_0 in the middle of each path.
+RUN5_LEFT_HAND = (0.6542, 0.2769, 0.9705)
+WORK_SHELF_STATION = (0.0, -2.085, -math.pi / 2.0)
+
+
+def _shelf_front_in_base(scene):
+    from openamrobot_build1_scene import scene as scene_model
+    (fx, fy), (nx, ny) = scene_model.work_shelf_front(scene)
+    x, y, yaw = WORK_SHELF_STATION
+    front = af.rotate_z((fx - x, fy - y, 0.0), -yaw)
+    return front, af.rotate_z((nx, ny, 0.0), -yaw)
+
+
+def _tip_out(hand, quaternion, front, outward):
+    """How far the fingertips are in front of the shelf front plane (negative: over a board)."""
+    fingers = matrix(*quaternion) @ np.array((0.0, 0.0, -1.0))
+    tip = np.array(hand) + af.FINGERTIP_DEPTH_M * fingers
+    return float(np.dot(tip[:2] - np.array(front[:2]), np.array(outward[:2])))
+
+
+@pytest.mark.parametrize("yaw", [0.0, -0.3, 0.3])
+def test_the_retract_takes_the_fingertips_out_of_the_shelf_before_the_park_plan(scene, yaw):
+    front, outward = _shelf_front_in_base(scene)
+    assert np.allclose(front[:2], (0.715, 0.0), atol=1e-6) and np.allclose(outward[:2], (-1.0, 0.0), atol=1e-12)
+    q = af.side_grasp(yaw)
+    assert _tip_out(RUN5_LEFT_HAND, q, front, outward) < -0.09, "at the reach end the fingertips are over board 0"
+    goal = af.retract_out_of_shelf(RUN5_LEFT_HAND, q, front, outward)
+    assert goal is not None and goal[2] == RUN5_LEFT_HAND[2], "a straight move out, no height change"
+    assert math.isclose(_tip_out(goal, q, front, outward), af.RETRACT_CLEARANCE_M, abs_tol=1e-9)
+    assert 0.12 < math.dist(goal, RUN5_LEFT_HAND) < 0.15
+    # scn04's withdraw distance would leave the fingertips over the board
+    withdrawn, _ = af.grasp_line(RUN5_LEFT_HAND, (0.0, 0.0, 0.0), af.SIDE_GRASP)
+    assert _tip_out(withdrawn, af.SIDE_GRASP, front, outward) < 0.0
+
+
+def test_no_retract_when_the_fingertips_are_already_out(scene):
+    front, outward = _shelf_front_in_base(scene)
+    assert af.retract_out_of_shelf((0.45, 0.27, 0.97), af.SIDE_GRASP, front, outward) is None
+
+
+def test_the_return_to_park_retracts_before_it_plans():
+    """Static: _back_to_park (scn03 and diag_reach_return) runs the retract after its start mark and before the park plan."""
+    text = open(os.path.join(HERE, "..", "openamrobot_build1_scene", "scenarios.py"), encoding="utf-8").read()
+    body = text[text.index("def _back_to_park("):text.index("# ---------------------------------------------------------------- 4.")]
+    retract, plan = body.index("_retract_from_shelf(rig, log, side, label, scale)"), body.index("_move_group(")
+    assert body.index('_mark(rig, f"{label}_start")') < retract < plan
+    helper = text[text.index("def _retract_from_shelf("):text.index("def _back_to_park(")]
+    assert "retract_out_of_shelf(" in helper and "_cartesian(" in helper and "required=False" in helper

@@ -142,3 +142,30 @@ def tcp_for_item(item_point, hand_quaternion, depth=ITEM_DEPTH_BEHIND_TCP_M):
     """Where the TCP goes so that the item centre `item_point` sits `depth` behind it along the fingers (toward the palm)."""
     fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
     return tuple(item_point[i] + depth * fingers[i] for i in range(3))
+
+
+# The return to park starts with the fingers out of the shelf. From a reach over a shelf level the fingertips are about
+# 0.11 m past the front edge, and a joint-space plan to park lowers the hand before it has left the shelf: in arm
+# diagnostics run 5 of #99 (job 136508288405) MoveIt refused all three plans of the left return (-2, INVALID_MOTION_PLAN),
+# each with a finger (ee_link1, ee_link1, ee_link2) through work_shelf_board_0 at a state in the middle of the path. So the
+# hand first moves straight out along the shelf's outward normal, orientation held, until the fingertips are
+# RETRACT_CLEARANCE_M in front of the front plane; then the park plan starts from a state with nothing of the hand over a
+# board. FINGERTIP_DEPTH_M is the farthest point of the closed fingers along -z of the hand base at the openarm_description
+# pin 14ff67b: finger joint origin z -0.068 plus the finger collision mesh (finger_inner.stl, finger_outer.stl) to z -0.102.
+# REACH_STANDOFF_M (scn04's withdraw, 0.10 m) leaves the tips about 9 mm over the board from the level 0 reach.
+FINGERTIP_DEPTH_M = 0.170
+RETRACT_CLEARANCE_M = 0.03      # working value (Proposed): covers a hand turned by the 0.3 rad goal tolerance (0.0275 m half width)
+
+
+def retract_out_of_shelf(hand_xyz, hand_quaternion, front_point, outward, depth=FINGERTIP_DEPTH_M, clearance=RETRACT_CLEARANCE_M):
+    """The hand base goal that puts the fingertips (`depth` along -z of the hand) `clearance` in front of the shelf front
+    plane (through `front_point`, normal `outward` toward the robot, both in the floor plane of the hand's frame), reached
+    by a translation along `outward` with the orientation held. None when the fingertips are already that far out."""
+    norm = math.hypot(outward[0], outward[1])
+    n = (outward[0] / norm, outward[1] / norm)
+    fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
+    tip = tuple(hand_xyz[i] + depth * fingers[i] for i in range(3))
+    distance = clearance - ((tip[0] - front_point[0]) * n[0] + (tip[1] - front_point[1]) * n[1])
+    if distance <= 0.0:
+        return None
+    return (hand_xyz[0] + distance * n[0], hand_xyz[1] + distance * n[1], hand_xyz[2])
