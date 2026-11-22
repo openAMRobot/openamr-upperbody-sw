@@ -19,8 +19,8 @@ export VIDEO_RUN="$RUN" VIDEO_ARTIFACT="$ART" VIDEO_REF="$REF" VIDEO_CHAIN="$CHA
   VIDEO_OBS_T0="$OBS_T0" VIDEO_AUTO_WINDOW=1
 $P "$T/cards.py" short
 $P "$T/render_c.py" part 0 4 & $P "$T/render_c.py" part 1 4 & $P "$T/render_c.py" part 2 4 & $P "$T/render_c.py" part 3 4 & wait
-sh "$T/assemble.sh" openamrobot_digital_twin_run_$RUN.mp4 card_s_intro.png 4 c_part0.mp4 - c_part1.mp4 - c_part2.mp4 - \
-  c_part3.mp4 - card_s_outro.png 5
+sh "$T/assemble.sh" openamrobot_digital_twin_run_$RUN.mp4 card_s_intro.png 3.5 c_part0.mp4 - c_part1.mp4 - c_part2.mp4 - \
+  c_part3.mp4 - card_s_outro.png 4.5
 # thumbnail: a frame from the middle of the mission, 1200x627 (LinkedIn link-preview size), letterboxed, not cropped
 D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 openamrobot_digital_twin_run_$RUN.mp4)
 ffmpeg -v error -y -ss "$(python3 -I -c "print(float('$D')*0.62)")" -i openamrobot_digital_twin_run_$RUN.mp4 -frames:v 1 \

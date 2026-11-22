@@ -38,11 +38,19 @@ jobs:
         run: |
           export PATH="$RUNNER_TEMP/venv/bin:$PATH"
           mkdir -p "$RUNNER_TEMP/work" && cd "$RUNNER_TEMP/work"
-          sh "$GITHUB_WORKSPACE/tools/video/make_short.sh" "$SOURCE_RUN" "$SOURCE_ARTIFACT" "$SOURCE_REF" "$SOURCE_CHAIN" 2
+          sh "$GITHUB_WORKSPACE/tools/video/make_short.sh" "$SOURCE_RUN" "$SOURCE_ARTIFACT" "$SOURCE_REF" "$SOURCE_CHAIN" 3
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp openamrobot_digital_twin_run_*.mp4 thumbnail_run_*.png frame_1080p_run_*.png provenance_run_*.txt "$GITHUB_WORKSPACE/out/"
           cp "$GITHUB_WORKSPACE/source_run.json" "$GITHUB_WORKSPACE/out/"
           ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate -of default=nw=1 openamrobot_digital_twin_run_*.mp4
+      - name: Review frames in the log (scratch aid, the reviewer session cannot fetch artifacts)
+        run: |
+          cd "$RUNNER_TEMP/work"
+          D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 openamrobot_digital_twin_run_*.mp4)
+          for f in 0.03 0.30 0.62 0.97; do
+            ffmpeg -v error -y -ss "$(python3 -c "print($D*$f)")" -i openamrobot_digital_twin_run_*.mp4 -frames:v 1 -vf scale=1280:720 -q:v 7 r.jpg
+            echo "FRAME_BEGIN $f"; base64 -w 0 r.jpg; echo; echo "FRAME_END"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rc1-digital-twin-video
