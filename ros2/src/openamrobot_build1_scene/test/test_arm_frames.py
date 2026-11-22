@@ -670,3 +670,40 @@ def test_the_return_to_park_retracts_before_it_plans():
     assert body.index('_mark(rig, f"{label}_start")') < retract < plan
     helper = text[text.index("def _retract_from_shelf("):text.index("def _back_to_park(")]
     assert "retract_out_of_shelf(" in helper and "_cartesian(" in helper and "required=False" in helper
+# ------------------------------------------------------------- a joint command is executed only when the joints moved
+PARK = [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]
+NAMES = [f"openarm_left_joint{i}" for i in range(1, 8)]
+
+
+def _pose(values):
+    return dict(zip(NAMES, values))
+
+
+def test_park_with_no_measured_motion_is_reported_although_the_controller_succeeded():
+    """The controller has no goal tolerance and reports success after the trajectory time; joint 4 stayed on its lower limit."""
+    start = _pose([0.0, 0.0, 0.0, 0.00057, 0.0, 0.0, 0.0])        # Baseline 1 job 136538636545, left joint 4 at activation
+    short = af.unmoved_joints(start, dict(start), _pose(PARK))
+    assert set(short) == {"openarm_left_joint4"}
+    assert short["openarm_left_joint4"][1] == 0.0
+
+
+def test_park_that_moved_passes_and_still_joints_are_not_judged():
+    start = _pose([0.0009, -0.0008, 0.0, 0.00057, 0.0, 0.0004, 0.0])
+    end = _pose([0.0, 0.0, 0.0, 0.0981, 0.0, 0.0, 0.0])
+    assert af.unmoved_joints(start, end, _pose(PARK)) == {}
+
+
+def test_motion_away_from_the_target_is_not_travel():
+    start = _pose([0.0, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0])
+    end = _pose([0.0, 0.0, 0.0, -0.05, 0.0, 0.0, 0.0])
+    assert "openarm_left_joint4" in af.unmoved_joints(start, end, _pose(PARK))
+
+
+def test_park_arms_judges_the_measured_joints_not_the_status_alone():
+    """Static: every arm park in scenarios.py ends in _require_park_motion, which reads /joint_states and the physics."""
+    text = open(os.path.join(HERE, "..", "openamrobot_build1_scene", "scenarios.py"), encoding="utf-8").read()
+    body = text[text.index("def park_arms("):text.index("def arms_reach(")]
+    assert "_require_park_motion(rig, log, side, start" in body
+    helper = text[text.index("def _require_park_motion("):text.index("def park_arms(")]
+    assert "unmoved_joints(" in helper and '"physics"' in helper and '"joint_states"' in helper
+    assert text.count("_require_park_motion(rig, log, side, s") == 2     # the calls: park_arms and the video sequence's park

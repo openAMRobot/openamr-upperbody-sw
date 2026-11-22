@@ -225,3 +225,25 @@ def retract_out_of_shelf(hand_xyz, hand_quaternion, front_point, outward, depth=
     if distance <= 0.0:
         return None
     return (hand_xyz[0] + distance * n[0], hand_xyz[1] + distance * n[1], hand_xyz[2])
+
+
+# A joint command counts as executed only when the joints were MEASURED to move, never on the controller's status alone:
+# joint_trajectory_controller without goal tolerances (arm_controllers.yaml has none) reports success when the trajectory time has
+# passed, whether the joint moved or not (docs/build1_lift_and_base_diagnosis.md, the lift case). Half the commanded travel separates
+# "did not move" from "moved and is still settling"; how close the joint came is each scenario's own check.
+MIN_TRAVEL_FRACTION = 0.5
+MIN_COMMANDED_TRAVEL_RAD = 0.01     # rad. Joints commanded to stay (reading noise at the activation pose is about 1e-3) are not judged
+
+
+def unmoved_joints(start, end, target, min_fraction=MIN_TRAVEL_FRACTION, min_commanded=MIN_COMMANDED_TRAVEL_RAD):
+    """{joint: (commanded travel, measured travel toward the target)} for every joint commanded to move by more than min_commanded
+    whose measured travel toward the target is below min_fraction of the commanded travel. Empty when every commanded joint moved."""
+    short = {}
+    for name, goal in target.items():
+        commanded = goal - start[name]
+        if abs(commanded) <= min_commanded:
+            continue
+        toward = (end[name] - start[name]) * (1.0 if commanded > 0 else -1.0)
+        if toward < min_fraction * abs(commanded):
+            short[name] = (abs(commanded), toward)
+    return short
