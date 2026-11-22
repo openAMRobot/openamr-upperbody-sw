@@ -52,7 +52,7 @@
       "simulation_only": true
     },
     "forward": {
-      "_comment": "Turn in place by turn_rad with Nav2's spin behaviour, then a forward NavigateToPose goal forward_m ahead. turn_clearance_measured_m is the smallest shelf clearance of an in-place half turn measured by openamr-upperbody-sw #93 (b4e46dd): closed shelf, base 0.088 m past the station, arms in park, lift L1000. Geometry only. The forward goal uses #164's station tree (station goal checker 0.025 m); the default checker's 0.35 m would accept a 0.30 m goal before the base moves.",
+      "_comment": "Turn in place by turn_rad with Nav2's spin behaviour, then a forward NavigateToPose goal forward_m ahead. turn_clearance_measured_m is the smallest shelf clearance of an in-place half turn measured by openamr-upperbody-sw #93 (b4e46dd): closed shelf, base 0.088 m past the station, arms in park, lift L1000. Geometry only. The forward goal uses openamr-platform-sw's navigate_to_station_retreat.xml (PROPOSED, #117: station stage only, StationRetreat Regulated Pure Pursuit controller, station goal checker 0.025 m); the default checker's 0.35 m would accept a 0.30 m goal before the base moves.",
       "turn_rad": 3.141592653589793,
       "turn_clearance_measured_m": 0.141,
       "min_clearance_m": 0.05,
@@ -60,7 +60,7 @@
       "spin_action": "/spin",
       "drive_action": "/navigate_to_pose",
       "max_reverse_speed_m_s": 0.01,
-      "drive_tree": "navigate_to_station.xml"
+      "drive_tree": "navigate_to_station_retreat.xml"
     }
   }
 }

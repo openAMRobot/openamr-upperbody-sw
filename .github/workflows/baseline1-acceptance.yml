@@ -68,7 +68,11 @@ env:
   # 20 Nov 2026: candidate 960e2e5 = 9af88e7 (fb25be1 with #169 merged, openamr-platform-sw #175, approved) plus the
   # no-reverse Nav2 configuration (#90's behaviour set, 0aa8e14 cherry-picked; openamr-platform-sw #178, draft), the
   # same SHA as pins.yaml platform_sw_sil. CANDIDATE until #178 merges; repin if its merge changes the commit.
-  PLATFORM_SW_SHA: 960e2e5764529c5657d13645f5920ecffe504bbe
+  # PROPOSAL PIN (22 Nov 2026, #117): 2f498ff = openamr-platform-sw proposal/station-retreat-controller (draft #182,
+  # PROPOSED: StationRetreat controller and navigate_to_station_retreat.xml) on #178's head 90ced15 (960e2e5 plus the
+  # stated StationApproach allow_backward false). openamrobot_sil is unchanged from 960e2e5. Not for integration/baseline1
+  # until Kunal and the software lead adopt #182; otherwise restore 960e2e5 (or #178's merge commit).
+  PLATFORM_SW_SHA: 2f498ff65f23234ccd6b016c66ebc25873eec3c9
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
