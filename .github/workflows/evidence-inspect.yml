@@ -1,0 +1,20 @@
+# Scratch workflow (not for merge): reads recorded artifacts of earlier runs and prints measurements from them.
+# It changes nothing and publishes nothing. The authoring session cannot fetch artifacts itself.
+name: evidence-inspect
+on:
+  push:
+    branches: [diag/evidence-inspect-2026-11-23]
+    paths: [tools/inspect/**, .github/workflows/evidence-inspect.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh tools/inspect/run.sh
