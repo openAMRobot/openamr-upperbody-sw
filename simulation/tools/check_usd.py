@@ -11,6 +11,7 @@ The expansion is computed again and checked against the lock, and the job must n
 """
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -40,7 +41,8 @@ def main():
     report = isaac.check_usd(usd, expansion.text, job)
     summary = report.summary()
     if opts.json:
-        pathlib.Path(opts.json).write_text(json.dumps({"summary": summary, "failures": report.failures}, indent=1, default=str) + "\n")
+        doc = {"summary": summary, "failures": report.failures, "run_stamp": os.environ.get("OPENAMR_RUN_STAMP")}
+        pathlib.Path(opts.json).write_text(json.dumps(doc, indent=1, default=str) + "\n")
     print(json.dumps({"checks": summary["checks"], "failures": summary["failures"]}))
     for f in report.failures[:50]:
         print(f"FAIL {f['parameter']} {f['where']}: reference {f['reference']} usd {f['backend']}", file=sys.stderr)

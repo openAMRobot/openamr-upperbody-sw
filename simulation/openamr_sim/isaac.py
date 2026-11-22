@@ -15,6 +15,7 @@ import re
 
 import numpy as np
 
+from .benchmark import diffdrive_params
 from .mjcf import OVERRIDES, PROFILE, load_yaml, subtree_mass
 from .parity import Report, rotation_angle, tolerances
 from .urdf_model import URDF
@@ -104,6 +105,8 @@ def build_job(expansion, out_dir, overrides=OVERRIDES, profile=PROFILE):
                     "gravity": ov["common"]["gravity"]["value"]},
         "articulation_root": articulation_root(u), "importer_deviations": deviations,
         "drives": job_drives, "armature": armature, "mimic": mimic, "castors": ov["isaac"]["drives"]["castors"],
+        # for the benchmark runner (simulation/isaac/isaac_scenarios.py): the DiffDrive values Gazebo runs with, from the expansion
+        "diffdrive": diffdrive_params(expansion.text), "lift_velocity_limit": lift.velocity,
         "unsupported": [
             {"item": "joint friction", "handling": "PhysX joint friction is a unitless coefficient; URDF friction torque not applied"},
             {"item": "passive castors", "handling": "castor joints stay fixed as in the URDF"},
@@ -133,6 +136,20 @@ def _find(stage, name, predicate):
     return hits[0] if len(hits) == 1 else (None if not hits else hits)
 
 
+def _find_link(stage, name, is_body):
+    """The prim of URDF link `name`. Isaac Sim 5.1 writes the root link under an Xform of the same name
+    (/openamrobot/base_footprint and /openamrobot/base_footprint/base_footprint, GPU run of 175cd43, #107). When several
+    prims share the name, the one with RigidBodyAPI or MassAPI is the link; zero or two such prims stay ambiguous (a list)."""
+    from pxr import UsdPhysics
+
+    hit = _find(stage, name, is_body)
+    if isinstance(hit, list):
+        physical = [p for p in hit if p.HasAPI(UsdPhysics.RigidBodyAPI) or p.HasAPI(UsdPhysics.MassAPI)]
+        if len(physical) == 1:
+            return physical[0]
+    return hit
+
+
 def check_usd(usd_path, urdf_text, job):
     """Structural parity of the imported USD with the expansion. Returns a Report."""
     from pxr import Usd, UsdGeom, UsdPhysics
@@ -145,10 +162,10 @@ def check_usd(usd_path, urdf_text, job):
     is_joint = lambda p: p.IsA(UsdPhysics.Joint)
     xcache = UsdGeom.XformCache(Usd.TimeCode.Default())
     poses = u.fk({})
-    root = _find(stage, u.root_link, is_body)
+    root = _find_link(stage, u.root_link, is_body)
     root_world = np.array(xcache.GetLocalToWorldTransform(root)).T if root is not None and not isinstance(root, list) else np.eye(4)
     for name, link in u.links.items():
-        prim = _find(stage, name, is_body)
+        prim = _find_link(stage, name, is_body)
         r.check("usd.link", name, prim is not None and not isinstance(prim, list), name, None if prim is None else str(prim))
         if prim is None or isinstance(prim, list):
             continue
