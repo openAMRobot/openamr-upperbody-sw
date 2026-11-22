@@ -338,3 +338,42 @@ def test_a_bare_tree_name_is_resolved_and_the_default_stays_empty():
     step = ast.unparse(next(n for n in ast.parse(open(cancel.__file__, encoding="utf-8").read()).body
                             if isinstance(n, ast.FunctionDef) and n.name == "step"))
     assert "goal.behavior_tree = tree_path(c.get('behavior_tree', ''))" in step
+
+
+# ------------------------------------------------------------------ 6. the rig's executor survives the step (run 44848867373)
+class SpinningNode:
+    """rclpy while a MultiThreadedExecutor spins the node in another thread (rig.Rig): destroying a subscription there
+    raises InvalidHandle in the executor thread, which then ends (run 44848867373, job 136675191420: "Exception in
+    thread Thread-1 (spin) ... cannot use Destroyable because destruction was requested"). Here the destroy raises."""
+
+    def __init__(self, subscribe):
+        self.create_subscription, self.destroyed = subscribe, []
+
+    def destroy_subscription(self, subscription):
+        self.destroyed.append(subscription)
+        raise RuntimeError("InvalidHandle: cannot use Destroyable because destruction was requested")
+
+
+def test_the_step_does_not_destroy_its_subscription_under_the_spinning_executor(monkeypatch):
+    """After the executor thread died the rig received no /sil/drive/status, so host_client_drive_thread_alive read
+    False at the end of a run whose host client was alive. The step keeps the subscription and stops recording."""
+    stack = FakeStack(_fake_modules(monkeypatch), "canceled")
+    stack.node = SpinningNode(stack._subscribe)
+    log = FakeLog()
+    record = cancel.step(stack, log, config=CONFIG)
+    assert stack.node.destroyed == []
+    assert failed(log.checks.values()) == []
+    recorded = len(record["cmd_vel"])
+    callback = stack.subscribers[-1]
+    callback(stack.twist(0.3))                         # a message after the step: not recorded, nothing raises
+    assert callback.__self__.messages[-1][1] == 0.0 and len(callback.__self__.messages) == recorded
+
+
+def test_the_recorder_stops_on_stop():
+    clock = iter([1.0, 2.0, 3.0])
+    recorder = cancel.CmdVelRecorder(lambda: next(clock))
+    twist = types.SimpleNamespace(linear=types.SimpleNamespace(x=0.1, y=0.0), angular=types.SimpleNamespace(z=0.2))
+    recorder.on_message(twist)
+    assert recorder.stop() == [(1.0, 0.1, 0.0, 0.2)]
+    recorder.on_message(twist)
+    assert recorder.messages == [(1.0, 0.1, 0.0, 0.2)]

@@ -183,6 +183,25 @@ def _cancel(handle, wall_s=30.0):
     return int(response.return_code), len(response.goals_canceling)
 
 
+class CmdVelRecorder:
+    """The /cmd_vel messages of one step, as (t, vx, vy, wz). stop() ends the recording; the subscription itself stays
+    until the rig's node is destroyed. Destroying it while the rig's MultiThreadedExecutor spins in its own thread
+    kills that thread (rclpy InvalidHandle, "cannot use Destroyable because destruction was requested": run
+    44848867373, job 136675191420), after which the rig receives nothing: no /clock, no /sil/drive/status, so
+    host_client_drive_thread_alive reads False at the end of the run while the host client is alive."""
+
+    def __init__(self, clock):
+        self.clock, self.messages, self.recording = clock, [], True
+
+    def on_message(self, m):
+        if self.recording:
+            self.messages.append((self.clock(), m.linear.x, m.linear.y, m.angular.z))
+
+    def stop(self):
+        self.recording = False
+        return list(self.messages)
+
+
 def step(rig, log, pose=None, config=None):
     """Run the cancellation step against the running stack and log its checks. `pose()` gives the map pose of the base
     (baseline1.map_pose); without it ground truth is used, as the map starts at the world frame."""
@@ -190,10 +209,8 @@ def step(rig, log, pose=None, config=None):
     from nav2_msgs.action import NavigateToPose
     c = config or load()
     log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": True, "config": c}
-    messages = []
-    subscription = rig.node.create_subscription(
-        Twist, c["cmd_vel_topic"],
-        lambda m: messages.append((rig.sim_time(), m.linear.x, m.linear.y, m.angular.z)), 50)
+    recorder = CmdVelRecorder(rig.sim_time)
+    rig.node.create_subscription(Twist, c["cmd_vel_topic"], recorder.on_message, 50)
     rig.wait_stopped(10.0)
     start = rig.truth()
     here = pose() if pose is not None else None
@@ -230,8 +247,9 @@ def step(rig, log, pose=None, config=None):
         t1 = rig.sim_time()
         truth.append((t1, *rig.truth()))
         odom.append((t1, *rig.odom()))
-        record.update(window=(t0, t1), hold_truth=truth, hold_odom=odom, cmd_vel=list(messages))
-    rig.node.destroy_subscription(subscription)
+        record.update(window=(t0, t1), hold_truth=truth, hold_odom=odom, cmd_vel=list(recorder.messages))
+    # Not destroyed: see CmdVelRecorder. Recording ends here; the record above is unchanged by it.
+    recorder.stop()
     for check in verdict(record, c):
         log.quantity(check["name"], check["value"], check["unit"], low=check["low"], high=check["high"],
                      note=check["note"])
