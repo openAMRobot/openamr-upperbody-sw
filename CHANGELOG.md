@@ -30,6 +30,16 @@ All notable changes to this repository. Evidence for the description is static a
   0.01 m and 0.02 rad and every `/cmd_vel` message zero. The checks are named `cancel_*` for the strict gate.
   In the test harness only; no stop gate, E-stop or interlock logic. `test_baseline1_cancel.py` (16 tests, fake stack).
 
+### Changed (22 Nov 2026; PROPOSED measurement change, gate owner decides; simulation only)
+
+- `baseline1_cancel.py`: `cancel_hold_cmd_vel_peak` judges the hold window by each `/cmd_vel` message's publication
+  time (rclpy message info `source_timestamp`, system clock) against wall-clock instants taken in the step, so the
+  window holds exactly the messages published in it and the last one published before it. Run 44974639950 (job
+  137061674788) failed it at 0.18966 with the base stopped 0.059 s after the cancel and no hold displacement: messages
+  published before the window were delivered late by the rig's executor and stamped on arrival. Without
+  `source_timestamp` the callback sim time is used, as before, and the fallback is logged. Limit 0.001 and every other
+  check unchanged. `test_baseline1_cancel.py`: 34 tests (13 new).
+
 ### Fixed (20 Nov 2026, night; diagnostic run 44800204846; simulation only)
 
 - Forward retreat: the 0.30 m goal is built from the map pose (`baseline1.map_pose`), the frame it is sent in, not from

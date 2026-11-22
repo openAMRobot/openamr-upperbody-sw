@@ -94,7 +94,12 @@ action's cancel service once ground truth has moved 0.15 m. Checks: goal accepte
 with the base moving (at least 0.02 m/s); cancel request accepted; terminal status CANCELED (5), whatever the stack
 returns is recorded; stopped within 4 s and 0.10 m (the scn07 time bound); then over 3 s of Gazebo time ground truth
 and odometry under 0.01 m and 0.02 rad and every `/cmd_vel` message, and the last one before the window, zero
-(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. CANCELED is the only pass (ABORTED or
+(at most 0.001); the last nonzero `/cmd_vel` after the cancel within 4 s. Proposed measurement change (gate owner
+decides): the hold window is judged by each message's publication time (rclpy message info `source_timestamp`, system
+clock) against wall-clock instants the step takes at the window's start and end, since the busy rig executor delivers
+messages late and a command published before the window was counted in it (run 44974639950: base stopped 0.059 s after
+the cancel, peak 0.18966 from a late-delivered message); without `source_timestamp` the callback sim time is used and
+the fallback is logged. The time checks stay on Gazebo time. CANCELED is the only pass (ABORTED or
 SUCCEEDED fail). On the integration branch `/navigate_to_pose` is bt_navigator itself; platform-sw #90 puts a proxy on
 that name, whose cancels the #90 review found ending ABORTED, so the status check is the one to watch when #90 lands.
 

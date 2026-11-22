@@ -11,7 +11,10 @@ the public action interface (the action's cancel service, as any client would). 
 - the base stops within max_time_to_stop_sim_s and max_distance_after_cancel_m;
 - over a declared hold window after the stop, ground truth and odometry move less than max_hold_displacement_m and
   max_hold_yaw_change_rad, and every /cmd_vel message is zero (the last one before the window counts too, since the
-  base keeps the last command it was given).
+  base keeps the last command it was given). The hold window is judged by each message's publication time
+  (rclpy message info source_timestamp, system clock) against wall-clock instants the step takes, so a message
+  published before the window but delivered late by the busy executor is not counted in it; without source_timestamp
+  the callback sim time is used, as before, and the fallback is logged (PROPOSED measurement change, 22 Nov 2026).
 CANCELED is the only pass.
 
 verdict() and the helpers have no ROS import: test/test_baseline1_cancel.py runs them on recorded samples. step() runs
@@ -109,6 +112,30 @@ def cmd_vel_in_window(messages, t0, t1):
     return max(_magnitude(m) for m in judged), len(inside)
 
 
+def source_ns(info):
+    """The publication time of one message from rclpy's message info (a dict with source_timestamp, ns since the epoch,
+    system clock, set by the DDS writer), or None when it is missing or 0."""
+    if info is None:
+        return None
+    value = info.get("source_timestamp") if isinstance(info, dict) else getattr(info, "source_timestamp", None)
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def hold_messages(record):
+    """(messages, window, basis) the hold check judges. By publication time when every recorded message carries a
+    source_timestamp and the step took the wall-clock window: then the window holds exactly the messages published in
+    it and the last one published before it, whatever the executor's delivery delay. Otherwise the callback sim time,
+    as before (basis 'fallback')."""
+    published, wall = record.get("cmd_vel_published"), record.get("window_wall_ns")
+    if published and wall and all(m[0] is not None for m in published):
+        return sorted(published, key=lambda m: m[0]), tuple(wall), "publication"
+    return record.get("cmd_vel") or [], record.get("window") or (None, None), "fallback"
+
+
 def last_nonzero_after(messages, t_cancel, threshold):
     """Seconds from the cancel to the last /cmd_vel message above `threshold` (0.0 when none after the cancel)."""
     late = [m[0] for m in messages if m[0] >= t_cancel and _magnitude(m) > threshold]
@@ -156,11 +183,14 @@ def verdict(record, config):
              high=c["max_hold_yaw_change_rad"], note=window + ", /odom"),
     ]
     messages = record.get("cmd_vel") or []
-    peak, count = cmd_vel_in_window(messages, t0, t1) if t0 is not None else (None, 0)
+    held, (h0, h1), basis = hold_messages(record)
+    peak, count = cmd_vel_in_window(held, h0, h1) if h0 is not None else (None, 0)
+    by = ("publication time (source_timestamp)" if basis == "publication"
+          else "callback sim time (fallback: no source_timestamp)")
     checks += [
         dict(name="cancel_hold_cmd_vel_peak", value=peak, unit="m/s or rad/s", low=0.0, high=c["max_cmd_vel_abs"],
              note=f"largest |component| of {c['cmd_vel_topic']} in the hold window ({count} messages) and of the last "
-                  "message before it"),
+                  f"message before it, by {by}"),
     ]
     if record.get("t_cancel") is not None:
         checks.append(dict(name="cancel_cmd_vel_nonzero_after_cancel", value=last_nonzero_after(
@@ -188,14 +218,23 @@ class CmdVelRecorder:
     until the rig's node is destroyed. Destroying it while the rig's MultiThreadedExecutor spins in its own thread
     kills that thread (rclpy InvalidHandle, "cannot use Destroyable because destruction was requested": run
     44848867373, job 136675191420), after which the rig receives nothing: no /clock, no /sil/drive/status, so
-    host_client_drive_thread_alive reads False at the end of the run while the host client is alive."""
+    host_client_drive_thread_alive reads False at the end of the run while the host client is alive.
+
+    on_message_info is the subscription callback: two required parameters, so rclpy passes the message info
+    (rclpy/subscription.py binds one argument, then two). `published` holds (source_timestamp ns or None, vx, vy, wz)
+    for the hold window; `messages` keeps the callback sim time for the sim-time checks."""
 
     def __init__(self, clock):
-        self.clock, self.messages, self.recording = clock, [], True
+        self.clock, self.messages, self.published, self.recording = clock, [], [], True
 
     def on_message(self, m):
         if self.recording:
             self.messages.append((self.clock(), m.linear.x, m.linear.y, m.angular.z))
+
+    def on_message_info(self, m, info):
+        if self.recording:
+            self.published.append((source_ns(info), m.linear.x, m.linear.y, m.angular.z))
+            self.on_message(m)
 
     def stop(self):
         self.recording = False
@@ -205,12 +244,14 @@ class CmdVelRecorder:
 def step(rig, log, pose=None, config=None):
     """Run the cancellation step against the running stack and log its checks. `pose()` gives the map pose of the base
     (baseline1.map_pose); without it ground truth is used, as the map starts at the world frame."""
+    import time
     from geometry_msgs.msg import Twist
     from nav2_msgs.action import NavigateToPose
     c = config or load()
     log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": True, "config": c}
     recorder = CmdVelRecorder(rig.sim_time)
-    rig.node.create_subscription(Twist, c["cmd_vel_topic"], recorder.on_message, 50)
+    rig.node.create_subscription(Twist, c["cmd_vel_topic"], recorder.on_message_info, 50)
+    wall = {}
     rig.wait_stopped(10.0)
     start = rig.truth()
     here = pose() if pose is not None else None
@@ -231,13 +272,16 @@ def step(rig, log, pose=None, config=None):
         rig.wait(lambda: moved() >= c["cancel_at_m"], c["move_timeout_sim_s"], "cancel check: base under way")
         at = rig.truth()
         record.update(progress_m=moved(), speed_m_s=rig.truth_speed()[0], t_cancel=rig.sim_time())
+        wall["cancel"] = time.time_ns()
         record["return_code"], record["goals_canceling"] = _cancel(handle)
         t_call = rig.sim_time()
         settle = rig.wait_stopped(10.0)
+        wall["stopped"] = time.time_ns()
         record["time_to_stop_s"] = None if settle is None else t_call + settle - record["t_cancel"]
         record["distance_after_cancel_m"] = math.hypot(rig.truth()[0] - at[0], rig.truth()[1] - at[1])
         record["status"], _ = rig.wait_result(handle, c["result_timeout_sim_s"], "cancel check: terminal status")
         t0 = rig.sim_time()
+        w0 = time.time_ns()
         truth, odom = [], []
         while rig.sim_time() - t0 < c["hold_window_sim_s"]:
             t = rig.sim_time()
@@ -245,15 +289,28 @@ def step(rig, log, pose=None, config=None):
             odom.append((t, *rig.odom()))
             rig.sleep_sim(c["hold_sample_sim_s"])
         t1 = rig.sim_time()
+        w1 = time.time_ns()
         truth.append((t1, *rig.truth()))
         odom.append((t1, *rig.odom()))
-        record.update(window=(t0, t1), hold_truth=truth, hold_odom=odom, cmd_vel=list(recorder.messages))
+        record.update(window=(t0, t1), hold_truth=truth, hold_odom=odom, cmd_vel=list(recorder.messages),
+                      cmd_vel_published=list(recorder.published), window_wall_ns=(w0, w1))
+        record.update({f"wall_{k}_ns": v for k, v in wall.items()})
+        _held, _window, basis = hold_messages(record)
+        missing = sum(1 for m in record["cmd_vel_published"] if m[0] is None)
+        record["cmd_vel_time_basis"] = basis
+        if basis == "fallback":
+            log.event(f"cancel check: {missing} of {len(record['cmd_vel_published'])} {c['cmd_vel_topic']} messages "
+                      "without source_timestamp; hold window judged by callback sim time (fallback)")
+        else:
+            late = [m[0] for m in record["cmd_vel_published"] if m[0] >= wall["cancel"]
+                    and _magnitude(m) > c["max_cmd_vel_abs"]]
+            record["last_nonzero_published_after_cancel_wall_s"] = (max(late) - wall["cancel"]) / 1e9 if late else 0.0
     # Not destroyed: see CmdVelRecorder. Recording ends here; the record above is unchanged by it.
     recorder.stop()
     for check in verdict(record, c):
         log.quantity(check["name"], check["value"], check["unit"], low=check["low"], high=check["high"],
                      note=check["note"])
-    summary = {k: v for k, v in record.items() if k not in ("hold_truth", "hold_odom", "cmd_vel")}
+    summary = {k: v for k, v in record.items() if k not in ("hold_truth", "hold_odom", "cmd_vel", "cmd_vel_published")}
     summary["cmd_vel_messages"] = len(record.get("cmd_vel") or [])
     summary["behavior_tree"] = goal.behavior_tree
     log.data["baseline1"]["cancel_check"]["record"] = summary
