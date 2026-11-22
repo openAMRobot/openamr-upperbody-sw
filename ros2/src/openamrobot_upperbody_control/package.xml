@@ -5,6 +5,7 @@
   <description>ros2_control configuration for the two OpenArm v2.0 arms of OpenAMRobot 2.0 (the lift is not here: it is a joint we have no authority to command): joint state broadcaster, trajectory and gripper controllers, one file for the mock, gazebo and real profiles.</description>
   <maintainer email="info@botshare.ai">OpenAMRobot</maintainer>
   <license>MIT</license>
+  <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>ros2_controllers</exec_depend>
