@@ -21,6 +21,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from openamrobot_build1_scene import clock_gate  # noqa: E402
 
 
+def dump_simulator_stacks(out):
+    """Evidence only: thread stacks of the Gazebo server when no /clock arrives, written to OUT/clock_gate_gz_stacks.txt.
+    The launch ends as soon as this script exits, so this is the last moment the stuck process can be read."""
+    import subprocess
+    path = os.path.join(out, "clock_gate_gz_stacks.txt")
+    try:
+        pids = subprocess.run(["pgrep", "-f", "gz sim"], capture_output=True, text=True, timeout=5).stdout.split()
+        with open(path, "w") as handle:
+            handle.write(f"pids of 'gz sim': {pids}\n")
+            for pid in pids:
+                handle.write(f"\n===== pid {pid}\n")
+                handle.flush()
+                subprocess.run(["sudo", "-n", "gdb", "-p", pid, "-batch", "-ex", "thread apply all bt 30"],
+                               stdout=handle, stderr=subprocess.STDOUT, timeout=60)
+    except Exception as error:  # noqa: BLE001 - evidence capture must never change the gate's result
+        with open(path, "a") as handle:
+            handle.write(f"\ncapture failed: {type(error).__name__}: {error}\n")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--launch-start", type=float, required=True)
@@ -46,6 +65,7 @@ def main(argv=None):
                                f"(sim {record['first_clock_sim_s']} s); starting the real arm driver")
     elif status == clock_gate.EXIT_NO_CLOCK:
         node.get_logger().error(record["reason"])
+        dump_simulator_stacks(args.out)
     node.destroy_node()
     if rclpy.ok():
         rclpy.shutdown()

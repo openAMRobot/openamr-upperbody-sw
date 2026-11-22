@@ -229,7 +229,7 @@ jobs:
         run: |
           uname -r
           sudo apt-get update
-          sudo apt-get install -y iproute2 can-utils
+          sudo apt-get install -y iproute2 can-utils gdb
           sudo apt-get install -y "linux-modules-extra-$(uname -r)" || echo "linux-modules-extra-$(uname -r) could not be installed"
           sudo modprobe vcan || echo "modprobe vcan failed"
           sudo modprobe can_raw || echo "modprobe can_raw failed"
@@ -319,7 +319,7 @@ jobs:
             colcon test-result --test-result-base "build/$PACKAGE" --verbose
             # Rerun only a try that the no /clock rule makes BLOCKED (fail-fast fired before phase 1, nothing else failed).
             if [ "$try" -lt "${BASELINE1_MISSION_TRIES}" ] && \
-               python3 "$PACKAGE_DIR/scripts/baseline1_strict_verdict.py" --blocked-try "$BUILD1_LOG_DIR"; then
+               python3 "$GITHUB_WORKSPACE/$PACKAGE_DIR/scripts/baseline1_strict_verdict.py" --blocked-try "$BUILD1_LOG_DIR"; then
               moved="$PWD/build1_logs_blocked_try${try}"
               mv "$BUILD1_LOG_DIR" "$moved"
               cp -r "build/$PACKAGE/test_results" "$moved/test_results" 2>/dev/null

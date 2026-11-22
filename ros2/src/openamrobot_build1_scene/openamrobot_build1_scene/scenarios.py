@@ -1496,6 +1496,12 @@ def stop_during_nav(rig, log):
     log.quantity("base_motion_after_release_without_goal", _distance(rig.truth(), held), "m", low=0.0, high=STOP_HOLD_MOTION_M,
                  note="a release alone starts no motion: over 2 s of Gazebo time")
     driven = _distance(start, rig.truth())
+    from openamrobot_build1_scene.baseline1 import map_pose
+    estimate, wheel = map_pose(rig), (rig.odom() if rig.get("/odom") is not None else None)
+    log.observed("truth_pose_before_resumed_drive", [round(v, 4) for v in rig.truth()[:2]], "m")
+    log.observed("map_pose_before_resumed_drive", None if estimate is None else [round(v, 4) for v in estimate[:2]], "m",
+                 note="Nav2's own estimate; the resumed goal is built from it")
+    log.observed("odom_pose_before_resumed_drive", None if wheel is None else [round(v, 4) for v in wheel[:2]], "m")
     status, _ = rig.wait_result(_send_drive(rig, log, 2.0 - driven), 90.0, "drive after the release")
     log.require(rig.succeeded(status), f"the drive after the release ended with status {status}")
     rig.wait_stopped(10.0)

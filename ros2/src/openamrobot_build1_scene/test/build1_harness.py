@@ -22,6 +22,14 @@ def description(**arguments):
     from ament_index_python.packages import get_package_share_directory
     from launch.actions import IncludeLaunchDescription
     from launch.launch_description_sources import PythonLaunchDescriptionSource
+    # Evidence for upperbody #133: processes of an earlier launch that are still alive when this one starts.
+    import subprocess
+    try:
+        left = subprocess.run(["pgrep", "-a", "-f", "gz sim|ros2_control_node|move_group|controller_server|parameter_bridge"],
+                              capture_output=True, text=True, timeout=5).stdout.strip().splitlines()
+    except Exception as error:  # noqa: BLE001 - evidence only
+        left = [f"pgrep failed: {error}"]
+    print(f"BUILD1 STARTUP survivors of an earlier launch: {len(left)}" + "".join("\n  BUILD1 STARTUP survivor: " + x[:160] for x in left), flush=True)
     domain = str(random.randint(101, 200))
     os.environ.update(ROS_DOMAIN_ID=domain, ROS_AUTOMATIC_DISCOVERY_RANGE="LOCALHOST", GZ_PARTITION=f"build1_{domain}_{os.getpid()}")
     arguments = {"profile": "firmware_sil", "headless": "true", **arguments}
