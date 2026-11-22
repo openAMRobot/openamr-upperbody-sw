@@ -15,7 +15,7 @@ pins:
     use: "read only: the actuator ledger. Not merged, nothing here reads it"
   platform_sw_main:
     sha: "cced705baed45050993b515193c7f411538aae5e"
-    use: "checked out as openamr-platform-sw: description with wheel friction (#135), sensor profiles (#138), openamrobot_sil (#139), Nav2, perception, docking model. Nav2, description and docking unchanged since 0741778"
+    use: "checked out as openamr-platform-sw for the scene tests and arm diagnostics, the same commit as platform_sw_sil and PLATFORM_SW_SHA. CANDIDATE commit (22 Nov 2026): openamr-platform-sw #184 (stateful false, Proposed) on #182 8eb7ff3 (StationRetreat) on #178 90ced15 (no-reverse Nav2, navigate_to_station.xml). #113's DRIVE_TREE needs navigate_to_station.xml, absent at the previous pin 69847ab (main), so every drive scenario aborted. Repin to the merged commit once #178, #182 and #184 merge; if #184 is rejected, 8eb7ff3. Previous pin: main 69847ab"
   platform_sw_pr145:
     sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
     use: "provisional: only the package ros2/src/openamrobot_sil is checked out and built, and docs/architecture/sil-topology.md is followed. Contains #141 9913d87, #144 53a69e9 (late SDO reply fix) and main 69847ab"

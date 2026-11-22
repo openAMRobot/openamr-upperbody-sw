@@ -33,7 +33,7 @@ def test_pins_are_full_hashes_and_say_how_each_input_is_used():
         assert re.fullmatch(r"[0-9a-f]{40}", pin["sha"]), name
         assert pin["use"].strip(), name
     assert pins["upperbody_sw_main"]["sha"].startswith("37b93f5")
-    assert pins["platform_sw_main"]["sha"].startswith("cced705")   # EVIDENCE PIN, was 69847ab
+    assert pins["platform_sw_main"]["sha"] == pins["platform_sw_sil"]["sha"]   # one platform commit for every workflow (#113)
     assert pins["platform_sw_pr145"]["sha"].startswith("8c5bd52") and pins["platform_sw_pr139"]["sha"].startswith("69847ab")
     assert pins["upperbody_sw_pr66"]["sha"].startswith("6fe5e9c") and pins["upperbody_sw_pr65"]["sha"].startswith("d1515b1")
 
