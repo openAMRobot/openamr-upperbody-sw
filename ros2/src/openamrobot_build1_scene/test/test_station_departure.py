@@ -186,3 +186,25 @@ def test_the_forward_retreat_reverse_limit_is_the_rc_criterion():
     assert '"max_reverse_speed_m_s": 0.01,' in text
     assert 0.01291 > 0.01  # the measured value fails the unchanged limit
     json.loads(text)
+
+
+def test_reverse_speed_by_phase_does_not_read_a_window_across_the_turn_and_the_drive():
+    """Proposed measurement change (proposal/baseline1-measurement-retreat-phases, for the gate owner). The end of a
+    half turn sampled at heading pi/2 and a drive along -pi/2 that starts there: in one series the window from the
+    last turn sample to the drive is projected on the turn heading and reads as backwards; per phase nothing is."""
+    import math as m
+    from openamrobot_build1_scene import station_departure as sd
+    turn = [(0.0, 0.0, 0.0, m.pi / 2), (0.3, 0.0, 0.0, m.pi / 2)]
+    forward = [(0.3, 0.0, -0.005, -m.pi / 2), (0.6, 0.0, -0.035, -m.pi / 2)]
+    assert sd.reverse_speed(turn + forward) > 0.01
+    speeds, worst = sd.reverse_speed_by_phase({"turn": turn, "forward": forward})
+    assert speeds == {"turn": 0.0, "forward": 0.0} and worst is None
+
+
+def test_reverse_speed_by_phase_keeps_a_backward_move_inside_a_phase():
+    import math as m
+    from openamrobot_build1_scene import station_departure as sd
+    forward = [(0.0, 0.0, 0.0, 0.0), (0.25, -0.004, 0.0, 0.0), (0.5, 0.02, 0.0, 0.0)]
+    speeds, worst = sd.reverse_speed_by_phase({"turn": [], "forward": forward})
+    assert speeds["forward"] == pytest.approx(0.016) and worst["phase"] == "forward" and worst["t"] == 0.0
+    assert max(speeds.values()) > 0.01          # the unchanged 0.010 m/s limit still fails it
