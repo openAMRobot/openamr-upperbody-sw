@@ -126,7 +126,7 @@ cpu() {  # cpu <command>: in the ROS image with xacro at the locked build and th
       apt-get install -y -qq --no-install-recommends 'ros-jazzy-xacro=$XACRO' python3-venv git >/dev/null
     fi
     git config --global --add safe.directory '*'
-    source /opt/ros/jazzy/setup.bash
+    set +u; source /opt/ros/jazzy/setup.bash; set -u   # setup.bash reads unset variables (GPU runs of d7945c7 and 175cd43)
     [ -x '$KIT/venv/bin/python' ] || python3 -m venv --system-site-packages '$KIT/venv'
     '$KIT/venv/bin/pip' install --quiet -r simulation/requirements.txt
     if [ -f simulation/requirements-xacro.txt ]; then

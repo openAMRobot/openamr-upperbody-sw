@@ -78,10 +78,14 @@ def collect(kit, mujoco=None, gazebo=None, stamp=None):
         check(f"{cfg}.usd_generated", "PASS" if log.get("result") == "written" and usd_files else "FAIL", log.get("result"))
         roots = log.get("articulation_roots")
         check(f"{cfg}.one_articulation", "BLOCKED" if roots is None else ("PASS" if len(roots) == 1 else "FAIL"), roots)
+        version = log.get("isaac_sim_version") or log.get("isaac_sim_build")   # isaac_sim_build: logs written before 175cd43
         if log.get("version_warning"):
             check(f"{cfg}.isaac_version", "FAIL", log["version_warning"])
-        elif log.get("isaac_sim_build"):
-            check(f"{cfg}.isaac_version", "PASS", log["isaac_sim_build"])
+        elif version:
+            check(f"{cfg}.isaac_version", "PASS", {"isaac_sim_version": version, "source": log.get("isaac_sim_version_source"),
+                                                   "kit_build": log.get("kit_build")})
+        else:
+            check(f"{cfg}.isaac_version", "FAIL", "the import log records no Isaac Sim version")
         report = read(job_dir / "check_usd.json")
         if report is None:
             check(f"{cfg}.check_usd", "BLOCKED", "no check_usd.json")

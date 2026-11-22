@@ -136,6 +136,20 @@ def _find(stage, name, predicate):
     return hits[0] if len(hits) == 1 else (None if not hits else hits)
 
 
+def _find_link(stage, name, is_body):
+    """The prim of URDF link `name`. Isaac Sim 5.1 writes the root link under an Xform of the same name
+    (/openamrobot/base_footprint and /openamrobot/base_footprint/base_footprint, GPU run of 175cd43, #107). When several
+    prims share the name, the one with RigidBodyAPI or MassAPI is the link; zero or two such prims stay ambiguous (a list)."""
+    from pxr import UsdPhysics
+
+    hit = _find(stage, name, is_body)
+    if isinstance(hit, list):
+        physical = [p for p in hit if p.HasAPI(UsdPhysics.RigidBodyAPI) or p.HasAPI(UsdPhysics.MassAPI)]
+        if len(physical) == 1:
+            return physical[0]
+    return hit
+
+
 def check_usd(usd_path, urdf_text, job):
     """Structural parity of the imported USD with the expansion. Returns a Report."""
     from pxr import Usd, UsdGeom, UsdPhysics
@@ -148,10 +162,10 @@ def check_usd(usd_path, urdf_text, job):
     is_joint = lambda p: p.IsA(UsdPhysics.Joint)
     xcache = UsdGeom.XformCache(Usd.TimeCode.Default())
     poses = u.fk({})
-    root = _find(stage, u.root_link, is_body)
+    root = _find_link(stage, u.root_link, is_body)
     root_world = np.array(xcache.GetLocalToWorldTransform(root)).T if root is not None and not isinstance(root, list) else np.eye(4)
     for name, link in u.links.items():
-        prim = _find(stage, name, is_body)
+        prim = _find_link(stage, name, is_body)
         r.check("usd.link", name, prim is not None and not isinstance(prim, list), name, None if prim is None else str(prim))
         if prim is None or isinstance(prim, list):
             continue

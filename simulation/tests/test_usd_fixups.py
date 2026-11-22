@@ -94,3 +94,63 @@ def test_usd_fixups_imports_no_yaml():
     assert "yaml" not in imported
     model = (pathlib.Path(usd_fixups.__file__).parent / "urdf_model.py").read_text()
     assert "import yaml" not in model
+
+
+# ------------------------------------------------------------------ official GPU run of 175cd43 (#107, run stamp 20261122T134011Z)
+def test_the_root_link_under_an_xform_of_the_same_name_is_found(tmp_path):
+    """Isaac Sim 5.1 wrote /openamrobot/base_footprint (an Xform) and /openamrobot/base_footprint/base_footprint (the link):
+    the only failing check of that run was usd.link base_footprint. The physical prim of the two is the link."""
+    from pxr import Usd, UsdGeom
+    path = write_mini_usd(tmp_path / "nested.usda")
+    stage = Usd.Stage.Open(str(path))
+    UsdGeom.Xform.Define(stage, "/mini/holder/base")      # same name as the root link, no physics
+    stage.Save()
+    report = isaac.check_usd(path, MINI, MINI_JOB)
+    assert not report.failures, report.failures
+
+
+def test_two_physical_prims_with_a_link_name_still_fail(tmp_path):
+    from pxr import Usd, UsdGeom, UsdPhysics
+    path = write_mini_usd(tmp_path / "twice.usda")
+    stage = Usd.Stage.Open(str(path))
+    UsdPhysics.MassAPI.Apply(UsdGeom.Xform.Define(stage, "/mini/holder/base").GetPrim())
+    stage.Save()
+    failed = {(f["parameter"], f["where"]) for f in isaac.check_usd(path, MINI, MINI_JOB).failures}
+    assert ("usd.link", "base") in failed
+
+
+def _collector_run(tmp_path, log):
+    import json
+    from isaac import collect_result
+    job_dir = tmp_path / "sim" / "bp000" / "isaac"
+    job_dir.mkdir(parents=True)
+    (job_dir / "model.urdf").write_text('<robot name="r"><link name="a"/><link name="b"/>'
+                                        '<joint name="j" type="continuous"><parent link="a"/><child link="b"/></joint></robot>')
+    (job_dir / "isaac_job.json").write_text(json.dumps({"configuration": "bp000", "expansion_sha256": "0" * 64,
+                                                         "urdf": "model.urdf", "usd": "r.usd"}))
+    (job_dir / "r.usd").write_text("#usda 1.0\n")
+    (job_dir / "isaac_import_log.json").write_text(json.dumps({"result": "written", "articulation_roots": ["/r"], **log}))
+    (job_dir / "check_usd.json").write_text(json.dumps({"summary": {"checks": 10, "failures": 0}, "failures": []}))
+    (tmp_path / "benchmark_isaac.json").write_text(json.dumps({"schema": "openamr.benchmark.v1", "backend": "isaac",
+                                                                "configuration": "bp000", "results": {"rest": {"base_height_m": 0.0}},
+                                                                "meta": {"dof_count": 1, "errors": {}}}))
+    result = collect_result.collect(tmp_path)
+    return {c["check"]: c for c in result["checks"]}
+
+
+def test_the_collector_records_the_isaac_sim_version_written_since_175cd43(tmp_path):
+    """The 175cd43 generator logs isaac_sim_version; the collector looked only for isaac_sim_build and wrote no version check."""
+    checks = _collector_run(tmp_path, {"isaac_sim_version": "5.1.0", "isaac_sim_version_source": "/isaac-sim/VERSION",
+                                       "kit_build": "107.3.3"})
+    assert checks["bp000.isaac_version"]["status"] == "PASS"
+    assert checks["bp000.isaac_version"]["detail"]["isaac_sim_version"] == "5.1.0"
+
+
+def test_the_collector_fails_a_log_without_a_version(tmp_path):
+    assert _collector_run(tmp_path, {})["bp000.isaac_version"]["status"] == "FAIL"
+
+
+def test_the_run_script_sources_ros_without_nounset():
+    """ROS setup.bash reads unset variables; both official GPU runs needed set +u around it."""
+    text = (GENERATOR.parents[1] / "isaac" / "run_on_gpu.sh").read_text()
+    assert "set +u; source /opt/ros/jazzy/setup.bash; set -u" in text
