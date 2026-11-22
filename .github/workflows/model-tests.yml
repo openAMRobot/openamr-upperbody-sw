@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Builds the combined model in ROS 2 Jazzy and runs A6 (static+mock) on every pull request and push to main, and A7
-# (simulation, Gazebo Harmonic, headless) on demand: Actions > Model tests > Run workflow, or the run-a7 label on a PR.
+# (simulation, Gazebo Harmonic, headless) nightly or on demand: Actions > Model tests > Run workflow, or the run-a7 label on a PR.
 # CI results are A6 or A7 evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
 # Workspace: ws/src/openamr-upperbody-sw (this repo), ws/src/openamr-platform-sw (platform pin), and the upstream pins of
 # config/upstream_pins.yaml under ws/src/upstream/, where C02 compares them with the pins.
@@ -11,6 +11,9 @@ on:
     types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
+  schedule:
+    # Daily at 02:17 UTC on the default branch; A6 is intentionally not scheduled.
+    - cron: '17 2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -163,6 +166,7 @@ jobs:
   a7:
     name: a7 (simulation)
     if: >-
+      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-a7') &&
        (github.event.action != 'labeled' || github.event.label.name == 'run-a7'))
@@ -298,7 +302,8 @@ jobs:
       # views at 15 min (each shot takes about 1 to 2 min, at most about 5), timeout-minutes ends the step at 50; the upload below then keeps
       # whatever shots and logs exist.
       - name: V01 RViz captures (pictures, not evidence)
-        if: always()
+        # Nightly A7 retains checks and evidence; skip optional, costly screenshots.
+        if: always() && github.event_name != 'schedule'
         continue-on-error: true
         timeout-minutes: 50
         working-directory: ws
@@ -319,7 +324,7 @@ jobs:
           [ "$front" -eq 0 ] && [ "$rear" -eq 0 ]
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && github.event_name != 'schedule'
         with:
           name: v01-rviz-captures
           path: |
