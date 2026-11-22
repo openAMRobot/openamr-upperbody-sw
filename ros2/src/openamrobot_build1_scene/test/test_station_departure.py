@@ -190,7 +190,20 @@ def removed_behaviour_calls(root):
             text = open(path, encoding="utf-8", errors="replace").read()
             where = os.path.relpath(path, root)
             if name.endswith(".py"):
-                for node in ast.walk(ast.parse(text, path)):
+                try:
+                    tree = ast.parse(text, path)
+                except SyntaxError:
+                    # Not valid Python 3 (a vendored script, a Python 2 remnant, a generated
+                    # stub) - it cannot contain a real import/constant this AST walk is built
+                    # to find, so it is not a removed-behaviour call by this test's own
+                    # definition. Fall back to the same textual line-scan the non-.py branch
+                    # below already uses, instead of letting the exception abort the whole
+                    # scan over an unrelated file.
+                    for number, line in enumerate(text.splitlines(), 1):
+                        if NON_PYTHON.search(line):
+                            found.append(f"{where}:{number} {line.strip()[:80]}")
+                    continue
+                for node in ast.walk(tree):
                     if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("nav2_msgs"):
                         found += [f"{where}:{node.lineno} imports {a.name}" for a in node.names if a.name in REMOVED_TYPES]
                     if isinstance(node, ast.Constant) and node.value in REMOVED_ACTIONS:
