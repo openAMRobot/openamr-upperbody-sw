@@ -7,11 +7,14 @@
 Test cases, not CTest entries: passed, failed, BLOCKED (a skip whose text contains BLOCKED) and skipped.
 Exit 0: at least one passed and nothing failed, was BLOCKED or was skipped. Exit 1: a failure, or nothing ran.
 Exit 3: nothing failed and at least one case is BLOCKED or skipped. BLOCKED and SKIP are not PASS.
+XFAIL (a skip whose text starts with "XFAIL (#<issue>)"): an approved expected failure (scenarios.PARK_XFAIL), counted
+apart and never as passed; it does not change the exit status.
 """
 import argparse
 import glob
 import json
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -23,7 +26,11 @@ def classify(case):
     skipped = case.find("skipped")
     if skipped is not None:
         text = " ".join(filter(None, [skipped.get("message"), skipped.text]))
-        return ("blocked" if "BLOCKED" in text else "skipped"), text[:300]
+        if "BLOCKED" in text:
+            return "blocked", text[:300]
+        if re.match(r"XFAIL \(#\d+\)", text.strip()):
+            return "xfail", text[:300]
+        return "skipped", text[:300]
     return "passed", ""
 
 
@@ -55,10 +62,11 @@ def scenario_logs(directory):
 
 
 def report(rows, logs, label):
-    totals = {state: sum(1 for row in rows if row[2] == state) for state in ("passed", "failed", "blocked", "skipped")}
+    totals = {state: sum(1 for row in rows if row[2] == state) for state in ("passed", "failed", "blocked", "skipped", "xfail")}
     lines = [f"### {label}: test cases", "",
              f"passed {totals['passed']}, failed {totals['failed']}, BLOCKED {totals['blocked']}, skipped {totals['skipped']}, "
-             f"total {len(rows)}. Simulation evidence only. BLOCKED and skipped are not passed.", ""]
+             f"XFAIL {totals['xfail']}, total {len(rows)}. Simulation evidence only. BLOCKED, skipped and XFAIL are not "
+             "passed; XFAIL is an approved expected failure with its issue.", ""]
     for classname, name, state, text in rows:
         if state != "passed":
             lines.append(f"- {state.upper()}: {classname} {name}: {text}")

@@ -56,4 +56,8 @@ def run(test_case, name, log_name=None):
     print(f"BUILD1 {log_name or name}: {result}. Log: {path}")
     if result == "BLOCKED":
         test_case.skipTest(f"BLOCKED: {reason}")
+    if result == "XFAIL":
+        # An approved, tracked expected failure (scenarios.PARK_XFAIL): counted as XFAIL by count_build1_tests.py,
+        # never as passed.
+        test_case.skipTest(reason)
     test_case.assertEqual(result, "PASS", reason)

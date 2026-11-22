@@ -5,6 +5,18 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (22 Nov 2026; code owner on #130: scn17 expected failure, #126; rc.1 forward-only retreat; simulation only)
+
+- `scenarios.PARK_XFAIL`: the measured park check (#108) reports XFAIL (#126), never PASS, for exactly scn17
+  (`scn17_base_yaw_fast`), the DART engine and `openarm_{left,right}_joint4`. Any other unmoved joint, scenario or engine
+  fails; an unexpected pass (XPASS) fails so the expectation is reviewed. `Log.expected_failure`, result `XFAIL`.
+- `scripts/count_build1_tests.py`: a skip whose text starts with `XFAIL (#<issue>)` is counted as XFAIL, apart from
+  passed and skipped; it does not change the exit status, and XFAIL alone is not a passing suite.
+- `station_departure.RELEASE_DISABLED`: `BASELINE1_RETREAT=departure` is refused with its reason (it publishes on
+  `cmd_vel_smoothed`, below platform #90's Stop gate); `run()` refuses it again before any publisher exists. The
+  default stays `forward`; the module docstring no longer says `backup` is the default.
+- Tests: `test/test_park_xfail.py` (new), two cases in `test/test_station_departure.py`.
+
 ### Changed (22 Nov 2026; gate owner decision on #77: declared palm-item contact in grasp; simulation only)
 
 - `config/baseline1_gates.json`: one allowed entry, `openarm_left_ee_base_link` against `item::(link::)body_collision`,
