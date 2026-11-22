@@ -81,7 +81,7 @@ env:
   # EVIDENCE PIN (22 Nov 2026, #117 conditions 2 and 3): 8eb7ff3 = #182's head, 2f498ff plus Kunal's one commit
   # (StationRetreat velocity-scaling radius re-derived for the real path length; nav2_params.yaml and its test only).
   # Evidence branch evidence/station-retreat-conditions-2026-11-22 only; the PROPOSAL PIN note above still applies.
-  PLATFORM_SW_SHA: 8eb7ff3c01fe4d8da5dbc93b79811ed36259d4ae
+  PLATFORM_SW_SHA: cced705baed45050993b515193c7f411538aae5e
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
