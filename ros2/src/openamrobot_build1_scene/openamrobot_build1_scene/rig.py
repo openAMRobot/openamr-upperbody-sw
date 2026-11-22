@@ -380,6 +380,32 @@ class Rig:
         if not self.wait(active, sim_s, "Nav2 lifecycle", step=1.0):
             raise ScenarioFailed("Nav2 did not become active")
         self.log.event("ready: Nav2 lifecycle manager reports active")
+        self.release_software_stop()
+
+    def release_software_stop(self, sim_s=60.0):
+        """Platform #90 starts with the software Stop engaged (fail-closed) and every public navigation goal is
+        refused until an operator releases it, which the UI's Resume does. A mission has no UI, so the rig makes that
+        operator step explicitly and logs it. The software Stop is a functional stop, not the hardwired E-stop. On a
+        platform without #90 the service does not exist and nothing is done."""
+        from std_srvs.srv import Trigger
+        client = self.node.create_client(Trigger, "/safety/stop_lock_release")
+        if not client.wait_for_service(timeout_sec=10.0):
+            self.log.event("software Stop: /safety/stop_lock_release not present (platform without #90)")
+            return
+        last = {"message": ""}
+
+        def released():
+            future = client.call_async(Trigger.Request())
+            end = time.monotonic() + 10.0
+            while not future.done() and time.monotonic() < end:
+                time.sleep(0.05)
+            if future.done() and future.result() is not None:
+                last["message"] = future.result().message
+                return future.result().success
+            return False
+        if not self.wait(released, sim_s, "software Stop release", step=1.0):
+            raise ScenarioFailed(f"software Stop not released: {last['message']}")
+        self.log.event(f"ready: software Stop released by the rig (operator Resume, platform #90): {last['message']}")
 
     # ------------------------------------------------------------ actions
     def action(self, name, module, kind):

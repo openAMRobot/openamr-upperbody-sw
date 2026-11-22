@@ -71,6 +71,11 @@ topics:
   /tf_static: {writers: [/robot_state_publisher]}
   /cmd_vel: {writers_when: {nav2: [/collision_monitor]}, command: true}
   /cmd_vel_smoothed: {writers_when: {nav2: [/velocity_smoother]}, command: true}
+  # Platform #90 command arbitration: sources -> twist_mux -> safety_stop_gate_node -> velocity_smoother.
+  /cmd_vel_joy: {writers_when: {nav2: [/ui_cmd_vel_relay_node]}, command: true}
+  /cmd_vel_mux: {writers_when: {nav2: [/twist_mux]}, command: true}
+  /cmd_vel_gated: {writers_when: {nav2: [/safety_stop_gate_node]}, command: true}
+  /cmd_vel_stop: {writers_when: {nav2: [/safety_stop_gate_node]}, command: true}
   /cmd_vel_nav:
     writers_when: {nav2: [/controller_server, /behavior_server]}
     command: true
