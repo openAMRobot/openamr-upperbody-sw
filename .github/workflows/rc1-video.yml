@@ -48,8 +48,8 @@ jobs:
           cd "$RUNNER_TEMP/work"
           D=$(ffprobe -v error -show_entries format=duration -of csv=p=0 openamrobot_digital_twin_run_*.mp4)
           for f in 0.03 0.30 0.62 0.97; do
-            ffmpeg -v error -y -ss "$(python3 -c "print($D*$f)")" -i openamrobot_digital_twin_run_*.mp4 -frames:v 1 -vf scale=1280:720 -q:v 7 r.jpg
-            echo "FRAME_BEGIN $f"; base64 -w 0 r.jpg; echo; echo "FRAME_END"
+            ffmpeg -v error -y -ss "$(python3 -c "print($D*$f)")" -i openamrobot_digital_twin_run_*.mp4 -frames:v 1 -vf scale=1280:720 -q:v 8 r.jpg
+            echo "FRAME_BEGIN $f"; base64 -w 160 r.jpg; echo "FRAME_END"
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
