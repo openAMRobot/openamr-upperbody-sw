@@ -1,0 +1,309 @@
+# SPDX-License-Identifier: MIT
+# Engine overrides for the MuJoCo and Isaac Sim representations of the combined model (issue #58).
+#
+# What a backend needs that the URDF cannot carry, and nothing else. Reviewed like code. The generators read this file next to
+# openarm_v2.yaml (the joint dynamics profile). No generated MJCF or USD is committed, and none is edited by hand: a change goes here
+# or in the xacro sources, and the output is generated again (docs/simulators.md).
+#
+# This file is not read by xacro. It is not an input of the expansion, so the expansion hashes of the digital-twin lock are the same
+# with or without it.
+#
+# Every value is {value, unit, status, source, locator} or, for a value derived at generation time, {method, parameters...}.
+#   status  upstream_config     written in an upstream configuration at a pinned commit
+#           upstream_driver     a default written in the upstream driver at its pin
+#           upstream_sim_asset  written in an upstream simulator asset at a pinned commit
+#           project_proposal    written in a project file at a recorded commit (a proposal, not a measurement)
+#           urdf_geometry       read from the pinned expansion at generation time
+#           engine_choice       a numerical choice of this file, with its method; not a property of the robot
+#           engine_default      the engine's own default, kept on purpose and stated here
+#           unknown             no source gives it; the backend runs without it and the parity report lists it
+# Nothing here is measured. Nothing here is safety logic. Simulation is development evidence only.
+schema_version: 1
+status: Proposed
+profile: openamrobot_v2_engine_overrides
+read_on: "2026-11-15"
+schema: engine_overrides.schema.json
+
+sources:
+  openarm_description_pin:
+    repository: https://github.com/enactic/openarm_description
+    commit: "14ff67b638ff1c738a1b9a6be8aaa5ce5ed2c831"
+    licence: Apache-2.0
+    note: The pin of config/upstream_pins.yaml. The real profile hands these gains to the driver.
+  openarm_ros2_pin:
+    repository: https://github.com/enactic/openarm_ros2
+    commit: "4e837e1d0dae692ff67b560b69d8d281d7a8d4ed"
+    licence: Apache-2.0
+    note: The pin of config/upstream_pins.yaml. OpenArmHW sends position commands as MIT commands with these gains.
+  openarm_mujoco:
+    repository: https://github.com/enactic/openarm_mujoco
+    commit: "1daab06716b779376dbe7f01fb0548f8b539bb35"
+    file: v2/openarm_bimanual.xml
+    licence: Apache-2.0
+    note: Upstream MuJoCo model of OpenArm 2.0, the same commit as openarm_v2.yaml. Values are copied as numbers; no file content is copied.
+  platform_sw_main:
+    repository: https://github.com/openAMRobot/openamr-platform-sw
+    commit: "07417783bb602c233f7011599dc12e4d81e38a04"
+    file: ros2/src/openamrobot_description/urdf/gazebo_control.xacro
+    licence: see the repository
+    note: >-
+      main on 15 Nov 2026, the friction change of pull request 135. The combined model reads platform-sw at the pin 8e7a454, whose
+      wheel <surface> blocks the URDF to SDF conversion drops (so Gazebo at the pin runs the drive wheels and castors at mu 1).
+      The values are the ones platform-sw already carried. They are simulation estimates, not measured tyre or castor materials.
+  pinned_expansion:
+    repository: https://github.com/openAMRobot/openamr-upperbody-sw
+    file: ros2/src/openamrobot_upperbody_description/urdf/combined_robot.xacro
+    note: The expansion with hardware_profile:=gazebo, checked against simulation/expansion_lock.yaml at generation time.
+  sim_overlay:
+    repository: https://github.com/openAMRobot/openamr-upperbody-sw
+    file: ros2/src/openamrobot_upperbody_control/config/sim_overlay.yaml
+    note: The simulated controller manager rate (750 Hz, upstream's rate for the real driver). Pull request 66.
+  gazebo_world:
+    repository: https://github.com/openAMRobot/openamr-upperbody-sw
+    file: ros2/src/openamrobot_upperbody_gazebo/worlds/empty.sdf
+    note: The fine run profile step, 1/1500 s, two physics steps per 750 Hz controller update. Pull request 66.
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Simulation settings shared by both backends.
+# ---------------------------------------------------------------------------------------------------------------------------------
+common:
+  physics_step:
+    value: 0.000666666666666667
+    unit: s
+    status: project_proposal
+    source: gazebo_world
+    locator: physics max_step_size (1/1500 s, the fine run profile)
+  controller_rate:
+    value: 750
+    unit: Hz
+    status: project_proposal
+    source: sim_overlay
+    locator: controller_manager update_rate
+  gravity:
+    value: [0.0, 0.0, -9.81]
+    unit: m/s^2
+    status: engine_default
+    note: The default of MuJoCo, of Gazebo and of the empty world. Pinocchio's default is the same.
+  floating_base:
+    value: true
+    status: urdf_geometry
+    source: pinned_expansion
+    locator: root link base_footprint has no joint; enable_planar_base is false (the default)
+    note: The base stands on the floor on its wheels and castors. MuJoCo gets a free joint at base_footprint, named base_free_joint.
+  self_collision:
+    value: false
+    status: engine_default
+    note: >-
+      The Gazebo model has no self_collide, and the SDF default is false, so the robot's collision shapes only touch the world. The
+      URDF has no collision filter. The backends do the same. Collision pairs between robot links are not simulated.
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Actuators. One per command interface the controllers claim. The controllers are in the control package (arm_controllers.yaml):
+# both arm JointTrajectoryControllers and lift_controller command position; both GripperActionControllers command position on
+# finger_joint1; the base DiffDrive plugin commands wheel velocity. A position actuator here is the MIT law the real driver runs with
+# zero velocity and zero torque feed-forward: tau = kp (q_cmd - q) - kd qdot, clamped to the URDF effort limit.
+# ---------------------------------------------------------------------------------------------------------------------------------
+actuators:
+  arm_position_gains:
+    status: upstream_config
+    source: openarm_description_pin
+    locator: assets/robot/openarm_v2.0/config/arm/control/control_gains.yaml, joint1 to joint7, kp and kd (lines 15 to 41)
+    unit: {kp: N*m/rad, kd: N*m*s/rad}
+    per_joint:
+      joint1: {kp: 70.0, kd: 2.75}
+      joint2: {kp: 70.0, kd: 2.5}
+      joint3: {kp: 70.0, kd: 2.0}
+      joint4: {kp: 60.0, kd: 2.0}
+      joint5: {kp: 10.0, kd: 0.7}
+      joint6: {kp: 10.0, kd: 0.6}
+      joint7: {kp: 10.0, kd: 0.5}
+    applies_to: [openarm_left_joint1-7, openarm_right_joint1-7]
+  gripper_position_gains:
+    status: upstream_driver
+    source: openarm_ros2_pin
+    locator: openarm_hardware/include/openarm_hardware/openarm_simple_hardware.hpp lines 111 and 112 (GRIPPER_KP, GRIPPER_KD); joint_to_motor_radians is the identity for pinch_gripper (src/openarm_simple_hardware.cpp line 375)
+    unit: {kp: N*m/rad, kd: N*m*s/rad}
+    kp: 5.0
+    kd: 0.1
+    applies_to: [openarm_left_finger_joint1, openarm_right_finger_joint1]
+  effort_limits:
+    status: urdf_geometry
+    source: pinned_expansion
+    locator: <limit effort> of each actuated joint
+    note: Every position actuator is clamped to its joint's URDF effort limit. The gripper's 3.0 N*m in sim_overlay.yaml is carried there and not enforced, as in Gazebo.
+  lift_position_servo:
+    status: engine_choice
+    method: >-
+      kp = m g / sag and kv = 2 zeta sqrt(kp m), where m is the mass of the subtree carried by lift_joint, read from the expansion at
+      generation time. The lift is a DOLD lead-screw column. Its controller (CTL-017) is not modelled. The Gazebo position interface is
+      an ideal servo; this is a stiff servo with the same command interface.
+    parameters:
+      sag: {value: 0.0005, unit: m, note: static error under the carried weight}
+      zeta: {value: 1.0, unit: '1'}
+    force_limit: {status: urdf_geometry, source: pinned_expansion, locator: lift_joint <limit effort> (800 N in the gazebo profile)}
+    velocity_limit: {status: urdf_geometry, source: pinned_expansion, locator: lift_joint <limit velocity> (0.018 m/s); enforced by the trajectory the test commands, not by the actuator}
+    applies_to: [lift_joint]
+  wheel_velocity_servo:
+    status: engine_choice
+    method: >-
+      kv = (M / 2) r^2 / tau, where M is the robot's total mass and r the drive wheel collision radius, both read from the expansion,
+      and tau the time constant below. The Gazebo DiffDrive plugin sets wheel velocity without a motor model; this is a fast velocity servo.
+    parameters:
+      tau: {value: 0.05, unit: s}
+    force_limit: {value: unknown, status: unknown, needed: hub motor peak torque from a filed motor document}
+    applies_to: [left_wheel_joint, right_wheel_joint]
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# SW-09 of the single-writer map: openarm_*_finger_joint2 has no physics constraint with Gazebo's default engine. Each backend here
+# constrains it explicitly. The relation is the URDF <mimic> (multiplier, offset), read from the expansion. Tests: test_sw09_*.
+# ---------------------------------------------------------------------------------------------------------------------------------
+mimic:
+  joints: [openarm_left_finger_joint2, openarm_right_finger_joint2]
+  mujoco:
+    kind: equality_joint
+    note: polycoef = [offset, multiplier, 0, 0, 0] from the URDF mimic. The follower keeps its own joint, limits and dynamics, no actuator.
+    solref: {value: [0.005, 1.0], status: upstream_sim_asset, source: openarm_mujoco, locator: equality joint openarm_*_ee_finger_joint_mimic, solref}
+    solimp: {value: [0.95, 0.99, 0.001], status: upstream_sim_asset, source: openarm_mujoco, locator: equality joint openarm_*_ee_finger_joint_mimic, solimp}
+  isaac:
+    kind: physx_mimic_joint
+    note: The URDF importer's mimic import (PhysxMimicJointAPI on the follower, gearing = multiplier, offset). Checked on the USD by check_usd.py.
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Passive castors. In the pinned base description each castor is two fixed joints: {fl,fr,bl,br}_caster_joint (mount to fork) and
+# {fl,fr,bl,br}_wheel_joint (fork to wheel), with the wheel 15 mm behind the mount. platform-sw calls the fixed spheres a
+# frictionless slider approximation. MuJoCo makes them passive: the fork swivels about the mount's z axis and the wheel rolls about
+# the fork's y axis. Joint names, link names, frames and inertials stay those of the URDF; only the joint type changes, in MuJoCo
+# only. The parity tests treat these eight joints as the one declared topology difference. Isaac keeps them fixed (see isaac).
+# ---------------------------------------------------------------------------------------------------------------------------------
+passive_castors:
+  enabled_in: [mujoco]
+  prefixes: [fl, fr, bl, br]
+  swivel:
+    joint: '{prefix}_caster_joint'
+    axis: [0.0, 0.0, 1.0]
+    axis_status: urdf_geometry
+    axis_locator: z axis of the {prefix}_caster_joint frame (the mount; the fork's frame is parallel to base_link)
+    damping: {value: 0.0, status: unknown, needed: swivel bearing data from the castor data sheet (not filed)}
+    frictionloss: {value: 0.0, status: unknown, needed: swivel bearing data from the castor data sheet (not filed)}
+  roll:
+    joint: '{prefix}_wheel_joint'
+    axis: [0.0, 1.0, 0.0]
+    axis_status: urdf_geometry
+    axis_locator: y axis of the {prefix}_wheel_joint frame, perpendicular to the trail (the wheel offset is along -x)
+    damping: {value: 0.0, status: unknown, needed: wheel bearing data from the castor data sheet (not filed)}
+    frictionloss: {value: 0.0, status: unknown, needed: wheel bearing data from the castor data sheet (not filed)}
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Contact. MuJoCo combines the friction of two geoms by taking the larger value, so the floor carries the smallest coefficient
+# used and each robot geom carries its own.
+# ---------------------------------------------------------------------------------------------------------------------------------
+contact:
+  drive_wheel_sliding_friction:
+    value: 1.5
+    unit: '1'
+    status: project_proposal
+    source: platform_sw_main
+    locator: gazebo_control.xacro line 18, macro drive_wheel_friction, mu1
+    applies_to: [left_wheel_link, right_wheel_link]
+  drive_wheel_lateral_friction:
+    value: 0.5
+    unit: '1'
+    status: project_proposal
+    source: platform_sw_main
+    locator: gazebo_control.xacro lines 19 and 20, mu2 with fdir1 1 0 0
+    applied: false
+    note: MuJoCo has one sliding coefficient per geom. It cannot carry a second coefficient along a direction fixed to the wheel. Listed as unsupported.
+  castor_wheel_sliding_friction:
+    value: 1.0
+    unit: '1'
+    status: engine_default
+    note: >-
+      platform-sw sets mu 0 for the castor spheres because they cannot roll there (gazebo_control.xacro lines 25 to 27). Here they
+      roll and swivel, so they need grip to roll and to turn; mu 0 would make them slide. No castor tyre data is filed. 1.0 is the
+      default of MuJoCo and of Gazebo, the value the pinned Gazebo model runs at.
+    applies_to: [fl_wheel_link, fr_wheel_link, bl_wheel_link, br_wheel_link]
+  other_robot_geoms_sliding_friction:
+    value: 1.0
+    unit: '1'
+    status: engine_default
+  floor_sliding_friction:
+    value: 1.0
+    unit: '1'
+    status: engine_default
+  torsional_and_rolling_friction:
+    value: [0.005, 0.0001]
+    unit: [m, m]
+    status: engine_default
+    note: MuJoCo defaults for every geom.
+  cone:
+    value: elliptic
+    status: upstream_sim_asset
+    source: openarm_mujoco
+    locator: option cone
+  impratio:
+    value: 10
+    status: upstream_sim_asset
+    source: openarm_mujoco
+    locator: option impratio
+  integrator:
+    value: implicitfast
+    status: upstream_sim_asset
+    source: openarm_mujoco
+    locator: option integrator
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Cameras. A MuJoCo camera sits on each ROS optical frame (issue #58). The frame is the URDF's. The field of view is not a URDF value.
+# ---------------------------------------------------------------------------------------------------------------------------------
+cameras:
+  base_camera:
+    frame: camera_optical_frame
+    fovy:
+      from_gazebo_sensor: camera_sensor
+      status: urdf_geometry
+      source: pinned_expansion
+      locator: <gazebo reference="camera_link"> sensor camera_sensor, horizontal_fov and image width and height; fovy = 2 atan(tan(hfov / 2) h / w)
+  head_camera:
+    frame: head_camera_optical_frame
+    fovy: {value: unknown, status: unknown, needed: head camera field of view from a filed datasheet (the camera datasheet is not filed)}
+  left_wrist_camera:
+    frame: left_wrist_camera_optical_frame
+    fovy: {value: unknown, status: unknown, needed: wrist camera field of view from a filed datasheet}
+  right_wrist_camera:
+    frame: right_wrist_camera_optical_frame
+    fovy: {value: unknown, status: unknown, needed: wrist camera field of view from a filed datasheet}
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Isaac Sim. Importer settings for isaacsim.asset.importer.urdf and the drive values written after import. The generator reads the
+# same expansion and the same profile. Without a GPU the import is BLOCKED; see docs/simulators.md for the command.
+# ---------------------------------------------------------------------------------------------------------------------------------
+isaac:
+  version:
+    value: 5.1.0
+    status: engine_choice
+    method: >-
+      One pinned release, so every regeneration uses the same URDF importer. A new release is a change to this file, followed by
+      isaac_generate_usd.py and check_usd.py on a GPU machine.
+  container_image: nvcr.io/nvidia/isaac-sim:5.1.0
+  importer:
+    merge_fixed_joints: false
+    fix_base: false
+    import_inertia_tensor: true
+    self_collision: false
+    convex_decomp: false
+    collision_from_visuals: false
+    parse_mimic: true
+    make_default_prim: true
+    create_physics_scene: true
+    distance_scale: 1.0
+    default_drive_type: position
+    note: >-
+      merge_fixed_joints false keeps every URDF link as a prim with its own name. convex_decomp false gives one convex hull per
+      collision mesh, as MuJoCo does. self_collision false as in common.self_collision.
+  drives:
+    note: >-
+      After import, isaac_generate_usd.py sets UsdPhysics drives from actuators above: angular stiffness and damping are written per degree, as
+      USD physics defines them (kp * pi / 180, kd * pi / 180). Armature goes to physxJoint:armature. maxForce is the URDF effort limit.
+    castors: fixed
+  joint_friction:
+    applied: false
+    note: PhysX joint friction is a unitless coefficient, not a torque. URDF friction (a torque) has no PhysX equivalent. Listed as unsupported.

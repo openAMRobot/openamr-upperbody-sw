@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+# Pins of the simulation backends and their tools. The description pins (openarm_description, openarm_ros2, platform-sw) are in
+# ros2/src/openamrobot_upperbody_description/config/upstream_pins.yaml and are not repeated here.
+schema_version: 1
+openarm_mujoco:
+  repository: https://github.com/enactic/openarm_mujoco
+  commit: "1daab06716b779376dbe7f01fb0548f8b539bb35"
+  file: v2/openarm_bimanual.xml
+  licence: Apache-2.0
+  use: comparison only (compare_openarm_mujoco.py). No file of it is copied or loaded into the generated model.
+python_packages:
+  file: simulation/requirements.txt
+isaac_sim:
+  version: "5.1.0"
+  container_image: nvcr.io/nvidia/isaac-sim:5.1.0
+  importer_extension: isaacsim.asset.importer.urdf
+  note: The same values as engine_overrides.yaml isaac; test_isaac_settings.py checks they agree.

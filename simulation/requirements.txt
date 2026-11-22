@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# Python packages of the simulation generators and tests, exact versions. All permissive licences.
+mujoco==4.0.1        # Apache-2.0
+pin==4.1.0           # BSD-2-Clause (pinocchio), independent gravity torques
+usd-core==26.11      # Apache-2.0 (modified), reads the Isaac USD in check_usd.py
+trimesh==5.2.1       # MIT, DAE and mirrored meshes
+pycollada==0.9.3     # BSD-3-Clause, DAE reader for trimesh
+scipy==1.18.1         # BSD-3-Clause, imported by trimesh; pinned so the apt scipy (built for NumPy 1) is never used
+numpy==2.5.3         # BSD-3-Clause
+PyYAML==6.0.3        # MIT
+jsonschema==4.26.0   # MIT
+pytest==8.4.2        # MIT
