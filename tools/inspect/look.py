@@ -1,20 +1,26 @@
 # SPDX-License-Identifier: MIT
-import glob, json, os
-def load(pat):
-    f = sorted(glob.glob(pat, recursive=True))
-    return (f[0], json.load(open(f[0]))) if f else (None, None)
-p, d = load("a132/**/scn02_lift_permit.json")
-print("=== scn02", p, list(d.keys()) if d else None)
-if d:
-    for e in d.get("events", []): print("  EV", json.dumps(e)[:300])
-    for k in d:
-        if k not in ("events", "quantities", "observed"): print("  KEY", k, json.dumps(d[k])[:600])
-p, d = load("a18/**/scn18_stop_during_nav.json")
-print("=== scn18", p, list(d.keys()) if d else None)
-if d:
-    for e in d.get("events", []): print("  EV", json.dumps(e)[:300])
-    print("  TRACE", json.dumps(d.get("stop_state_trace")))
-for f in sorted(glob.glob("aclk/**/clock_capture/*", recursive=True)) + sorted(glob.glob("aclk/**/clock_gate.json", recursive=True)):
-    print("=== ", f, os.path.getsize(f))
-    try: print(open(f, errors="replace").read()[:2500])
-    except Exception as e: print(e)
+import glob, json
+def mission(d):
+    f = glob.glob(d + "/**/baseline1_mission.json", recursive=True)
+    return json.load(open(f[0])) if f else None
+M = {k: mission(k) for k in ("fail", "pass")}
+for k, m in M.items():
+    print("=====", k, None if m is None else list(m.keys()))
+names = []
+Q = {}
+for k, m in M.items():
+    Q[k] = {}
+    for p in m["phases"]:
+        if p["phase"] in ("arm_approach", "grasp", "lift_object"):
+            for q in p["quantities"]:
+                Q[k][q["name"]] = q.get("value")
+                if q["name"] not in names: names.append(q["name"])
+for n in names:
+    a, b = Q["fail"].get(n), Q["pass"].get(n)
+    if a != b: print(f"Q {n}: fail={json.dumps(a)[:150]} | pass={json.dumps(b)[:150]}")
+for k, m in M.items():
+    for e in m.get("events", []):
+        t = e.get("text", "")
+        if any(w in t for w in ("commanded end point", "contact", "palm", "grasp_", "reading minus")): print("EV", k, t[:420])
+    for key in m:
+        if "contact" in key.lower(): print("KEY", k, key, json.dumps(m[key])[:1500])
