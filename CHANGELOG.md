@@ -5,6 +5,13 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Added (22 Nov 2026; evidence branch only: software Stop fault scenarios on the trial-converged platform; simulation only)
+
+- `scn18_stop_during_nav`, `scn19_stop_gate_kill` and the scene workflow job `software Stop faults`: the software Stop of
+  openamr-platform-sw #90 engaged during a Nav2 drive, and its gate process ended during one. Ground-truth time and
+  distance to stop, motion while stopped, the state trace. The scenarios call the platform's public services and end a
+  process; they add no stop logic. A functional stop in simulation, not the hardwired E-stop and not safety evidence.
+
 ### Changed (22 Nov 2026; code owner on #130: scn17 expected failure, #126; rc.1 forward-only retreat; simulation only)
 
 - `scenarios.PARK_XFAIL`: the measured park check (#108) reports XFAIL (#126), never PASS, for exactly scn17

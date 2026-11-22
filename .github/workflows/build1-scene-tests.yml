@@ -46,6 +46,8 @@ jobs:
             tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
           - name: fast lift stops and base yaw
             tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
+          - name: software Stop faults
+            tests: "^test_scn(18_stop_during_nav|19_stop_gate_kill)$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
