@@ -15,7 +15,7 @@ def card(path, title, lines, foot=None, size=40):
         txt, kw = (ln, {}) if isinstance(ln, str) else ln
         st = dict(fontsize=19, color=FG2, family="DejaVu Sans", va="top"); st.update(kw)
         fig.text(0.06, y, txt, **st); y -= 0.024 * st["fontsize"] / 10
-    if foot: fig.text(0.06, 0.05, foot, fontsize=14, color=MUTED, family="DejaVu Sans")
+    if foot: fig.text(0.06, 0.05, foot, fontsize=14, color=MUTED, family="DejaVu Sans", va="bottom", linespacing=1.5)
     fig.savefig(path, dpi=100, facecolor=BG); plt.close(fig)
 
 RUN_ID = os.environ.get("VIDEO_RUN", "44309791416"); LOG = os.environ.get("VIDEO_LOG", "in_b1/ws/build1_logs")
@@ -66,7 +66,7 @@ if which == "short":
         *([(CHAIN, {"fontsize": 19, "color": FG})] if CHAIN else []),
         ("Simulation-oracle profile: object and robot poses come from Gazebo ground truth, not perception.", {"fontsize": 19}),
         ("Simulation evidence only: not hardware, perception or safety validation.", {"color": BAD, "fontsize": 20}),
-    ], foot=f"Source: {RUN_C}  |  {REF}", size=38)
+    ], foot=f"Source: {RUN_C}\n{REF}", size=38)
     res = [x for x in (
         line("Station reached within {:.1f} mm of the goal (limit 40 mm), Gazebo ground truth.", "station_reach_position_error"),
         line("Wheel odometry minus ground truth after the drive: {:.0f} mm (limit 100 mm).", "nav_odometry_minus_ground_truth"),
@@ -76,7 +76,7 @@ if which == "short":
         *[(r, {"fontsize": 20}) for r in res], None,
         ("Not shown and not claimed: hardware, perception, safety functions, firmware on the target MCU.", {"fontsize": 19}),
         ("Device emulators run on the host over virtual CAN. Real-time factor is below 1.", {"fontsize": 19}),
-    ], foot=f"Source: {RUN_C}  |  {REF}  |  rendering: tools/video on diag/rc1-video-2026-11-22", size=36)
+    ], foot=f"Source: {RUN_C}\n{REF}  |  rendering: tools/video on diag/rc1-video-2026-11-22", size=36)
 if which == "b":
     d = json.load(open("in_gd/ws/build1_logs/grocery_demo_report.json")); g = d["grocery"]
     n_ok = sum(p["verdict"] == "PASS" for p in d["phases"]); n = len(d["phases"]); assert (n_ok, n) == (10, 12)
