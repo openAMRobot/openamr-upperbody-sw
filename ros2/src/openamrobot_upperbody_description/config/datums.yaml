@@ -3,7 +3,7 @@
 # Schema v1, see 10_architecture/DATUMS.md. Values may change; names and the frame structure may not.
 # Computed values (e.g. the lift's inertia tensor) are NOT stored here; upstream-owned values (option B's geometry, the arm) are read from upstream YAML.
 schema_version: 1
-revision: "2026-11-10.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
+revision: "2026-11-20.a"          # bump on every change to this file; goes into config_id (test_datums_revision.py enforces it)
 units: {length: m, angle: rad, mass: kg}
 
 # Datums that are reported but never feed the model (DATUMS.md rule 1).
@@ -120,18 +120,20 @@ datums:
     note: "How far the plate's rear edge is behind the column's rear face; it places adapter_plate_link (centre x = -column x / 2 - this + plate length / 2 = 0.0275 m from the column axis). Derived in the docs model from the flag rod position; stored here as the decided figure."
 
   left_wrist_camera_pose:
-    value: {xyz: [0.0, 0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
-    source: placeholder
-    status: placeholder
-    ref: "Relative to openarm_left_ee_base_link. Kit datum unknown (B-01 Q-15 era)"
+    value: {xyz: [0.0218353, 0.024136, -0.086895], rpy: [-2.1009, 1.1424, -2.1431]}
+    source: upstream
+    status: provisional
+    ref: "Relative to openarm_left_ee_base_link. Upstream openarm_description @8dbfcc93419f26c41731c3c98c2a46a82e718e65 (not the pin of upstream_pins.yaml): camera_view_frame, assets/end_effector/pinch_gripper/config/struct/reference_points.yaml:37-46 (parent base_link; x 0.0013353 there), as EXPANDED by `xacro urdf/openarm.urdf.xacro robot_preset:=v2/left_arm_with_pinch_gripper` (and v2/cell_bimanual, the same value): joint openarm_left_camera_view_frame_joint, parent openarm_left_ee_base_link, xyz 0.0218353 0.024136 -0.086895, rpy -2.1009 1.1424 -2.1431. The expansion adds the gripper base offset x +0.0205 (the ee_base_link visual origin) and applies the left side's reflect y -1 (presets/v2/left_arm_with_pinch_gripper.yaml) to position and orientation (upstream PR #100). Frame convention: camera_view_frame is x-forward (its x axis points 10.2 deg from the grasp frame, its z axis 99.4 deg), the same as this link; the optical child frame is derived below as before. So the value is copied unchanged. openarm_left_ee_base_link is the same frame at the pin 14ff67b and at 8dbfcc9 (joint7 origin 0, finger joint origins equal)."
     owner: "Alex / Om (kit datum)"
+    note: "Was the placeholder xyz (0.0, 0.05, -0.03), rpy 0 ('Kit datum unknown, B-01 Q-15 era'). Upstream's CAD-derived frame of the B0495 gripper camera (upstream PR #100), not a measurement of our kit. Frames now, pin after rc.1: upstream_pins.yaml still pins openarm_description 14ff67b."
 
   right_wrist_camera_pose:
-    value: {xyz: [0.0, -0.05, -0.03], rpy: [0.0, 0.0, 0.0]}
-    source: placeholder
-    status: placeholder
-    ref: "Mirror of left_wrist_camera_pose, relative to openarm_right_ee_base_link"
+    value: {xyz: [0.0218353, -0.024136, -0.086895], rpy: [2.1009, 1.1424, 2.1431]}
+    source: upstream
+    status: provisional
+    ref: "Relative to openarm_right_ee_base_link. Upstream openarm_description @8dbfcc93419f26c41731c3c98c2a46a82e718e65 (not the pin of upstream_pins.yaml): camera_view_frame, assets/end_effector/pinch_gripper/config/struct/reference_points.yaml:37-46, as EXPANDED by `xacro urdf/openarm.urdf.xacro robot_preset:=v2/right_arm_with_pinch_gripper` (and v2/cell_bimanual, the same value): joint openarm_right_camera_view_frame_joint, parent openarm_right_ee_base_link, xyz 0.0218353 -0.024136 -0.086895, rpy 2.1009 1.1424 2.1431 (no reflect on the right). Same frame convention and same conversion (none) as left_wrist_camera_pose."
     owner: "Alex / Om (kit datum)"
+    note: "Was the placeholder xyz (0.0, -0.05, -0.03), rpy 0 (mirror of the left placeholder)."
 
   envelope_max_height:
     value: 1.700
