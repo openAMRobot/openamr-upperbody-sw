@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT
+# Simulation-only reference for the fault scenarios.
+#
+# Each entry says what the emulated devices are documented to do. A scenario records what the stack does today and
+# whether that matches. These are EXPECTED BEHAVIOURS of emulators and of functional software. They are NOT certified
+# safety behaviour, not safety requirements and not evidence about the hardwired safety chain. Functional telemetry,
+# watchdogs and status displays are never safety evidence. No entry here is implemented by this package: the
+# reactions, where they exist, are inside the pinned emulators and Nav2.
+schema_version: 1
+reactions:
+  drive_bus_loss:
+    fault: "The STM32 role stops talking on CAN1 while the base drives"
+    expected: {drive_reports_link_lost: true, base_stops: true}
+    source: "openamrobot_sil ZLAC8015D emulator: object 2000h link-loss time, 250 ms in config/sil.yaml (D-24, proposed, not bench-validated). The emulator follows Manual 1.03 and CANopen Routine 1.08 as filed in platform-hw. The V4.2 package is still missing"
+  bms_bus_loss:
+    fault: "The BMS stops answering on CAN2"
+    expected: {poll_timeouts_rise: true}
+    source: "openamrobot_sil host test client counts unanswered polls. No reaction of the base is defined anywhere in scope. The BMS emulator follows a 2019 protocol copy"
+  aux_bus_loss:
+    fault: "The lift permit frames stop on CAN3 while the lift moves"
+    expected: {lift_halts: true, target_dropped: true, moves_again_without_new_command: false}
+    source: "openamr-platform-sw #141 docs/architecture/sil-topology.md section 3.1, permit gate rules. COB-ID, period and timeout are SIL test values"
+  arm_bus_loss:
+    fault: "The arm emulator stops answering on one arm bus (fault.can_loss)"
+    expected: {controllers_stay_active: true, driver_state_frozen: true}
+    source: "openamrobot_openarm_emulator README, driver behaviour recorded: read() and write() always return OK. The emulator has an assumed power-up state, assumed thresholds and assumed latency"
+  stale_sensors:
+    fault: "Every sensor topic stops arriving while Nav2 drives"
+    expected: {base_stops: true}
+    source: "Nav2 collision monitor, source_timeout 1.0 s in openamr-platform-sw nav2_params.yaml. A functional software reaction"
+  arm_power_cut:
+    fault: "Motor power of one arm is cut while it holds a pose (fault.estop_power_cut)"
+    expected: {arm_falls_in_physics: true, driver_state_frozen: true, controllers_stay_active: true, motors_enabled_after_power_returns: false}
+    source: "openamrobot_openarm_emulator README and test_sil_launch.py: the arms have no brakes, the driver never re-enables. Motor power-up state is assumed disabled"
