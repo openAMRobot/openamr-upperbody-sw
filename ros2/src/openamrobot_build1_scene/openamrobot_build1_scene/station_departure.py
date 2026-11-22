@@ -188,6 +188,24 @@ def reverse_speed(samples, min_dt=0.25):
     return worst
 
 
+def reverse_speed_by_phase(phases, min_dt=0.25):
+    """phases {name: samples [(t, x, y, yaw)]} -> ({name: reverse_speed of that phase alone}, worst). Proposed
+    measurement change (gate owner decides): no 0.25 s window spans two phases, so a window from the end of the turn to
+    the start of the forward drive is not read as one move; the gate value is the largest of the phases. worst is
+    {"phase", "t", "v"} of the largest window, None when nothing is backward."""
+    speeds, worst = {}, None
+    for name, samples in phases.items():
+        speeds[name] = reverse_speed(samples, min_dt)
+        for i, (t1, x1, y1, yaw1) in enumerate(samples):
+            later = next((s for s in samples[i + 1:] if s[0] - t1 >= min_dt), None)
+            if later is None:
+                break
+            v = -((later[1] - x1) * math.cos(yaw1) + (later[2] - y1) * math.sin(yaw1)) / (later[0] - t1)
+            if v > 0.0 and (worst is None or v > worst["v"]):
+                worst = {"phase": name, "t": t1, "v": v}
+    return speeds, worst
+
+
 # ------------------------------------------------------------------ ROS
 def _sampled_wait(rig, condition, sim_s, what, samples):
     def check():
@@ -264,6 +282,7 @@ def run(rig, log, name, config=None, pose=None):
         return
     future = handle.get_result_async()
     _sampled_wait(rig, future.done, 120.0, "retreat turn", samples)
+    turn_samples = list(samples)
     status = future.result().status if future.done() else None
     log.quantity("retreat_turn_status", status, "GoalStatus", low=SUCCEEDED, high=SUCCEEDED)
     turned = rig.truth()
@@ -294,5 +313,10 @@ def run(rig, log, name, config=None, pose=None):
     end = rig.truth()
     log.quantity("retreat_distance_from_station", math.hypot(end[0] - start[0], end[1] - start[1]), "m",
                  low=f["forward_m"] - 0.05, high=f["forward_m"] + 0.05, note="guard value, estimated")
-    log.quantity("retreat_peak_reverse_speed", reverse_speed(samples), "m/s", low=0.0,
-                 high=f["max_reverse_speed_m_s"], note="forward only: ground truth along the heading")
+    speeds, worst = reverse_speed_by_phase({"turn": turn_samples, "forward": samples[len(turn_samples):]})
+    for phase, value in speeds.items():
+        log.observed(f"retreat_{phase}_peak_reverse_speed", value, "m/s", note="this phase alone, 0.25 s windows")
+    log.data["baseline1"]["retreat_option"]["worst_reverse_window"] = worst
+    log.quantity("retreat_peak_reverse_speed", max(speeds.values()), "m/s", low=0.0,
+                 high=f["max_reverse_speed_m_s"], note="forward only: ground truth along the heading, largest of the "
+                 f"turn and the forward drive, no window across them; worst {worst}")
