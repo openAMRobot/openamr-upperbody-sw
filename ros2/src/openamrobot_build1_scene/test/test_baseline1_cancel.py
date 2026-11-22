@@ -8,12 +8,17 @@
 3. The checks step() writes satisfy the strict gate baseline1_gates.stop_cancel; without the option the gate fails.
 4. The option is declared: off by default, on in the acceptance workflow, recorded in each leg's declaration, and the
    mission calls step() at the start of nav_to_station.
+7. The hold window is judged by publication time (rclpy message info source_timestamp): a command published before
+   the window but delivered late is not counted in it (run 44974639950), a command published in it still fails, and
+   without source_timestamp the callback sim time is used and the fallback logged (PROPOSED, gate owner decides).
 Simulation evidence only.
 """
 import ast
+import inspect
 import math
 import os
 import sys
+import time
 import types
 
 import pytest
@@ -127,13 +132,27 @@ class Future:
         return self.value
 
 
+def deliver(callback, msg, source_timestamp):
+    """As rclpy jazzy calls a subscription callback (rclpy/subscription.py callback setter, executors.py
+    _take_subscription): with the message alone if the callback binds one argument, else with the message and the
+    message info dict that subscription.cpp take_message builds (source_timestamp, received_timestamp, ns)."""
+    try:
+        inspect.signature(callback).bind(object())
+        return callback(msg)
+    except TypeError:
+        pass
+    inspect.signature(callback).bind(object(), object())
+    return callback(msg, {"source_timestamp": source_timestamp, "received_timestamp": time.time_ns(),
+                          "publication_sequence_number": None, "reception_sequence_number": None})
+
+
 class FakeStack:
     """A base that drives at 0.2 m/s towards the goal while it runs. `behaviour`: honours the cancel and reports
     CANCELED ("canceled"), honours it and reports ABORTED ("aborted"), or ignores it ("ignored")."""
     DT = 0.05
 
-    def __init__(self, twist, behaviour="canceled"):
-        self.twist, self.behaviour = twist, behaviour
+    def __init__(self, twist, behaviour="canceled", source=time.time_ns):
+        self.twist, self.behaviour, self.source = twist, behaviour, source
         self.t, self.x, self.v = 0.0, 0.0, 0.0
         self.goal_x, self.status, self.cancelled = None, None, False
         self.subscribers = []
@@ -155,7 +174,7 @@ class FakeStack:
             self.status = 5 if self.behaviour == "canceled" else 6
         if self.goal_x is not None:
             for callback in self.subscribers:
-                callback(self.twist(self.v))
+                deliver(callback, self.twist(self.v), self.source())
 
     # the rig interface baseline1_cancel.step uses
     def sim_time(self):
@@ -365,7 +384,7 @@ def test_the_step_does_not_destroy_its_subscription_under_the_spinning_executor(
     assert failed(log.checks.values()) == []
     recorded = len(record["cmd_vel"])
     callback = stack.subscribers[-1]
-    callback(stack.twist(0.3))                         # a message after the step: not recorded, nothing raises
+    deliver(callback, stack.twist(0.3), time.time_ns())  # a message after the step: not recorded, nothing raises
     assert callback.__self__.messages[-1][1] == 0.0 and len(callback.__self__.messages) == recorded
 
 
@@ -377,3 +396,135 @@ def test_the_recorder_stops_on_stop():
     assert recorder.stop() == [(1.0, 0.1, 0.0, 0.2)]
     recorder.on_message(twist)
     assert recorder.messages == [(1.0, 0.1, 0.0, 0.2)]
+
+
+# ---------------------------------------------------------------- 7. hold window by publication time (run 44974639950)
+WALL0 = 1_795_000_000_000_000_000     # ns since the epoch at sim time 0, for the fake records below
+
+
+def wall_ns(sim_s):
+    return WALL0 + round(sim_s * 1e9)
+
+
+def late_delivery_record(published_in_window=()):
+    """Run 44974639950 (job 137061674788): the base stopped 0.059 s after the cancel (ground truth, hold displacement
+    0.0), yet /cmd_vel messages stamped in the callback read 0.18966 until +0.414 s, and the last of them, just before
+    the window, made cancel_hold_cmd_vel_peak 0.18966. Here: t_cancel 9.0 s, the controller publishes 0.18966 until
+    9.05 s and zero from 9.06 s at 20 Hz; the busy executor delivers the zero of 9.06 s first and the backlog of
+    nonzero messages up to 9.414 s (callback sim time), then the zeros. `published_in_window`: (sim s, vx, wz)
+    messages genuinely published inside the window [9.6, 12.6] s."""
+    nonzero_pub = [8.80 + 0.05 * i for i in range(6)]                                 # 8.80 .. 9.05
+    zero_pub = [round(9.06 + 0.05 * i, 3) for i in range(70)]                         # 9.06 .. 12.51
+    delivered = [(9.07, zero_pub[0], 0.0, 0.0)]                                        # (callback t, published t, v, w)
+    delivered += [(round(9.10 + 0.0628 * i, 3), p, 0.18966, 0.0) for i, p in enumerate(nonzero_pub)]   # to 9.414
+    delivered += [(round(p + 0.55, 3), p, 0.0, 0.0) for p in zero_pub[1:]]           # late, but zero
+    delivered += [(round(p + 0.55, 3), p, vx, wz) for p, vx, wz in published_in_window]
+    record = dict(good_record(), t_cancel=9.0, time_to_stop_s=0.059, window=(9.6, 12.6))
+    record["cmd_vel"] = [(t, vx, 0.0, wz) for t, _p, vx, wz in delivered]
+    record["cmd_vel_published"] = [(wall_ns(p), vx, 0.0, wz) for _t, p, vx, wz in delivered]
+    record["window_wall_ns"] = (wall_ns(9.6), wall_ns(12.6))
+    return record
+
+
+def peak_check(record):
+    return next(c for c in cancel.verdict(record, CONFIG) if c["name"] == "cancel_hold_cmd_vel_peak")
+
+
+def test_a_late_delivered_command_published_before_the_window_is_not_counted_in_it():
+    """(a) The failure pattern: by callback time the last message before the window is a late 0.18966; by publication
+    time it is the zero of 9.06 s, and every message published in the window is zero. Fails on 6c70f3c (0.18966)."""
+    record = late_delivery_record()
+    assert cancel.cmd_vel_in_window(record["cmd_vel"], 9.6, 12.6)[0] == pytest.approx(0.18966)   # the artefact
+    check = peak_check(record)
+    assert check["value"] == 0.0 and ok(check) and "publication time" in check["note"]
+    assert failed(cancel.verdict(record, CONFIG)) == []
+    # the sim-time checks are unchanged: the late nonzero is still measured on callback time
+    by_name = {c["name"]: c for c in cancel.verdict(record, CONFIG)}
+    assert by_name["cancel_cmd_vel_nonzero_after_cancel"]["value"] == pytest.approx(0.414)
+
+
+def test_a_late_backlog_delivered_inside_the_sim_window_is_not_counted_either():
+    """(a) The same pattern with the backlog delivered after the window opened (callback time 9.7 s >= 9.6 s)."""
+    record = late_delivery_record()
+    record["cmd_vel"] = [(9.7, 0.0, 0.0, 0.0) if m[0] == 9.07 else m for m in record["cmd_vel"]]
+    record["cmd_vel"].append((9.75, 0.18966, 0.0, 0.0))
+    record["cmd_vel_published"].append((wall_ns(9.05), 0.18966, 0.0, 0.0))
+    assert cancel.cmd_vel_in_window(record["cmd_vel"], 9.6, 12.6)[0] == pytest.approx(0.18966)
+    assert peak_check(record)["value"] == 0.0
+
+
+@pytest.mark.parametrize("vx, wz", [(0.0, 0.03), (0.002, 0.0)])
+def test_a_nonzero_command_published_inside_the_window_still_fails(vx, wz):
+    """(b) A command genuinely published in the window fails, by publication time as by callback time."""
+    record = late_delivery_record(published_in_window=[(11.0, vx, wz)])
+    check = peak_check(record)
+    assert check["value"] == pytest.approx(max(vx, wz)) and not ok(check)
+    assert failed(cancel.verdict(record, CONFIG)) == ["cancel_hold_cmd_vel_peak"]
+
+
+def test_a_nonzero_command_published_last_before_the_window_still_fails():
+    """(b) The base keeps the last command it was given: a nonzero one published last before the window counts."""
+    record = late_delivery_record()
+    record["cmd_vel_published"] = [m for m in record["cmd_vel_published"] if m[0] < wall_ns(9.5)]
+    record["cmd_vel_published"].append((wall_ns(9.55), 0.05, 0.0, 0.0))
+    check = peak_check(record)
+    assert check["value"] == pytest.approx(0.05) and not ok(check)
+
+
+def test_publication_order_not_delivery_order_picks_the_last_message_before_the_window():
+    """Delivered last but published first: the zero published after it is the command the base holds."""
+    record = dict(good_record(), window_wall_ns=(wall_ns(10.0), wall_ns(13.0)),
+                  cmd_vel_published=[(wall_ns(9.1), 0.0, 0.0, 0.0), (wall_ns(9.0), 0.2, 0.0, 0.0)])
+    assert peak_check(record)["value"] == 0.0
+
+
+@pytest.mark.parametrize("missing", [0, None, "x"])
+def test_without_a_source_timestamp_the_callback_time_is_used_as_before(missing):
+    """Fallback: one message without source_timestamp (0, missing) and the check is the 6c70f3c one, which fails the
+    late-delivery record, and its note says so."""
+    record = late_delivery_record()
+    stamp = cancel.source_ns({"source_timestamp": missing})
+    record["cmd_vel_published"][3] = (stamp,) + record["cmd_vel_published"][3][1:]
+    check = peak_check(record)
+    assert check["value"] == pytest.approx(0.18966) and "fallback" in check["note"]
+    assert cancel.hold_messages({"cmd_vel": [(1.0, 0, 0, 0)], "window": (0.0, 2.0)})[2] == "fallback"
+
+
+def test_source_ns_reads_the_rclpy_message_info():
+    assert cancel.source_ns({"source_timestamp": 1_795_000_000_123_456_789, "received_timestamp": 0}) \
+        == 1_795_000_000_123_456_789
+    assert cancel.source_ns(types.SimpleNamespace(source_timestamp=5)) == 5
+    assert cancel.source_ns({"source_timestamp": 0}) is None and cancel.source_ns(None) is None
+    assert cancel.source_ns({}) is None
+
+
+def test_the_subscription_callback_receives_the_message_info():
+    """rclpy jazzy passes the message info only to a callback that does not bind one argument: on_message_info has
+    two required parameters (a default on info would make rclpy pass the message alone)."""
+    recorder = cancel.CmdVelRecorder(lambda: 1.0)
+    with pytest.raises(TypeError):
+        inspect.signature(recorder.on_message_info).bind(object())
+    inspect.signature(recorder.on_message_info).bind(object(), object())
+    twist = types.SimpleNamespace(linear=types.SimpleNamespace(x=0.1, y=0.0), angular=types.SimpleNamespace(z=0.0))
+    deliver(recorder.on_message_info, twist, 42)
+    assert recorder.published == [(42, 0.1, 0.0, 0.0)] and recorder.messages == [(1.0, 0.1, 0.0, 0.0)]
+
+
+def test_the_step_judges_by_publication_time_and_records_the_basis(monkeypatch):
+    stack, log, record = run_step(monkeypatch, "canceled")
+    assert record["cmd_vel_time_basis"] == "publication"
+    assert all(m[0] is not None for m in record["cmd_vel_published"])
+    assert record["wall_cancel_ns"] <= record["wall_stopped_ns"] <= record["window_wall_ns"][0] \
+        < record["window_wall_ns"][1]
+    assert failed(log.checks.values()) == []
+    assert not any("fallback" in e for e in log.events)
+    assert log.data["baseline1"]["cancel_check"]["record"]["cmd_vel_time_basis"] == "publication"
+
+
+def test_the_step_falls_back_and_logs_it_without_source_timestamps(monkeypatch):
+    stack = FakeStack(_fake_modules(monkeypatch), "canceled", source=lambda: 0)
+    log = FakeLog()
+    record = cancel.step(stack, log, config=CONFIG)
+    assert record["cmd_vel_time_basis"] == "fallback"
+    assert any("without source_timestamp" in e and "fallback" in e for e in log.events)
+    assert failed(log.checks.values()) == []
