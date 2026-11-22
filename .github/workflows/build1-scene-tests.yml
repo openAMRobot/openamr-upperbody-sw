@@ -4,13 +4,12 @@
 # interfaces on the runner (vcan by modprobe, CAN FD on the arm buses) and runs the package's tests headless.
 # A test that needs virtual CAN and cannot have it is BLOCKED: it is counted apart, and the job does not pass.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
-name: Build 1 scene tests
+name: diag 132 scn02 repeat (scratch)
 
 on:
-  pull_request:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [diag/evidence-inspect-2026-11-23]
+    paths: [tools/inspect/permit_timing.py, .github/workflows/build1-scene-tests.yml]
 
 permissions:
   contents: read
@@ -33,21 +32,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|baseline1_strict|baseline1_cancel|station_departure|arm_frames|lift_plant|diagnostics|station_marker|canfd_vcan|replay_vcan)$"
-          - name: firmware_sil drive, lift, cancel
-            tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
-          - name: firmware_sil arms, grasp, single writer
-            tests: "^test_scn(03_arms_reach|04_grasp|09_single_writer)$"
-          - name: faults
-            tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
-          - name: profiles fast and fine
-            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
-          - name: fast lift stops and base yaw
-            tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
-          - name: software Stop faults
-            tests: "^test_scn(18_stop_during_nav|19_stop_gate_kill)$"
+          - name: scn02 repeat 1
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 2
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 3
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 4
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 5
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 6
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 7
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 8
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 9
+            tests: "^test_scn02_lift_permit$"
+          - name: scn02 repeat 10
+            tests: "^test_scn02_lift_permit$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
@@ -200,9 +204,19 @@ jobs:
           mkdir -p "$BUILD1_LOG_DIR"
           nproc
           set +e
-          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
-            --ctest-args -R "$BUILD1_TESTS"
-          echo "TEST_RC=$?" >> "$GITHUB_ENV"
+          rc_all=0
+          for rep in 1 2 3; do
+            candump -L vcan_aux > "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log" 2>&1 &
+            dump=$!
+            colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+              --ctest-args -R "$BUILD1_TESTS"
+            rc=$?; [ "$rc" != 0 ] && rc_all=$rc
+            kill "$dump"; sleep 1
+            cp "$BUILD1_LOG_DIR/scn02_lift_permit.json" "$BUILD1_LOG_DIR/scn02_lift_permit_rep${rep}.json" 2>/dev/null
+            echo "PERMIT_TIMING rep ${rep} test_rc ${rc}"
+            python3 -I "$GITHUB_WORKSPACE/ws/src/openamr-upperbody-sw/tools/inspect/permit_timing.py" "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log" | sed "s/^/PT${rep} /"
+          done
+          echo "TEST_RC=$rc_all" >> "$GITHUB_ENV"
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
 
       # Test cases, not CTest entries: passed, failed, BLOCKED and skipped, from the JUnit XML. The scenario logs with
