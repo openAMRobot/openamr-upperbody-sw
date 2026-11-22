@@ -65,7 +65,10 @@ env:
   # merged (docs/integration/baseline1.md). Description, Nav2, perception, docking and openamrobot_sil come from it.
   # 19 Nov 2026: #167 at 99ec17f (Mohamed's three conditions), then #164 at 09f9a85 (BackUp removed from its trees)
   # and #167 at dccd5e0 (99ec17f with that base; test-only change).
-  PLATFORM_SW_SHA: fb25be1b56652316f47b7505cef021576822c558
+  # 20 Nov 2026: candidate 960e2e5 = 9af88e7 (fb25be1 with #169 merged, openamr-platform-sw #175, approved) plus the
+  # no-reverse Nav2 configuration (#90's behaviour set, 0aa8e14 cherry-picked; openamr-platform-sw #178, draft), the
+  # same SHA as pins.yaml platform_sw_sil. CANDIDATE until #178 merges; repin if its merge changes the commit.
+  PLATFORM_SW_SHA: 960e2e5764529c5657d13645f5920ecffe504bbe
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
