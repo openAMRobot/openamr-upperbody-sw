@@ -206,12 +206,12 @@ jobs:
           set +e
           rc_all=0
           for rep in 1 2 3; do
-            candump -L vcan_aux > "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log" 2>&1 &
+            stdbuf -oL candump -L vcan_aux > "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log" 2>&1 &
             dump=$!
             colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
               --ctest-args -R "$BUILD1_TESTS"
             rc=$?; [ "$rc" != 0 ] && rc_all=$rc
-            kill "$dump"; sleep 1
+            kill -INT "$dump"; sleep 1; wc -l "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log"; head -3 "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log"
             cp "$BUILD1_LOG_DIR/scn02_lift_permit.json" "$BUILD1_LOG_DIR/scn02_lift_permit_rep${rep}.json" 2>/dev/null
             echo "PERMIT_TIMING rep ${rep} test_rc ${rc}"
             python3 -I "$GITHUB_WORKSPACE/ws/src/openamr-upperbody-sw/tools/inspect/permit_timing.py" "$BUILD1_LOG_DIR/candump_vcan_aux_rep${rep}.log" | sed "s/^/PT${rep} /"

@@ -27,4 +27,13 @@ for k, (t, i, d) in enumerate(rows):
     print(f"cmd 210h#{d} at t={t-t0:.3f} s -> 190h result {code}" + (f" after {1000*(res[0]-t):.1f} ms" if res else ""))
     for pt, pd in before: print(f"    410h#{pd} {1000*(t-pt):8.1f} ms before the command")
     for pt, pd in after: print(f"    410h#{pd} {1000*(pt-t):8.1f} ms after the command")
+# Status frames (190h): state, flags, position, stop, last_seq, result, counter. Print every change of state or result.
+prev = None
+for t, i, d in rows:
+    if i != 0x190 or len(d) < 14: continue
+    key = (d[0:4], d[8:12])
+    if key != prev:
+        near = [pt for pt, _ in permit if pt <= t][-1:]
+        print(f"status 190h#{d} at t={t-t0:.3f} s; last 410h {1000*(t-near[0]):.1f} ms earlier" if near else f"status 190h#{d} at t={t-t0:.3f} s")
+        prev = key
 print(f"REFUSED_COMMANDS {refused}")
