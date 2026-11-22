@@ -46,6 +46,8 @@
   <xacro:arg name="hardware_profile" default="mock"/>
   <xacro:arg name="enable_planar_base" default="false"/>
   <xacro:arg name="datums_file" default="$(find openamrobot_upperbody_description)/config/datums.yaml"/>
+  <!-- The camera behaviour profile camera_sensors.xacro reads: the only source of every number of the Gazebo camera sensors. -->
+  <xacro:arg name="sensor_profiles_file" default="$(find openamrobot_upperbody_description)/config/sensor_profiles.yaml"/>
   <!-- Absolute path of the controller parameter file the gazebo profile hands to gz_ros2_control. Empty by default: the
        description declares the hardware contract and knows nothing about where a controller config lives (ADR-003); the launch
        that starts the simulation supplies it. Only the gazebo profile reads it. -->
@@ -76,6 +78,7 @@
   <xacro:property name="sim_dynamics" lazy_eval="false" value="'$(arg sim_dynamics)'"/>
 
   <xacro:property name="datums" value="${xacro.load_yaml(datums_file)}"/>
+  <xacro:property name="sensor_profiles_file" lazy_eval="false" value="'$(arg sensor_profiles_file)'"/>
   <xacro:property name="upperbody" lazy_eval="false"
                   value="${xacro.load_yaml('$(find openamrobot_upperbody_description)/config/upperbody_configuration.yaml')}"/>
 
@@ -188,6 +191,12 @@
                                adapter_plate="${dict(size_x=plate_section[0], size_y=plate_section[1], center_x=-lift_section[0] / 2 - dt['adapter_plate_rear_extension']['value'] + plate_section[0] / 2)}"
                                datums="${datums}" lift_limits="${lift_limits}" carriage_inertial="${carriage_inertial}"/>
 
+  <!-- Gazebo camera sensors (camera_sensors.xacro, every number from sensor_profiles.yaml). The head camera is option B's frame and exists with
+       every arm package; the wrist cameras below exist with the arms. A link whose profile values are null gets no sensor. -->
+  <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/camera_sensors.xacro"/>
+  <xacro:property name="sensor_profiles" lazy_eval="false" value="${xacro.load_yaml(sensor_profiles_file)}"/>
+  <xacro:openamr_camera_sensor link="head_camera_link" profiles="${sensor_profiles}"/>
+
   <!-- so101: stub only. A9 (Jonathan) owns everything below so101_mount_link; nothing else is emitted for it here.
        none: the upper body only. -->
   <xacro:if value="${arm_package == 'so101'}">
@@ -236,6 +245,8 @@
     <!-- Needs the openarm_*_ee_base_link links the two calls above emit. -->
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/upper_sensors.xacro"/>
     <xacro:openamr_upper_sensors datums="${datums}"/>
+    <xacro:openamr_camera_sensor link="left_wrist_camera_link" profiles="${sensor_profiles}"/>
+    <xacro:openamr_camera_sensor link="right_wrist_camera_link" profiles="${sensor_profiles}"/>
 
     <!-- Only here: so101 and none get no ros2_control. Needs the arm joints emitted above. -->
     <xacro:include filename="$(find openamrobot_upperbody_description)/urdf/ros2_control.xacro"/>

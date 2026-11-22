@@ -5,6 +5,37 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (16 Nov 2026; platform pin to platform-sw main 69847ab, base sensors against the platform sensor profiles)
+
+- **Platform pin `8e7a454` -> `69847ab`** (`config/upstream_pins.yaml`, README checkout line, `mass_provenance.yaml`,
+  `test_mass_export_source.py`): platform-sw main after #135, #138 (`sensor_profiles.yaml`) and #139. The expanded model changes only in the
+  base wheel and castor `<gazebo>` blocks: #135 writes `mu1`, `mu2`, `fdir1` instead of a `<surface>` block that the URDF to SDF conversion
+  dropped, so in Gazebo the wheels now get their friction values. Links, joints, inertials and the masses are unchanged.
+- **`config/base_sensor_model.yaml` and test `s6_base_sensor_model`.** The base sensors are platform-sw's and are included unchanged. The new
+  file names, for each one (RPLIDAR S3, Gemini 336L, ICM-42688-P, TF-Luna, MB7060), the platform profile key that each SDF value should come
+  from, and it copies no number. The test expands the combined model and requires the differences to be exactly the listed ones: 11 today
+  (lidar range and samples, unsourced noise and rates, no Gemini sensor). Tracking: platform-sw #156. Every Gazebo sensor of the combined
+  robot must be accounted for (base, upper-body camera or legacy `camera_link`).
+- **Effects Gazebo cannot represent are documented parameters.** Latency, dropouts, invalid-value codes, bias and temperature drift each
+  have a value with a source (DS-000347 rev 1.9 tolerances, TF-Luna user manual A05, MB7060 datasheet) or the status unknown, and a
+  `TODO(sensor-fault layer)`. The head camera profile gains `dropout` and depth `invalid_fraction` (unknown). Nothing new is applied in
+  Gazebo. Simulation only.
+
+### Added (15 Nov 2026; head camera simulation from the ZED Mini datasheet)
+
+- **Gazebo sensor on `head_camera_link`.** `urdf/camera_sensors.xacro` adds an `rgbd_camera` (colour and depth) on the head camera frame, published
+  in `head_camera_optical_frame` on `/head_camera/rgbd`, for every `arm_package` and hardware profile. Every number comes from the new
+  `config/sensor_profiles.yaml` and from nothing else: horizontal field of view 102 deg, 1280 x 720, 30 Hz, clip 0.1 to 15 m (Stereolabs ZED Mini
+  datasheet v1.3 and product page, each value with document, revision and URL). Gazebo derives the vertical angle (about 69.5 deg) from the
+  horizontal one, so the simulated view is taller than the real 57 deg; the datasheet angle is kept in the profile as documentation.
+- **Unknowns stay unknown.** Noise and latency of the head camera have no source: no noise element is written, and the datasheet depth accuracy
+  (1.0 % at 2 m, 1.8 % at 4 m) is an error bound and is not used as noise. The two wrist cameras have no fixed part (BOM ARM-004), so all their
+  profile values are null with `needed` and `owner`, and they get no sensor. A sensor appears for a link as soon as its profile values are filled in.
+- **Test `s5_camera_sensors`** (registered in CMake): every profile value has a source or status unknown, every sensor value is the profile's
+  value (also on a changed profile), the xacro holds no sensor number of its own, and the expansion with and without sensors differs only in
+  `<gazebo>` blocks. `test_p25_placeholder_material` now looks for the material block among the several `<gazebo reference>` blocks of a link.
+  Kinematics, masses, joint limits and datums are unchanged. Simulation only; the sensor is an ideal pinhole camera.
+
 ### Added (15 Nov 2026; OpenArm software in the loop on virtual CAN)
 
 - **New package `openamrobot_openarm_emulator`.** The unmodified upstream driver (`openarm_hardware/OpenArmHW`, enactic/openarm_ros2 `4e837e1`,

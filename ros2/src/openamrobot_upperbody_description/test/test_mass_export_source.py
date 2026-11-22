@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 """The mass export is the reviewed one on openamrobot-docs main (ff8ca57, docs #84), not a branch snapshot, and the platform pin is
-platform-sw main 8e7a454 (platform-sw #93 merge), whose base inertials are those of the platform-sw #126 merge (713574f).
+platform-sw main 69847ab (platform-sw #139 merge, after #93 and #138), whose base inertials are those of the platform-sw #126 merge (713574f).
 test_roadmap_masses.py checks the SHA-256 of the copy against this pin."""
 import os
 
@@ -29,4 +29,4 @@ def test_the_copy_is_the_reviewed_snapshot():
 def test_the_platform_pin_carries_the_platform_sw_126_masses_and_the_93_tof_pitch():
     provenance = load("mass_provenance.yaml")
     assert "platform-sw #126" in provenance and "platform-sw #93" in provenance
-    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "8e7a45428d06b015cdf488ca8e182c450039afbc"
+    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"

@@ -52,6 +52,10 @@ if(BUILD_TESTING)
   ament_add_pytest_test(t04_optb_composition test/test_t04_optb_composition.py TIMEOUT 600)
   ament_add_pytest_test(t11_planar test/test_t11_planar.py TIMEOUT 600)
   ament_add_pytest_test(s4_sensors test/test_s4_sensors.py TIMEOUT 600)
+  # S5: the head and wrist Gazebo camera sensors take every number from config/sensor_profiles.yaml, each with a source or status unknown
+  ament_add_pytest_test(s5_camera_sensors test/test_s5_camera_sensors.py TIMEOUT 600)
+  # S6: the base Gazebo sensors against platform-sw's sensor_profiles.yaml: divergences exactly as listed in config/base_sensor_model.yaml
+  ament_add_pytest_test(s6_base_sensor_model test/test_s6_base_sensor_model.py TIMEOUT 600)
   ament_add_pytest_test(t05_shoulder_height test/test_t05_shoulder_height.py TIMEOUT 600)
   ament_add_pytest_test(urdf_utils test/test_urdf_utils.py TIMEOUT 600)
   ament_add_pytest_test(datums_revision test/test_datums_revision.py TIMEOUT 600)
