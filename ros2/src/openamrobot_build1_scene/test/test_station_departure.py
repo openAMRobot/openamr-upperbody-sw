@@ -9,6 +9,7 @@ Simulation evidence only.
 """
 import ast
 import copy
+import math
 import os
 import sys
 
@@ -233,3 +234,113 @@ def test_c7_option_1_gates_on_the_forward_drive_only():
     assert sd.gate_reverse_speed({"turn": 0.01223, "forward": 0.0048}) == 0.0048
     assert sd.gate_reverse_speed({"turn": 0.0, "forward": 0.02}) == 0.02
     assert sd.gate_reverse_speed({"turn": 0.05}) is None  # a missing forward phase is not measured, and fails its check
+
+
+# ------------------------------------------------------------------ observed only (#117 conditions 2 and 3)
+SCENE_FILE = os.path.join(PACKAGE, "config", "scene.yaml")
+
+
+class _Log:
+    def __init__(self):
+        self.observed_items, self.quantities = {}, []
+
+    def observed(self, name, value, unit="", expected=None, reference="", note=""):
+        self.observed_items[name] = value
+        return value
+
+    def quantity(self, *args, **kwargs):
+        self.quantities.append(args)
+
+
+def _scene():
+    from openamrobot_build1_scene import scene as scene_model
+    return scene_model.load(SCENE_FILE)
+
+
+def test_the_goal_offset_inside_its_costmap_cell():
+    assert sd.cell_offset(0.0, -1.785, 0.05, (-8.0, -6.0)) == pytest.approx((0.0, 0.015))
+    assert sd.cell_offset(0.123, -6.0, 0.05, (-8.0, -6.0)) == pytest.approx((0.023, 0.0), abs=1e-9)
+    assert sd.cell_offset(-7.99, -5.951, 0.05, (-8.0, -6.0)) == pytest.approx((0.01, 0.049))
+
+
+def test_the_costmap_grid_is_the_map_the_mission_serves():
+    """static_layer takes the map's resolution and origin: scene.write_map (launch/build1.launch.py) writes
+    scene.occupancy_grid's. The nav2_params global_costmap resolution is only reported."""
+    from openamrobot_build1_scene import scene as scene_model
+    scene = _scene()
+    params = {"global_costmap": {"global_costmap": {"ros__parameters": {"resolution": 0.05}}}}
+    resolution, origin, source = sd.costmap_grid(params, scene)
+    _grid, map_resolution, map_origin = scene_model.occupancy_grid(scene)
+    assert (resolution, origin) == (map_resolution, map_origin) == (0.05, (-8.0, -6.0))
+    assert "global_costmap.resolution 0.05" in source
+
+
+def test_a_straight_forward_stage_has_not_rotated_in_place():
+    straight = [(0.1 * i, 0.0, -2.085 + 0.01 * i, math.pi / 2) for i in range(31)]
+    h = sd.forward_heading(straight)
+    assert h["net_deg"] == pytest.approx(0.0) and h["tail_deg"] == pytest.approx(0.0)
+    assert h["rotated_in_place"] is False
+    assert sd.forward_heading([]) is None
+
+
+def test_a_turn_in_place_at_the_end_of_the_forward_stage_is_found():
+    drive = [(0.1 * i, 0.0, -2.085 + 0.01 * i, math.pi / 2) for i in range(31)]
+    end = drive[-1]
+    turn = [(end[0] + 0.1 * k, end[1] + 0.0005 * k, end[2], math.pi / 2 + math.radians(1.0 * k)) for k in range(1, 11)]
+    h = sd.forward_heading(drive + turn)
+    assert h["tail_deg"] == pytest.approx(10.0, abs=1e-6) and h["net_deg"] == pytest.approx(10.0, abs=1e-6)
+    assert h["rotated_in_place"] is True
+    # A turn out and back nets zero, but the sum of steps still shows it.
+    back = [(turn[-1][0] + 0.1 * k, turn[-1][1], end[2], math.pi / 2 + math.radians(10.0 - 1.0 * k))
+            for k in range(1, 11)]
+    h = sd.forward_heading(drive + turn + back)
+    assert h["tail_deg"] == pytest.approx(0.0, abs=1e-6) and h["tail_abs_deg"] == pytest.approx(20.0, abs=1e-6)
+    assert h["rotated_in_place"] is True
+    # Heading drift while still translating is not "in place".
+    curving = [(0.1 * i, 0.0005 * i * i, -2.085 + 0.01 * i, math.pi / 2 + math.radians(0.3 * i)) for i in range(31)]
+    h = sd.forward_heading(curving)
+    assert h["net_deg"] == pytest.approx(9.0) and h["rotated_in_place"] is False
+
+
+def test_the_end_clearance_against_the_work_shelf_front_face():
+    from openamrobot_build1_scene import scene as scene_model
+    scene = _scene()
+    sx, sy, syaw = scene_model.station(scene, "work_shelf")      # 0.715 m in front of the face at y = -2.8
+    assert (sx, sy) == pytest.approx((0.0, -2.085))
+    assert sd.ROBOT_RADIUS_PARK_M == pytest.approx(0.486, abs=1e-3)
+    # #93 cross-check: closed shelf, arms in park, at the station: 0.229 m.
+    assert sd.end_clearance(scene, (sx, sy, syaw))["clearance_m"] == pytest.approx(0.229, abs=1e-3)
+    c = sd.end_clearance(scene, (0.0, -1.785, math.pi / 2))     # 0.30 m out, after the half turn
+    assert c["face_distance_m"] == pytest.approx(1.015) and c["clearance_m"] == pytest.approx(0.529, abs=1e-3)
+    # Beside the shelf end the distance is to the face's end point, not to its line.
+    c = sd.end_clearance(scene, (0.9, -2.4, 0.0))
+    assert c["face_distance_m"] == pytest.approx(math.hypot(0.3, 0.4))
+
+
+def test_the_new_records_are_observed_only_and_never_checks(monkeypatch):
+    monkeypatch.setattr(sd, "_scene", _scene)
+    log = _Log()
+    params = {"global_costmap": {"global_costmap": {"ros__parameters": {"resolution": 0.05}}}}
+    sd._observed_only(log, "goal", sd._observe_goal, log, params, 0.0, -1.785, "map")
+    drive = [(0.1 * i, 0.0, -2.085 + 0.01 * i, math.pi / 2) for i in range(31)]
+    sd._observed_only(log, "end", sd._observe_end, log, drive, (0.0, -1.785, math.pi / 2))
+    assert log.quantities == []
+    o = log.observed_items
+    assert o["retreat_forward_goal_cell_offset_y"] == pytest.approx(0.015)
+    assert o["retreat_forward_rotated_in_place"] is False
+    assert o["retreat_end_clearance"] == pytest.approx(0.529, abs=1e-3)
+    assert not any(k.endswith("_error") for k in o)
+    # An observation that fails is recorded, not raised.
+    monkeypatch.setattr(sd, "_scene", lambda: (_ for _ in ()).throw(FileNotFoundError("scene.yaml")))
+    log = _Log()
+    sd._observed_only(log, "end", sd._observe_end, log, drive, (0.0, -1.785, 0.0))
+    assert "retreat_observation_end_error" in log.observed_items and log.quantities == []
+
+
+def test_run_records_the_new_values_with_observed_only():
+    source = open(sd.__file__, encoding="utf-8").read()
+    run = ast.unparse(next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == "run"))
+    assert "_observed_only(log, 'goal', _observe_goal" in run and "_observed_only(log, 'end', _observe_end" in run
+    for name in ("retreat_forward_goal", "retreat_forward_rotated_in_place", "retreat_end_clearance",
+                 "retreat_forward_end_in_place"):
+        assert f'log.quantity("{name}' not in source

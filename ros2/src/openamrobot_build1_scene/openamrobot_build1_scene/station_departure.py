@@ -237,6 +237,88 @@ def forward_goal(pose, forward_m):
     return x + forward_m * math.cos(yaw), y + forward_m * math.sin(yaw), yaw
 
 
+# ------------------------------------------------------------------ observed only (#117 conditions 2 and 3)
+# Largest horizontal distance of the robot's collision geometry from the rotation centre (base_footprint origin, the
+# drive-axle midpoint) with both arms in park: the corner of the base_link collision box, 0.780 x 0.580 m centred on
+# base_link (openamr-platform-sw robo_urdf.urdf.xacro at 8eb7ff3, "Chassis box, CAD Rev B STEP MMP.00.00.00.000"):
+# hypot(0.390, 0.290) = 0.486 m. Source: the expanded model's collision box. Cross-check: #93 (b4e46dd) swept every
+# collision shape of the expanded model with the arms in park against a closed work shelf and found the base_link rear
+# corner limiting, 0.229 m at the station, whose base_footprint is 0.715 m from the shelf front: 0.715 - 0.229 =
+# 0.486 m, so no park-pose arm geometry below the shelf top reaches further. Geometry only, not a robot measurement.
+CHASSIS_HALF_XY_M = (0.390, 0.290)
+ROBOT_RADIUS_PARK_M = math.hypot(*CHASSIS_HALF_XY_M)
+# Translation below which the end of the forward stage counts as "in place", and the heading change above which the
+# base is reported as having rotated in place there. Observation thresholds only: no check reads them.
+IN_PLACE_TRANSLATION_M = 0.01
+ROTATED_IN_PLACE_DEG = 1.0
+
+
+def _wrap(angle):
+    return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def cell_offset(x, y, resolution, origin):
+    """(dx, dy) of (x, y) inside its costmap cell: (x - origin x) mod resolution, the same for y. 0 is the cell's
+    lower-left corner, resolution / 2 its centre. Floating-point `%` puts a point on a cell edge at the far edge
+    (8.0 % 0.05 = 0.04999...); the cell index is taken with a 1e-9 tolerance instead, as a costmap index would be."""
+    def offset(value, start):
+        distance = value - start
+        return max(0.0, distance - math.floor(distance / resolution + 1e-9) * resolution)
+    return offset(x, origin[0]), offset(y, origin[1])
+
+
+def forward_heading(samples, translation_m=IN_PLACE_TRANSLATION_M, rotated_deg=ROTATED_IN_PLACE_DEG):
+    """samples [(t, x, y, yaw)] of the forward stage -> {"net_deg": heading change first to last sample, "tail_deg":
+    signed heading change after the last sample more than `translation_m` from the end position (the in-place part at
+    the end), "tail_abs_deg": the sum of |heading steps| over that part, "rotated_in_place": tail_abs_deg above
+    `rotated_deg`}. None without samples."""
+    if not samples:
+        return None
+    end = samples[-1]
+    last = 0
+    for i, s in enumerate(samples):
+        if math.hypot(end[1] - s[1], end[2] - s[2]) > translation_m:
+            last = i
+    tail = samples[last:]
+    tail_abs = sum(abs(_wrap(b[3] - a[3])) for a, b in zip(tail, tail[1:]))
+    return {"net_deg": math.degrees(_wrap(end[3] - samples[0][3])),
+            "tail_deg": math.degrees(sum(_wrap(b[3] - a[3]) for a, b in zip(tail, tail[1:]))),
+            "tail_abs_deg": math.degrees(tail_abs), "rotated_in_place": math.degrees(tail_abs) > rotated_deg}
+
+
+def face_distance(point, face_centre, normal, length):
+    """Distance from `point` (x, y) to the front face of a shelf: the segment of `length` through `face_centre`,
+    perpendicular to its outward unit `normal`."""
+    tx, ty = -normal[1], normal[0]
+    dx, dy = point[0] - face_centre[0], point[1] - face_centre[1]
+    along_face = max(-length / 2.0, min(length / 2.0, dx * tx + dy * ty))
+    return math.hypot(dx - along_face * tx, dy - along_face * ty)
+
+
+def end_clearance(scene, pose, radius=ROBOT_RADIUS_PARK_M):
+    """{"face_distance_m", "robot_radius_m", "clearance_m"} of a base at `pose` (x, y, ...) against the work-shelf front
+    face of config/scene.yaml (work_shelf.pose, shelf.depth, shelf.unit_length): the rotation centre's distance to the
+    face minus `radius`. Conservative like #93's closed shelf: the face is treated as solid over its full length."""
+    from openamrobot_build1_scene import scene as scene_model
+    centre, normal = scene_model.work_shelf_front(scene)
+    distance = face_distance(pose[:2], centre, normal, scene_model.value(scene["shelf"]["unit_length"]))
+    return {"face_distance_m": distance, "robot_radius_m": radius, "clearance_m": distance - radius}
+
+
+def costmap_grid(params, scene):
+    """(resolution, origin xy, source) of the global costmap. Its static_layer takes size, resolution and origin from
+    the map the mission serves: scene.write_map (launch/build1.launch.py) writes scene.occupancy_grid's resolution and
+    origin to build1_map.yaml. nav2_params.yaml global_costmap.resolution (0.05 at 8eb7ff3) is read for comparison."""
+    from openamrobot_build1_scene import scene as scene_model
+    resolution = scene_model.value(scene["map"]["resolution"])
+    fx, fy = scene_model.value(scene["floor"]["size"])
+    margin = scene["map"]["margin"]
+    origin = (-fx / 2.0 - margin, -fy / 2.0 - margin)
+    costmap = params.get("global_costmap", {}).get("global_costmap", {}).get("ros__parameters", {})
+    return resolution, origin, (f"map yaml of scene.write_map (resolution {resolution}, origin {origin}); "
+                                f"nav2_params global_costmap.resolution {costmap.get('resolution')}")
+
+
 def run(rig, log, name, config=None, pose=None):
     """Leave the station with option `name` ('departure' or 'forward'; 'backup' stays in baseline1.retreat).
     `pose()` gives the map pose of the base (baseline1.map_pose) for the forward goal; ground truth without it."""
@@ -309,6 +391,7 @@ def run(rig, log, name, config=None, pose=None):
     here = pose() if pose is not None else None
     log.data["baseline1"]["retreat_option"]["goal_from"] = "map pose" if here is not None else "ground truth"
     gx, gy, gyaw = forward_goal(here or turned, f["forward_m"])
+    _observed_only(log, "goal", _observe_goal, log, params, gx, gy, "map" if here is not None else "ground truth")
     nav = NavigateToPose.Goal()
     nav.pose.header.frame_id = "map"
     nav.pose.pose.position.x, nav.pose.pose.position.y = float(gx), float(gy)
@@ -329,6 +412,7 @@ def run(rig, log, name, config=None, pose=None):
     end = rig.truth()
     log.quantity("retreat_distance_from_station", math.hypot(end[0] - start[0], end[1] - start[1]), "m",
                  low=f["forward_m"] - 0.05, high=f["forward_m"] + 0.05, note="guard value, estimated")
+    _observed_only(log, "end", _observe_end, log, samples[len(turn_samples):], end)
     speeds, worst = reverse_speed_by_phase({"turn": turn_samples, "forward": samples[len(turn_samples):]})
     for phase, value in speeds.items():
         log.observed(f"retreat_{phase}_peak_reverse_speed", value, "m/s", note="this phase alone, 0.25 s windows")
@@ -336,3 +420,47 @@ def run(rig, log, name, config=None, pose=None):
     log.quantity("retreat_peak_reverse_speed", gate_reverse_speed(speeds), "m/s", low=0.0,
                  high=f["max_reverse_speed_m_s"], note="translational reverse of the forward drive (#117 option 1, "
                  f"PROPOSED); the turn is observed above and guarded by retreat_turn_position_drift; worst {worst}")
+
+
+def _observed_only(log, what, function, *args):
+    """Run an observation; an error in it is recorded as observed and never stops the retreat or fails a check."""
+    try:
+        function(*args)
+    except Exception as error:  # noqa: BLE001 - observation only
+        log.observed(f"retreat_observation_{what}_error", repr(error), "", note="observation failed; checks unchanged")
+
+
+def _scene():
+    from ament_index_python.packages import get_package_share_directory
+    from openamrobot_build1_scene import scene as scene_model
+    share = get_package_share_directory("openamrobot_build1_scene")
+    return scene_model.load(os.path.join(share, "config", "scene.yaml"))
+
+
+def _observe_goal(log, params, gx, gy, frame):
+    """OBSERVED only (#117 condition 2): the forward goal and its offset inside the global costmap cell."""
+    resolution, origin, source = costmap_grid(params, _scene())
+    dx, dy = cell_offset(gx, gy, resolution, origin)
+    log.observed("retreat_forward_goal_x", gx, "m", note=f"forward goal, {frame} frame")
+    log.observed("retreat_forward_goal_y", gy, "m", note=f"forward goal, {frame} frame")
+    log.observed("retreat_forward_goal_cell_offset_x", dx, "m", note=f"(x - origin x) mod resolution; {source}")
+    log.observed("retreat_forward_goal_cell_offset_y", dy, "m", note=f"(y - origin y) mod resolution; {source}")
+
+
+def _observe_end(log, forward_samples, end):
+    """OBSERVED only (#117 condition 3): heading during the forward stage, a turn in place at its end, and the shelf
+    clearance at the end pose (ground truth)."""
+    heading = forward_heading(forward_samples)
+    if heading is not None:
+        log.observed("retreat_forward_heading_change", heading["net_deg"], "deg", note="ground truth, forward stage")
+        log.observed("retreat_forward_end_in_place_heading_change", heading["tail_deg"], "deg",
+                     note=f"after the last sample more than {IN_PLACE_TRANSLATION_M} m from the end position; "
+                          f"sum of |steps| {round(heading['tail_abs_deg'], 3)} deg")
+        log.observed("retreat_forward_rotated_in_place", heading["rotated_in_place"], "bool",
+                     note=f"sum of |heading steps| in that part above {ROTATED_IN_PLACE_DEG} deg")
+    clearance = end_clearance(_scene(), end)
+    log.observed("retreat_end_shelf_face_distance", clearance["face_distance_m"], "m",
+                 note="ground-truth rotation centre to the work-shelf front face (config/scene.yaml)")
+    log.observed("retreat_end_clearance", clearance["clearance_m"], "m",
+                 note=f"face distance minus {round(clearance['robot_radius_m'], 4)} m, the base_link collision box "
+                      "corner (arms in park, #93 cross-check); closed-shelf face, geometry only")
