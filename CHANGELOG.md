@@ -5,6 +5,16 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (22 Nov 2026; gate owner decision on #77: declared palm-item contact in grasp; simulation only)
+
+- `config/baseline1_gates.json`: one allowed entry, `openarm_left_ee_base_link` against `item::(link::)body_collision`,
+  phase `grasp`, window `grasp_last_move_to_close` (marks `grasp_reach_last_move_start` to `closed`), at most 1.0 N
+  (run 44983640874 leg 1: 13 samples, max 0.349 N). Nothing else widens; the #98 entry is unchanged.
+- `baseline1_gates.window_of`: overlapping windows give a sample to the one that starts first, then ends first.
+- `baseline1_gates.allowed_contacts` and `baseline1_strict_verdict.py`: every leg's allowed contacts (count, max force,
+  cap, reason) in the record and the summary. Report only, no gate change.
+- `test_baseline1_strict.py`: 5 new tests, 1 updated; 1.2 N in grasp and a touch outside the window fail.
+
 ### Fixed (20 Nov 2026; lift permit waits after a change, review of #94; simulation only)
 
 - `Rig.wait_permit_state(fresh)`: after a permit change the CTL-017 emulator state is read only from the second message

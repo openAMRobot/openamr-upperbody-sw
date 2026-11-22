@@ -302,7 +302,7 @@ def test_windows_come_from_the_marks_and_events_carry_their_window():
     marks = [("grasp_reach_start", 10.0), ("grasp_reach_end", 9.0), ("grasp_reach_last_move_start", 11.0),
              ("grasp_reach_end", 12.0), ("closed", 13.0)]
     found = gates.windows(marks, {k: v for k, v in definitions.items() if not k.startswith("_")})
-    assert found == {"grasp_reach_last_move": [11.0, 12.0]}
+    assert found == {"grasp_reach_last_move": [11.0, 12.0], "grasp_last_move_to_close": [11.0, 13.0]}
     assert gates.windows([("grasp_reach_end", 12.0)], {"w": ["grasp_reach_last_move_start", "grasp_reach_end"]}) == {}
     rows = [{"t": 10.5, "a": "x", "b": "y", "fn": 1.0}, {"t": 11.5, "a": "x", "b": "y", "fn": 2.0}]
     events = gates.contact_events(rows, lambda t: "arm_approach", gates.window_of(found))
@@ -448,3 +448,100 @@ def test_the_workflow_reruns_only_what_the_blocked_try_rule_accepts(tmp_path, ca
     (fired / "baseline1_mission.json").write_text(json.dumps(mission()))
     assert strict.main(["--blocked-try", str(fired)]) == 1
     assert "reached phase 1" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ the palm on the item in grasp (Mohamed, #77, 22 Nov)
+PALM_ITEM = {"phase": "grasp", "window": "grasp_last_move_to_close", "a": "item::link::body_collision",
+             "b": "openamrobot::openarm_left_ee_base_link::openarm_left_ee_base_link_collision",
+             "first_t": 13.2, "last_t": 13.8, "count": 13, "max_force_n": 0.349}
+WALL_ENTRY_98 = {"a": "openarm_left_(ee_base_link|ee_link1)(::|$)", "b": "^tote::(link::)?front_collision$",
+                 "phases": ["arm_approach"], "window": "grasp_reach_last_move", "max_force_n": 6.0}
+MARKS = [("grasp_reach_start", 10.0), ("grasp_reach_last_move_start", 11.0), ("grasp_reach_end", 12.0),
+         ("closed", 14.0), ("grasp_lift_start", 15.0)]
+SPANS = [("arm_approach", 9.0, 12.5), ("grasp", 12.5, 15.0), ("lift_object", 15.0, 20.0)]
+
+
+def _phase_of(t):
+    return next((name for name, start, end in SPANS if start <= t <= end), None)
+
+
+def _events(rows):
+    found = gates.windows(MARKS, {k: v for k, v in gates.load()["contacts"]["windows"].items() if not k.startswith("_")})
+    return gates.contact_events(rows, _phase_of, gates.window_of(found))
+
+
+def _leg1_rows():
+    """A synthetic trace with the values of run 44983640874 leg 1 (job 137089357676): 13 samples of the item's world
+    sensor on the left palm in grasp, largest normal force 0.349 N. The sample times were not readable (the contact
+    artifact was not downloaded); they are placed in grasp before the close."""
+    forces = [0.05, 0.12, 0.2, 0.349, 0.31, 0.28, 0.22, 0.18, 0.15, 0.1, 0.08, 0.06, 0.03]
+    return [{"t": 13.2 + 0.05 * i, "a": PALM_ITEM["a"], "b": PALM_ITEM["b"], "fn": -fn} for i, fn in enumerate(forces)]
+
+
+def test_the_palm_on_the_item_is_allowed_only_in_grasp_up_to_the_close_at_most_1_n():
+    assert _allowed(PALM_ITEM) is not None
+    assert _allowed(dict(PALM_ITEM, a="openarm_left_ee_base_link", b="item::link::body_collision")) is not None
+    assert _allowed(dict(PALM_ITEM, max_force_n=1.0)) is not None
+    for other in (dict(PALM_ITEM, max_force_n=1.2), dict(PALM_ITEM, max_force_n=1.001),
+                  dict(PALM_ITEM, window=None), dict(PALM_ITEM, window="grasp_reach_last_move"),
+                  dict(PALM_ITEM, phase="arm_approach"), dict(PALM_ITEM, phase="lift_object"),
+                  dict(PALM_ITEM, phase="retreat", window=None),
+                  dict(PALM_ITEM, b="openamrobot::openarm_right_ee_base_link::openarm_right_ee_base_link_collision"),
+                  dict(PALM_ITEM, b="openamrobot::openarm_left_link7::openarm_left_link7_collision"),
+                  dict(PALM_ITEM, a="tote::link::front_collision"), dict(PALM_ITEM, a="item::link::lid_collision"),
+                  dict(PALM_ITEM, a="payload::link::body_collision")):
+        assert _allowed(other) is None, other
+
+
+def test_a_palm_item_contact_of_1_2_n_in_grasp_fails_the_strict_gate(tmp_path):
+    rows = [dict(r, fn=-1.2) if i == 3 else r for i, r in enumerate(_leg1_rows())]
+    (event,) = _events(rows)
+    assert (event["phase"], event["window"], event["max_force_n"]) == ("grasp", "grasp_last_move_to_close", 1.2)
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, event)))
+    assert rc == 1 and any("unaccounted contact in grasp (grasp_last_move_to_close): item::link::body_collision" in p
+                           for p in record["problems"])
+
+
+def test_a_palm_item_contact_outside_the_grasp_window_fails_the_strict_gate(tmp_path):
+    # after the close, still in grasp: no window
+    (after_close,) = _events([dict(r, t=14.2 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert (after_close["phase"], after_close["window"]) == ("grasp", None)
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, after_close)))
+    assert rc == 1 and any("unaccounted contact in grasp: item::link::body_collision" in p for p in record["problems"])
+    # on the last reach move, in arm_approach: the #98 window, which does not name the item
+    (on_reach,) = _events([dict(r, t=11.2 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert (on_reach["phase"], on_reach["window"]) == ("arm_approach", "grasp_reach_last_move")
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = two(other, data2=mission(events=(GRASP, on_reach)))
+    assert rc == 1 and any("unaccounted contact in arm_approach (grasp_reach_last_move)" in p for p in record["problems"])
+    # during the lift
+    (lifting,) = _events([dict(r, t=16.0 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert lifting["phase"] == "lift_object"
+    third = tmp_path / "c"
+    third.mkdir()
+    rc, record = two(third, data2=mission(events=(GRASP, lifting)))
+    assert rc == 1 and any("unaccounted contact in lift_object" in p for p in record["problems"])
+
+
+def test_the_98_tote_entry_is_unchanged_and_keeps_its_window_where_the_grasp_window_overlaps_it():
+    entries = [e for e in gates.load()["contacts"]["allowed"] if e["b"] == WALL_ENTRY_98["b"]]
+    assert len(entries) == 1 and {k: v for k, v in entries[0].items() if k != "reason"} == WALL_ENTRY_98
+    (wall,) = _events([{"t": 11.5, "a": WALL["a"], "b": WALL["b"], "fn": 5.2}])
+    assert (wall["phase"], wall["window"]) == ("arm_approach", "grasp_reach_last_move") and _allowed(wall) is not None
+    assert _allowed(dict(WALL, phase="grasp", window="grasp_last_move_to_close")) is None
+
+
+def test_the_leg1_trace_of_run_44983640874_passes_and_the_record_reports_the_touch(tmp_path, capsys):
+    (event,) = _events(_leg1_rows())
+    assert (event["phase"], event["window"], event["count"], event["max_force_n"]) == \
+        ("grasp", "grasp_last_move_to_close", 13, 0.349)
+    rc, record = two(tmp_path, data1=mission(events=(GRASP, event)))
+    assert rc == 0, record["problems"]
+    reported = [c for c in record["legs"][0]["allowed_contacts"] if c["a"] == event["a"]]
+    assert reported == [{"phase": "grasp", "window": "grasp_last_move_to_close", "a": event["a"], "b": event["b"],
+                         "count": 13, "max_force_n": 0.349, "max_force_cap_n": 1.0,
+                         "reason": reported[0]["reason"]}] and "#77" in reported[0]["reason"]
+    out = capsys.readouterr().out
+    assert "Allowed contacts (reported, not problems):" in out
+    assert f"- leg 1 grasp (grasp_last_move_to_close): {event['a']} with {event['b']}, 13 samples, max 0.349 N, cap 1.0 N" in out

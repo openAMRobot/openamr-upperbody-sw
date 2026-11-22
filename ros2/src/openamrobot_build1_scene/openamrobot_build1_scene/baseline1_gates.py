@@ -159,6 +159,20 @@ def contacts(mission, config):
     return problems
 
 
+def allowed_contacts(mission, config):
+    """Report only, no gate: every recorded contact event that an allowed-list entry accounts for, with its sample
+    count, largest normal force, the entry's force cap and reason. An allowed touch stays visible in the strict record."""
+    record = (mission or {}).get("contacts") or {}
+    found = []
+    for event in record.get("events", []):
+        entry = contact_allowed(event, config["contacts"]["allowed"])
+        if entry is not None:
+            found.append({"phase": event["phase"], "window": event.get("window"), "a": event["a"], "b": event["b"],
+                          "count": event.get("count"), "max_force_n": event.get("max_force_n"),
+                          "max_force_cap_n": entry.get("max_force_n"), "reason": entry["reason"]})
+    return found
+
+
 def windows(marks, definitions):
     """Named Gazebo-time windows from the mission's time marks [(label, t)] (scenarios._mark) and the definitions
     {name: [start label, end label]} of config contacts.windows: the first start mark, then the first end mark at or
@@ -178,8 +192,10 @@ def windows(marks, definitions):
 
 
 def window_of(found):
-    """-> function(t) naming the window of `found` (windows()) that contains Gazebo time t, else None."""
-    spans = sorted(found.items(), key=lambda item: item[1][0])
+    """-> function(t) naming the window of `found` (windows()) that contains Gazebo time t, else None. Where windows
+    overlap, t belongs to the one that starts first, then ends first: grasp_reach_last_move keeps its samples inside
+    the longer grasp_last_move_to_close that starts at the same mark."""
+    spans = sorted(found.items(), key=lambda item: (item[1][0], item[1][1]))
     return lambda t: next((name for name, (start, end) in spans if start <= t <= end), None)
 
 

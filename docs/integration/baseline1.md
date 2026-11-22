@@ -85,11 +85,17 @@ Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_ga
 - the Stop checks of `stop_authorize` all run and pass (base settle, speed, yaw rate, no lift motion without permit,
   command refused, permit fresh), and at least one `cancel_*` check run and passed (the cancellation step below);
 - contact sensors on (`BUILD1_CONTACT_SENSORS=1`), messages received, and every contact event (per phase, contact
-  window and pair) in the allowed list with its reason; any other contact fails the leg. One entry has a window:
+  window and pair) in the allowed list with its reason; any other contact fails the leg. Two entries have a window:
   `openarm_left_ee_base_link` or `openarm_left_ee_link1` against `tote::front_collision`, in `arm_approach`, inside the
   window `grasp_reach_last_move` (from the mark `grasp_reach_last_move_start` of the last reach move, #98, through
   `grasp_reach_end` after the 1 s settle), at most 6 N: the residual end-point contact of the base pitch, the software
-  lead's exact case on #98 (20 Nov 2026). Without the marks there is no window and the entry accounts for nothing;
+  lead's exact case on #98 (20 Nov 2026); and `openarm_left_ee_base_link` (the left palm) against
+  `item::body_collision`, in `grasp`, inside the window `grasp_last_move_to_close` (from the same mark through the
+  mark `closed` after the gripper close), at most 1.0 N: a light palm touch on the target item while the fingers
+  close, the gate owner's decision on #77 (22 Nov 2026). Where the two windows overlap, a sample belongs to the one
+  that starts first and then ends first, so `grasp_reach_last_move` keeps its samples. Without the marks there is no
+  window and the entry accounts for nothing. The strict record lists every allowed contact per leg with its sample
+  count, largest force and cap (report only);
 - complete evidence: bag metadata, a non-empty candump of each of the five virtual buses, Gazebo start and end of
   every phase, run_info, full pinned hashes of all six checkouts, the declared seed equal to the mission's, settings.
 
