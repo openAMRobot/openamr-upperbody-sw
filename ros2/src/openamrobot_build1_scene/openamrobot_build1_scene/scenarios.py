@@ -409,6 +409,19 @@ def _arm_reading(rig, side):
     return {n: rig.joint(n) for n in names}, {n: rig.physics_joint(n) for n in names}
 
 
+# Approved expected failures of the measured park check (#108), and nothing else (code owner, upperbody #130, 22 Nov 2026):
+# scn17 only, the DART engine only, joint 4 of each arm only, tracked in #126. Any other unmoved joint, scenario or engine
+# still FAILS; an unexpected pass fails too, so the entry is removed when #126 is fixed.
+PARK_XFAIL = {("scn17_base_yaw_fast", "gz-physics-dartsim-plugin"): {"left": {"openarm_left_joint4"},
+                                                                     "right": {"openarm_right_joint4"}}}
+PARK_XFAIL_ISSUE = "#126"
+
+
+def park_xfail_scope(scenario, engine, side):
+    """-> the joints whose park motion is an approved expected failure for this scenario, engine and arm (empty: none)."""
+    return PARK_XFAIL.get((scenario, engine), {}).get(side, set())
+
+
 def _require_park_motion(rig, log, side, before, label):
     """FAIL unless both the reading and the physics moved every commanded joint toward PARK (arm_frames.unmoved_joints): a
     controller that reports success without motion is not an arrival."""
@@ -417,6 +430,18 @@ def _require_park_motion(rig, log, side, before, label):
     short = {source: unmoved_joints(b, a, target) for source, b, a in (("joint_states", before[0], after[0]),
                                                                        ("physics", before[1], after[1]))}
     count = sum(len(s) for s in short.values())
+    scope = park_xfail_scope(log.data["scenario"], getattr(rig, "physics_engine", None), side)
+    if scope:
+        unmoved = {joint for joints in short.values() for joint in joints}
+        outside = unmoved - scope
+        log.quantity(f"{label}_joints_not_moved_outside_{PARK_XFAIL_ISSUE[1:]}", len(outside), "joints", low=0, high=0,
+                     note=f"unmoved joints outside the approved expected failure ({sorted(scope)}, {PARK_XFAIL_ISSUE})")
+        log.quantity(f"{label}_joints_not_moved", count, "joints",
+                     note=f"expected failure {PARK_XFAIL_ISSUE} for {sorted(scope)}: reported as XFAIL, never PASS")
+        if outside:
+            return log.require(False, f"{label}: the controller reported success but the arm did not move: {short}")
+        return log.expected_failure(count == 0, f"{label}: {sorted(scope)} did not move toward park (DART joint limit)",
+                                    PARK_XFAIL_ISSUE)
     log.quantity(f"{label}_joints_not_moved", count, "joints", low=0, high=0,
                  note="commanded joints whose measured travel toward park is below half the command, /joint_states and physics")
     return log.require(count == 0, f"{label}: the controller reported success but the arm did not move: {short}")

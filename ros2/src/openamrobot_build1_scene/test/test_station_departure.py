@@ -410,3 +410,19 @@ def test_run_records_the_new_values_with_observed_only():
     for name in ("retreat_forward_goal", "retreat_forward_rotated_in_place", "retreat_end_clearance",
                  "retreat_forward_end_in_place"):
         assert f'log.quantity("{name}' not in source
+
+
+# ------------------------------------------------------------------ rc.1: no departure below the Stop gate
+def test_the_departure_cannot_be_selected_in_rc1():
+    """BASELINE1_RETREAT=departure stops the mission with the reason: it would publish below platform #90's Stop gate."""
+    with pytest.raises(ValueError, match="Stop gate"):
+        sd.option(CONFIG, environ={"BASELINE1_RETREAT": "departure"})
+    assert sd.option(CONFIG, environ={}) == "forward"
+
+
+def test_run_refuses_the_departure_before_any_publisher_exists():
+    """Second guard: run() refuses a disabled option before it creates the cmd_vel_smoothed publisher."""
+    source = open(sd.__file__, encoding="utf-8").read()
+    body = source[source.index("def run(rig, log, name"):]
+    assert body.index("if name in RELEASE_DISABLED:") < body.index("create_publisher(")
+    assert "departure" in sd.RELEASE_DISABLED and "forward" not in sd.RELEASE_DISABLED

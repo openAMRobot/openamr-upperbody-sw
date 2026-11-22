@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: MIT
 """How the Baseline 1 retreat phase leaves the work-shelf station: three options (Proposed, 20 Nov 2026; Alex decides).
 
-BASELINE1_RETREAT selects one; the default is "backup" and nothing here changes it.
+BASELINE1_RETREAT selects one; the default is "forward" (config/baseline1_mission_options.json; Alex, 20 Nov 2026).
+"departure" cannot be selected in rc.1 (RELEASE_DISABLED): it bypasses platform #90's software Stop.
 
 backup     today: Nav2 behavior_server's /backup action, 0.30 m at 0.10 m/s (baseline1.retreat). Needs the backup
            behaviour registered and a velocity_smoother that lets a negative linear x through. With platform-sw #90's
@@ -28,6 +29,11 @@ import os
 import xml.etree.ElementTree as ET
 
 OPTIONS = ("backup", "departure", "forward")
+# Options that cannot be selected in the rc.1 release profile, with the reason (upperbody #130, 22 Nov 2026): the
+# departure publishes on cmd_vel_smoothed, below platform #90's Stop gate, so the software Stop would not cover it.
+# Re-enabling it needs a contract change request (a mux input and a departure-only smoother exception), not a flag.
+RELEASE_DISABLED = {"departure": "publishes on cmd_vel_smoothed, below platform #90's Stop gate (the software Stop "
+                                 "would not cover it); not available in rc.1, the retreat is forward only"}
 REVERSE_BEHAVIOURS = ("nav2_behaviors::BackUp", "nav2_behaviors::DriveOnHeading", "nav2_behaviors::AssistedTeleop")
 REVERSE_TREE_NODES = ("BackUp", "DriveOnHeading", "AssistedTeleop")
 SUCCEEDED = 4
@@ -69,6 +75,8 @@ def _share_file():
 def option(config, environ=None):
     environ = os.environ if environ is None else environ
     value = environ.get(config["env"], config["default"])
+    if value in RELEASE_DISABLED:
+        raise ValueError(f"{config['env']}={value!r}: {RELEASE_DISABLED[value]}")
     if value not in config["options"]:
         raise ValueError(f"{config['env']}={value!r}: not one of {config['options']}")
     return value
@@ -323,6 +331,9 @@ def run(rig, log, name, config=None, pose=None):
     """Leave the station with option `name` ('departure' or 'forward'; 'backup' stays in baseline1.retreat).
     `pose()` gives the map pose of the base (baseline1.map_pose) for the forward goal; ground truth without it."""
     import time
+    if name in RELEASE_DISABLED:
+        log.require(False, f"retreat option {name!r}: {RELEASE_DISABLED[name]}")
+        return
     c = config or load()
     params, trees = installed_nav2()
     ok, reasons = allowed(name, c, params, trees)

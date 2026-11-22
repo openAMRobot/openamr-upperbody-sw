@@ -118,6 +118,17 @@ class Log:
             print(f"BUILD1 {self.data['scenario']} FAILED CHECK: {text}", flush=True)
         return bool(condition)
 
+    def expected_failure(self, condition, text, issue):
+        """A check with a tracked, approved expected failure. Failing is recorded as XFAIL (not a failure, never a
+        PASS) with its issue; passing is an unexpected pass, which fails the scenario so the expectation is reviewed."""
+        if condition:
+            self.failures.append(f"XPASS: {text} was expected to fail ({issue}) and passed; review {issue} and remove the expectation")
+            print(f"BUILD1 {self.data['scenario']} XPASS (unexpected pass, {issue}): {text}", flush=True)
+            return True
+        self.data.setdefault("expected_failures", []).append({"issue": issue, "check": text})
+        print(f"BUILD1 {self.data['scenario']} XFAIL ({issue}): {text}", flush=True)
+        return False
+
     def write(self, result, directory=None, reason=""):
         self.data["result"], self.data["reason"] = result, reason
         self.data["failures"] = list(self.failures)
@@ -314,6 +325,7 @@ class Rig:
                                  "are not read without the declaration")
         self.object_pose_source = info["object_pose_source"]
         self.log.event(object_declaration(self.object_pose_source))
+        self.physics_engine = info.get("physics_engine")
         log.event(f"run profile {info.get('profile')}, step {info.get('physics_step')}, engine {info.get('physics_engine')}, "
                   f"model sha256 {info.get('model_sha256')}")
         checks = {"odometry": lambda: self.get("/odom") is not None}
@@ -716,6 +728,9 @@ def run(scenario_name, function, needs_devices=False, uses_base=False, **ready):
             log.quantity(f"gazebo_{key}_whole_run", stats.get(key), "1", note="from rtf_monitor.py since its start")
         if log.failures:
             reason = "; ".join(log.failures)
+        elif log.data.get("expected_failures"):
+            result = "XFAIL"
+            reason = "; ".join(f"XFAIL ({x['issue']}): {x['check']}" for x in log.data["expected_failures"])
         else:
             result = "PASS"
     except Blocked as blocked:
