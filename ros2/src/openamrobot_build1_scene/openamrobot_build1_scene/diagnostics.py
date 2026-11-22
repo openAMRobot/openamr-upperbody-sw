@@ -249,3 +249,18 @@ def rotation_angle(R):
 def in_frame(frame_R, frame_p, point):
     """`point` (world) in the frame (R, p) given in the world."""
     return frame_R.T @ (np.asarray(point, dtype=float) - np.asarray(frame_p, dtype=float))
+
+
+def state_contact_pairs(contacts):
+    """MoveIt's contacts of one state check (moveit_msgs/ContactInformation, or (body_1, body_2, depth) tuples) as
+    {"a~b": largest depth in m}, the two names sorted so that a pair is one key whichever body MoveIt names first.
+    The start state of a return is in collision exactly when this is not empty: what error -10 means, by pair."""
+    pairs = {}
+    for contact in contacts:
+        if isinstance(contact, tuple):
+            first, second, depth = contact
+        else:
+            first, second, depth = contact.contact_body_1, contact.contact_body_2, contact.depth
+        key = "~".join(sorted((str(first), str(second))))
+        pairs[key] = max(pairs.get(key, 0.0), abs(float(depth)))
+    return dict(sorted(pairs.items()))
