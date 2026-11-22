@@ -72,9 +72,9 @@ Look at both windows for each item. Gazebo shows what the physics built; RViz sh
    at `bp000` (x 0.110 at `bp050`). With `lift_joint` at 0, 0.175 and 0.350 m (the slider; calibration stops `L1000`, `L1175`,
    `L1350`), `tf2_echo base_footprint openarm_left_base_link` reads **z 1.000, 1.175 and 1.350**, and its x and y do not change
    between the three (the carriage goes straight up). Record the nine numbers you read. The column is drawn as two boxes since P28: the outer stage
-   **0.240 x 0.060 x 0.530 m** on `lift_column_base_link` and the inner stage **0.2095 x 0.051 x 0.350 m** on the carriage (the DOLD datasheet's sections; the
+   **0.240 x 0.060 x 0.505 m** (datum `lift_static_profile_top_below_column_top`, P-03 rev20.4 item 28) on `lift_column_base_link` and the inner stage **0.2095 x 0.0533 x 0.470 m** (datum `lift_inner_section`, P-03 rev20.4 item 28) on the carriage (the DOLD datasheet's sections; the
    lengths are ours). Say whether what you see is a narrow column with a thinner stage rising out of it, and read the plate's box (`adapter_plate_link`,
-   **0.360 x 0.100 x 0.010 m**, rear edge flush with the column's rear face) under the arm profile.
+   **0.425 x 0.100 x 0.010 m** (datum `adapter_plate_section`, P-03 rev20.4 item 28), rear edge 0.065 m behind the column's rear face (datum `adapter_plate_rear_extension`, P-03 rev20.4 item 28)) under the arm profile.
 2. **The arm profile, the plate it stands on, and the two mounts: orientation and spacing.** From above in RViz (orbit to look straight down, TF display on),
    measure `arm_profile_link`'s box: **0.120 m fore-aft (x) by 0.060 m across (y)**, 0.340 m tall, its centre **0.180 m ahead** of the
    column axis. `tf2_echo lift_carriage_link openarm_left_base_link` reads **x 0.180, y +0.031, z 0.166** and the right one **y -0.031**:
@@ -85,7 +85,7 @@ Look at both windows for each item. Gazebo shows what the physics built; RViz sh
    collision check says **0** at all three stops and both base plates. Record your count per stop, and if it is not 0, the two link
    names and how deep. This is a reach question for A4 and Alex, not a reason to move the mounts here.
 4. **The sensors: heights and directions.** `tf2_echo base_footprint head_camera_mount_link` reads **z 1.223 + lift** (1.223 at
-   `L1000`, 1.573 at `L1350`) and **x 0.262** at `bp000` (0.060 column axis + 0.180 + 0.022); `head_camera_optical_frame`'s z axis
+   `L1000`, 1.573 at `L1350`) and **x 0.300** (datum `head_camera_lens.x_ahead_of_arm_mount`, P-03 rev20.4 item 28) at `bp000` (0.060 column axis + 0.180 + 0.060); `head_camera_optical_frame`'s z axis
    points along the lens and is pitched **25 degrees down** at `hp25`. The two wrist cameras sit at their placeholder poses: record
    `tf2_echo openarm_left_ee_base_link left_wrist_camera_link` (y **+0.05**, z **-0.03**) and say whether that is near the hand.
 5. **Driving: distance and offset.** `ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"` for 5 s of
@@ -389,3 +389,116 @@ Open items recorded with the acceptance:
 **Why V01 stays `WARN`.** Both report builders set V01 to `WARN` unconditionally (`ros2/src/openamrobot_upperbody_description/scripts/build_evidence.py` for A6, `ros2/src/openamrobot_upperbody_bringup/scripts/build_a7_evidence.py` for A7) and neither reads this page. They do so while `lift_mass_tl3_400`, the mass of the TiMOTION TL3 400 fallback column, is null: one of the two columns the model offers cannot be built with a mass. TiMOTION does not publish that mass. The selected column, the DOLD Hexalift V4 350, already carries its catalogue mass, 11.7 kg (`lift_mass_dold_v4_350`). DOLD's written holding confirmation was received on 14 Oct 2026 (P-03 rev20.2 item 26), so the fallback is not being pursued and its mass is not being sourced. No check code, threshold or allowlist was changed to record this acceptance.
 
 Retiring the `tl3_400` column from the configuration axes would be a separate change under the CONFIG-IDS decision, with its own contract change request; this record does not make it.
+
+## Recorded: numeric and operational readings on main `a3a93c6` (Tushar Goel, 20 Nov 2026), issue #61
+
+Method: a fresh build of main `a3a93c6` in the workflow's layout at the pins of `upstream_pins.yaml`, every command under `env -i` with only `/opt/ros/jazzy` and that workspace sourced (ROS_DOMAIN_ID 44, GZ_PARTITION m61); the 13 Nov methods (mock MoveIt for items 1, 2, 4; `measure_p28.py` `collisions()` and `geometry()` for item 3; `sim.launch.py` on DART for items 5 to 7; MoveIt on Bullet for item 8); motion from Gazebo ground truth (`gz model -p`, `gz model -l`), never from odometry.
+
+**Status: V01 stays WARN.** Item 5 does not reach the commanded distance on ground truth (the friction fix is in #56; the lift-on-DART fix is in #75), and `lift_mass_tl3_400` is null. Other FAIL: item 7, the right gripper does not move on DART (stalled at 0 for a -0.4 goal, twice; it moves on Bullet in item 8; cause not determined).
+
+### Item 1: the lift column and the carriage
+
+| reading | expected | result | command |
+|---|---|---|---|
+| `lift_column_base_link` bp000: (0.060, 0.000, 0.304) | x 0.060, z 0.304 | PASS (diff 0.000) | `tf2_echo base_footprint lift_column_base_link` |
+| `lift_column_base_link` bp050: (0.110, 0.000, 0.304) | x 0.110 | PASS (diff 0.000) | same |
+| `openarm_left_base_link` L1000 bp000: (0.240, 0.031, 1.000); lift read 0.000000 | z 1.000 | PASS (diff 0.000) | `tf2_echo base_footprint openarm_left_base_link` |
+| `openarm_left_base_link` L1175 bp000: (0.240, 0.031, 1.175); lift read 0.175000 | z 1.175 | PASS (diff 0.000) | same |
+| `openarm_left_base_link` L1350 bp000: (0.240, 0.031, 1.350); lift read 0.350000 | z 1.350 | PASS (diff 0.000) | same |
+| left base x, y over the three stops: 0.240, 0.031 at all three | unchanged | PASS (change 0.000) | same |
+| `openarm_left_base_link` L1000 bp050: (0.290, 0.031, 1.000) | z 1.000 | PASS (diff 0.000) | same |
+| outer stage box (`lift_column_base_link`): 0.240 x 0.060 x 0.505 | 0.240 x 0.060 x 0.505 (datum `lift_static_profile_top_below_column_top`) | PASS | `xacro combined_robot.xacro base_plate:=bp000 head_pitch:=hp25` |
+| inner stage box (`lift_carriage_link`): 0.2095 x 0.0533 x 0.470 | 0.2095 x 0.0533 x 0.470 (datum `lift_inner_section`) | PASS | same |
+| adapter plate box (`adapter_plate_link`): 0.425 x 0.100 x 0.010 | 0.425 x 0.100 x 0.010 (datum `adapter_plate_section`) | PASS | same |
+| plate rear edge from column axis: -0.1850, 0.0650 behind the column rear face, all 6 configurations | 0.065 behind (datum `adapter_plate_rear_extension`) | PASS | `measure_p28.geometry()` |
+| "a narrow column with a thinner stage rising out of it" | person's judgement | NOT RUN (visual) | — |
+
+### Item 2: the arm profile, the plate and the two mounts
+
+| reading | expected | result | command |
+|---|---|---|---|
+| `arm_profile_link` box: 0.120 (x) x 0.060 (y) x 0.340 | 0.120 fore-aft x 0.060 across x 0.340 | PASS | `xacro ...` |
+| long side of the profile box | fore-aft (x) | PASS (x 0.120 > y 0.060) | same |
+| `arm_profile_link` from carriage: (0.180, 0.000, 0.180), all 4 configurations | centre 0.180 ahead of the column axis | PASS (diff 0.000) | `tf2_echo lift_carriage_link arm_profile_link` |
+| `openarm_left_base_link` from carriage: (0.180, 0.031, 0.166), all 4 configurations | x 0.180, y +0.031, z 0.166 | PASS (diff 0.000) | `tf2_echo lift_carriage_link openarm_left_base_link` |
+| `openarm_right_base_link` from carriage: (0.180, -0.031, 0.166), all 4 configurations | y -0.031 | PASS (diff 0.000) | `tf2_echo lift_carriage_link openarm_right_base_link` |
+| arm base spacing: 0.062 m | 62 mm | PASS | from the two rows above |
+| profile bottom to plate top gap: -1.1e-16 to 2.2e-16 m, all 6 configurations | 0.000 | PASS | `measure_p28.geometry()` |
+| profile front face minus plate front edge: 0 to 5.6e-17 m; plate front edge 0.2400 from the column axis | front faces coincide; 0.240 m | PASS | same |
+
+### Item 3: the arms at the home pose: contact count
+
+| reading | expected | result | command |
+|---|---|---|---|
+| L1000 bp000: 0 of 855 enabled pairs colliding (46 geometry links); 24 disabled pairs touching | 0 | PASS | MoveItPy planning scene via `measure_p28.collisions()` |
+| L1175 bp000: 0 of 855; 23 disabled touching | 0 | PASS | same |
+| L1350 bp000: 0 of 855; 23 disabled touching | 0 | PASS | same |
+| L1000 bp050: 0 of 855; 24 disabled touching | 0 | PASS | same |
+| L1175 bp050: 0 of 855; 23 disabled touching | 0 | PASS | same |
+| L1350 bp050: 0 of 855; 23 disabled touching | 0 | PASS | same |
+
+### Item 4: the sensors
+
+| reading | expected | result | command |
+|---|---|---|---|
+| `head_camera_mount_link` z: 1.223 / 1.398 / 1.573 at L1000 / L1175 / L1350 (bp000) | 1.223 + lift | PASS (diff 0.000) | `tf2_echo base_footprint head_camera_mount_link` |
+| `head_camera_mount_link` x bp000: 0.300 | 0.300 (datum `head_camera_lens.x_ahead_of_arm_mount`) | PASS | same |
+| `head_camera_mount_link` x bp050: 0.350 | 0.060 + arm mount x 0.290 | PASS | same |
+| `head_camera_optical_frame` RPY (deg) [-115.0, 0.0, -90.0], all 4 configurations: optical z axis 25.0 deg below horizontal | 25 deg down at hp25 | PASS | `tf2_echo base_footprint head_camera_optical_frame` (`head_pitch:=hp25`) |
+| `left_wrist_camera_link` from `openarm_left_ee_base_link`: (0.000, 0.050, -0.030) | (0, +0.05, -0.03) | PASS (diff 0.000) | `tf2_echo openarm_left_ee_base_link left_wrist_camera_link` |
+| `right_wrist_camera_link` from `openarm_right_ee_base_link`: (0.000, -0.050, -0.030) | (0, -0.05, -0.03) | PASS (diff 0.000) | `tf2_echo openarm_right_ee_base_link right_wrist_camera_link` |
+| "say whether that is near the hand" | person's judgement | NOT RUN (visual) | — |
+
+### Item 5: driving (DART)
+
+| reading | expected | result | command |
+|---|---|---|---|
+| commanded: 0.2 m/s for 5.011 s sim time (94 messages at 10 Hz), nominal 1.0023 m | — | — | `/cmd_vel` publisher, stop on `/clock` |
+| odometry distance: 0.9467 m (not evidence) | about 1.0 m | listed only | `/odom` |
+| Gazebo ground truth distance: 0.7182 m | about 1.0 m | **FAIL** (-28 % of commanded) | `gz model -m openamrobot -p` |
+| commanded: 0.5 rad/s for 5.009 s sim time (99 messages), nominal 2.5043 rad | — | — | as above |
+| odometry yaw: 2.3730 rad (not evidence) | about 2.5 rad | listed only | `/odom` |
+| Gazebo ground truth yaw: 2.3114 rad; translation during the turn 0.0216 m | about 2.5 rad | **FAIL** (-7.7 % of commanded) | `gz model -m openamrobot -p` |
+| `base_footprint -> lift_carriage_link`: (0.060, 0.000, 0.834) before, after driving, after turning | offset change 0.000 | PASS (0.000000 m) | tf `base_footprint lift_carriage_link` |
+| RViz model (odom) vs Gazebo model at the end: 0.2391 m, yaw 0.0614 rad apart; wheel width 0.046 m | not further apart than a wheel width | **FAIL** | `/odom` vs `gz model -m openamrobot -p` |
+
+### Item 6: an arm trajectory (DART)
+
+| reading | expected | result | command |
+|---|---|---|---|
+| goal result: error_code 0, "Goal successfully reached!" | — | — | the trajectory above on `/left_arm_controller/follow_joint_trajectory` |
+| `openarm_left_joint1` final 0.30000 | 0.3 within 0.02 | PASS | `/joint_states` |
+| `openarm_left_joint2` final -0.60000 | -0.6 within 0.02 | PASS | same |
+| `openarm_left_joint4` final 1.20000 | 1.2 within 0.02 | PASS | same |
+| right arm joints, max abs change 3.1e-17 rad | < 0.001 | PASS | same |
+| wheels, max abs change 3.7e-14 rad | < 0.001 | PASS | same |
+| largest single step (228 samples): j1 0.00160, j2 0.00320, j4 0.00640 rad (0.53 % of the final value) | a fraction of the final value | PASS | same |
+| Gazebo link pose vs tf after the move: ≤ 5.3e-7 m (`openarm_left_ee_base_link`, `openarm_left_link4`, `openarm_right_ee_base_link`) | — | consistent with Gazebo | `gz model -m openamrobot -l <link>` |
+
+### Item 7: the gripper (DART)
+
+| reading | expected | result | command |
+|---|---|---|---|
+| left (goal +0.4): finger_joint1 0.40000, finger_joint2 0.40000; reached_goal true | equal within 0.01 | PASS | `/left_gripper_controller/gripper_cmd`, `/joint_states` |
+| right (goal -0.4, inside the joint limits [-0.7854, 0]): finger_joint1 = finger_joint2 = 1.3e-14; stalled true, reached_goal false; the same with the command above repeated (ABORTED) | -0.4 reached, equal within 0.01 | **FAIL** (did not move) | `/right_gripper_controller/gripper_cmd` |
+| sign: left +0.40000, right 0.00000 | opposite | **FAIL** | same |
+| Gazebo link pose vs tf, `openarm_{left,right}_ee_link1/2`: ≤ 5.3e-7 m (the right fingers unchanged in Gazebo too) | — | consistent with Gazebo | `gz model -m openamrobot -l <link>` |
+
+### Item 8: MoveIt named poses (Bullet)
+
+| reading | expected | result | command |
+|---|---|---|---|
+| `left_arm` `hands_up`: SUCCESS; j4 1.50034; scene (goal FK) vs tf 0.00022 m, vs Gazebo 0.00022 m | 1.5 within 0.01; < 0.01 m | PASS | `/move_action`, `/compute_fk`, tf, `gz model -l` |
+| `right_arm` `hands_up`: SUCCESS; j4 1.50019; scene vs tf 0.00012 m, vs Gazebo 0.00012 m | 1.5 within 0.01; < 0.01 m | PASS | same |
+| `left_arm` `home`: SUCCESS; j4 0.00002; scene vs tf 0.00030 m, vs Gazebo 0.00030 m | home | PASS | same |
+| `right_arm` `home`: SUCCESS; j4 0.00081; scene vs tf 0.00019 m, vs Gazebo 0.00019 m | home | PASS | same |
+| `left_arm` `park`: SUCCESS; j4 0.10087; scene vs tf 0.00051 m, vs Gazebo 0.00051 m | home with j4 0.1 | PASS | same |
+| `right_arm` `park`: SUCCESS; j4 0.10059; scene vs tf 0.00041 m, vs Gazebo 0.00041 m | home with j4 0.1 | PASS | same |
+| `left_gripper` `open`: SUCCESS; finger_joint1 = finger_joint2 = 0.78443 | +0.7854 | PASS | same |
+| `right_gripper` `open`: SUCCESS; -0.78471 | -0.7854 | PASS | same |
+| `left_gripper` `closed`: SUCCESS; 0.00082 | 0 | PASS | same |
+| `right_gripper` `closed`: SUCCESS; -0.00094 | 0 | PASS | same |
+| 10 of 10 SUCCESS; "Planning failed" lines in the launch log: 0 | no Planning failed | PASS | `grep -ci "planning failed"` on the launch log |
+| "the Scene Robot in RViz" | an RViz object | NOT RUN (`/compute_fk` of the goal state stands in) | — |
+
+Evidence class: static + mock + simulation. Not physical or mechanical acceptance.
