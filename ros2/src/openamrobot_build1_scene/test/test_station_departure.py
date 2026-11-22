@@ -161,7 +161,73 @@ def test_the_mission_retreat_hands_over_only_for_another_option():
     retreat = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "retreat")
     source = ast.unparse(retreat)
     assert "if chosen != 'backup':" in source and "station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))" in source
-    assert source.index("station_departure.run") < source.index('"/backup"' if '"/backup"' in source else "'/backup'")
+    # backup sends no goal: the no-reverse behaviour set (openamr-platform-sw #178) has no /backup server.
+    assert "send_goal" not in source and "BackUp" not in source
+    assert "log.require(False, 'BASELINE1_RETREAT=backup:" in source
+
+
+# ------------------------------------------------------------------ no consumer calls a removed Nav2 behaviour
+REMOVED_ACTIONS = ("/backup", "/drive_on_heading", "/assisted_teleop")
+REMOVED_TYPES = ("BackUp", "DriveOnHeading", "AssistedTeleop")
+NON_PYTHON = __import__("re").compile(
+    r"<(BackUp|DriveOnHeading|AssistedTeleop)\b|nav2_msgs/(action/)?(BackUp|DriveOnHeading|AssistedTeleop)\b"
+    r"|nav2_behaviors::(BackUp|DriveOnHeading|AssistedTeleop)\b|(?<![\w/])/(backup|drive_on_heading|assisted_teleop)(?![\w/])")
+SCANNED = (".py", ".xml", ".yaml", ".yml", ".json", ".sh", ".launch", ".repos", ".cfg", ".txt")
+
+
+def removed_behaviour_calls(root):
+    """Every place under `root` that would call a Nav2 behaviour openamr-platform-sw #178 removes (backup,
+    drive_on_heading, assisted_teleop; spin and wait stay): Python imports of their action types and the action names
+    as string constants, and in launch files, behaviour trees, configs and workflows the tree nodes, action types,
+    plugin classes and action names. Documentation (.md) is history and is not scanned; this file's fixture trees and
+    station_departure's detection tables are plain strings, neither an import nor an action name."""
+    found = []
+    for directory, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in (".git", "build", "install", "log", "__pycache__")]
+        for name in files:
+            path = os.path.join(directory, name)
+            if not name.endswith(SCANNED) or os.path.samefile(path, __file__):
+                continue
+            text = open(path, encoding="utf-8", errors="replace").read()
+            where = os.path.relpath(path, root)
+            if name.endswith(".py"):
+                try:
+                    tree = ast.parse(text, path)
+                except SyntaxError:
+                    # Not valid Python 3 (a vendored script, a Python 2 remnant, a generated
+                    # stub) - it cannot contain a real import/constant this AST walk is built
+                    # to find, so it is not a removed-behaviour call by this test's own
+                    # definition. Fall back to the same textual line-scan the non-.py branch
+                    # below already uses, instead of letting the exception abort the whole
+                    # scan over an unrelated file.
+                    for number, line in enumerate(text.splitlines(), 1):
+                        if NON_PYTHON.search(line):
+                            found.append(f"{where}:{number} {line.strip()[:80]}")
+                    continue
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("nav2_msgs"):
+                        found += [f"{where}:{node.lineno} imports {a.name}" for a in node.names if a.name in REMOVED_TYPES]
+                    if isinstance(node, ast.Constant) and node.value in REMOVED_ACTIONS:
+                        found.append(f"{where}:{node.lineno} names {node.value}")
+            else:
+                for number, line in enumerate(text.splitlines(), 1):
+                    if NON_PYTHON.search(line):
+                        found.append(f"{where}:{number} {line.strip()[:80]}")
+    return found
+
+
+def test_no_upperbody_code_calls_a_removed_nav2_behaviour():
+    """openamr-platform-sw #178 keeps spin and wait only. scn01, scn06 and scn07 drive with a NavigateToPose goal
+    straight ahead (scenarios._send_drive), the retreat turns and drives forward."""
+    assert removed_behaviour_calls(REPO) == []
+
+
+def test_the_removed_behaviour_scan_finds_a_caller(tmp_path):
+    (tmp_path / "a.py").write_text('from nav2_msgs.action import DriveOnHeading\nrig.send_goal("/backup")\n')
+    (tmp_path / "b.xml").write_text('<BackUp backup_dist="0.3"/>\n')
+    (tmp_path / "c.yml").write_text("run: ros2 action send_goal /drive_on_heading nav2_msgs/action/DriveOnHeading\n")
+    (tmp_path / "d.py").write_text('TOPICS = ["/backup/_action/status"]\n')
+    assert len(removed_behaviour_calls(str(tmp_path))) == 4
 
 
 # ------------------------------------------------------------------ the forward goal is built in the frame it is sent in

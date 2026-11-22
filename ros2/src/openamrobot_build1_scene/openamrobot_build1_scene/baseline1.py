@@ -19,7 +19,6 @@ from openamrobot_build1_scene.rig import LIFT_STOP_M, Blocked, angle_diff
 SEED = int(os.environ.get("BASELINE1_SEED", "20261117"))
 SPAWN_STATION, WORK_STATION = "origin", "work_shelf"
 LIFT_SEQUENCE = (1, 0)          # L1175, then back to L1000: the grasp height of shelf level 0 (scn03 uses stop 0 there)
-RETREAT_M, RETREAT_SPEED = 0.30, 0.10
 NAV_SIM_S = 300.0
 # Nav2 goal checker of openamr-platform-sw nav2_params.yaml: xy_goal_tolerance 0.35 m, yaw_goal_tolerance 0.35 rad.
 NAV_XY_TOLERANCE_M, NAV_YAW_TOLERANCE_RAD = 0.35, 0.35
@@ -304,7 +303,6 @@ def lift_to_target(rig, log):
 
 
 def retreat(rig, log):
-    from nav2_msgs.action import BackUp
     from openamrobot_build1_scene import scenarios
     for side in ("left", "right"):
         # scn03's return move: a MoveIt joint goal to park, so the arm does not sweep through the shelf.
@@ -314,7 +312,8 @@ def retreat(rig, log):
         away = max(abs(rig.physics_joint(f"openarm_{side}_joint{i}") - value) for i, value in enumerate(scenarios.PARK, 1))
         log.quantity(f"retreat_{side}_distance_from_park", away, "rad", low=0.0, high=0.1, note="as in scn03")
     # How the base leaves the station (station_departure.py): BASELINE1_RETREAT forward (default, turn and forward, no
-    # reverse; Alex 20 Nov 2026), backup (below, needs a reverse-capable Nav2) or departure (not enabled).
+    # reverse; Alex 20 Nov 2026) or departure (not enabled). backup sends no goal: Nav2's behaviour set has no /backup
+    # server (openamr-platform-sw #178, spin and wait only), so the option fails here instead of waiting on it.
     from openamrobot_build1_scene import station_departure
     retreat_config = station_departure.load()
     chosen = station_departure.option(retreat_config)
@@ -322,20 +321,7 @@ def retreat(rig, log):
     if chosen != "backup":
         station_departure.run(rig, log, chosen, retreat_config, pose=lambda: map_pose(rig))
         return
-    x0, y0, yaw0 = rig.truth()
-    goal = BackUp.Goal()
-    goal.target.x, goal.speed, goal.time_allowance = RETREAT_M, RETREAT_SPEED, scenarios._duration(60.0)
-    handle = rig.send_goal("/backup", "nav2_msgs.action", "BackUp", goal)
-    if not log.require(handle is not None, "Nav2 backup did not accept the goal"):
-        return
-    status, _ = rig.wait_result(handle, 120.0, "retreat")
-    log.quantity("retreat_status", status, "GoalStatus", low=SUCCEEDED, high=SUCCEEDED)
-    log.quantity("retreat_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", low=0.0, high=10.0)
-    x1, y1, yaw1 = rig.truth()
-    along = (x1 - x0) * math.cos(yaw0) + (y1 - y0) * math.sin(yaw0)
-    log.quantity("retreat_along_heading", along, "m", low=-(RETREAT_M + 0.05), high=-(RETREAT_M - 0.05),
-                 note="negative: away from the shelf. Guard value, estimated")
-    log.quantity("retreat_heading_change", math.degrees(angle_diff(yaw1, yaw0)), "deg", low=-5.0, high=5.0, note="as in scn01")
+    log.require(False, "BASELINE1_RETREAT=backup: no Nav2 backup behaviour in the no-reverse behaviour set; use forward")
 
 
 def end_of_mission_cancel(rig, log):
