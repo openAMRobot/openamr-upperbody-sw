@@ -13,6 +13,7 @@ reads as BLOCKED in the comparison. Simulation evidence only: not hardware, phys
 """
 import argparse
 import json
+import os
 import math
 import pathlib
 import sys
@@ -44,7 +45,8 @@ def main():
     spec = bm.load_scenarios(opts.spec)
     usd = job_path.parent / job["usd"]
     doc = {"schema": bm.SCHEMA, "backend": "isaac", "configuration": job["configuration"], "start_keyframe": spec["start_keyframe"],
-           "expansion_sha256": job["expansion_sha256"], "results": {}, "meta": {"errors": {}}}
+           "expansion_sha256": job["expansion_sha256"], "results": {}, "meta": {"errors": {}},
+           "run_stamp": os.environ.get("OPENAMR_RUN_STAMP")}  # the run kit's stamp; collect_result.py --stamp requires it
 
     from isaacsim import SimulationApp  # noqa: E402  (only inside Isaac Sim)
     app = SimulationApp({"headless": True})

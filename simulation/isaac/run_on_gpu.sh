@@ -8,13 +8,26 @@
 #   bash simulation/isaac/run_on_gpu.sh --dry-run  # print the plan and the pins, run nothing
 #   bash simulation/isaac/run_on_gpu.sh --cpu-only # only the steps without a GPU (generation, job, checker self-test)
 #
+# Running it accepts the NVIDIA Isaac Sim EULA: the Isaac container is started with ACCEPT_EULA=Y (see RUN_ON_GPU.md).
+# Exit status: the collector's, 0 PASS, 1 FAIL, 3 BLOCKED (no GPU, --cpu-only, no isaac_result.json of this run, collector crash);
+# 2 for a usage or setup error. Every output of an earlier run is deleted first, and the collector requires this run's stamp.
+#
 # Two containers, both pinned: ros:jazzy-ros-base (xacro at the lock's build, the generators, check_usd, collect) and the Isaac Sim
 # image of simulation/sim_pins.yaml. The working tree is mounted at the same absolute path in both, so the absolute mesh paths of the
 # importer URDF resolve in Isaac. Output: build/isaac_kit/ and build/isaac_kit_evidence_<UTC>.tar.gz (the file to send back).
 # Simulation evidence only: never hardware, physical acceptance or safety evidence.
 set -euo pipefail
 
+usage() {
+  echo "usage: bash simulation/isaac/run_on_gpu.sh [--dry-run | --cpu-only]" >&2
+}
+[ "$#" -le 1 ] || { echo "error: at most one argument" >&2; usage; exit 2; }
 MODE="${1:-all}"
+case "$MODE" in
+  all|--dry-run|--cpu-only) ;;
+  -h|--help) usage; exit 0 ;;
+  *) echo "error: unknown argument: $MODE" >&2; usage; exit 2 ;;
+esac
 REPO="$(pwd)"
 KIT="$REPO/build/isaac_kit"
 ROS_IMAGE="ros:jazzy-ros-base-noble"
@@ -55,6 +68,24 @@ fi
 mkdir -p "$KIT/src" "$KIT/logs"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
+# 0 stale evidence --------------------------------------------------------------------------------------------------------------
+# build/isaac_kit is reused. Delete every output an earlier run may have left, so a container that dies before writing cannot
+# leave the collector reading the previous run's files. The collector also requires this run's STAMP in each Isaac-side output.
+stale_outputs() {
+  for f in benchmark_isaac.json isaac_result.json isaac_comparison.md isaac_rest.png; do echo "$KIT/$f"; done
+  if [ -d "$KIT/sim" ]; then
+    find "$KIT/sim" -path '*/isaac/*' \( -name isaac_import_log.json -o -name check_usd.json \
+      -o -name '*.usd' -o -name '*.usda' -o -name '*.usdc' \) -print
+  fi
+}
+stale_outputs | while IFS= read -r f; do rm -f -- "$f"; done
+left="$(stale_outputs | while IFS= read -r f; do [ ! -e "$f" ] || echo "$f"; done)"
+if [ -n "$left" ]; then
+  echo "BLOCKED: cannot delete the outputs of an earlier run (owned by root?); remove build/isaac_kit and run again:" >&2
+  echo "$left" >&2
+  exit 3
+fi
+
 # 1 preflight ---------------------------------------------------------------------------------------------------------------
 {
   echo "{"
@@ -86,7 +117,7 @@ fetch https://github.com/enactic/openarm_description "$KIT/src/openarm_descripti
 
 # 3 generate (CPU) ------------------------------------------------------------------------------------------------------------
 cpu() {  # cpu <command>: in the ROS image with xacro at the locked build and the pinned Python packages
-  docker run --rm -v "$REPO":"$REPO" -w "$REPO" -e HOME=/tmp "$ROS_IMAGE" bash -lc "
+  docker run --rm -v "$REPO":"$REPO" -w "$REPO" -e HOME=/tmp -e OPENAMR_RUN_STAMP="$STAMP" "$ROS_IMAGE" bash -lc "
     set -euo pipefail
     apt-get update -qq >/dev/null
     if [ -f simulation/requirements-xacro.txt ]; then
@@ -105,8 +136,11 @@ cpu() {  # cpu <command>: in the ROS image with xacro at the locked build and th
     else
       dpkg-query -W -f='\${Package} \${Version}\n' ros-jazzy-xacro > '$KIT/logs/xacro_version.txt'
     fi
-    $1
-    chmod -R a+rwX '$KIT'"
+    rc=0
+    { $1
+    } || rc=\$?
+    chmod -R a+rwX '$KIT'  # also after a failure: the next run must be able to delete what the containers wrote as root
+    exit \$rc"
 }
 cpu "'$KIT/venv/bin/python' simulation/tools/generate.py --isaac --platform-sw '$KIT/src/openamr-platform-sw' \
        --openarm-description '$KIT/src/openarm_description' --out '$KIT/sim' && \
@@ -117,10 +151,10 @@ cpu "'$KIT/venv/bin/python' simulation/tools/generate.py --isaac --platform-sw '
   2>&1 | tee "$KIT/logs/generate.log"
 
 if [ "$MODE" = "--cpu-only" ]; then
-  cpu "'$KIT/venv/bin/python' simulation/isaac/collect_result.py --kit '$KIT' --mujoco '$KIT/benchmark_mujoco.json' || true" \
-    2>&1 | tee "$KIT/logs/collect.log"
+  cpu "'$KIT/venv/bin/python' simulation/isaac/collect_result.py --kit '$KIT' --mujoco '$KIT/benchmark_mujoco.json' \
+       --stamp '$STAMP'" 2>&1 | tee "$KIT/logs/collect.log" || true  # BLOCKED whatever the collector says
   echo "cpu-only: done. Isaac steps not run: BLOCKED."
-  exit 0
+  exit 3
 fi
 
 # 4 and 5 Isaac (GPU) -------------------------------------------------------------------------------------------------------
@@ -128,7 +162,7 @@ mkdir -p ~/docker/isaac-sim/cache/main ~/docker/isaac-sim/cache/computecache ~/d
          ~/docker/isaac-sim/data ~/docker/isaac-sim/pkg
 chmod -R a+rwX ~/docker/isaac-sim 2>/dev/null || true
 isaac() {  # isaac <python script and args>: in the pinned Isaac Sim image, headless
-  docker run --rm --gpus all --network=host -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=N \
+  docker run --rm --gpus all --network=host -e ACCEPT_EULA=Y -e PRIVACY_CONSENT=N -e OPENAMR_RUN_STAMP="$STAMP" \
     -v ~/docker/isaac-sim/cache/main:/isaac-sim/.cache:rw \
     -v ~/docker/isaac-sim/cache/computecache:/isaac-sim/.nv/ComputeCache:rw \
     -v ~/docker/isaac-sim/logs:/isaac-sim/.nvidia-omniverse/logs:rw \
@@ -152,8 +186,12 @@ for c in $CONFIGS; do
     --platform-sw '$KIT/src/openamr-platform-sw' --openarm-description '$KIT/src/openarm_description' \
     --json '$KIT/sim/$c/isaac/check_usd.json' || true;"
 done
-cpu "$checks '$KIT/venv/bin/python' simulation/isaac/collect_result.py --kit '$KIT' --mujoco '$KIT/benchmark_mujoco.json' || true" \
-  2>&1 | tee "$KIT/logs/check_and_collect.log"
+# check_usd may fail (that is a finding the collector reports), so it keeps `|| true`; the collector's own exit status is kept.
+set +e
+cpu "$checks '$KIT/venv/bin/python' simulation/isaac/collect_result.py --kit '$KIT' --mujoco '$KIT/benchmark_mujoco.json' \
+     --stamp '$STAMP'" 2>&1 | tee "$KIT/logs/check_and_collect.log"
+collector_rc=${PIPESTATUS[0]}
+set -e
 
 # 7 bundle --------------------------------------------------------------------------------------------------------------------
 BUNDLE="$REPO/build/isaac_kit_evidence_$STAMP.tar.gz"
@@ -164,4 +202,16 @@ tar -czf "$BUNDLE" -C "$REPO/build" \
   2>/dev/null || true
 echo "== send back: $BUNDLE ($(du -h "$BUNDLE" | cut -f1)) and its sha256:"
 sha256sum "$BUNDLE"
-python3 -c "import json; r = json.load(open('$KIT/isaac_result.json')); print('overall:', r['status'])" 2>/dev/null || true
+
+# exit with the collector's status: 0 PASS, 1 FAIL, 3 BLOCKED. Anything else (no isaac_result.json of this run, a result of another
+# run, a collector crash, an exit code that does not match the status the collector wrote) is BLOCKED.
+status="$(python3 -c "
+import json, sys
+r = json.load(open('$KIT/isaac_result.json'))
+print(r['status'] if r.get('run_stamp') == '$STAMP' else 'STALE')" 2>/dev/null || echo MISSING)"
+case "$status:$collector_rc" in
+  PASS:0) echo "overall: PASS"; exit 0 ;;
+  FAIL:1) echo "overall: FAIL"; exit 1 ;;
+  BLOCKED:3) echo "overall: BLOCKED"; exit 3 ;;
+  *) echo "overall: BLOCKED (collector exit $collector_rc, isaac_result.json: $status; see logs/check_and_collect.log)"; exit 3 ;;
+esac

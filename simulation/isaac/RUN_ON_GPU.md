@@ -48,11 +48,18 @@ bash simulation/isaac/run_on_gpu.sh --dry-run
 bash simulation/isaac/run_on_gpu.sh
 ```
 
+Running the script (without `--dry-run`) accepts the NVIDIA Isaac Sim EULA: the Isaac container is started with `ACCEPT_EULA=Y`
+(and `PRIVACY_CONSENT=N`). Read the EULA of the image before you run it. The script takes no argument, `--dry-run` or `--cpu-only`;
+any other argument prints the usage and exits 2 without running anything.
+
 The dry run prints the pins and the plan and runs nothing. The full run takes about 20 to 40 minutes the first time (shader cache),
 less afterwards. It writes everything to `build/isaac_kit/` and prints the bundle to send back with its sha256.
 
 Steps of the script:
 
+0. delete every output of an earlier run in `build/isaac_kit/` (`benchmark_isaac.json`, `isaac_result.json`,
+   `isaac_comparison.md`, `isaac_rest.png` and, per configuration, `isaac_import_log.json`, `check_usd.json` and the USD files);
+   if one cannot be deleted (owned by root), the script stops with BLOCKED;
 1. preflight: GPU, driver, Docker and disk into `preflight.json`;
 2. clone platform-sw and openarm_description at the pins;
 3. in the ROS container: MJCF and the Isaac import job for bp000 and bp050 (`generate.py --isaac`; stops if the expansion is not the
@@ -65,6 +72,11 @@ Steps of the script:
 7. the bundle `build/isaac_kit_evidence_<UTC>.tar.gz`.
 
 ## Expected output
+
+Exit status of the script: `0` PASS, `1` FAIL, `3` BLOCKED, the status of `collect_result.py`. BLOCKED includes `--cpu-only`, no
+GPU, a collector crash and a missing `isaac_result.json`; `2` is a usage or setup error. Each Isaac-side output carries the run's
+stamp (`run_stamp`, the `utc` of `preflight.json`); `collect_result.py --stamp` reports any output with another stamp as BLOCKED,
+so a container that dies before writing can never leave an earlier run's files counted as this run.
 
 - `isaac_result.json` `status`: `PASS` when every check passed. The checks per configuration: `usd_generated`, `one_articulation`,
   `isaac_version` (the build starts with 5.1.0), `check_usd` (0 failures: links, joints, limits in degrees, masses, inertia, drives,

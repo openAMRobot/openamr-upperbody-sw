@@ -13,6 +13,7 @@ Then run simulation/tools/check_usd.py on it (no GPU needed).
 """
 import argparse
 import json
+import os
 import math
 import pathlib
 import sys
@@ -29,7 +30,8 @@ def main():
     from isaacsim import SimulationApp  # noqa: E402  (only inside Isaac Sim)
 
     app = SimulationApp({"headless": True})
-    log = {"job": str(job_path), "expansion_sha256": job["expansion_sha256"], "settings": {}, "missing_settings": []}
+    log = {"job": str(job_path), "expansion_sha256": job["expansion_sha256"], "settings": {}, "missing_settings": [],
+           "run_stamp": os.environ.get("OPENAMR_RUN_STAMP")}  # the run kit's stamp; collect_result.py --stamp requires it
     try:
         import omni.kit.app
         import omni.kit.commands
