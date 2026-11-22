@@ -189,3 +189,15 @@ def test_the_gripper_close_is_in_the_grasp_phase():
     assert records["arm_approach"]["sim_end"] <= records["grasp"]["sim_start"] <= t_close <= records["grasp"]["sim_end"]
     spans = [(r["phase"], r["sim_start"], r["sim_end"]) for r in tracker.result() if r["sim_start"] is not None]
     assert next(name for name, start, end in spans if start <= t_close <= end) == "grasp"
+
+
+def test_the_retreat_description_matches_the_default_option():
+    """The leg report must not describe a backup retreat when the declared default is forward (Alex, 20 Nov 2026)."""
+    import json
+    from openamrobot_build1_scene import baseline1_phases
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "..", "config", "baseline1_mission_options.json")) as fh:
+        default = json.load(fh)["retreat"]["default"]
+    expected = dict((name, text) for name, text, _measured in baseline1_phases.PHASES)["retreat"]
+    assert default == "forward"
+    assert "backup" not in expected.lower() and "forward" in expected

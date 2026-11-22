@@ -17,9 +17,10 @@ from geometry_msgs.msg import Twist
 
 from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
-                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, REACH_CLEARANCE_M,
+                                                  GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, in_last_move, reach_waypoints,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset, straight_lift, tcp_for_item)
+                                                  side_grasp_offset, straight_lift, tcp_for_item, ITEM_DEPTH_BEHIND_TCP_M,
+                                                  PALM_CLEARANCE_M, PALM_MESH, palm_points, palm_safe_depth)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M,
                                           ScenarioFailed, angle_diff)
@@ -148,10 +149,10 @@ def lift_permit(rig, log):
     for stop in (1, 2, 0):
         label = f"lift_stop_{stop}"
         rig.lift_permit(False)
-        rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+        rig.wait_permit_state(False, 3.0, "permit withdrawn")
         _lift_refused(rig, log, stop, label)
         rig.lift_permit(True)
-        log.require(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"), f"{label}: the permit did not become fresh")
+        log.require(rig.wait_permit_fresh_after_grant(3.0), f"{label}: the permit did not become fresh")
         rig.sleep_sim(1.0)
         log.quantity(f"{label}_motion_after_permit_without_new_command", rig.get(emulator)["drive_on"], "bool", low=False, high=False,
                      note="a refused command is not replayed")
@@ -338,6 +339,35 @@ def _require_devices(rig):
 PARK = [0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]      # the SRDF pose park: joint 4 off its lower limit
 
 
+class LastMoveMark:
+    """Marks grasp_reach_last_move_start (scenarios._mark) the first time the hand base is on the last move of the
+    reach (arm_frames.in_last_move), from /tf in its own thread while the reach executes. Observes only."""
+    LABEL = "grasp_reach_last_move_start"
+
+    def __init__(self, rig, link, waypoints, period_s=0.01):
+        import threading
+        self.rig, self.link, self.waypoints, self.period_s = rig, link, waypoints, period_s
+        self.marked, self.running = False, True
+        self.thread = threading.Thread(target=self._loop, daemon=True)
+
+    def start(self):
+        self.thread.start()
+        return self
+
+    def _loop(self):
+        while self.running and not self.marked:
+            found = self.rig.transform("base_footprint", self.link)
+            if found is not None and in_last_move(tuple(found[0]), self.waypoints):
+                self.marked = True
+                _mark(self.rig, self.LABEL)
+                return
+            time.sleep(self.period_s)
+
+    def stop(self):
+        self.running = False
+        self.thread.join(timeout=2.0)
+
+
 def _mark(rig, label):
     """A time mark for the diagnostics recorder, when one runs, and for the Baseline 1 mission's contact windows
     (rig.marks, set by baseline1.mission: (label, Gazebo time)). Nothing otherwise."""
@@ -477,6 +507,8 @@ def grasp(rig, log):
     if not log.require(found is not None, f"no /tf from {link} to {TCP_FRAME[side]}"):
         return
     log.quantity("tcp_depth_along_fingers", side_grasp_offset(found[0])[0], "m", note=f"{TCP_FRAME[side]} in {link}, from /tf")
+    from ament_index_python.packages import get_package_share_directory
+    palm = palm_points(os.path.join(get_package_share_directory(PALM_MESH[0]), PALM_MESH[1]))   # for palm_safe_depth
     hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0], yaw)
     back = rotate_z((0.10, 0.0, 0.0), yaw)       # 0.10 m back along the fingers
     approach = (hand[0] - back[0], hand[1] - back[1], hand[2])
@@ -506,16 +538,26 @@ def grasp(rig, log):
         try:
             # The reach is a straight line along the fingers with the orientation the approach ended with, 0.02 m above
             # the grasp height: the hand goes 0.10 m back from the item on that line, then in, so that the open fingers
-            # pass on both sides of it, and then down onto the grasp height (arm_frames.py, REACH_CLEARANCE_M).
+            # pass on both sides of it, and then down onto the grasp height (arm_frames.py, REACH_CLEARANCE_M). It comes
+            # down DESCENT_STANDOFF_M short of the end to DESCENT_RISE_M above the grasp height and closes on a straight
+            # line last, so that the palm does not sweep down past the item's face and the hand does not come down onto
+            # the tote's front wall (arm_frames.reach_waypoints).
             approached = rig.transform("base_footprint", link)
             if not log.require(approached is not None, "no /tf of the hand after the approach"):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
-            tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)   # the item 9 mm into the fingers
-            pre_grasp, above = grasp_line((tcp_x, tcp_y, grasp_z + REACH_CLEARANCE_M), found[0], held_orientation)
-            _, hand = grasp_line((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
+            # The item 9 mm into the fingers, less where that brings the palm within PALM_CLEARANCE_M of it (arm_frames.py)
+            depth = palm_safe_depth(palm, item, (item[0], item[1], grasp_z), found[0], held_orientation, yaw)
+            log.quantity("item_depth_behind_tcp", depth, "m", note=f"recorded, no limit: {ITEM_DEPTH_BEHIND_TCP_M} m, less "
+                         f"where the palm would come within {PALM_CLEARANCE_M} m of the item (arm_frames.palm_safe_depth)")
+            tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation, depth)
+            waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
             _mark(rig, "grasp_reach_start")
-            reached = _cartesian(rig, log, side, link, [pre_grasp, above, hand], held_orientation, "grasp_reach", 0.1)
+            watcher = LastMoveMark(rig, link, waypoints).start()
+            try:
+                reached = _cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)
+            finally:
+                watcher.stop()
             rig.sleep_sim(1.0)
             _mark(rig, "grasp_reach_end")
             if not reached:
@@ -690,7 +732,7 @@ def bus_loss(rig, log):
     expected = ref["aux_bus_loss"]["expected"]
     emulator = "/sil/lift/emulator_state"
     rig.lift_permit(True)
-    rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh")
+    rig.wait_permit_fresh_after_grant(3.0)
     stops = rig.get(emulator)["permit_stops"]
     sim0, wall0 = rig.sim_time(), time.monotonic()
     rig.lift_command(2)
@@ -708,7 +750,7 @@ def bus_loss(rig, log):
     log.observed("vcan_aux_target_dropped", rig.get(emulator)["target_stop"] == 0xFF, "bool", expected["target_dropped"], ref["aux_bus_loss"]["source"])
     log.observed("vcan_aux_permit_stops", rig.get(emulator)["permit_stops"] - stops, "events")
     rig.publish("permit_silent", Bool(data=False), repeat=1)
-    rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh again")
+    rig.wait_permit_state(True, 3.0, "permit fresh again")
     rig.sleep_sim(2.0)
     log.observed("vcan_aux_moves_again_without_new_command", abs(rig.lift_truth() - position) > 0.003, "bool",
                  expected["moves_again_without_new_command"], ref["aux_bus_loss"]["source"])
