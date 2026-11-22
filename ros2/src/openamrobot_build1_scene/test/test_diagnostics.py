@@ -150,3 +150,19 @@ def test_the_table_reads_one_run(tmp_path):
 def test_resampling_drops_repeated_states():
     stair = [(0.00, 0.0), (0.01, 0.0), (0.02, 0.001), (0.05, 0.001), (0.06, 0.002), (0.11, 0.004)]
     assert dx.resample(stair, 0.05) == [(0.00, 0.0), (0.05, 0.001), (0.11, 0.004)]
+
+
+def test_start_state_contacts_are_one_key_per_pair_with_the_largest_depth():
+    # The -10 of diagnostics job 137050553254: the palm on the item lying in the tote, named by MoveIt either way round.
+    contacts = [("item", "openarm_left_ee_base_link", 0.002), ("openarm_left_ee_base_link", "item", -0.004),
+                ("work_shelf_board_0", "openarm_left_ee_link1", 0.001)]
+    assert dx.state_contact_pairs(contacts) == {"item~openarm_left_ee_base_link": 0.004,
+                                                "openarm_left_ee_link1~work_shelf_board_0": 0.001}
+    assert dx.state_contact_pairs([]) == {}
+
+
+def test_start_state_contacts_read_the_contact_information_fields():
+    class Contact:     # the fields of moveit_msgs/ContactInformation that the helper reads
+        def __init__(self, a, b, depth):
+            self.contact_body_1, self.contact_body_2, self.depth = a, b, depth
+    assert dx.state_contact_pairs([Contact("tote", "openarm_left_ee_link2", 0.003)]) == {"openarm_left_ee_link2~tote": 0.003}

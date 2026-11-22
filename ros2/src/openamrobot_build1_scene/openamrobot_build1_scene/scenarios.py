@@ -1184,8 +1184,39 @@ def _diag_probe(rig, log, when):
         log.event(f"probe at {when}: {line}")
 
 
+def _diag_start_state(rig, log, side, label):
+    """MoveIt's own verdict on the state a return starts from: /check_state_validity on the current state of the
+    planning scene monitor (an empty diff), with the contact pairs it finds. Diagnostic: recorded, no limit, and it
+    raises nothing, so no check result depends on it. MoveIt's -10 names no pair in the log; this line does."""
+    try:
+        from moveit_msgs.srv import GetStateValidity
+        from openamrobot_build1_scene import diagnostics as dx
+        client = rig.node.create_client(GetStateValidity, "/check_state_validity")
+        if not client.wait_for_service(timeout_sec=10.0):
+            log.event(f"{label} start state: no /check_state_validity service")
+            return
+        request = GetStateValidity.Request()
+        request.robot_state.is_diff = True
+        request.group_name = f"{side}_arm"
+        future = client.call_async(request)
+        end = time.monotonic() + 10.0
+        while not future.done() and time.monotonic() < end:
+            time.sleep(0.02)
+        response = future.result() if future.done() else None
+        if response is None:
+            log.event(f"{label} start state: /check_state_validity gave no answer in 10 s")
+            return
+        pairs = dx.state_contact_pairs(response.contacts)
+        log.event(f"{label} start state in the planning scene: valid {bool(response.valid)}, contact pairs (m of depth) {pairs}")
+        log.quantity(f"{label}_start_state_collision_pairs", len(pairs), "pairs",
+                     note="MoveIt planning scene at the start of the return (/check_state_validity). Diagnostic, recorded, no limit")
+    except Exception as error:  # noqa: BLE001  a diagnostic line only: it never decides a result
+        log.event(f"{label} start state: not checked ({type(error).__name__}: {error})")
+
+
 def _diag_return(rig, log, side, label, required=False):
     park = {f"openarm_{side}_joint{i}": value for i, value in enumerate(PARK, 1)}
+    _diag_start_state(rig, log, side, label)
     _mark(rig, f"{label}_start")
     _move_group(rig, log, _joint_goal(f"{side}_arm", park, 0.3), label, required=required, attempts=3)
     rig.sleep_sim(1.0)
@@ -1254,6 +1285,7 @@ def diag_reach_return(rig, log):
             _reach(rig, log, 0, 0, side, targets, 0.3)
         for side in ("left", "right"):
             labels.append((side, f"L0_{side}_back_to_park"))
+            _diag_start_state(rig, log, side, f"L0_{side}_back_to_park")
             try:
                 _back_to_park(rig, log, 0, side, 0.3)
             except ScenarioFailed as failed:
