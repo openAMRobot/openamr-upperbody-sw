@@ -14,7 +14,7 @@ sources:
   UC1: "Use Case 1 Requirements Baseline rev18.6 (8 Nov 2026), read in audits audit/2026-09-28 at 6b13302"
   M-01: "M-01 Mechanical CAD Design Work Package rev19.10, read in audits audit/2026-09-28 at 6b13302"
   E-01: "E-01 Safety and Power Distribution Baseline rev1.8, read in audits audit/2026-09-28 at 6b13302"
-  PLATFORM: "openamr-platform-sw cced705, candidate #178 + #182 + #184, was main 69847ab (openamrobot_description, openamrobot_docking, openamrobot_nav2)"
+  PLATFORM: "openamr-platform-sw e7e2cb6, EVIDENCE: trial convergence of main (#90) into cced705, was main 69847ab (openamrobot_description, openamrobot_docking, openamrobot_nav2)"
 
 # The baseline states work heights, the robot envelope and a parking distance.
 # It states no aisle width, no shelf depth, no tote size and no floor friction. Those are estimated here.
