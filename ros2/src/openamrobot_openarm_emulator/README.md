@@ -112,8 +112,9 @@ B MOS over-temperature, C coil over-temperature, D communication lost, E overloa
 Position and velocity are the joint's, from Gazebo. Torque is what the emulated motor applied. No gear ratio and no sign,
 as in the driver.
 
-Parameters with a value: UV_Value (0), OT_Value (2), MST_ID (7), ESC_ID (8), TIMEOUT (9), CTRL_MODE (10), PMAX (21),
-VMAX (22), TMAX (23), OV_Value (29). Any other register reads 0. Writing TIMEOUT stores the value and has no effect.
+Parameters with a value: UV_Value (0), OT_Value (2), MST_ID (7), ESC_ID (8), TIMEOUT (9), CTRL_MODE (10), Gr (20),
+PMAX (21), VMAX (22), TMAX (23), OV_Value (29). Any other register reads 0, KT_Value (1) and OC_Value (3) included: their
+values as shipped are unknown. TIMEOUT acts: 1 count is 50 us, 0 is off (below, "Current and temperature").
 
 ## Timing
 
@@ -177,6 +178,11 @@ ros2 run openamrobot_openarm_emulator inject_fault.py left can_loss on
 ros2 run openamrobot_openarm_emulator inject_fault.py left silent 4 on     # J4 stops answering
 ros2 run openamrobot_openarm_emulator inject_fault.py both over_voltage on
 ros2 run openamrobot_openarm_emulator inject_fault.py right over_temperature 2 on
+ros2 run openamrobot_openarm_emulator inject_fault.py right coil_over_temperature 2 on
+ros2 run openamrobot_openarm_emulator inject_fault.py left over_current 5 on    # J5 reports 0xA
+ros2 run openamrobot_openarm_emulator inject_fault.py left comm_timeout 3 on    # J3 reports 0xD
+ros2 run openamrobot_openarm_emulator inject_fault.py both timeout 0.1          # TIMEOUT register: 0.1 s
+ros2 run openamrobot_openarm_emulator inject_fault.py left power_cut on         # same as estop
 ros2 run openamrobot_openarm_emulator inject_fault.py both supply 29.2
 ros2 run openamrobot_openarm_emulator inject_fault.py both clear
 sudo ip link set vcan_arm_l down                                           # the interface itself
@@ -191,12 +197,89 @@ sudo ip link set vcan_arm_l down                                           # the
 | Over-temperature | `fault.temperature_mos_c`, `fault.temperature_rotor_c`, `fault.temperature_rate_c_per_s` | temperature ramps in D6 or D7, then code 0xB or 0xC, no torque | as over-voltage. Temperature is exported nowhere |
 | E-stop power cut | `fault.estop_power_cut: true` | bus up, every motor silent, no torque | the arm falls in the physics. The driver's state is frozen. Hardware component and controllers stay active |
 | Reset | `fault.estop_power_cut: false` | motors answer again, disabled, positions kept | state is live again and shows the fallen arm. The driver never sends enable by itself. Only deactivate and activate re-enable, and that drives the arm to zero |
+| Over-current | `fault.error_codes` 10 (`over_current`), or `over_current_a` set and exceeded | code 0xA, no torque | as over-voltage |
+| Communication timeout | `motor.can_timeout_s` (TIMEOUT register) with `fault.can_loss`, or `fault.error_codes` 13 (`comm_timeout`) | each enabled motor trips 0xD once no frame has arrived for the TIMEOUT time, lets go, still answers | OK returned throughout. After the wire closes the state is live and shows the fall; the code stays, nothing re-enables |
 | Any fault code | `fault.error_codes` (8 to 14 per motor) | that code, no torque | as over-voltage |
 
 A fault stays until a clear-error frame or a power cycle. The driver sends neither.
 
 `/sim/<side>_arm_emulator/status` (diagnostic_msgs/DiagnosticArray, 10 Hz) reports the bus and each motor: powered,
 enabled, code, position, torque, temperatures, frame counts, and the first MIT frame after the last enable.
+
+## Current and temperature
+
+Electrical and thermal states of each emulated motor. Parameters with value, unit, source, confidence, uncertainty,
+hardware revision, owner, test, date read and measurement item: `config/motor_electrical.yaml`. Nothing there is measured.
+
+**Current from torque.** The motor applies output torque `tau` (the control law, clamped as above). Its phase current is
+
+```
+I = tau / (kt * N)          kt: N m/A at the rotor, N: gear ratio
+P_cu = 1.5 * R * I^2        R: datasheet phase resistance, I: q-axis current amplitude
+```
+
+| Type | Joints | N | Rated | kt (N m/A) | kt * N | R (ohm) |
+|---|---|---|---|---|---|---|
+| DM-J8009P-2EC | J1, J2 | 9 | 20 N m, 20 A | 0.1111 | 1.000 | 0.09 |
+| DM-J4340P-2EC | J3, J4 | 40 | 9 N m, 2.5 A | 0.0900 | 3.600 | 0.76 |
+| DM-J4310-2EC V1.1 | J5 to J7, gripper | 10 | 3 N m, 2.5 A | 0.1200 | 1.200 | 0.65 |
+
+Sources: the Damiao manuals that upstream publishes (`enactic/openarm` e15e09e,
+`website/static/file/hardware/specification/motor/dm4310.pdf`, `dm4340.pdf`, `dm8009.pdf`) and the same table in
+`website/docs/hardware/openarm-2.0/motor.mdx`. No manual gives a torque constant, so `kt` is the rated torque over gear
+ratio and rated current (confidence: estimate). The peak point gives 6 to 22 % less. It includes the gear efficiency.
+The 1.5 factor assumes amplitude-invariant currents and a phase-to-neutral R; the manuals state neither.
+
+**Where the protocol reports it.** The Damiao state frame has no current field: D3 to D5 carry torque (12 bits), D6 the
+MOSFET temperature and D7 the rotor temperature, both in whole degrees C (datasheet feedback frame; openarm_can
+`dm_motor_control.cpp` L100-L114). The emulator reports `tau` in D3 to D5 and both temperatures in D6 and D7, as before.
+Current and copper loss are in `/sim/<side>_arm_emulator/status` (`current`, `copper_loss`) only.
+
+**Over-current (0xA).** With `over_current_a` set (8 values, A), a phase current above it trips 0xA: no torque, still
+answering, latched as any fault. Unset by default: register 3 (OC_Value) as shipped is unknown, and the manuals' "at most
+9.8 A" is advice for the user setting. The DM8009 manual repeats the DM4310 text, below its own 20 A rated current.
+
+**Winding temperature.** Off by default (`motor.thermal_model: false`). No manual gives a thermal resistance or a time
+constant. With the model on and both `thermal_resistance_k_per_w` and `thermal_time_constant_s` set (8 values each), the
+rotor temperature is a lumped first-order state
+
+```
+T_rotor(t + dt) = T_ss + (T_rotor(t) - T_ss) * exp(-dt / tau_th),   T_ss = T_ambient + P_cu * R_th
+```
+
+and above `motor.over_temperature_c` (register 2) the motor trips 0xC. With the model on but a value missing, configure
+fails. With the model on, injected rotor temperatures are ignored; MOSFET injection still works. The MOSFET temperature
+has no model: injection only, trip 0xB above `motor.mos_over_temperature_c` (120 C, datasheet: fixed).
+
+**TIMEOUT register (RID 9).** One count is 50 us (register table of the third-party python-damiao-driver; not a Damiao
+document). 0 is off. `motor.can_timeout_s` sets it in RAM and flash of every motor, while running too, as the maker's
+tool would. A host write to RID 9 acts at once and is lost at a power cycle unless saved. When an enabled motor has
+received no control frame on its own id for that time it trips 0xD (whether a refresh on 0x7FF also
+counts is unknown; here it does not). Upstream never writes the register; its value on a
+delivered motor is unknown (MP-07).
+
+**Not modelled.** Phase resistance rise with temperature, iron and gear losses, MOSFET heating, supply (bus) current and
+regeneration (RG-DRV-002, RG-DRV-005), overload (0xE) as a torque-time limit, current-loop dynamics, saturation above the
+rated point.
+
+## Driver behaviours 1 to 6
+
+The upstream driver is not changed. The emulator produces the motor-side conditions and the tests record what the driver
+does with them (audit register rows RG-FLT-001 to 006, measurement item MP-08).
+
+| # | Behaviour | Motor-side condition the emulator produces | Test |
+|---|---|---|---|
+| 1 | Move to zero on activate | enable answered; the first MIT frame and the position it found are recorded | `test_real_driver` KnownIssue_ActivateMovesEveryJointToZero, `test_sil_launch` |
+| 2 | Gripper sent 0.044 rad on activate | motor 8 records its first MIT frame | KnownIssue_ActivateMovesEveryJointToZero |
+| 3 | Healthy report on CAN loss and on a power cut | `fault.can_loss`, `ip link set down`, `fault.estop_power_cut` (motors silent), TIMEOUT trip | Fault_CanLoss_*, Fault_BusDown_*, Fault_EstopPowerCut_*, Fault_CommunicationTimeout_* |
+| 4 | Fault codes and temperatures decoded, not acted on | codes 8 to E in D0, temperatures in D6 and D7, from thresholds, the thermal model or injection | Fault_OverVoltage_*, Fault_OverTemperature_*, Fault_CommunicationTimeout_* |
+| 5 | No re-enable after a power cut | after the supply returns every motor answers disabled (code 0) and ignores MIT frames until an enable | Fault_EstopPowerCut_*, Fault_CommunicationTimeout_*; `test_motor_model` PowerCutSequenceOnTheWire |
+| 6 | Gripper velocity and effort states 0 | motor 8 reports its real velocity and torque in the state frame | EnablesReadsAndCommandsOneJoint |
+
+Register rows this package addresses or touches: RG-FLT-001 to 011, RG-DRV-001 to 007 (RG-DRV-002 current, RG-DRV-006
+temperature), RG-MEC-034 to 041 (not changed here). Measurement items: MP-06 (kt from register 1 and a held-torque
+current log, thermal resistance and time constant from a rated-torque hold), MP-07 (registers 0, 2, 3, 9, 29 as shipped),
+MP-08 (fault and power behaviour of the delivered arm).
 
 ## What the driver does today
 
@@ -222,17 +305,21 @@ No source in scope fixes these. Each is a parameter with a default. Measure on t
 | `motor.answers_when_disabled` | true | does a disabled motor answer refresh? |
 | `motor.power_up_enabled` | false | motor state after supply returns |
 | `motor.enable_clears_fault` | false | does enable clear a fault, or only clear-error? |
-| `motor.can_timeout_s` | 0 (off) | the TIMEOUT register as shipped, and its unit |
+| `motor.can_timeout_s` | 0 (off) | the TIMEOUT register as shipped. Unit 50 us from a third-party register table |
 | `motor.over_voltage_v`, `motor.under_voltage_v` | 32, 15 | thresholds (registers 29 and 0) |
-| `motor.over_temperature_c` | 120 | threshold (register 2) |
+| `motor.over_temperature_c` | 120 | rotor threshold (register 2). The datasheets advise at most 100 |
+| `over_current_a` | unset (off) | threshold (register 3) |
+| `motor.thermal_model` | false | thermal resistance and time constant of the winding |
+| `kt` (code default) | rated torque / (gear ratio * rated current) | the torque constant (register 1) |
 | `motor.voltage_speed_model` | true | speed and torque at 25.6 to 29.2 V |
 | `timing.turnaround_us` | 0 | motor reply latency and jitter |
 | `reply_brs` | true | BRS flag on motor replies |
 | position-velocity, velocity and position-force laws | simple cascade | the firmware's own loops and gains |
 | joint friction, damping, rotor inertia | none: the launch expands the model with `sim_dynamics:=off` | audit gap 3. The simulator dynamics profile (`openamrobot_upperbody_description/config/sim_dynamics/openarm_v2.yaml`) has sourced damping and friction, but they cannot be used here yet, see below |
 
-Also not emulated: error frames, bus-off, dropped or late frames, wrong ids, over-current and overload detection,
-a thermal model, the gripper's motor sign per hand.
+Also not emulated: error frames, bus-off, dropped or late frames, wrong ids, overload (0xE) detection, a MOSFET thermal
+model, the gripper's motor sign per hand. Over-current detection and the winding thermal model exist and are off until
+their values are known (below).
 
 ## Tests
 
@@ -244,9 +331,9 @@ colcon test --packages-select openamrobot_openarm_emulator && colcon test-result
 | Test | Needs | What it checks |
 |---|---|---|
 | `test_codec` | openarm_can | frame bytes, then encode and decode against the upstream library |
-| `test_motor_model` | nothing | motor state machine, parameters, faults, supply voltage, damping, bus timing |
+| `test_motor_model` | nothing | motor state machine, parameters, faults, every code in the frame, current, thermal model, TIMEOUT, power cut on the wire, supply voltage, damping, bus timing |
 | `test_real_driver` | vcan, driver | the real driver enables, reads and commands a joint through the emulator. Each fault. Both arms |
-| `test_package_static` | nothing | pins, configuration, launch logic, `setup_vcan.sh` |
+| `test_package_static` | nothing | pins, configuration, `motor_electrical.yaml` fields and defaults, `inject_fault.py` usage, launch logic, `setup_vcan.sh` |
 | `test_sil_launch` | vcan, driver, Gazebo | the whole launch headless: trajectory, E-stop power cut, reset |
 
 A test that needs vcan or the driver and cannot have it reports **BLOCKED** (a skip with that word). It never passes.

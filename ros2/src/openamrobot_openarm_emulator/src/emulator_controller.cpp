@@ -39,19 +39,25 @@ CallbackReturn OpenArmCanEmulator::on_init()
   node->declare_parameter<std::vector<double>>("peak_torque", std::vector<double>{});
   node->declare_parameter<std::vector<double>>("no_load_speed_24v", std::vector<double>{});
   node->declare_parameter<std::vector<double>>("damping_inertia", std::vector<double>{});
+  // Empty: unknown, the function is off (README, "Current and temperature").
+  node->declare_parameter<std::vector<double>>("over_current_a", std::vector<double>{});
+  node->declare_parameter<std::vector<double>>("thermal_resistance_k_per_w", std::vector<double>{});
+  node->declare_parameter<std::vector<double>>("thermal_time_constant_s", std::vector<double>{});
   node->declare_parameter<bool>("reply_brs", true);
   node->declare_parameter<bool>("motor.answers_when_disabled", true);
   node->declare_parameter<bool>("motor.power_up_enabled", false);
   node->declare_parameter<bool>("motor.enable_clears_fault", false);
-  node->declare_parameter<double>("motor.can_timeout_s", 0.0);
   node->declare_parameter<double>("motor.over_voltage_v", 32.0);
   node->declare_parameter<double>("motor.under_voltage_v", 15.0);
   node->declare_parameter<double>("motor.over_temperature_c", 120.0);
+  node->declare_parameter<double>("motor.mos_over_temperature_c", 120.0);
+  node->declare_parameter<bool>("motor.thermal_model", false);
   node->declare_parameter<bool>("motor.voltage_speed_model", true);
   node->declare_parameter<double>("motor.ambient_c", 25.0);
   node->declare_parameter<bool>("motor.implicit_damping", true);
   node->declare_parameter<double>("motor.damping_split_hz", 200.0);
   // May be changed while running.
+  node->declare_parameter<double>("motor.can_timeout_s", 0.0);   // every motor's TIMEOUT register, s (1 count = 50 us)
   node->declare_parameter<bool>("timing.model", true);
   node->declare_parameter<double>("timing.nominal_bitrate", 1.0e6);
   node->declare_parameter<double>("timing.data_bitrate", 5.0e6);
@@ -78,8 +84,13 @@ CallbackReturn OpenArmCanEmulator::on_configure(const rclcpp_lifecycle::State &)
   const auto peak = node->get_parameter("peak_torque").as_double_array();
   const auto speed = node->get_parameter("no_load_speed_24v").as_double_array();
   const auto inertia = node->get_parameter("damping_inertia").as_double_array();
+  const auto over_current = node->get_parameter("over_current_a").as_double_array();
+  const auto thermal_r = node->get_parameter("thermal_resistance_k_per_w").as_double_array();
+  const auto thermal_tau = node->get_parameter("thermal_time_constant_s").as_double_array();
   for (const auto & [name, size] : {std::pair<const char *, size_t>{"joints", joints.size()}, {"motor_types", types.size()},
-      {"peak_torque", peak.size()}, {"no_load_speed_24v", speed.size()}, {"damping_inertia", inertia.size()}})
+      {"peak_torque", peak.size()}, {"no_load_speed_24v", speed.size()}, {"damping_inertia", inertia.size()},
+      {"over_current_a", over_current.size()}, {"thermal_resistance_k_per_w", thermal_r.size()},
+      {"thermal_time_constant_s", thermal_tau.size()}})
   {
     if (size != 0 && size != kMotors) {
       RCLCPP_ERROR(node->get_logger(), "%s has %zu entries, expected 0 (defaults) or %zu", name, size, kMotors);
@@ -96,6 +107,9 @@ CallbackReturn OpenArmCanEmulator::on_configure(const rclcpp_lifecycle::State &)
     if (!peak.empty()) {m.peak_torque = peak[i];}
     if (!speed.empty()) {m.no_load_speed_24v = speed[i];}
     if (!inertia.empty()) {m.damping_inertia = inertia[i];}
+    if (!over_current.empty()) {m.over_current_a = over_current[i];}
+    if (!thermal_r.empty()) {m.thermal_resistance = thermal_r[i];}
+    if (!thermal_tau.empty()) {m.thermal_time_constant = thermal_tau[i];}
   }
   config.reply_brs = node->get_parameter("reply_brs").as_bool();
   config.options.answers_when_disabled = node->get_parameter("motor.answers_when_disabled").as_bool();
@@ -105,6 +119,18 @@ CallbackReturn OpenArmCanEmulator::on_configure(const rclcpp_lifecycle::State &)
   config.options.over_voltage_v = node->get_parameter("motor.over_voltage_v").as_double();
   config.options.under_voltage_v = node->get_parameter("motor.under_voltage_v").as_double();
   config.options.over_temperature_c = node->get_parameter("motor.over_temperature_c").as_double();
+  config.options.mos_over_temperature_c = node->get_parameter("motor.mos_over_temperature_c").as_double();
+  config.options.thermal_model = node->get_parameter("motor.thermal_model").as_bool();
+  if (config.options.thermal_model) {
+    for (const MotorConfig & m : config.motors) {
+      if (m.thermal_resistance <= 0.0 || m.thermal_time_constant <= 0.0) {
+        RCLCPP_ERROR(node->get_logger(), "motor.thermal_model is on but %s has no thermal_resistance_k_per_w or "
+          "thermal_time_constant_s. No source gives them (measurement MP-06): set test values or leave the model off",
+          m.joint.c_str());
+        return CallbackReturn::ERROR;
+      }
+    }
+  }
   config.options.voltage_speed_model = node->get_parameter("motor.voltage_speed_model").as_bool();
   config.options.ambient_c = node->get_parameter("motor.ambient_c").as_double();
   config.options.implicit_damping = node->get_parameter("motor.implicit_damping").as_bool();
@@ -205,6 +231,13 @@ rcl_interfaces::msg::SetParametersResult OpenArmCanEmulator::on_parameters(const
       };
     if (name == "supply_voltage") {
       emulator_->set_supply_voltage(p.as_double());
+    } else if (name == "motor.can_timeout_s") {
+      if (p.as_double() < 0.0) {
+        result.successful = false;
+        result.reason = "motor.can_timeout_s is 0 (off) or a positive time in seconds";
+        return result;
+      }
+      emulator_->set_timeout(p.as_double());
     } else if (name == "fault.can_loss") {
       emulator_->set_can_loss(p.as_bool());
     } else if (name == "fault.estop_power_cut") {
@@ -309,7 +342,8 @@ void OpenArmCanEmulator::publish_status()
     motor.values = {kv("powered", s.powered ? "true" : "false"), kv("enabled", s.enabled ? "true" : "false"),
       kv("silent", s.silent ? "true" : "false"), kv("code", std::to_string(s.code)),
       kv("mode", std::to_string(static_cast<uint32_t>(s.mode))), kv("position", std::to_string(s.q)),
-      kv("velocity", std::to_string(s.dq)), kv("torque", std::to_string(s.tau)), kv("t_mos", std::to_string(s.t_mos)),
+      kv("velocity", std::to_string(s.dq)), kv("torque", std::to_string(s.tau)), kv("current", std::to_string(s.current)),
+      kv("copper_loss", std::to_string(s.copper_loss)), kv("t_mos", std::to_string(s.t_mos)),
       kv("t_rotor", std::to_string(s.t_rotor)), kv("mit_q", std::to_string(s.last_mit.q)), kv("mit_kp", std::to_string(s.last_mit.kp)),
       kv("mit_kd", std::to_string(s.last_mit.kd)), kv("enable_frames", std::to_string(s.enable_frames)),
       kv("disable_frames", std::to_string(s.disable_frames)), kv("control_frames", std::to_string(s.control_frames)),

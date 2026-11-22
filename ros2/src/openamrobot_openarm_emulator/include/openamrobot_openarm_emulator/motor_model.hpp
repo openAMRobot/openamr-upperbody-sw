@@ -16,6 +16,10 @@ namespace openarm_emulator
 
 enum class ControlMode : uint32_t { MIT = 1, POS_VEL = 2, VEL = 3, POS_FORCE = 4 };
 
+/// TIMEOUT register (RID 9) unit: one count is 50 us.
+constexpr double kTimeoutCountS = 50e-6;
+uint32_t timeout_counts(double seconds);
+
 struct MotorConfig
 {
   std::string joint;          // ros2_control joint this motor drives
@@ -25,6 +29,13 @@ struct MotorConfig
   double peak_torque{7.0};    // N m at the output. The motor never applies more.
   double no_load_speed_24v{20.944};  // rad/s at the output, at 24 V
   double damping_inertia{1.0e-4};    // kg m^2: the child link (with what is fixed to it) about the joint axis
+  // Electrical and thermal (README, "Current and temperature"). 0 means unknown: what depends on it is off.
+  double gear_ratio{10.0};           // datasheet reduction ratio
+  double kt{0.12};                   // N m/A at the rotor, phase current. Derived: rated torque / (gear ratio * rated current)
+  double phase_resistance{0.65};     // ohm, datasheet at 25 C
+  double over_current_a{0.0};        // phase current above this gives 0xA. 0: off (register 3 as shipped is unknown)
+  double thermal_resistance{0.0};    // K/W winding to ambient. No source: 0
+  double thermal_time_constant{0.0}; // s, winding. No source: 0
 };
 
 /// Behaviour that no source in scope fixes. Each default is an assumption, listed in the package README.
@@ -33,10 +44,14 @@ struct MotorOptions
   bool answers_when_disabled{true};   // a disabled motor still answers refresh and control frames
   bool power_up_enabled{false};       // state after supply returns
   bool enable_clears_fault{false};    // false: only a clear-error frame (..FB) or a power cycle clears a fault
-  double can_timeout_s{0.0};          // 0: off. Else: enabled and no control frame for this long gives code 0xD
+  // The TIMEOUT register (RID 9) at power-up, in seconds: 1 count = 50 us. 0: off. Else: enabled and no control frame
+  // for this long gives code 0xD. A host write to RID 9 changes it until the next power cycle (a save keeps it).
+  double can_timeout_s{0.0};
   double over_voltage_v{32.0};        // supply above this gives 0x8
   double under_voltage_v{15.0};       // supply below this gives 0x9
-  double over_temperature_c{120.0};   // MOS above this gives 0xB, rotor above this gives 0xC
+  double over_temperature_c{120.0};   // register 2 (OT_Value): rotor above this gives 0xC
+  double mos_over_temperature_c{120.0};  // driver MOSFET above this gives 0xB. Datasheet: fixed at 120 C
+  bool thermal_model{false};          // winding temperature from copper loss. Needs thermal_resistance and _time_constant
   bool voltage_speed_model{true};     // no-load speed scales with supply / 24 V, torque falls linearly to 0 there
   double ambient_c{25.0};
   double posvel_kp{20.0};             // 1/s, position error to speed reference (POS_VEL and POS_FORCE)
@@ -70,6 +85,8 @@ struct MotorStatus
   double q{0.0};
   double dq{0.0};
   double tau{0.0};
+  double current{0.0};      // A, phase current for tau: tau / (kt * gear_ratio). Not in the state frame (README)
+  double copper_loss{0.0};  // W, 1.5 * phase_resistance * current^2
   double t_mos{25.0};
   double t_rotor{25.0};
   MitCommand last_mit{};
@@ -109,6 +126,12 @@ public:
   void set_silent(bool silent) {status_.silent = silent;}
   void force_code(uint8_t code);            // 0x8..0xE: fault. 0: remove a forced fault.
   void set_temperature_target(double mos_c, double rotor_c, double rate_c_per_s);
+
+  /// The TIMEOUT register in RAM and flash, as the maker's tool sets it. Seconds, 0: off.
+  void set_timeout(double seconds);
+  double timeout_s() const;
+  /// True when the winding temperature is computed (thermal_model on and both thermal parameters known).
+  bool thermal_active() const;
 
   bool replies() const {return status_.powered && !status_.silent;}
   const MotorStatus & status() const {return status_;}

@@ -525,6 +525,35 @@ TEST_F(RealDriver, Fault_OverTemperature_MotorTripsAndDriverReportsHealthy)
   }
 }
 
+TEST_F(RealDriver, Fault_CommunicationTimeout_MotorsTripOnCanLoss_NoReEnable)
+{
+  start_left();
+  ASSERT_FALSE(HasFatalFailure());
+  // TIMEOUT register of every motor to 0.1 s (2000 counts), as the maker's tool would set it. The driver never writes it.
+  left_->emulator->set_timeout(0.1);
+  ASSERT_TRUE(left_->run(0.5));
+  for (size_t i = 0; i < kJoints; ++i) {ASSERT_TRUE(left_->emulator->status(i).enabled) << "motor " << i;}
+  const uint64_t enables = left_->emulator->status(1).enable_frames;
+
+  // The wire to the motors opens for 0.5 s: no frame reaches them, so each trips 0xD after 0.1 s and lets go.
+  left_->emulator->set_can_loss(true);
+  EXPECT_TRUE(left_->run(0.5));                                  // behaviour 3: OK throughout
+  for (size_t i = 0; i < kJoints; ++i) {
+    EXPECT_EQ(left_->emulator->status(i).code, kCodeCommunicationLost) << "motor " << i;
+    EXPECT_FALSE(left_->emulator->status(i).enabled) << "motor " << i;
+  }
+  EXPECT_NEAR(left_->plant->position(1), -Plant::kStop, 0.01);   // the loaded joint fell
+
+  // The wire closes. The motors answer with 0xD in every state frame; the driver reads the fall and does nothing else.
+  left_->emulator->set_can_loss(false);
+  EXPECT_TRUE(left_->run(1.0));                                  // behaviour 3: still OK
+  EXPECT_NEAR(left_->position(1), -Plant::kStop, 0.01);          // the state is live and shows the fall
+  EXPECT_EQ(left_->emulator->status(1).code, kCodeCommunicationLost);  // behaviour 4: code decoded, not acted on
+  EXPECT_EQ(left_->emulator->status(1).enable_frames, enables);        // behaviour 5: no clear-error, no enable
+  EXPECT_FALSE(left_->emulator->status(1).enabled);
+  EXPECT_NEAR(left_->plant->position(1), -Plant::kStop, 0.01);
+}
+
 TEST_F(RealDriver, Fault_EstopPowerCut_FrozenStateWhileTheArmFalls_NoReEnableWithoutReactivation)
 {
   start_left();

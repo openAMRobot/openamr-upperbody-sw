@@ -20,6 +20,12 @@ double approach(double value, double target, double rate, double dt)
 }
 }  // namespace
 
+uint32_t timeout_counts(double seconds)
+{
+  if (seconds <= 0.0) {return 0u;}
+  return static_cast<uint32_t>(std::min(std::round(seconds / kTimeoutCountS), 4294967295.0));
+}
+
 MotorModel::MotorModel(const MotorConfig & config, const MotorOptions & options)
 : config_(config), options_(options), limits_(encoding_limits(config.type))
 {
@@ -27,7 +33,8 @@ MotorModel::MotorModel(const MotorConfig & config, const MotorOptions & options)
   flash_[kRidOverTemperature] = float_bits(static_cast<float>(options.over_temperature_c));
   flash_[kRidMasterId] = config.recv_id;
   flash_[kRidSlaveId] = config.send_id;
-  flash_[kRidTimeout] = 0;
+  flash_[kRidTimeout] = timeout_counts(options.can_timeout_s);
+  flash_[kRidGearRatio] = float_bits(static_cast<float>(config.gear_ratio));
   flash_[kRidControlMode] = static_cast<uint32_t>(ControlMode::MIT);
   flash_[kRidPMax] = float_bits(static_cast<float>(limits_.p_max));
   flash_[kRidVMax] = float_bits(static_cast<float>(limits_.v_max));
@@ -36,6 +43,18 @@ MotorModel::MotorModel(const MotorConfig & config, const MotorOptions & options)
   ram_ = flash_;
   status_.t_mos = status_.t_rotor = target_mos_ = target_rotor_ = options.ambient_c;
   status_.enabled = options.power_up_enabled;
+}
+
+void MotorModel::set_timeout(double seconds)
+{
+  flash_[kRidTimeout] = ram_[kRidTimeout] = timeout_counts(seconds);
+}
+
+double MotorModel::timeout_s() const {return param_raw(kRidTimeout) * kTimeoutCountS;}
+
+bool MotorModel::thermal_active() const
+{
+  return options_.thermal_model && config_.thermal_resistance > 0.0 && config_.thermal_time_constant > 0.0;
 }
 
 uint32_t MotorModel::param_raw(uint8_t rid) const
@@ -81,6 +100,8 @@ void MotorModel::set_power(bool on, double now)
   status_.code = 0;
   status_.first_mit_valid = false;
   status_.tau = 0.0;
+  status_.current = 0.0;
+  status_.copper_loss = 0.0;
   clear_setpoints();
   ram_ = flash_;  // registers written without a save are lost
   status_.mode = static_cast<ControlMode>(ram_[kRidControlMode]);
@@ -200,10 +221,17 @@ double MotorModel::step(double joint_q, double joint_dq, double now, double dt, 
   status_.q = joint_q - zero_offset_;
   status_.dq = joint_dq;
   status_.t_mos = approach(status_.t_mos, target_mos_, temperature_rate_, dt);
-  status_.t_rotor = approach(status_.t_rotor, target_rotor_, temperature_rate_, dt);
+  if (thermal_active()) {
+    // Lumped first-order winding: C dT/dt = P - (T - T_ambient) / R, with R C = time constant. Exact for a constant P
+    // over the step. P is the copper loss of the previous step.
+    const double steady = options_.ambient_c + status_.copper_loss * config_.thermal_resistance;
+    status_.t_rotor = steady + (status_.t_rotor - steady) * std::exp(-dt / config_.thermal_time_constant);
+  } else {
+    status_.t_rotor = approach(status_.t_rotor, target_rotor_, temperature_rate_, dt);
+  }
 
   if (!status_.powered) {
-    status_.tau = 0.0;
+    status_.tau = status_.current = status_.copper_loss = 0.0;
     return 0.0;
   }
   if (forced_code_ != 0) {
@@ -212,15 +240,15 @@ double MotorModel::step(double joint_q, double joint_dq, double now, double dt, 
     trip(kCodeOverVoltage);
   } else if (supply_v < options_.under_voltage_v) {
     trip(kCodeUnderVoltage);
-  } else if (status_.t_mos > options_.over_temperature_c) {
+  } else if (status_.t_mos > options_.mos_over_temperature_c) {
     trip(kCodeMosOverTemperature);
   } else if (status_.t_rotor > options_.over_temperature_c) {
     trip(kCodeCoilOverTemperature);
-  } else if (status_.enabled && options_.can_timeout_s > 0.0 && now - last_control_time_ > options_.can_timeout_s) {
+  } else if (status_.enabled && timeout_s() > 0.0 && now - last_control_time_ > timeout_s()) {
     trip(kCodeCommunicationLost);
   }
   if (!status_.enabled) {
-    status_.tau = 0.0;
+    status_.tau = status_.current = status_.copper_loss = 0.0;
     tau_slow_ = 0.0;
     return 0.0;
   }
@@ -243,7 +271,17 @@ double MotorModel::step(double joint_q, double joint_dq, double now, double dt, 
     const double left = cap * std::max(0.0, 1.0 - std::fabs(status_.dq) / std::max(no_load, 1e-6));
     tau = clamp(tau, -left, left);
   }
+  const double torque_per_amp = config_.kt * config_.gear_ratio;
+  const double current = torque_per_amp > 0.0 ? tau / torque_per_amp : 0.0;
+  if (config_.over_current_a > 0.0 && std::fabs(current) > config_.over_current_a) {
+    trip(kCodeOverCurrent);
+    status_.tau = status_.current = status_.copper_loss = 0.0;
+    tau_slow_ = 0.0;
+    return 0.0;
+  }
   status_.tau = tau;
+  status_.current = current;
+  status_.copper_loss = 1.5 * config_.phase_resistance * current * current;
   const double split = 2.0 * M_PI * std::max(options_.damping_split_hz, 1e-3) * dt;
   tau_slow_ += split / (1.0 + split) * (tau - tau_slow_);
   return tau;
