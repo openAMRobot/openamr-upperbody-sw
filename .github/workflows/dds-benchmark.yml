@@ -1,0 +1,341 @@
+# SPDX-License-Identifier: MIT
+# DDS benchmark (Proposed, docs/integration/dds_benchmark.md): the Baseline 1 workload under three RMW settings.
+#
+# Diagnostics only. It runs the same launch, pins and mission as baseline1-acceptance.yml (that file and the mission are
+# not changed) once per setting, on the same runner type, with an observer next to it (tools/dds_benchmark/observer.py):
+# QoS of the key topics, CPU and memory per process, delivery and latency of the key topics, RTF over time and the
+# participant index of every process. A last job prints one comparison table. It never makes Baseline 1 complete, never
+# changes an acceptance threshold and is not hardware, physical, perception or safety evidence. No secrets, no hardware;
+# the observer publishes nothing.
+#
+# Settings (matrix.setting):
+#   fastdds_default     rmw_fastrtps_cpp, as Baseline 1 runs today
+#   fastdds_large_data  rmw_fastrtps_cpp with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+#   cyclonedds          rmw_cyclonedds_cpp (apt ros-jazzy-rmw-cyclonedds-cpp, this workflow only; Eclipse Public
+#                       License 2.0 / Eclipse Distribution License 1.0)
+# The mission's harness sets ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST in every setting (build1_harness.py, unchanged).
+# discovery_cap 'raised' is an opt-in experiment for after the owners' review; the default leaves the middleware as is.
+name: DDS benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      station_alignment:
+        description: "1: with openamr-platform-sw #167's marker alignment (camera and station pose measured). 0: Baseline 1 as accepted"
+        default: '1'
+        type: choice
+        options: ['1', '0']
+      settings:
+        description: "Comma-separated subset of fastdds_default,fastdds_large_data,cyclonedds"
+        default: 'fastdds_default,fastdds_large_data,cyclonedds'
+        type: string
+      repeats:
+        description: "Runs per setting (2 for more confidence: hosted runners vary)"
+        default: '1'
+        type: choice
+        options: ['1', '2']
+      discovery_cap:
+        description: "unchanged (default): middleware as Baseline 1. raised: participant index cap lifted to 120 (Fast DDS: XML initial peers; Cyclone: MaxAutoParticipantIndex). Owners' decision"
+        default: 'unchanged'
+        type: choice
+        options: ['unchanged', 'raised']
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PACKAGE: openamrobot_build1_scene
+  PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
+  # The pins and versions of baseline1-acceptance.yml at d63e9ed (integration/baseline1), unchanged.
+  PLATFORM_SW_SHA: 931e631db661b16d1057dfd1ab1d13ea606482e2
+  ROS_APT_SOURCE_VERSION: '1.3.0'
+  GZ_SIM_VENDOR: 0.0.13-1noble.20261031.125555
+  GZ_TOOLS_VENDOR: 0.0.8-1noble.20261025.230735
+  SDFORMAT_VENDOR: 0.0.14-1noble.20261031.120928
+  GZ_SIM_VERSION: 8.15.0
+  SDFORMAT_VERSION: 14.9.0
+  BASELINE1_SEED: '20261117'
+  PYTHONHASHSEED: '20261117'
+  BASELINE1_STATION_APPROACH: '1'
+  BASELINE1_PROFILE: sim-oracle
+  BUILD1_PLANNING_POSE_SOURCE: ground_truth
+  BASELINE1_STATION_ALIGNMENT: ${{ github.event.inputs.station_alignment || '1' }}
+
+jobs:
+  plan:
+    name: Matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      settings: ${{ steps.m.outputs.settings }}
+      repeats: ${{ steps.m.outputs.repeats }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Observer and comparison unit tests (no ROS)
+        run: |
+          # pytest 8.3.3 (MIT) from PyPI into a throw-away venv, this job only.
+          python3 -m venv /tmp/t && /tmp/t/bin/pip install -q pytest==8.3.3
+          /tmp/t/bin/python -m pytest -q -p no:cacheprovider tools/tests/test_dds_benchmark.py
+      - id: m
+        env:
+          SETTINGS: ${{ github.event.inputs.settings }}
+          REPEATS: ${{ github.event.inputs.repeats }}
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'EOF'
+          import json, os
+          allowed = ("fastdds_default", "fastdds_large_data", "cyclonedds")
+          chosen = [s.strip() for s in os.environ.get("SETTINGS", "").split(",") if s.strip()] or list(allowed)
+          bad = [s for s in chosen if s not in allowed]
+          assert not bad, f"unknown settings {bad}; allowed {allowed}"
+          print("settings=" + json.dumps(chosen))
+          print("repeats=" + json.dumps(list(range(1, int(os.environ.get("REPEATS") or "1") + 1))))
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+  bench:
+    name: ${{ matrix.setting }} r${{ matrix.repeat }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        setting: ${{ fromJSON(needs.plan.outputs.settings) }}
+        repeat: ${{ fromJSON(needs.plan.outputs.repeats) }}
+    env:
+      BENCH_SETTING: ${{ matrix.setting }}
+      BENCH_DISCOVERY_CAP: ${{ github.event.inputs.discovery_cap || 'unchanged' }}
+    steps:
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools ffmpeg
+          sudo rosdep init || echo "rosdep init: already initialized"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: ws/src/openamr-upperbody-sw
+          persist-credentials: false
+
+      - name: Read the pins
+        id: pins
+        run: |
+          python3 - "$PACKAGE_DIR/config/pins.yaml" >> "$GITHUB_OUTPUT" <<'EOF'
+          import re, sys, yaml
+          pins = yaml.safe_load(open(sys.argv[1]))["pins"]
+          for key in ("platform_sw_pr145", "openarm_ros2", "openarm_can", "openarm_description"):
+              value = pins[key]["sha"]
+              assert isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value), f"{key}: {value!r} is not a full hash"
+              print(f"{key}={value}")
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openAMRobot/openamr-platform-sw
+          ref: ${{ env.PLATFORM_SW_SHA }}
+          path: ws/src/openamr-platform-sw
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_description
+          ref: ${{ steps.pins.outputs.openarm_description }}
+          path: ws/src/upstream/openarm_description
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_ros2
+          ref: ${{ steps.pins.outputs.openarm_ros2 }}
+          path: ws/src/upstream/openarm_ros2
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: enactic/openarm_can
+          ref: ${{ steps.pins.outputs.openarm_can }}
+          path: ws/src/upstream/openarm_can
+          persist-credentials: false
+
+      - name: Workspace layout and pins
+        working-directory: ws
+        run: |
+          for d in src/openamr-upperbody-sw src/openamr-platform-sw src/upstream/*; do
+            echo "$d $(git -C "$d" rev-parse HEAD)"
+          done | tee ../pins.txt
+
+      - name: "ENV/INFRA: virtual CAN"
+        run: |
+          sudo apt-get install -y iproute2 can-utils
+          sudo apt-get install -y "linux-modules-extra-$(uname -r)" || echo "linux-modules-extra-$(uname -r) could not be installed"
+          sudo modprobe vcan || echo "modprobe vcan failed"
+          sudo modprobe can_raw || echo "modprobe can_raw failed"
+          set +e
+          sh "$PACKAGE_DIR/scripts/setup_vcan_all.sh" 2>&1 | tee vcan.txt
+          echo "VCAN_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+
+      - name: "ENV/INFRA: pinned Gazebo vendor builds"
+        run: |
+          sudo apt-get install -y --allow-downgrades \
+            ros-jazzy-gz-sim-vendor=${GZ_SIM_VENDOR} ros-jazzy-gz-tools-vendor=${GZ_TOOLS_VENDOR} ros-jazzy-sdformat-vendor=${SDFORMAT_VENDOR}
+          sudo apt-mark hold ros-jazzy-gz-sim-vendor ros-jazzy-gz-tools-vendor ros-jazzy-sdformat-vendor
+
+      - name: "ENV/INFRA: rosdep and the stack (as baseline1-acceptance.yml)"
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" $extra --paths-only)
+          rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
+          sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+
+      - name: "Benchmark only: observer dependency and the CycloneDDS RMW"
+        run: |
+          # python3-psutil (BSD-3-Clause, Ubuntu noble) for the per-process sampler. Benchmark workflow only.
+          sudo apt-get install -y python3-psutil
+          if [ "${BENCH_SETTING}" = "cyclonedds" ]; then
+            # ros-jazzy-rmw-cyclonedds-cpp from packages.ros.org: Eclipse Public License 2.0 / Eclipse Distribution
+            # License 1.0 (Eclipse Cyclone DDS) and Apache-2.0 (rmw_cyclonedds). Benchmark workflow only.
+            sudo apt-get install -y ros-jazzy-rmw-cyclonedds-cpp
+            dpkg -s ros-jazzy-rmw-cyclonedds-cpp > /dev/null || { echo "ENV/INFRA: rmw_cyclonedds_cpp missing"; exit 1; }
+          fi
+          # apt may satisfy rmw_implementation with either RMW when both are requested at once (seen on a hosted runner,
+          # 18 Nov 2026), so the Fast DDS RMW of the stack is checked, never installed here.
+          dpkg -s ros-jazzy-rmw-fastrtps-cpp > /dev/null || { echo "ENV/INFRA: rmw_fastrtps_cpp missing"; exit 1; }
+
+      - name: "ENV/INFRA: check the pinned versions"
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          sim=$(gz sim --versions); sdf=$(gz sdf --versions)
+          dpkg-query -W -f='${Package} ${Version}\n' \
+            | grep -E '^(ros-jazzy-(ros-base|rclcpp|rclpy|ros-gz|gz-|ros2-control|moveit|navigation2|fastrtps|fastcdr|rmw-fastrtps|rmw-cyclonedds|cyclonedds|rmw-implementation)|python3-(can|psutil))' \
+            | sort | tee versions.txt
+          test "${sim}" = "${GZ_SIM_VERSION}" || { echo "ENV/INFRA: expected gz-sim ${GZ_SIM_VERSION}, found ${sim}"; exit 1; }
+          test "${sdf}" = "${SDFORMAT_VERSION}" || { echo "ENV/INFRA: expected sdformat ${SDFORMAT_VERSION}, found ${sdf}"; exit 1; }
+
+      - name: "BUILD: colcon build"
+        id: build
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          extra=""; [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ] && extra="openamrobot_station_alignment"
+          colcon build --packages-up-to "$PACKAGE" $extra --event-handlers console_cohesion+
+
+      - name: Middleware setting of this cell
+        run: |
+          bench=ws/src/openamr-upperbody-sw/tools/dds_benchmark
+          domain=$(python3 -I "$bench/observer.py" domain "$BASELINE1_SEED")
+          {
+            echo "BENCH_DOMAIN=${domain}"
+            case "${BENCH_SETTING}" in
+              fastdds_default) echo "RMW_IMPLEMENTATION=rmw_fastrtps_cpp" ;;
+              fastdds_large_data) echo "RMW_IMPLEMENTATION=rmw_fastrtps_cpp"; echo "FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA" ;;
+              cyclonedds) echo "RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" ;;
+            esac
+          } >> "$GITHUB_ENV"
+          if [ "${BENCH_DISCOVERY_CAP}" = "raised" ]; then
+            mkdir -p "$RUNNER_TEMP/dds"
+            python3 -I "$bench/observer.py" peers-xml "$domain" --count 120 > "$RUNNER_TEMP/dds/fastdds_raised_cap.xml"
+            {
+              echo "FASTRTPS_DEFAULT_PROFILES_FILE=$RUNNER_TEMP/dds/fastdds_raised_cap.xml"
+              echo "FASTDDS_DEFAULT_PROFILES_FILE=$RUNNER_TEMP/dds/fastdds_raised_cap.xml"
+              echo 'CYCLONEDDS_URI=<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
+            } >> "$GITHUB_ENV"
+          fi
+          echo "setting ${BENCH_SETTING}, discovery_cap ${BENCH_DISCOVERY_CAP}, harness domain ${domain}, nproc $(nproc)"
+          { echo "### ${BENCH_SETTING} r${{ matrix.repeat }}"; echo "discovery_cap ${BENCH_DISCOVERY_CAP}, domain ${domain}, nproc $(nproc), runner ${RUNNER_NAME}"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Mission (Baseline 1, unchanged) with the observer"
+        if: steps.build.outcome == 'success' && env.VCAN_RC == '0'
+        working-directory: ws
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          export BUILD1_LOG_DIR="$PWD/build1_logs" BENCH_OUT="$PWD/bench"
+          mkdir -p "$BUILD1_LOG_DIR" "$BENCH_OUT"
+          ros2 doctor --report > "$BENCH_OUT/ros2_doctor.txt" 2>&1 || true
+          if [ "${BASELINE1_STATION_ALIGNMENT}" = "1" ]; then camera=/base_camera/color/image_raw; else camera=/base_camera/rgbd/image; fi
+          topics="/odom,/tf,/scan,/joint_states,/sil/base/odom,$camera,/station_alignment/station_pose,/apriltag/detections"
+          # The observer joins the harness's domain and discovery range before the launch, so it takes participant index 0.
+          ROS_DOMAIN_ID="$BENCH_DOMAIN" ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+            python3 src/openamr-upperbody-sw/tools/dds_benchmark/observer.py run --domain "$BENCH_DOMAIN" --out "$BENCH_OUT" \
+              --topics "$topics" --camera "$camera" > "$BENCH_OUT/observer.log" 2>&1 &
+          observer=$!
+          sleep 10
+          set +e
+          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_baseline1_mission$' 2>&1 | tee "$BENCH_OUT/mission_console.txt"
+          echo "MISSION_RC=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+          kill -TERM "$observer"; wait "$observer"; echo "observer exit $?"
+          tail -20 "$BENCH_OUT/observer.log"
+          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+
+      - name: Phase table and the cell's digest
+        if: always()
+        run: |
+          set +e
+          bench=ws/src/openamr-upperbody-sw/tools/dds_benchmark
+          mkdir -p ws/bench
+          python3 "$PACKAGE_DIR/scripts/baseline1_report.py" ws/build1_logs --build-ok 1 --env-ok "$([ "${VCAN_RC:-1}" = 0 ] && echo 1 || echo 0)" \
+            --env-reason "" --summary /dev/null | tee ws/bench/phase_table.txt
+          [ -f ws/bench/mission_console.txt ] && python3 -I "$bench/compare.py" console ws/bench/mission_console.txt > ws/bench/dds_symptoms.json
+          mkdir -p art/self && cp -r ws/bench "art/self/" 2>/dev/null
+          python3 -I "$bench/compare.py" table art --summary "$GITHUB_STEP_SUMMARY" || true
+          echo "mission colcon test rc: ${MISSION_RC:-not run}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dds-benchmark-${{ matrix.setting }}-r${{ matrix.repeat }}-attempt${{ github.run_attempt }}
+          retention-days: 30
+          path: |
+            ws/bench/
+            ws/build1_logs/
+            ws/build/openamrobot_build1_scene/test_results/
+            vcan.txt
+            versions.txt
+            pins.txt
+          if-no-files-found: warn
+
+  compare:
+    name: Comparison table
+    needs: bench
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Download the cells' digests (no bags) and compare
+        run: |
+          set +e
+          mkdir -p art
+          for name in $(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+                          --jq '.artifacts[].name | select(startswith("dds-benchmark-"))'); do
+            gh run download "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" -n "$name" -D "art/$name" >/dev/null 2>&1 || echo "download failed: $name"
+            find "art/$name" -name '*.mcap' -delete -o -name '*.ppm' -delete
+          done
+          python3 -I tools/dds_benchmark/compare.py table art --summary "$GITHUB_STEP_SUMMARY" --json comparison.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dds-benchmark-comparison-attempt${{ github.run_attempt }}
+          path: comparison.json
+          retention-days: 30
+          if-no-files-found: warn
