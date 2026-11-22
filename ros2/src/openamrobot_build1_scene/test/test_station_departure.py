@@ -208,3 +208,20 @@ def test_reverse_speed_by_phase_keeps_a_backward_move_inside_a_phase():
     speeds, worst = sd.reverse_speed_by_phase({"turn": [], "forward": forward})
     assert speeds["forward"] == pytest.approx(0.016) and worst["phase"] == "forward" and worst["t"] == 0.0
     assert max(speeds.values()) > 0.01          # the unchanged 0.010 m/s limit still fails it
+
+
+def test_rpp_allow_reversing_true_is_a_reverse_path():
+    """PROPOSED (#117): the same rule as openamr-platform-sw test_baseline1_no_reverse_paths.py for StationRetreat."""
+    params = pr90_set()
+    c = params["controller_server"]["ros__parameters"]
+    c["controller_plugins"].append("StationRetreat")
+    c["StationRetreat"] = {"plugin": "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController",
+                           "allow_reversing": False, "use_rotate_to_heading": True}
+    assert sd.reverse_paths(params, TREES) == []
+    c["StationRetreat"]["allow_reversing"] = True
+    assert sd.reverse_paths(params, TREES) == ["StationRetreat allow_reversing true"]
+
+
+def test_the_forward_retreat_drives_on_the_station_retreat_tree():
+    """PROPOSED (#117): the forward goal uses openamr-platform-sw's navigate_to_station_retreat.xml."""
+    assert CONFIG["forward"]["drive_tree"] == "navigate_to_station_retreat.xml"

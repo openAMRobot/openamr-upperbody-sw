@@ -20,8 +20,8 @@ pins:
     sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
     use: "provisional: only the package ros2/src/openamrobot_sil is checked out and built, and docs/architecture/sil-topology.md is followed. Contains #141 9913d87, #144 53a69e9 (late SDO reply fix) and main 69847ab"
   platform_sw_sil:
-    sha: "960e2e5764529c5657d13645f5920ecffe504bbe"
-    use: "only the package ros2/src/openamrobot_sil, for build1-scene-tests.yml and build1-arm-diagnostics.yml, and the PLATFORM_SW_SHA of baseline1-acceptance.yml: openamr-platform-sw integration/baseline1 fb25be1 (clock contract #151/#158, lift on simulation time #162, #166) with #169 (matched SDO answers, new-sample odometry) merged (openamr-platform-sw #175, 9af88e7) and the no-reverse Nav2 configuration (#90's behaviour set, openamr-platform-sw #178, nav/baseline1-no-reverse-on-175). CANDIDATE commit until #178 merges; repin if the merge changes the commit. Replaces the #145 pin, whose CTL-017 timers ran on host time"
+    sha: "2f498ff65f23234ccd6b016c66ebc25873eec3c9"
+    use: "PROPOSAL PIN (#117): openamr-platform-sw proposal/station-retreat-controller (draft #182) on #178's head 90ced15; openamrobot_sil identical to 960e2e5, kept equal to PLATFORM_SW_SHA (test_docs_and_pins.py). Restore 960e2e5 if #182 is rejected. Before: only the package ros2/src/openamrobot_sil, for build1-scene-tests.yml and build1-arm-diagnostics.yml, and the PLATFORM_SW_SHA of baseline1-acceptance.yml: openamr-platform-sw integration/baseline1 fb25be1 (clock contract #151/#158, lift on simulation time #162, #166) with #169 (matched SDO answers, new-sample odometry) merged (openamr-platform-sw #175, 9af88e7) and the no-reverse Nav2 configuration (#90's behaviour set, openamr-platform-sw #178, nav/baseline1-no-reverse-on-175). CANDIDATE commit until #178 merges; repin if the merge changes the commit. Replaces the #145 pin, whose CTL-017 timers ran on host time"
   platform_sw_pr139:
     sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
     use: "merged on platform main (squash): openamrobot_sil without Renode. Never merge #139 again"

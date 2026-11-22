@@ -79,7 +79,8 @@ def reverse_paths(params, trees):
     """Every reverse path of a Nav2 configuration (the same rules as openamr-platform-sw
     test_baseline1_no_reverse_paths.py on nav/baseline1-no-reverse): reverse-capable behaviours by plugin class, a
     negative DWB min_vel_x, a negative velocity_smoother min_velocity[0], a graceful controller with allow_backward and
-    without initial_rotation, a tree that calls BackUp, DriveOnHeading or AssistedTeleop."""
+    without initial_rotation, a Regulated Pure Pursuit controller with allow_reversing true (PROPOSED, #117), a tree
+    that calls BackUp, DriveOnHeading or AssistedTeleop."""
     found = []
     behaviors = params.get("behavior_server", {}).get("ros__parameters", {})
     for name in behaviors.get("behavior_plugins", []):
@@ -94,6 +95,10 @@ def reverse_paths(params, trees):
             found.append(f"{name} min_vel_x {values['min_vel_x']}")
         if "graceful" in plugin.lower() and values.get("allow_backward") and not values.get("initial_rotation", True):
             found.append(f"{name} allow_backward without initial_rotation")
+        # PROPOSED (#117, openamr-platform-sw StationRetreat): Regulated Pure Pursuit with allow_reversing true. RPP
+        # only rejects a later dynamic change to true while use_rotate_to_heading is on, so any true is listed.
+        if "regulated_pure_pursuit" in plugin.lower() and values.get("allow_reversing"):
+            found.append(f"{name} allow_reversing true")
     smoother = params.get("velocity_smoother", {}).get("ros__parameters", {})
     if smoother.get("min_velocity", [0.0])[0] < 0.0:
         found.append(f"velocity_smoother min_velocity {smoother['min_velocity']}")
@@ -299,8 +304,9 @@ def run(rig, log, name, config=None, pose=None):
     nav.pose.header.frame_id = "map"
     nav.pose.pose.position.x, nav.pose.pose.position.y = float(gx), float(gy)
     nav.pose.pose.orientation.z, nav.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
-    # The station tree (#164): its goal checker (0.025 m) ends the goal at the point; the default checker's 0.35 m
-    # would count a 0.30 m goal as reached before the base moves.
+    # A station-checker tree (#164's checker, 0.025 m) ends the goal at the point; the default checker's 0.35 m would
+    # count a 0.30 m goal as reached before the base moves. drive_tree names the tree (PROPOSED #117:
+    # navigate_to_station_retreat.xml, the StationRetreat controller of openamr-platform-sw).
     from ament_index_python.packages import get_package_share_directory
     nav.behavior_tree = os.path.join(get_package_share_directory("openamrobot_nav2"), "behavior_trees", f["drive_tree"])
     handle = rig.send_goal(f["drive_action"], "nav2_msgs.action", "NavigateToPose", nav)
