@@ -1,0 +1,7 @@
+side,state,command_raw,caliper_jaw_mm,sign_observed,settle_observed_s,instrument,notes
+left,open,,,,,vernier caliper between the fingertips,
+left,half,,,,,,
+left,closed,0,,,,,
+right,open,,,,,,
+right,half,,,,,,
+right,closed,0,,,,,

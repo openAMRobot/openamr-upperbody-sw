@@ -1,0 +1,5 @@
+stop,target_m,plate_top_height_m,plate_front_edge_height_m,plate_rear_edge_height_m,travel_time_s,instrument,notes
+L1000,0.000,,,,,steel tape from the floor to the adapter plate top face; stopwatch,
+L1175,0.175,,,,,,
+L1350,0.350,,,,,,
+L1000,0.000,,,,,,

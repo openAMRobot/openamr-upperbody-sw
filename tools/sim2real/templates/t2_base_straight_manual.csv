@@ -1,0 +1,3 @@
+leg,commanded_m,tape_along_m,tape_lateral_m,odom_m,instrument,notes
+forward,1.000,,,,steel tape between floor marks under the front face centre of base_link's collision box,
+back,1.000,,,,,
