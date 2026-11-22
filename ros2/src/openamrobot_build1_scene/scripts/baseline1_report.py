@@ -4,7 +4,8 @@
 
   baseline1_report.py LOG_DIR [--build-ok 0|1] [--env-ok 0|1] [--env-reason TEXT] [--summary FILE]
 
-Without a log the stage that stopped the run classifies every phase (BUILD, ENV/INFRA or STARTUP).
+Without a log the stage that stopped the run classifies every phase (BUILD, ENV/INFRA or STARTUP). When the launch's
+/clock fail-fast fired (LOG_DIR/clock_gate.json, gate owner decision on #77) phase 1 is BLOCKED with that named reason.
 Exit status 0 only when every phase passed in this one run; 1 otherwise. No ROS import.
 """
 import argparse
@@ -14,6 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from openamrobot_build1_scene import baseline1_phases as phases  # noqa: E402
+from openamrobot_build1_scene import clock_gate  # noqa: E402
 
 
 def whole_run_failures(data):
@@ -35,7 +37,10 @@ def main(argv=None):
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-    table = phases.rows(data, build_ok=bool(args.build_ok), env_ok=bool(args.env_ok), env_reason=args.env_reason)
+    gate = clock_gate.read_record(args.log_dir)
+    launch_reason = gate["reason"] if clock_gate.fired(gate) else ""
+    table = phases.rows(data, build_ok=bool(args.build_ok), env_ok=bool(args.env_ok), env_reason=args.env_reason,
+                        launch_reason=launch_reason)
     out = [phases.render(table), ""]
     if data is not None:
         out += [f"Mission result: {data.get('result')}. Reason: {data.get('reason') or '-'}",
@@ -49,6 +54,8 @@ def main(argv=None):
             out += phases.trace_summary(data.get("trace", []), data["phases"]) + ["```", ""]
     else:
         out += [f"No mission log at {path}.", ""]
+    if gate is not None:
+        out += [f"/clock fail-fast: {json.dumps(gate, sort_keys=True)}", ""]
     text = "\n".join(out)
     print(text)
     if args.summary:

@@ -195,7 +195,7 @@ def rows(log_data=None, build_ok=True, env_ok=True, env_reason="", launch_reason
         record = phases.get(name)
         if record is None:
             reason = (log_data or {}).get("reason") or launch_reason or "no mission log was written"
-            cls = classify(reason) if log_data else STARTUP
+            cls = classify(reason) if (log_data or launch_reason) else STARTUP
             cls = STARTUP if cls in (UNCLASSIFIED, CONTROL) and index == 0 else cls
             out.append([name, expected, measured, "NOT RUN" if index else ("BLOCKED" if cls == ENV else "FAIL"),
                         [cls] if index == 0 else [], None, reason if index == 0 else "the run stopped before this phase"])

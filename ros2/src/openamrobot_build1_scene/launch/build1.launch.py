@@ -34,6 +34,11 @@ What it starts
                      dock_trigger would be a second writer of /cmd_vel (conflict SW-01)
     MoveIt 2         move_group for both arms and planning_scene_loader.py with the scene's collision objects
     rtf_monitor.py   the Gazebo real-time factor from /clock on /build1/rtf, and the run identity on /build1/run_info
+    clock gate       with devices and driver_clock:=sim, wait_for_clock.py: the real arm driver starts only after the first
+                     ROS /clock, and the launch ends with the named reason "no /clock" when none arrives within
+                     clock_gate.BOUND_S of the launch start (gate owner decision on #77)
+    clock capture    with BUILD1_CLOCK_CAPTURE=1: GZ_VERBOSE=1 on gazebo and build1_control_bridge, clock_capture.py
+                     (UDP counters at 15 s, gz topic and ros2 topic info probes when there is no /clock at 10 s)
 
 Args
   profile          firmware_sil | faults | fast | fine (default firmware_sil)
@@ -71,18 +76,20 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 import yaml
 from ament_index_python.packages import PackageNotFoundError, get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription, LogInfo, OpaqueFunction,
-                            RegisterEventHandler, Shutdown)
+from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo,
+                            OpaqueFunction, RegisterEventHandler, SetEnvironmentVariable, Shutdown)
 from launch.event_handlers import OnProcessExit, OnProcessStart, OnShutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
+from openamrobot_build1_scene import clock_gate
 from openamrobot_build1_scene import diagnostics
 from openamrobot_build1_scene import launch_support as support
 from openamrobot_build1_scene import planning_scene
@@ -163,7 +170,23 @@ def then(target, next_actions, what):
     return RegisterEventHandler(OnProcessExit(target_action=target, on_exit=on_exit))
 
 
+def after_clock(gate, next_actions):
+    """After the clock gate (wait_for_clock.py) exits 0, start `next_actions`. On clock_gate.EXIT_NO_CLOCK end the
+    launch with the named reason clock_gate.NO_CLOCK (gate owner decision on #77); any other exit stops it too."""
+    def on_exit(event, context):
+        if event.returncode == 0:
+            return next_actions
+        if event.returncode == clock_gate.EXIT_NO_CLOCK:
+            return [LogInfo(msg=f"BLOCKED (sim infrastructure): {clock_gate.NO_CLOCK} within {clock_gate.BOUND_S:.0f} s of the "
+                                "launch start; the real arm driver was not started"),
+                    Shutdown(reason=clock_gate.NO_CLOCK)]
+        return [LogInfo(msg=f"the clock gate exited {event.returncode}: the Build 1 stack cannot start"),
+                Shutdown(reason="clock gate failed")]
+    return RegisterEventHandler(OnProcessExit(target_action=gate, on_exit=on_exit))
+
+
 def launch_setup(context):
+    launch_start = time.time()   # wall time: the clock gate's bound and the capture's 10 s and 15 s count from here
     value = lambda name: LaunchConfiguration(name).perform(context)  # noqa: E731
     flag = lambda name: value(name) == "true"                        # noqa: E731
     share = get_package_share_directory(PACKAGE)
@@ -292,14 +315,25 @@ def launch_setup(context):
                                                  os.path.join(get_package_share_directory("openamrobot_station_alignment"), "models")))
     headless = flag("headless")
     gz_args = f"-r {'-s --headless-rendering ' if headless else ''}-v 2 --physics-engine {engine} {world_file}"
-    actions.append(IncludeLaunchDescription(
+    # Diagnostic capture (BUILD1_CLOCK_CAPTURE=1, gate owner decision on #77, item 1; evidence only): gz-transport's
+    # GZ_VERBOSE=1 on the simulator and on the bridge that carries /clock, and clock_capture.py from the launch start.
+    capture = clock_gate.capture_enabled(os.environ)
+    log_dir = os.environ.get("BUILD1_LOG_DIR", work_dir)
+    gz_verbose = {"GZ_VERBOSE": "1"} if capture else {}
+    simulator = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(get_package_share_directory("ros_gz_sim"), "launch", "gz_sim.launch.py")),
-        launch_arguments={"gz_args": gz_args, "on_exit_shutdown": "true"}.items()))
+        launch_arguments={"gz_args": gz_args, "on_exit_shutdown": "true"}.items())
+    actions.append(GroupAction([SetEnvironmentVariable("GZ_VERBOSE", "1"), simulator], scoped=True) if capture else simulator)
+    if capture:
+        actions.append(LogInfo(msg=f"clock capture on: GZ_VERBOSE=1 on {', '.join(clock_gate.GZ_VERBOSE_PROCESSES)}, "
+                                   f"evidence in {os.path.join(log_dir, clock_gate.CAPTURE_DIR)}"))
+        actions.append(Node(package=PACKAGE, executable="clock_capture.py", name="build1_clock_capture", output="screen",
+                            arguments=["--launch-start", repr(launch_start), "--out", log_dir]))
     control_bridge_file = temp_yaml("build1_control_bridge_", support.control_bridge(
         objects, devices=devices, replay_drive="vcan_drive" in replays, replay_aux="vcan_aux" in replays, follower=follower))
     temp_files.append(control_bridge_file)
     actions.append(Node(package="ros_gz_bridge", executable="parameter_bridge", name="build1_control_bridge", output="screen",
-                        parameters=[{"config_file": control_bridge_file}]))
+                        parameters=[{"config_file": control_bridge_file}], additional_env=gz_verbose))
     if contact_links:
         contact_bridge_file = temp_yaml("build1_contact_bridge_", diagnostics.contact_bridge(
             contact_links + [diagnostics.world_contact_link(model) for model in diagnostics.WORLD_SENSOR_MODELS]))
@@ -337,15 +371,24 @@ def launch_setup(context):
                             parameters=[driver_controllers_file, {"use_sim_time": driver_sim_time}])
         real_broadcaster = spawner(["joint_state_broadcaster"], REAL_CONTROLLER_MANAGER, extra=arm_states)
         real_rest = spawner(support.driver_controllers_to_spawn(gravity), REAL_CONTROLLER_MANAGER)
+        # Fail-fast (gate owner decision on #77, item 2): on the simulation clock the real driver's control loop does not
+        # run without /clock, so it starts only after the first ROS /clock message, and the launch ends with the named
+        # reason "no /clock" when none arrives within clock_gate.BOUND_S of the launch start.
+        real_driver = [real_control, real_broadcaster]
+        if driver_sim_time:
+            gate = Node(package=PACKAGE, executable="wait_for_clock.py", name="build1_clock_gate", output="screen",
+                        arguments=["--launch-start", repr(launch_start), "--bound", str(clock_gate.BOUND_S), "--out", log_dir])
+            actions.append(after_clock(gate, real_driver))
+            real_driver = [gate]
         if gravity:
             actions.append(Node(package=PACKAGE, executable="gravity_feedforward.py", name="gravity_feedforward", output="screen",
                                 parameters=[{"use_sim_time": True, "robot_description": ParameterValue(root_urdf, value_type=str)}]))
         if emulators:
             sim_rest = spawner(emulators, SIM_CONTROLLER_MANAGER)
             actions.append(then(sim_broadcaster, [sim_rest], "the simulator's joint_state_broadcaster spawner"))
-            actions.append(then(sim_rest, [real_control, real_broadcaster], "the arm emulator spawner"))
+            actions.append(then(sim_rest, real_driver, "the arm emulator spawner"))
         else:
-            actions.append(then(sim_broadcaster, [real_control, real_broadcaster], "the simulator's joint_state_broadcaster spawner"))
+            actions.append(then(sim_broadcaster, real_driver, "the simulator's joint_state_broadcaster spawner"))
         actions.append(then(real_broadcaster, [real_rest], "the real driver's joint_state_broadcaster spawner"))
 
         # The base buses: openamrobot_sil's own node list, minus the emulator of a replayed bus.

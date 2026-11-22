@@ -21,6 +21,12 @@
 # complete evidence (bag, candump per bus, phase times, run_info, full pins, seed, settings). A pull_request run is one
 # validation leg and is never strict. Middleware for initial acceptance: CycloneDDS (Alex, 19 Nov 2026); the robot's
 # middleware beyond acceptance stays the owners' decision.
+# No /clock (gate owner decision on #77, 22 Nov 2026): the launch starts the real arm driver only after the first ROS
+# /clock and ends with the named reason "no /clock" within clock_gate.BOUND_S of the launch start. Such a mission try,
+# before phase 1 and with nothing else failed, is BLOCKED (sim infrastructure): the mission step reruns it in the same
+# leg job (up to BASELINE1_MISSION_TRIES tries; each BLOCKED try's evidence stays in ws/build1_logs_blocked_try<N>/),
+# and the strict verdict lists it with its job and reason. A leg whose last try is BLOCKED makes the verdict BLOCKED.
+# BUILD1_CLOCK_CAPTURE=1 adds the diagnostic capture (GZ_VERBOSE=1, UDP counters, /clock probes) to every leg's evidence.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
 name: Baseline 1 acceptance
 
@@ -118,6 +124,10 @@ env:
   # Retreat: turn in place and drive forward (station_departure.py "forward", Alex 20 Nov 2026), no reverse motion.
   # Declared in every leg (declaration.json "retreat").
   BASELINE1_RETREAT: forward
+  # The /clock capture of build1.launch.py (scripts/clock_capture.py), evidence only, no gate change (#77, item 1).
+  BUILD1_CLOCK_CAPTURE: '1'
+  # Mission tries per leg job: the first, plus reruns of a try BLOCKED by the no /clock rule only (#77, item 3).
+  BASELINE1_MISSION_TRIES: '3'
 
 jobs:
   baseline1:
@@ -295,10 +305,37 @@ jobs:
           echo "station alignment: BASELINE1_STATION_ALIGNMENT=${BASELINE1_STATION_ALIGNMENT} (camera: simulation-only test sensor of openamr-platform-sw #167, pending the description's base camera)"
           echo "### Leg ${{ matrix.leg }} (${BASELINE1_SEQUENCE}): station alignment ${BASELINE1_STATION_ALIGNMENT}, ${RMW_IMPLEMENTATION}, CYCLONEDDS_URI ${CYCLONEDDS_URI}" >> "$GITHUB_STEP_SUMMARY"
           set +e
-          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
-            --ctest-args -R '^test_baseline1_mission$'
-          echo "MISSION_RC=$?" >> "$GITHUB_ENV"
-          colcon test-result --test-result-base "build/$PACKAGE" --verbose
+          try=0
+          while :; do
+            try=$((try + 1))
+            mkdir -p "$BUILD1_LOG_DIR/clock_capture"
+            # UDP counters before the launch (clock_capture.py takes them again 15 s after the launch start).
+            { netstat -su 2>&1 || echo "netstat unavailable"; } > "$BUILD1_LOG_DIR/clock_capture/netstat_su_before.txt"
+            cat /proc/net/snmp > "$BUILD1_LOG_DIR/clock_capture/proc_net_snmp_before.txt" 2>&1
+            echo "mission try ${try} of ${BASELINE1_MISSION_TRIES}"
+            colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+              --ctest-args -R '^test_baseline1_mission$'
+            rc=$?
+            colcon test-result --test-result-base "build/$PACKAGE" --verbose
+            # Rerun only a try that the no /clock rule makes BLOCKED (fail-fast fired before phase 1, nothing else failed).
+            if [ "$try" -lt "${BASELINE1_MISSION_TRIES}" ] && \
+               python3 "$PACKAGE_DIR/scripts/baseline1_strict_verdict.py" --blocked-try "$BUILD1_LOG_DIR"; then
+              moved="$PWD/build1_logs_blocked_try${try}"
+              mv "$BUILD1_LOG_DIR" "$moved"
+              cp -r "build/$PACKAGE/test_results" "$moved/test_results" 2>/dev/null
+              cp -rL log/latest_test "$moved/latest_test" 2>/dev/null
+              echo "::warning::leg ${{ matrix.leg }} mission try ${try}: BLOCKED (sim infrastructure), no /clock; rerun. Evidence: $moved"
+              echo "- leg ${{ matrix.leg }} mission try ${try}: BLOCKED (sim infrastructure), no /clock; rerun in this job" >> "$GITHUB_STEP_SUMMARY"
+              # The stopped launch's simulator stops through its helper; wait for it before the next try.
+              for i in $(seq 1 30); do pgrep -f "gz sim" > /dev/null || break; sleep 1; done
+              pgrep -af "gz sim" && echo "a gz sim process is still running before try $((try + 1))"
+              mkdir -p "$BUILD1_LOG_DIR"
+              continue
+            fi
+            break
+          done
+          echo "MISSION_RC=$rc" >> "$GITHUB_ENV"
+          echo "MISSION_TRIES=$try" >> "$GITHUB_ENV"
 
       - name: Phase table, failure classes and trace summary
         if: always()
@@ -370,6 +407,8 @@ jobs:
                     "rmw_implementation": e.get("RMW_IMPLEMENTATION"), "rmw_runtime": e.get("RMW_RUNTIME") or None,
                     "cyclonedds_uri": e.get("CYCLONEDDS_URI"), "seed": e["BASELINE1_SEED"],
                     "cancel_check": e["BASELINE1_CANCEL_CHECK"], "retreat": e["BASELINE1_RETREAT"],
+                    "mission_tries": int(e.get("MISSION_TRIES") or 0), "runner_name": e.get("RUNNER_NAME"),
+                    "clock_capture": e.get("BUILD1_CLOCK_CAPTURE"),
                     "build_ok": int(e["BUILD_OK"]), "env_ok": int(e["ENV_OK"]), "env_reason": e.get("ENV_REASON", "")}
           json.dump(record, open("declaration.json", "w"), indent=2, sort_keys=True)
           print(json.dumps(record, indent=2, sort_keys=True))
@@ -383,6 +422,7 @@ jobs:
           path: |
             declaration.json
             ws/build1_logs/
+            ws/build1_logs_blocked_try*/
             ws/build/openamrobot_build1_scene/test_results/
             ws/log/latest_test/
             vcan.txt
@@ -402,6 +442,10 @@ jobs:
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # actions: read lists this run's jobs, so the record names the job of every BLOCKED leg.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -420,6 +464,14 @@ jobs:
           cd ros2/src/openamrobot_build1_scene
           python3 -m pytest -q test/test_baseline1_strict.py
 
+      - name: Jobs of this run (for the BLOCKED list)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs?per_page=100" \
+            --jq '.jobs[] | {name, id, html_url}' > jobs.jsonl || echo "job list unavailable: BLOCKED legs are listed without a job id"
+          cat jobs.jsonl
+
       - name: Verdict
         run: |
           expect=$([ "${BASELINE1_SEQUENCE}" = "strict" ] && echo 2 || echo 1)
@@ -428,7 +480,7 @@ jobs:
           find legs -name declaration.json | sort
           python3 ros2/src/openamrobot_build1_scene/scripts/baseline1_strict_verdict.py --find legs --expect "$expect" \
             --require-profile sim-oracle --require-rmw rmw_cyclonedds_cpp --require-alignment 1 --min-participant-index 120 \
-            --gates ros2/src/openamrobot_build1_scene/config/baseline1_gates.json \
+            --gates ros2/src/openamrobot_build1_scene/config/baseline1_gates.json --jobs jobs.jsonl \
             --summary "$GITHUB_STEP_SUMMARY" --out verdict.json
           echo "VERDICT_RC=$?" >> "$GITHUB_ENV"
 
@@ -443,6 +495,7 @@ jobs:
       - name: Result
         if: always()
         run: |
-          # strict: PASS only. single: a validation leg, reported NOT STRICT; the job follows the leg's 8 of 8.
+          # strict: PASS only (BLOCKED and FAIL fail the job). single: a validation leg, reported NOT STRICT; the job
+          # follows the leg's 8 of 8, and a leg whose last try is BLOCKED is not one.
           if [ "${BASELINE1_SEQUENCE}" = "strict" ]; then [ "${VERDICT_RC:-1}" = "0" ]; else
-            python3 -c "import json,sys; r=json.load(open('verdict.json')); sys.exit(0 if not r['problems'] else 1)"; fi
+            python3 -c "import json,sys; r=json.load(open('verdict.json')); sys.exit(0 if not r['problems'] and not any(l.get('status') == 'BLOCKED' for l in r['legs']) else 1)"; fi

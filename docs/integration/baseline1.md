@@ -62,6 +62,19 @@ sent the goal through `/station_alignment/navigate_to_station`, and both declare
 (`planning_pose_source: ground_truth` in the run identity). A pull_request run, or `sequence: single`, is one
 validation leg and is reported NOT STRICT. Artifacts per leg and the verdict are kept 90 days.
 
+No /clock rule (gate owner decision on #77, 22 Nov 2026). With `driver_clock:=sim` the launch starts the real arm
+driver only after the first ROS `/clock` message (`scripts/wait_for_clock.py`) and ends with the named reason
+`no /clock` when none arrives within 60 s of the launch start (`openamrobot_build1_scene/clock_gate.py`; the eight
+passing legs of 22 Nov 2026 had their first `/clock` 7.0 to 11.7 s after the launch start). A mission try that ends
+that way before phase 1, with nothing else failed, is BLOCKED (sim infrastructure): not PASS, not FAIL. The mission
+step reruns it in the same leg job (up to three tries; each BLOCKED try stays in `ws/build1_logs_blocked_try<N>/`),
+and the verdict lists every BLOCKED try with its job and reason. Such a try does not break "two consecutive 8 of 8";
+a try that reached phase 1 counts as it ended, and a leg whose last try is BLOCKED makes the verdict BLOCKED. Every
+leg also carries the diagnostic capture of `scripts/clock_capture.py` (`BUILD1_CLOCK_CAPTURE=1`: `GZ_VERBOSE=1` on
+gazebo and `build1_control_bridge`, `netstat -su` before and 15 s after the launch start, and `gz topic` /
+`ros2 topic info /clock -v` probes when there is no `/clock` at 10 s) in `ws/build1_logs/clock_capture/`. Evidence
+only; it changes no gate.
+
 Gates added 20 Nov 2026 (Alex's acceptance rules; values in `config/baseline1_gates.json`, Proposed;
 `openamrobot_build1_scene/baseline1_gates.py`). Each leg must also show:
 - both legs from the one dispatch (same run id and attempt);

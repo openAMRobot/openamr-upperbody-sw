@@ -4,7 +4,8 @@
 
   baseline1_strict_verdict.py [LEG_DIR ...] [--find ROOT] [--expect 2] [--require-profile sim-oracle]
       [--require-rmw rmw_cyclonedds_cpp] [--require-alignment 1] [--min-participant-index 120]
-      [--gates config/baseline1_gates.json] [--summary FILE] [--out FILE]
+      [--gates config/baseline1_gates.json] [--jobs FILE] [--summary FILE] [--out FILE]
+  baseline1_strict_verdict.py --blocked-try LOG_DIR     exit 0 when that mission try is BLOCKED by the "no /clock" rule
 
 --find ROOT adds every directory under ROOT that holds a declaration.json: actions/download-artifact puts each
 artifact in its own directory when several match, and one matching artifact straight into ROOT.
@@ -26,6 +27,14 @@ PASS only when all of these hold:
   were on and every contact is in the allowed list with its reason; the evidence is complete (bag, one candump per
   virtual bus, every phase timed, run_info, full pinned hashes, seed and settings declared).
 With --expect below 2 the verdict is never PASS: it is NOT STRICT (a single validation run), whatever the phases.
+
+BLOCKED (sim infrastructure), gate owner decision on #77 (22 Nov 2026): a mission try that ends with the named reason
+"no /clock" (clock_gate.json of build1.launch.py's fail-fast) before mission phase 1 starts, in a leg whose build and
+environment succeeded and in which nothing else failed, is BLOCKED: not PASS and not FAIL. The workflow reruns it in the
+same leg job (ws/build1_logs_blocked_try<N>/ keeps its evidence); such a try does not break "two consecutive 8/8".
+A try that reached phase 1 counts as it ended. When a leg's last try is BLOCKED the verdict is BLOCKED, never PASS.
+The record lists every BLOCKED try with its leg, job and reason (--jobs: the run's jobs, one JSON object per line
+with name, id and html_url, as the verdict job reads them from the REST API).
 Exit status 0 only for PASS. No ROS import. Simulation evidence only.
 """
 import argparse
@@ -36,12 +45,15 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from openamrobot_build1_scene import baseline1_gates as gates  # noqa: E402
+from openamrobot_build1_scene import clock_gate  # noqa: E402
 from openamrobot_build1_scene import baseline1_phases as phases  # noqa: E402
 
 ALIGNMENT_ACTION = "/station_alignment/navigate_to_station"   # baseline1.ALIGNMENT_ACTION (that module imports ROS)
 SETTING_KEYS = ("profile", "station_approach", "station_alignment", "rmw_implementation", "cyclonedds_uri", "seed")
 MISSION_PATHS = (os.path.join("ws", "build1_logs", "baseline1_mission.json"),
                  os.path.join("build1_logs", "baseline1_mission.json"), "baseline1_mission.json")
+LOG_DIRS = (os.path.join("ws", "build1_logs"), "build1_logs", ".")
+BLOCKED_TRY = re.compile(r"^build1_logs_blocked_try(\d+)$")
 
 
 def _load(path):
@@ -60,6 +72,68 @@ def read_leg(leg_dir):
         if mission is not None:
             break
     return declaration, mission
+
+
+def final_log_dir(leg_dir):
+    """The log directory of the leg's last mission try (the one ws/build1_logs holds)."""
+    for rel in LOG_DIRS:
+        path = os.path.join(leg_dir, rel)
+        if os.path.exists(os.path.join(path, "baseline1_mission.json")) or clock_gate.read_record(path) is not None:
+            return path
+    return os.path.join(leg_dir, LOG_DIRS[0])
+
+
+def blocked_try_dirs(leg_dir):
+    """(try number, directory) of the tries the workflow moved aside as BLOCKED, in order."""
+    found = []
+    for base in (os.path.join(leg_dir, "ws"), leg_dir):
+        if os.path.isdir(base):
+            for name in os.listdir(base):
+                match = BLOCKED_TRY.match(name)
+                if match and os.path.isdir(os.path.join(base, name)):
+                    found.append((int(match.group(1)), os.path.join(base, name)))
+    return sorted(set(found))
+
+
+def no_clock_blocked(log_dir, declaration=None, mission=None):
+    """(True, reason) when the try in log_dir is BLOCKED by the "no /clock" rule, else (False, why not).
+    The rule: the fail-fast fired with the named reason, before mission phase 1 started, and nothing else failed."""
+    record = clock_gate.read_record(log_dir)
+    if not clock_gate.fired(record):
+        return False, "the fail-fast did not fire"
+    if declaration is not None and not (declaration.get("build_ok") and declaration.get("env_ok")):
+        return False, "the build or the environment failed in this leg"
+    if mission is None:
+        mission = _load(os.path.join(log_dir, "baseline1_mission.json"))
+    if mission is not None:
+        if any(r.get("ran") for r in mission.get("phases", [])):
+            return False, "the mission reached phase 1, so the try counts as it ended"
+        if mission.get("failures"):
+            return False, f"the mission log has failed checks: {'; '.join(mission['failures'])[:200]}"
+        if mission.get("result") == "PASS":
+            return False, "the mission log says PASS"
+    return True, record.get("reason") or clock_gate.NO_CLOCK
+
+
+def read_jobs(path):
+    """leg number -> {"id", "html_url"} from the run's jobs (one JSON object per line, or a JSON list)."""
+    jobs = {}
+    if not path:
+        return jobs
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read().strip()
+    except OSError:
+        return jobs
+    try:
+        items = json.loads(text) if text.startswith("[") else [json.loads(line) for line in text.splitlines() if line.strip()]
+    except ValueError:
+        return jobs
+    for item in items:
+        match = re.search(r"leg (\d+)\s*$", str(item.get("name", "")))
+        if match:
+            jobs[int(match.group(1))] = {"id": item.get("id"), "html_url": item.get("html_url")}
+    return jobs
 
 
 def find_legs(root):
@@ -110,14 +184,35 @@ def check_leg(declaration, mission, args, leg_dir="."):
 
 def decide(legs, args):
     """legs: list of (leg_dir, declaration, mission). Return the verdict record."""
-    record = {"expect": args.expect, "legs": [], "problems": [], "pins": None}
+    record = {"expect": args.expect, "legs": [], "problems": [], "pins": None, "blocked": []}
+    jobs = getattr(args, "job_map", None) or {}
     numbers = []
     for leg_dir, declaration, mission in legs:
-        passed, total, problems = check_leg(declaration, mission, args, leg_dir)
         number = (declaration or {}).get("leg")
         numbers.append(number)
+        job = jobs.get(number, {})
+        problems = []
+        # Earlier tries of this leg that the workflow moved aside: each must be BLOCKED by the rule, or it counts.
+        for attempt, try_dir in blocked_try_dirs(leg_dir):
+            ok, why = no_clock_blocked(try_dir, declaration)
+            if ok:
+                record["blocked"].append({"leg": number, "try": attempt, "final": False, "job": job.get("id"),
+                                          "job_url": job.get("html_url"), "dir": try_dir, "reason": why})
+            else:
+                problems.append(f"mission try {attempt} was rerun but is not BLOCKED by the no /clock rule: {why}")
+        blocked, why = no_clock_blocked(final_log_dir(leg_dir), declaration, mission) if declaration else (False, "")
+        if blocked:
+            passed, total = 0, len(phases.PHASES)
+            record["blocked"].append({"leg": number, "try": len(blocked_try_dirs(leg_dir)) + 1, "final": True,
+                                      "job": job.get("id"), "job_url": job.get("html_url"),
+                                      "dir": final_log_dir(leg_dir), "reason": why})
+        else:
+            passed, total, leg_problems = check_leg(declaration, mission, args, leg_dir)
+            problems += leg_problems
         record["legs"].append({"dir": leg_dir, "leg": number, "phases_passed": passed, "phases": total,
-                               "run_id": (declaration or {}).get("run_id"), "pins": (declaration or {}).get("pins"),
+                               "status": "BLOCKED" if blocked else ("FAIL" if problems else "PASS"),
+                               "job": job.get("id"), "run_id": (declaration or {}).get("run_id"),
+                               "pins": (declaration or {}).get("pins"),
                                "settings": {k: (declaration or {}).get(k) for k in SETTING_KEYS}, "problems": problems})
         record["problems"] += [f"leg {number}: {p}" for p in problems]
     numbered = sorted(n for n in numbers if isinstance(n, int))
@@ -138,8 +233,11 @@ def decide(legs, args):
         record["problems"].append("the legs declare different settings")
     if args.expect < 2:
         record["verdict"] = "NOT STRICT"
+    elif record["problems"]:
+        record["verdict"] = "FAIL"
     else:
-        record["verdict"] = "FAIL" if record["problems"] else "PASS"
+        # A leg whose last try is BLOCKED has no 8 of 8: the verdict is BLOCKED, never PASS.
+        record["verdict"] = "BLOCKED" if any(leg["status"] == "BLOCKED" for leg in record["legs"]) else "PASS"
     return record
 
 
@@ -148,10 +246,16 @@ def render(record):
              f"Rule: {record['expect']} consecutive missions in this dispatch, each 8 of 8, same pinned commits, "
              "CycloneDDS with the raised participant index, station alignment on, declared profile, components alive "
              "for the whole run, Stop and cancellation checks, no unaccounted contact, complete evidence.", "",
-             "| Leg | Run | Phases | Problems |", "|---|---|---|---|"]
+             "| Leg | Run | Job | Status | Phases | Problems |", "|---|---|---|---|---|---|"]
     for leg in record["legs"]:
-        lines.append(f"| {leg['leg']} | {leg['run_id']} | {leg['phases_passed']} of {leg['phases']} | "
+        lines.append(f"| {leg['leg']} | {leg['run_id']} | {leg.get('job') or '-'} | {leg.get('status', '-')} | "
+                     f"{leg['phases_passed']} of {leg['phases']} | "
                      f"{'; '.join(leg['problems']).replace('|', '/') or 'none'} |")
+    blocked = record.get("blocked") or []
+    lines += ["", f"BLOCKED (sim infrastructure) mission tries: {len(blocked)}" + ("" if blocked else " (none)")]
+    for item in blocked:
+        lines.append(f"- leg {item['leg']} try {item['try']}{' (last try of the leg)' if item['final'] else ' (rerun)'}, "
+                     f"job {item['job'] or 'unknown'}{' ' + item['job_url'] if item.get('job_url') else ''}: {item['reason']}")
     lines += ["", "Pinned commits (identical in every leg):" if record["pins"]
               else "Pinned commits: not identical or missing"]
     for leg in record["legs"]:
@@ -161,6 +265,9 @@ def render(record):
         lines += ["", "Problems:"] + [f"- {p}" for p in record["problems"]]
     if record["verdict"] == "NOT STRICT":
         lines += ["", "A single validation run: never the strict two-run acceptance, whatever its phases."]
+    if record["verdict"] == "BLOCKED":
+        lines += ["", "BLOCKED: a leg ended with the named reason \"no /clock\" before phase 1 in its last try. Not PASS, "
+                      "not FAIL: dispatch the strict sequence again."]
     lines += ["", "Simulation evidence only: not hardware, physical or safety acceptance."]
     return "\n".join(lines)
 
@@ -168,6 +275,9 @@ def render(record):
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("legs", nargs="*")
+    parser.add_argument("--blocked-try", help="only classify this mission log directory: exit 0 when it is BLOCKED by the "
+                                              "no /clock rule, 1 otherwise")
+    parser.add_argument("--jobs", help="the run's jobs: one JSON object per line with name, id and html_url")
     parser.add_argument("--find", help="add every directory under this root that holds a declaration.json")
     parser.add_argument("--expect", type=int, default=2)
     parser.add_argument("--require-profile", default="sim-oracle")
@@ -178,7 +288,12 @@ def main(argv=None):
     parser.add_argument("--summary")
     parser.add_argument("--out")
     args = parser.parse_args(argv)
+    if args.blocked_try:
+        ok, why = no_clock_blocked(args.blocked_try)
+        print(f"{'BLOCKED' if ok else 'not BLOCKED'}: {why}")
+        return 0 if ok else 1
     args.gate_config = gates.load(args.gates)
+    args.job_map = read_jobs(args.jobs)
     dirs = sorted(set(args.legs) | set(find_legs(args.find) if args.find else []))
     legs = [(d, *read_leg(d)) for d in dirs]
     record = decide(legs, args)

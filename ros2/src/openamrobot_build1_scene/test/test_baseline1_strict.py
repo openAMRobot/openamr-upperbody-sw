@@ -322,3 +322,129 @@ def test_the_payload_resting_on_its_shelf_is_environment_only():
     assert _allowed(dict(rest, a="fixtures::link::floor_collision")) is None
     assert _allowed(dict(rest, b="payload::link::lid_collision")) is None
     assert _allowed(dict(rest, max_force_n=9.82)) is None
+
+
+# ---------------------------------------------------------------- no /clock: BLOCKED (gate owner decision on #77, 22 Nov 2026)
+from openamrobot_build1_scene import clock_gate  # noqa: E402
+
+JOBS = [{"name": "Baseline 1 whole-robot mission, leg 1", "id": 1001, "html_url": "https://example.invalid/job/1001"},
+        {"name": "Baseline 1 whole-robot mission, leg 2", "id": 1002, "html_url": "https://example.invalid/job/1002"},
+        {"name": "Strict Baseline 1 verdict", "id": 1003, "html_url": "https://example.invalid/job/1003"}]
+
+
+def no_clock_record(fired=True):
+    """What wait_for_clock.py writes: the bound passed without a message (fired) or the first message came at 9 s."""
+    now = [1000.0]
+    gate = clock_gate.Gate(launch_start=1000.0, now=lambda: now[0])
+    if not fired:
+        now[0] = 1009.0
+        gate.on_clock(0.002)
+    now[0] = 1000.0 + clock_gate.BOUND_S + 1.0
+    return gate.record()
+
+
+def write_gate(log_dir, fired=True):
+    os.makedirs(log_dir, exist_ok=True)
+    clock_gate.write_record(str(log_dir), no_clock_record(fired))
+
+
+def blocked_leg(root, leg, decl=None, data=False):
+    """A leg whose launch ended with "no /clock" before phase 1: no mission log, the gate record, the declaration."""
+    leg_dir = write_leg(root, leg, decl=decl, data=data, buses=(), bag=False)
+    write_gate(os.path.join(leg_dir, "ws", "build1_logs"))
+    return leg_dir
+
+
+def moved_try(leg_dir, attempt, data=None):
+    """A try the workflow moved aside as BLOCKED (ws/build1_logs_blocked_try<N>/)."""
+    path = os.path.join(leg_dir, "ws", f"build1_logs_blocked_try{attempt}")
+    write_gate(path)
+    if data is not None:
+        with open(os.path.join(path, "baseline1_mission.json"), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    return path
+
+
+def jobs_file(tmp_path):
+    path = tmp_path / "jobs.jsonl"
+    path.write_text("\n".join(json.dumps(job) for job in JOBS) + "\n")
+    return str(path)
+
+
+def test_a_no_clock_leg_before_phase_1_is_blocked_not_pass_and_not_fail(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), blocked_leg(tmp_path, 2)], "--jobs", jobs_file(tmp_path))
+    assert (rc, record["verdict"], record["problems"]) == (1, "BLOCKED", [])
+    assert [leg["status"] for leg in record["legs"]] == ["PASS", "BLOCKED"]
+    (item,) = record["blocked"]
+    assert (item["leg"], item["try"], item["final"], item["job"]) == (2, 1, True, 1002)
+    assert item["reason"].startswith("BLOCKED (sim infrastructure): no /clock")
+
+
+def test_the_strict_record_lists_every_blocked_try_with_its_job_and_reason(tmp_path, capsys):
+    leg1 = write_leg(tmp_path, 1)
+    moved_try(leg1, 1), moved_try(leg1, 2)
+    leg2 = blocked_leg(tmp_path, 2)
+    moved_try(leg2, 1)
+    rc, record = verdict(tmp_path, [leg1, leg2], "--jobs", jobs_file(tmp_path))
+    assert record["verdict"] == "BLOCKED"
+    assert [(b["leg"], b["try"], b["final"], b["job"]) for b in record["blocked"]] == [
+        (1, 1, False, 1001), (1, 2, False, 1001), (2, 1, False, 1002), (2, 2, True, 1002)]
+    out = capsys.readouterr().out
+    assert "BLOCKED (sim infrastructure) mission tries: 4" in out and "job 1002 https://example.invalid/job/1002" in out
+
+
+def test_a_blocked_try_that_was_rerun_does_not_break_two_consecutive_8_of_8(tmp_path):
+    leg1 = write_leg(tmp_path, 1)
+    moved_try(leg1, 1)
+    rc, record = verdict(tmp_path, [leg1, write_leg(tmp_path, 2)], "--jobs", jobs_file(tmp_path))
+    assert (rc, record["verdict"], record["problems"]) == (0, "PASS", [])
+    assert [(b["leg"], b["try"], b["final"]) for b in record["blocked"]] == [(1, 1, False)]
+
+
+def test_a_no_clock_try_that_reached_phase_1_counts_as_it_ended(tmp_path):
+    """The fail-fast record does not make a leg BLOCKED once the mission started phase 1: the leg counts as it ends."""
+    started = mission(failing_reach=True)
+    leg2 = write_leg(tmp_path, 2, data=started)
+    write_gate(os.path.join(leg2, "ws", "build1_logs"))
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), leg2])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+    other = tmp_path / "b"
+    other.mkdir()
+    leg1 = write_leg(other, 1)
+    moved_try(leg1, 1, data=started)
+    rc, record = verdict(other, [leg1, write_leg(other, 2)])
+    assert (rc, record["verdict"]) == (1, "FAIL")
+    assert any("try 1 was rerun but is not BLOCKED" in p and "reached phase 1" in p for p in record["problems"])
+
+
+def test_no_clock_is_not_blocked_when_something_else_in_the_leg_failed(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), blocked_leg(tmp_path, 2, decl=declaration(2, build_ok=0))])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+    other = tmp_path / "b"
+    other.mkdir()
+    failed = {"result": "FAIL", "reason": "x", "phases": [], "failures": ["live_drive_samples = False"]}
+    rc, record = verdict(other, [write_leg(other, 1), blocked_leg(other, 2, data=failed)])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+
+
+def test_a_gate_record_that_did_not_fire_is_not_blocked(tmp_path):
+    leg2 = write_leg(tmp_path, 2, data=False, buses=(), bag=False)
+    write_gate(os.path.join(leg2, "ws", "build1_logs"), fired=False)
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), leg2])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+
+
+def test_one_validation_leg_that_is_blocked_is_not_strict_and_listed(tmp_path):
+    rc, record = verdict(tmp_path, [blocked_leg(tmp_path, 1)], "--expect", "1")
+    assert (rc, record["verdict"], [leg["status"] for leg in record["legs"]]) == (1, "NOT STRICT", ["BLOCKED"])
+
+
+def test_the_workflow_reruns_only_what_the_blocked_try_rule_accepts(tmp_path, capsys):
+    fired, ok = tmp_path / "fired", tmp_path / "ok"
+    write_gate(fired), write_gate(ok, fired=False)
+    assert strict.main(["--blocked-try", str(fired)]) == 0
+    assert strict.main(["--blocked-try", str(ok)]) == 1
+    assert strict.main(["--blocked-try", str(tmp_path / "missing")]) == 1
+    (fired / "baseline1_mission.json").write_text(json.dumps(mission()))
+    assert strict.main(["--blocked-try", str(fired)]) == 1
+    assert "reached phase 1" in capsys.readouterr().out
