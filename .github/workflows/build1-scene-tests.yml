@@ -92,8 +92,9 @@ jobs:
       # baseline1-acceptance.yml builds (clock contract #151/#158, lift on simulation time #162, #166). The #145 pin
       # ran every CTL-017 timer on host time, so its Hall rate checks faulted (F02, F03) below a real-time factor
       # of about 0.65. Nothing else of that head is built.
-      # Platform #90 (main 98654688): safety_stop_gate_node and the public goal proxies import openamr_nav_msgs,
-      # which openamrobot_nav2's package.xml does not declare, so it is checked out and built explicitly here,
+      # Platform #90 (main 98654688): safety_stop_gate_node and the public goal proxies import openamr_nav_msgs
+      # (declared in openamrobot_nav2's package.xml). Its source must be in the workspace, or rosdep -r skips the key
+      # and the nodes crash; so it is checked out and built explicitly here,
       # at the openamrobot_interfaces pin (the same commit as the acceptance workflow's INTERFACES_SHA).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

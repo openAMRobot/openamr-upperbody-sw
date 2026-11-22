@@ -72,6 +72,13 @@ def pose2d(odometry):
     return p.position.x, p.position.y, yaw_of(p.orientation)
 
 
+def _planar_distance(a, b):
+    """Planar distance between two (x, y, yaw) poses; None when either is missing."""
+    if a is None or b is None:
+        return None
+    return math.hypot(b[0] - a[0], b[1] - a[1])
+
+
 class Log:
     """Quantities and events of one scenario. Written as JSON and printed line by line."""
 
@@ -395,29 +402,62 @@ class Rig:
         self.release_software_stop()
 
     def release_software_stop(self, sim_s=60.0):
-        """Platform #90 starts with the software Stop engaged (fail-closed) and every public navigation goal is
-        refused until an operator releases it, which the UI's Resume does. A mission has no UI, so the rig makes that
-        operator step explicitly and logs it. The software Stop is a functional stop, not the hardwired E-stop. On a
-        platform without #90 the service does not exist and nothing is done."""
+        """The operator release of platform #90's software Stop before the first goal, with its lifecycle checked
+        (software_stop.problems): present when the installed platform ships the gate, engaged at start, no base motion
+        while engaged, release accepted through the public service, RUNNING after it. Fails the scenario otherwise. The
+        software Stop is a functional stop, not the hardwired E-stop."""
+        import os
+        from ament_index_python.packages import PackageNotFoundError, get_package_prefix
         from std_srvs.srv import Trigger
+        from openamrobot_build1_scene import software_stop
+        try:
+            prefix = get_package_prefix("openamrobot_nav2")
+            expected = os.path.exists(os.path.join(prefix, "lib", "openamrobot_nav2", "safety_stop_gate_node"))
+        except PackageNotFoundError:
+            expected = False
         client = self.node.create_client(Trigger, "/safety/stop_lock_release")
-        if not client.wait_for_service(timeout_sec=10.0):
-            self.log.event("software Stop: /safety/stop_lock_release not present (platform without #90)")
-            return
-        last = {"message": ""}
+        states = []
+        present = client.wait_for_service(timeout_sec=30.0 if expected else 5.0)
+        if present:
+            from openamr_nav_msgs.msg import StopState
+            from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+            names = {StopState.STATE_RUNNING: software_stop.STATE_RUNNING, StopState.STATE_LOCKED: software_stop.STATE_LOCKED,
+                     StopState.STATE_RELEASE_REFUSED: software_stop.STATE_RELEASE_REFUSED}
+            qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+            self.node.create_subscription(StopState, "/safety/stop_state",
+                                          lambda m: states.append(names.get(m.state, f"unknown {m.state}")), qos)
+            present = self.wait(lambda: bool(states), 30.0, "first /safety/stop_state", step=0.2)
+        initial = states[0] if states else None
+        before = self.truth()
+        ok, message, final = False, "", None
+        if present:
+            self.sleep_sim(2.0)
+            moved = _planar_distance(before, self.truth())
+            last = {"ok": False, "message": ""}
 
-        def released():
-            future = client.call_async(Trigger.Request())
-            end = time.monotonic() + 10.0
-            while not future.done() and time.monotonic() < end:
-                time.sleep(0.05)
-            if future.done() and future.result() is not None:
-                last["message"] = future.result().message
-                return future.result().success
-            return False
-        if not self.wait(released, sim_s, "software Stop release", step=1.0):
-            raise ScenarioFailed(f"software Stop not released: {last['message']}")
-        self.log.event(f"ready: software Stop released by the rig (operator Resume, platform #90): {last['message']}")
+            def released():
+                future = client.call_async(Trigger.Request())
+                end = time.monotonic() + 10.0
+                while not future.done() and time.monotonic() < end:
+                    time.sleep(0.05)
+                if future.done() and future.result() is not None:
+                    last.update(ok=future.result().success, message=future.result().message)
+                return last["ok"]
+            ok = self.wait(released, sim_s, "software Stop release", step=1.0)
+            message = last["message"]
+            self.wait(lambda: states[-1] == software_stop.STATE_RUNNING, 10.0, "stop_state RUNNING", step=0.1)
+            final = states[-1] if states else None
+        else:
+            moved = 0.0
+        self.log.data["software_stop"] = {"gate_expected": expected, "gate_present": present, "initial_state": initial,
+                                          "moved_before_goal_m": moved, "release_ok": ok, "release_message": message,
+                                          "final_state": final, "note": "functional stop, not the hardwired E-stop"}
+        found = software_stop.problems(expected, present, initial, moved, ok, message, final)
+        if found:
+            raise ScenarioFailed("software Stop lifecycle: " + "; ".join(found))
+        self.log.event("software Stop: not on this platform" if not expected else
+                       f"software Stop: started {initial}, base still ({moved:.4f} m), released by the rig "
+                       f"(operator Resume, platform #90): {message}; now {final}")
 
     # ------------------------------------------------------------ actions
     def action(self, name, module, kind):

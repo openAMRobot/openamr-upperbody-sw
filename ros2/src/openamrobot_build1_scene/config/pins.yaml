@@ -36,7 +36,7 @@ pins:
     use: "the unmodified upstream driver, as openamrobot_openarm_emulator/config/sil_pins.yaml"
   openamrobot_interfaces:
     sha: "50ed777be7990edbd3465f33fd97a158e7e3b88b"
-    use: "openamr_nav_msgs for platform #90's safety_stop_gate_node and goal proxies (openamrobot_nav2 does not declare it); the same commit as INTERFACES_SHA in baseline1-acceptance.yml"
+    use: "openamr_nav_msgs for platform #90's safety_stop_gate_node and goal proxies (declared by openamrobot_nav2; its source must be in the workspace); the same commit as INTERFACES_SHA in baseline1-acceptance.yml"
   openarm_can:
     sha: "bfd4e52194aefe38389fa6e670be3738136facb9"
     use: "as sil_pins.yaml"

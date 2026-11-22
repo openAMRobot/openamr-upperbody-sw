@@ -108,6 +108,12 @@ REPLAY_ARGS = {"replay_drive": "vcan_drive", "replay_bms": "vcan_bms", "replay_a
 SPAWN_Z = "0.002"
 
 
+# Platform #90's Stop gate releases only when every *enabled* producer reports a status. Baseline 1 starts no docking
+# server (D-19: docking off by default), so, as #90's bringup.launch.py does for use_docking:=false, only the two
+# navigation producers are enabled; navigation_launch.py's own default enables dock_robot and undock_robot too, and then
+# Resume is refused forever. On a platform without #90 the argument is not declared and has no effect.
+NAV2_ONLY_PRODUCERS = {"enabled_producers": "navigate_to_pose,navigate_through_poses"}
+
 def interface_mtu(interface):
     """MTU of a network interface, or None when it does not exist. 72 is CAN FD, 16 is classic CAN."""
     try:
@@ -431,7 +437,7 @@ def launch_setup(context):
         temp_files.append(nav2_file)
         actions.append(Node(package="openamrobot_perception", executable="scan_body_filter", name="scan_body_filter", output="screen",
                             parameters=[os.path.join(nav2_share, "config", "scan_body_filter_sim.yaml"), {"use_sim_time": True}]))
-        for launch_file, arguments in (("localization_launch.py", {"map": map_file}), ("navigation_launch.py", {})):
+        for launch_file, arguments in (("localization_launch.py", {"map": map_file}), ("navigation_launch.py", NAV2_ONLY_PRODUCERS)):
             actions.append(IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(os.path.join(nav2_share, "launch", launch_file)),
                 launch_arguments={"use_sim_time": "true", "params_file": nav2_file, **arguments}.items()))
