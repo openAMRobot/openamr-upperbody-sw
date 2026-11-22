@@ -28,7 +28,7 @@ PHASES = (
      "finger position on the item in the physics and on /joint_states, gripper result"),
     ("lift_object", "hand rises 0.08 m with the item, holds 3 s, releases",
      "item height gain and drift from ground truth, MoveIt error code and servo torque"),
-    ("retreat", "both arms to park, Nav2 backup 0.30 m away from the shelf",
+    ("retreat", "both arms to park, then the declared retreat option (default forward: turn in place, Nav2 goal 0.30 m ahead)",
      "distance from park, Nav2 result, ground truth displacement along the heading"),
 )
 PHASE_NAMES = tuple(name for name, _expected, _measured in PHASES)
