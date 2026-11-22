@@ -31,15 +31,31 @@ jobs:
       group: openarm-emulator-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
-      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
-        with:
-          required-ros-distributions: jazzy
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           path: ws/src/openamr-upperbody-sw
           persist-credentials: false
+
+      # setup-ros 0.7.19 reads the ros-apt-source tag from the unauthenticated GitHub API (no input, env or token
+      # override); a rate-limited answer leaves the tag empty and the deb download 404s. The pinned package
+      # (sha256 in .github/ros2-apt-source.sha256) is installed first, so setup-ros finds packages.ros.org/ros2
+      # in apt-cache policy and skips its own lookup. Checkout runs first so the checksum file is present.
+      - name: "ENV/INFRA: pinned ros2-apt-source (no GitHub API lookup)"
+        env:
+          ROS_APT_SOURCE_VERSION: '1.3.0'
+        run: |
+          set -euo pipefail
+          deb="ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
+          curl --fail --location --retry 5 --retry-delay 5 -o "/tmp/${deb}" \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/${deb}"
+          (cd /tmp && sha256sum --check --strict "${GITHUB_WORKSPACE}/ws/src/openamr-upperbody-sw/.github/ros2-apt-source.sha256")
+          sudo dpkg -i "/tmp/${deb}"
+          dpkg-query -W ros2-apt-source
+
+      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
+        with:
+          required-ros-distributions: jazzy
 
       - name: Read the pins
         id: pins
