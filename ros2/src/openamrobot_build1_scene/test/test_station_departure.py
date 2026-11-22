@@ -225,3 +225,11 @@ def test_rpp_allow_reversing_true_is_a_reverse_path():
 def test_the_forward_retreat_drives_on_the_station_retreat_tree():
     """PROPOSED (#117): the forward goal uses openamr-platform-sw's navigate_to_station_retreat.xml."""
     assert CONFIG["forward"]["drive_tree"] == "navigate_to_station_retreat.xml"
+
+
+def test_c7_option_1_gates_on_the_forward_drive_only():
+    """#117 option 1 (PROPOSED): the turn's projected motion is observed, not gated; a reverse forward drive still fails."""
+    from openamrobot_build1_scene import station_departure as sd
+    assert sd.gate_reverse_speed({"turn": 0.01223, "forward": 0.0048}) == 0.0048
+    assert sd.gate_reverse_speed({"turn": 0.0, "forward": 0.02}) == 0.02
+    assert sd.gate_reverse_speed({"turn": 0.05}) is None  # a missing forward phase is not measured, and fails its check

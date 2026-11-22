@@ -211,6 +211,15 @@ def reverse_speed_by_phase(phases, min_dt=0.25):
     return speeds, worst
 
 
+def gate_reverse_speed(speeds):
+    """The C7 gate value under upperbody issue #117 option 1 (PROPOSED, gate owner decides): the reverse speed of the
+    forward drive only. In the in-place turn the ground-truth reference point moves off the rotation axis (drift
+    0.0136 to 0.0170 m per half turn) and its projection on the heading reads as reverse with no reverse commanded
+    (turn 0.01223 m/s against forward 0.0048 m/s, run 44979089718); that motion stays guarded by
+    retreat_turn_position_drift (0.05 m) and is reported as retreat_turn_peak_reverse_speed. The limit is unchanged."""
+    return speeds.get("forward")
+
+
 # ------------------------------------------------------------------ ROS
 def _sampled_wait(rig, condition, sim_s, what, samples):
     def check():
@@ -324,6 +333,6 @@ def run(rig, log, name, config=None, pose=None):
     for phase, value in speeds.items():
         log.observed(f"retreat_{phase}_peak_reverse_speed", value, "m/s", note="this phase alone, 0.25 s windows")
     log.data["baseline1"]["retreat_option"]["worst_reverse_window"] = worst
-    log.quantity("retreat_peak_reverse_speed", max(speeds.values()), "m/s", low=0.0,
-                 high=f["max_reverse_speed_m_s"], note="forward only: ground truth along the heading, largest of the "
-                 f"turn and the forward drive, no window across them; worst {worst}")
+    log.quantity("retreat_peak_reverse_speed", gate_reverse_speed(speeds), "m/s", low=0.0,
+                 high=f["max_reverse_speed_m_s"], note="translational reverse of the forward drive (#117 option 1, "
+                 f"PROPOSED); the turn is observed above and guarded by retreat_turn_position_drift; worst {worst}")
