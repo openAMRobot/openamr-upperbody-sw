@@ -214,6 +214,7 @@ motor_classes:
       method: armature divided by gear ratio squared, 0.002 / 10^2. Gear ratio 10 from the actuator ledger, entry openarm_left_joint5, field gear_ratio.
       note: A cross-check only. Not applied anywhere.
   finger:
+    # Not emitted: urdf/sim_dynamics.xacro writes no <dynamics> for the finger joints (#101); the values stay as the record of the source.
     motor: DAMIAO DM-J4310-2EC V1.1 (one per hand, drives finger_joint1; finger_joint2 follows through the mimic)
     ledger_example_entry: openarm_left_finger_joint1
     damping: &finger_damping
