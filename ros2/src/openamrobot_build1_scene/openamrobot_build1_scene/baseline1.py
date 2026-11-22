@@ -274,7 +274,7 @@ def stop_authorize(rig, log):
     emulator = "/sil/lift/emulator_state"
     log.require(rig.get(emulator)["permit_gate"], "the permit gate of the CTL-017 emulator is off")
     rig.lift_permit(False)
-    rig.wait(lambda: not rig.get(emulator)["permit_fresh"], 3.0, "permit withdrawn")
+    rig.wait_permit_state(False, 3.0, "permit withdrawn")
     failures = len(log.failures)
     scenarios._lift_refused(rig, log, LIFT_SEQUENCE[0], "authorize")     # scn02's refusal check, unchanged
     # The refusal as a named check, so the strict verdict can require that it ran (baseline1_gates.stop_cancel).
@@ -282,7 +282,7 @@ def stop_authorize(rig, log):
     log.quantity("authorize_command_refused", refused, "bool", low=True, high=True,
                  note="the lift command without permit was refused (scn02's check above)")
     rig.lift_permit(True)
-    fresh = bool(rig.wait(lambda: rig.get(emulator)["permit_fresh"], 3.0, "permit fresh"))
+    fresh = bool(rig.wait_permit_fresh_after_grant(3.0))
     log.require(fresh, "authorize: the permit did not become fresh")
     log.quantity("authorize_permit_fresh", fresh, "bool", low=True, high=True, note="the CTL-017 emulator holds a fresh permit")
     rig.lift_permit(False)                                               # lift_move grants it again per move
