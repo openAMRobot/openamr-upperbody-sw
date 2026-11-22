@@ -27,8 +27,9 @@
     "min_sensor_links": 18,
     "min_messages": 1,
     "windows": {
-      "_comment": "Named Gazebo-time windows from the mission's time marks (scenarios._mark): [start label, end label]. grasp_reach_last_move: from the start of scn04's last reach move (the straight move onto the end point, openamr-upperbody-sw #98) through the 1 s settle that ends grasp_reach.",
-      "grasp_reach_last_move": ["grasp_reach_last_move_start", "grasp_reach_end"]
+      "_comment": "Named Gazebo-time windows from the mission's time marks (scenarios._mark): [start label, end label]. grasp_reach_last_move: from the start of scn04's last reach move (the straight move onto the end point, openamr-upperbody-sw #98) through the 1 s settle that ends grasp_reach. grasp_last_move_to_close: from the same start through the gripper close (mark closed, openamr-upperbody-sw #77). Where windows overlap, a contact sample belongs to the one that starts first, then ends first (baseline1_gates.window_of), so grasp_reach_last_move keeps its samples.",
+      "grasp_reach_last_move": ["grasp_reach_last_move_start", "grasp_reach_end"],
+      "grasp_last_move_to_close": ["grasp_reach_last_move_start", "closed"]
     },
     "allowed": [
       {"a": "openarm_(left|right)_ee_link[12]", "b": "item", "phases": ["grasp", "lift_object"],
@@ -36,6 +37,9 @@
       {"a": "openarm_left_(ee_base_link|ee_link1)(::|$)", "b": "^tote::(link::)?front_collision$",
        "phases": ["arm_approach"], "window": "grasp_reach_last_move", "max_force_n": 6.0,
        "reason": "residual end-point contact of the hand with the tote front wall, a simulation-model artifact of the base pitch (0.534 deg nose down, 2 mm up in Gazebo against a level planning scene); this exact case only (Mohamed, openamr-upperbody-sw #98, 20 Nov 2026)"},
+      {"a": "openarm_left_ee_base_link(::|$)", "b": "^item::(link::)?body_collision$",
+       "phases": ["grasp"], "window": "grasp_last_move_to_close", "max_force_n": 1.0,
+       "reason": "light touch of the left palm on the target item while the fingers close (run 44983640874 leg 1: 13 samples, max 0.349 N; the item was lifted); this exact pair, the grasp phase up to the gripper close only (Mohamed, gate owner, openamr-upperbody-sw #77, 22 Nov 2026)"},
       {"a": "^item", "b": "^tote", "phases": ["outside", "spawn", "nav_to_station", "stop_authorize", "lift_to_target",
                                             "arm_approach", "grasp", "lift_object", "retreat"],
        "reason": "the item stands in the tote (environment only, no robot link)"},

@@ -118,7 +118,8 @@ def decide(legs, args):
         numbers.append(number)
         record["legs"].append({"dir": leg_dir, "leg": number, "phases_passed": passed, "phases": total,
                                "run_id": (declaration or {}).get("run_id"), "pins": (declaration or {}).get("pins"),
-                               "settings": {k: (declaration or {}).get(k) for k in SETTING_KEYS}, "problems": problems})
+                               "settings": {k: (declaration or {}).get(k) for k in SETTING_KEYS}, "problems": problems,
+                               "allowed_contacts": gates.allowed_contacts(mission, args.gate_config)})
         record["problems"] += [f"leg {number}: {p}" for p in problems]
     numbered = sorted(n for n in numbers if isinstance(n, int))
     if numbered != list(range(1, args.expect + 1)) or len(numbers) != args.expect:
@@ -157,6 +158,14 @@ def render(record):
     for leg in record["legs"]:
         for name, sha in sorted((leg["pins"] or {}).items()):
             lines.append(f"- leg {leg['leg']} {name} {sha}")
+    allowed = [(leg["leg"], c) for leg in record["legs"] for c in leg.get("allowed_contacts") or []]
+    if allowed:
+        lines += ["", "Allowed contacts (reported, not problems):"]
+        for number, c in allowed:
+            where = c["phase"] + (f" ({c['window']})" if c.get("window") else "")
+            cap = f", cap {c['max_force_cap_n']} N" if c.get("max_force_cap_n") is not None else ""
+            lines.append(f"- leg {number} {where}: {c['a']} with {c['b']}, {c['count']} samples, "
+                         f"max {c['max_force_n']} N{cap}")
     if record["problems"]:
         lines += ["", "Problems:"] + [f"- {p}" for p in record["problems"]]
     if record["verdict"] == "NOT STRICT":
