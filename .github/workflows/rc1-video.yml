@@ -1,0 +1,51 @@
+# Scratch workflow (not for merge): renders one short engineering video from a recorded Baseline 1 acceptance
+# artifact and uploads it as a workflow artifact. It publishes nothing: no release, no tag, no page.
+name: rc1-video
+on:
+  push:
+    branches: [diag/rc1-video-2026-11-22]
+    paths: [tools/video/**, .github/workflows/rc1-video.yml]
+permissions:
+  contents: read
+  actions: read
+env:
+  # The recording to render. Strict Baseline 1 run on the trial-converged platform (command chain of platform PR #90).
+  SOURCE_RUN: "45059525778"
+  SOURCE_ARTIFACT: baseline1-acceptance-leg1-attempt1
+  SOURCE_REF: "openamr-upperbody-sw 83f1de4 (evidence branch)  |  openamr-platform-sw e7e2cb6 (trial convergence, not canonical main)"
+  SOURCE_CHAIN: "Base commands: twist_mux, Software Stop gate (locked at boot, released by the mission), velocity smoother, collision monitor."
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q ffmpeg fonts-dejavu-core
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q rosbags==0.10.9 matplotlib==3.9.2 numpy==2.1.3 pillow==11.0.0
+      - name: Check the source run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run view "$SOURCE_RUN" -R "$GITHUB_REPOSITORY" --json conclusion,headSha,headBranch,url | tee source_run.json
+          test "$(jq -r .conclusion source_run.json)" = success
+      - name: Render
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          export PATH="$RUNNER_TEMP/venv/bin:$PATH"
+          mkdir -p "$RUNNER_TEMP/work" && cd "$RUNNER_TEMP/work"
+          sh "$GITHUB_WORKSPACE/tools/video/make_short.sh" "$SOURCE_RUN" "$SOURCE_ARTIFACT" "$SOURCE_REF" "$SOURCE_CHAIN" 2
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp openamrobot_digital_twin_run_*.mp4 thumbnail_run_*.png frame_1080p_run_*.png provenance_run_*.txt "$GITHUB_WORKSPACE/out/"
+          cp "$GITHUB_WORKSPACE/source_run.json" "$GITHUB_WORKSPACE/out/"
+          ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate -of default=nw=1 openamrobot_digital_twin_run_*.mp4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rc1-digital-twin-video
+          path: out/
+          if-no-files-found: error
+          retention-days: 90

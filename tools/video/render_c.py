@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Video C renderer: observer frames (left) and panels drawn from the recorded bag, candump and mission JSON (right).
-Every drawn signal comes from the recording of run 44309791416. Output: raw RGB frames piped to ffmpeg."""
-import sys, json, glob, subprocess
+Every drawn signal comes from the recording of the run named in VIDEO_RUN. Output: raw RGB frames piped to ffmpeg."""
+import os, sys, json, glob, subprocess
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -10,10 +10,13 @@ from matplotlib.patches import Rectangle
 from PIL import Image
 sys.path.insert(0, __file__.rsplit("/", 1)[0]); import candecode as cd
 
-LOG = "in_b1/ws/build1_logs"
+LOG = os.environ.get("VIDEO_LOG", "in_b1/ws/build1_logs")
+RUN = os.environ.get("VIDEO_RUN", "44309791416"); ART = os.environ.get("VIDEO_ARTIFACT", "baseline1-acceptance-attempt1")
+REF = os.environ.get("VIDEO_REF", "integration/baseline1 d63e9ed, openamr-platform-sw 931e631")
+SPEED = float(os.environ.get("VIDEO_SPEED", "1"))
 FPS = 30; W, H = 1920, 1080
-SIM0, SIM1 = 7.40, 115.90          # bag 7.338 to 115.958; panels play at 1x Gazebo time
-OBS_T0 = 8.0                       # observer frame k <-> Gazebo t = 8.0 + k s (1 Hz sensor; fit 7.7 to 8.0 s)
+SIM0, SIM1 = 7.40, 115.90          # replaced below from the recording when VIDEO_AUTO_WINDOW=1
+OBS_T0 = float(os.environ.get("VIDEO_OBS_T0", "8.0"))  #                      # observer frame k <-> Gazebo t = 8.0 + k s (1 Hz sensor; fit 7.7 to 8.0 s)
 BG, FG, FG2, MUTED, GRID = "#1a1a19", "#f0efec", "#c3c2b7", "#8d8c86", "#2e2e2c"
 C = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767"]
 GOOD = "#0ca30c"
@@ -27,6 +30,9 @@ can = np.load("b1_can.npz")
 M = json.load(open(f"{LOG}/baseline1_mission.json"))
 phases = [(p["phase"], p["sim_start"], p["sim_end"], p["ran"] and not p["failures"]) for p in M["phases"]]
 goal_ev = [e["text"] for e in M["events"] if e["text"].startswith("nav goal work_shelf")][0]
+if os.environ.get("VIDEO_AUTO_WINDOW") == "1":   # play from the first recorded sample to the end of the last phase
+    _t0 = max(float(z[k][0, 0]) for k in ("build1__ground_truth__odom", "sil__drive__status", "sil__lift__status", "build1__rtf_stats"))
+    SIM0 = round(_t0 + 0.05, 2); SIM1 = round(min(phases[-1][2] + 2.0, float(z["build1__ground_truth__odom"][-1, 0])) - 0.05, 2)
 GOAL = (0.0, -2.085, -1.5708)       # parsed below from the event text, asserted equal
 _g = goal_ev.split(); assert abs(float(_g[4]) - GOAL[0]) < 1e-3 and abs(float(_g[6]) - GOAL[1]) < 1e-3
 obs = [np.asarray(Image.open(f).convert("RGB")) for f in sorted(glob.glob("obs/f*.png"))]
@@ -69,7 +75,7 @@ def ptitle(ax, title, src):
     ax.text(0, 1.015, src, transform=ax.transAxes, fontsize=9, color=FG2, va="bottom")
 
 # header
-fig.text(20 / W, 1052 / H, "Engineering digital twin explained: Baseline 1 mission, run 44309791416 (8 of 8 phases PASS)",
+fig.text(20 / W, 1052 / H, "Engineering digital twin explained: Baseline 1 mission, run " + RUN + f" ({sum(p[3] for p in phases)} of {len(phases)} phases PASS)",
          fontsize=17, fontweight="bold", va="center")
 fig.text(20 / W, 1022 / H, "Gazebo simulation, simulation-oracle profile (pose_source: ground_truth, object_pose_source: ground_truth)."
          "  Simulation only: not hardware, perception or safety validation.", fontsize=12, color=FG2, va="center")
@@ -153,12 +159,12 @@ axg.set_ylim(-0.05, 1.0); axg.set_xlabel("Gazebo time (s)")
 ln_f, = axg.plot([], [], color=C[0], label="left finger joint1 (rad)")
 ln_iz, = axg.plot([], [], color=C[3], label="item height above start (dm)")
 axg.legend(loc="upper left", fontsize=8.5)
-axg.text(0.03, 0.45, "contact force: not recorded in this run", transform=axg.transAxes, ha="left", va="top",
+axg.text(0.03, 0.45, "contact force: not drawn in this video", transform=axg.transAxes, ha="left", va="top",
          fontsize=8.5, color=MUTED)
 item_z0 = item[0, 3]
 
-fig.text(1900 / W, 6 / H, "Source: openamr-upperbody-sw run 44309791416, integration/baseline1 d63e9ed, openamr-platform-sw 931e631 (artifact baseline1-acceptance-attempt1). "
-         "Panels drawn from the recording at 1x Gazebo time; nothing is re-simulated.",
+fig.text(1900 / W, 6 / H, f"Source: openamr-upperbody-sw run {RUN}, {REF} (artifact {ART}). "
+         f"Panels drawn from the recording at {SPEED:g}x Gazebo time; nothing is re-simulated.",
          ha="right", va="bottom", fontsize=9, color=MUTED)
 
 def upto(a, t): return a[: np.searchsorted(a[:, 0], t, side="right")]
@@ -167,7 +173,7 @@ LSTATE = {0: "init", 1: "homing", 2: "idle?", 3: "idle", 4: "moving", 5: "fault"
 
 def draw(t):
     k = int(np.clip(round(t - OBS_T0), 0, len(obs) - 1))
-    im.set_data(obs[k]); obs_lbl.set_text(f"480 x 270 at 1 frame per Gazebo second, enlarged 1.9x (adds no detail). Frame {k + 1}/{len(obs)}, t = {OBS_T0 + k:.0f} s, held 1 s")
+    im.set_data(obs[k]); obs_lbl.set_text(f"480 x 270 at 1 frame per Gazebo second, enlarged 1.9x (adds no detail). Frame {k + 1}/{len(obs)}, t = {OBS_T0 + k:.1f} s, held 1 s")
     r = at(rtf, t); hdr.set_text(f"Gazebo time {t:6.1f} s   RTF {r[1]:.2f}   host {r[4] - rtf[0, 4]:4.0f} s")
     for (rect, t3, a, b, ok) in cells:
         if t >= b: rect.set_fc("#16301a"); rect.set_ec(GOOD); t3.set_text("✓ PASS" if ok else "FAIL"); t3.set_color(GOOD if ok else C[7])
@@ -212,12 +218,12 @@ def render(i0, i1, out):
                           "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p", out],
                          stdin=subprocess.PIPE)
     for i in range(i0, i1):
-        draw(SIM0 + i / FPS); fig.canvas.draw()
+        draw(SIM0 + i * SPEED / FPS); fig.canvas.draw()
         p.stdin.write(np.asarray(fig.canvas.buffer_rgba())[:, :, :3].tobytes())
     p.stdin.close(); p.wait()
 
 if __name__ == "__main__":
-    n = int(round((SIM1 - SIM0) * FPS))
+    n = int(round((SIM1 - SIM0) * FPS / SPEED))
     if sys.argv[1] == "still":
         for t in map(float, sys.argv[2:]):
             draw(t); fig.savefig(f"still_c_{t:05.1f}.png", dpi=100)
