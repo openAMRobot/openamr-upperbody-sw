@@ -208,3 +208,11 @@ def test_reverse_speed_by_phase_keeps_a_backward_move_inside_a_phase():
     speeds, worst = sd.reverse_speed_by_phase({"turn": [], "forward": forward})
     assert speeds["forward"] == pytest.approx(0.016) and worst["phase"] == "forward" and worst["t"] == 0.0
     assert max(speeds.values()) > 0.01          # the unchanged 0.010 m/s limit still fails it
+
+
+def test_c7_option_1_gates_on_the_forward_drive_only():
+    """#117 option 1 (PROPOSED): the turn's projected motion is observed, not gated; a reverse forward drive still fails."""
+    from openamrobot_build1_scene import station_departure as sd
+    assert sd.gate_reverse_speed({"turn": 0.01223, "forward": 0.0048}) == 0.0048
+    assert sd.gate_reverse_speed({"turn": 0.0, "forward": 0.02}) == 0.02
+    assert sd.gate_reverse_speed({"turn": 0.05}) is None  # a missing forward phase is not measured, and fails its check
