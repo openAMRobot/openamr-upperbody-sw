@@ -164,17 +164,30 @@ def movable_objects(scene):
     }
 
 
+# scn03's reach targets: SHELF_REACH_SIDE_M to each side of the unit centre, and LEVEL0_REACH_SIDE_M on level 0. On level 0
+# the tote holds scn04's item 0.16 m to the left, under the left target. The left hand came in from the side and touched
+# the item's top edge (palm or finger, up to 41.5 N) or knocked the item over in 21 of 22 arm diagnostics runs on 323a2ce,
+# 87d0f7a, e7a251c, ec8d616 and scratch 3a6a511; the item lay on its side in 11 of the 12 runs that logged its pose. In the twelfth the item stayed standing under the palm
+# (33.6 N), held the hand up against work_shelf_board_1, and MoveIt refused the return to park as a start state in
+# collision (-10). At 0.27 m the hand stays beside the tote (test_scene_reach_targets.py). Level 1 has nothing under its
+# targets and keeps 0.16 m.
+SHELF_REACH_SIDE_M = 0.16
+LEVEL0_REACH_SIDE_M = 0.27
+
+
 def shelf_reach_targets(scene):
     """{level index: {left, right}} world points the arm scenario reaches for: above the front edge of each
-    work shelf level, 0.16 m to each side of the unit centre. `clearance` is the height above the board."""
+    work shelf level, SHELF_REACH_SIDE_M to each side of the unit centre (LEVEL0_REACH_SIDE_M on level 0), 0.16 m above
+    the board."""
     (fx, fy), (nx, ny) = work_shelf_front(scene)
     tx, ty = -ny, nx
     targets = {}
     for index, level in enumerate(scene["shelf"]["levels"]):
         z = value(level) + 0.16
+        side = LEVEL0_REACH_SIDE_M if index == 0 else SHELF_REACH_SIDE_M
         # The robot faces the shelf, so its left is the shelf's -t side.
-        targets[index] = {"left": (fx - tx * 0.16 + nx * 0.05, fy - ty * 0.16 + ny * 0.05, z),
-                          "right": (fx + tx * 0.16 + nx * 0.05, fy + ty * 0.16 + ny * 0.05, z)}
+        targets[index] = {"left": (fx - tx * side + nx * 0.05, fy - ty * side + ny * 0.05, z),
+                          "right": (fx + tx * side + nx * 0.05, fy + ty * side + ny * 0.05, z)}
     return targets
 
 
