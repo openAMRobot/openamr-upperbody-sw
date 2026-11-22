@@ -31,7 +31,7 @@
     "cmd_vel_topic": "/cmd_vel"
   },
   "retreat": {
-    "_comment": "station_departure.py. BASELINE1_RETREAT selects how the retreat phase leaves the station. Default forward (turn and forward, no reverse; Alex 20 Nov 2026), set and declared by the acceptance workflow. backup (Nav2 behavior_server /backup) needs a reverse-capable Nav2 configuration and fails on the no-reverse one; departure is a prepared alternative, not enabled. Simulation only.",
+    "_comment": "station_departure.py. BASELINE1_RETREAT selects how the retreat phase leaves the station. Default forward (turn and forward, no reverse; Alex 20 Nov 2026), set and declared by the acceptance workflow. backup sends no goal and fails: the no-reverse Nav2 behaviour set (openamr-platform-sw #178) has no backup behaviour; departure is a prepared alternative, not enabled. Simulation only.",
     "env": "BASELINE1_RETREAT",
     "default": "forward",
     "options": [

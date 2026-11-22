@@ -52,19 +52,34 @@ def _duration(seconds):
     return Duration(sec=int(seconds), nanosec=int((seconds % 1.0) * 1e9))
 
 
-def _drive_goal(distance, speed=DRIVE_SPEED, allowance=60.0):
-    from nav2_msgs.action import DriveOnHeading
-    goal = DriveOnHeading.Goal()
-    goal.target.x = float(distance)
-    goal.speed = float(speed)
-    goal.time_allowance = _duration(allowance)
+# The straight drive of scn01, scn06 and scn07 is a NavigateToPose goal `distance` straight ahead of the base's map
+# pose with the station tree (station goal checker 0.025 m), the forward mechanism of station_departure.py. Nav2's
+# behaviour set has no drive_on_heading, backup or assisted_teleop (openamr-platform-sw #178): spin and wait only.
+DRIVE_ACTION = "/navigate_to_pose"
+DRIVE_TREE = "navigate_to_station.xml"
+
+
+def _drive_goal(rig, distance):
+    from ament_index_python.packages import get_package_share_directory
+    from nav2_msgs.action import NavigateToPose
+    from openamrobot_build1_scene.baseline1 import map_pose
+    from openamrobot_build1_scene.station_departure import forward_goal
+    here = map_pose(rig)
+    if here is None:
+        raise ScenarioFailed("no map > base_footprint transform for the drive goal")
+    x, y, yaw = forward_goal(here, float(distance))
+    goal = NavigateToPose.Goal()
+    goal.pose.header.frame_id = "map"
+    goal.pose.pose.position.x, goal.pose.pose.position.y = float(x), float(y)
+    goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(yaw / 2.0), math.cos(yaw / 2.0)
+    goal.behavior_tree = os.path.join(get_package_share_directory("openamrobot_nav2"), "behavior_trees", DRIVE_TREE)
     return goal
 
 
-def _send_drive(rig, distance, allowance=60.0):
-    handle = rig.send_goal("/drive_on_heading", "nav2_msgs.action", "DriveOnHeading", _drive_goal(distance, allowance=allowance))
+def _send_drive(rig, distance):
+    handle = rig.send_goal(DRIVE_ACTION, "nav2_msgs.action", "NavigateToPose", _drive_goal(rig, distance))
     if handle is None:
-        raise ScenarioFailed("Nav2 drive_on_heading did not accept the goal")
+        raise ScenarioFailed("Nav2 navigate_to_pose did not accept the drive goal")
     return handle
 
 
@@ -100,7 +115,7 @@ def drive(rig, log):
     limits(rig, log, LIMIT_ZLAC)
     truth0, odom0 = rig.truth(), rig.odom()
     status, _ = rig.wait_result(_send_drive(rig, 2.0), 90.0, "drive 2 m")
-    log.require(rig.succeeded(status), f"drive_on_heading 2 m ended with status {status}")
+    log.require(rig.succeeded(status), f"navigate_to_pose 2 m ahead ended with status {status}")
     log.quantity("drive_settle_time", rig.wait_stopped(10.0), "s of Gazebo time", note="until below 0.01 m/s and 0.02 rad/s for 0.5 s")
     truth1, odom1 = rig.truth(), rig.odom()
     truth_distance, odom_distance = _distance(truth0, truth1), _distance(odom0, odom1)
@@ -752,7 +767,7 @@ def stale_sensors(rig, log):
     limits(rig, log, LIMIT_ZLAC)
     log.require(rig.wait(lambda: rig.count("/scan_filtered") > 3, 30.0, "scan"), "no filtered scan before the fault")
     start_pose = rig.truth()
-    handle = _send_drive(rig, 2.5, allowance=120.0)
+    handle = _send_drive(rig, 2.5)
     try:
         log.require(rig.wait(lambda: rig.truth_speed()[0] > 0.15, 20.0, "base at speed"), "the base did not reach speed")
         scans = rig.count("/scan")
