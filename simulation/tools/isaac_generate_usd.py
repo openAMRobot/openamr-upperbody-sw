@@ -14,9 +14,27 @@ Then run simulation/tools/check_usd.py on it (no GPU needed).
 import argparse
 import json
 import os
-import math
 import pathlib
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from openamr_sim import usd_fixups  # noqa: E402  (numpy and pxr only: loads in Isaac Sim's python.sh)
+
+
+def _isaac_sim_version():
+    """(version, source): the Isaac Sim release, not the Kit build. isaacsim.core.version first, then the VERSION file."""
+    try:
+        from isaacsim.core.version import get_version
+        found = get_version()
+        found = found[0] if isinstance(found, (list, tuple)) else found
+        if found:
+            return str(found), "isaacsim.core.version.get_version"
+    except Exception:  # noqa: BLE001  (fall back to the file)
+        pass
+    for root in (os.environ.get("ISAAC_PATH"), "/isaac-sim"):
+        if root and (pathlib.Path(root) / "VERSION").is_file():
+            return (pathlib.Path(root) / "VERSION").read_text().strip(), f"{root}/VERSION"
+    return None, None
 
 
 def main():
@@ -35,12 +53,13 @@ def main():
     try:
         import omni.kit.app
         import omni.kit.commands
-        from pxr import PhysxSchema, Sdf, Usd, UsdPhysics
+        from pxr import PhysxSchema, Usd, UsdPhysics
 
-        version = omni.kit.app.get_app().get_build_version()
-        log["isaac_sim_build"] = version
-        if not version.startswith(job["isaac_sim_version"]):
-            log["version_warning"] = f"job pins {job['isaac_sim_version']}, running {version}"
+        log["kit_build"] = omni.kit.app.get_app().get_build_version()   # 107.3.3 in Isaac Sim 5.1.0: not the Isaac Sim version
+        version, source = _isaac_sim_version()
+        log["isaac_sim_version"], log["isaac_sim_version_source"] = version, source
+        if not usd_fixups.isaac_sim_version_matches(job["isaac_sim_version"], version):
+            log["version_warning"] = f"job pins Isaac Sim {job['isaac_sim_version']}, running {version} (from {source})"
         from isaacsim.asset.importer.urdf import _urdf
 
         status, config = omni.kit.commands.execute("URDFCreateImportConfig")
@@ -83,13 +102,11 @@ def main():
         for name, value in job["armature"].items():
             api = PhysxSchema.PhysxJointAPI.Apply(joints[name])
             api.CreateArmatureAttr(value)
-        scenes = [p for p in stage.Traverse() if p.IsA(UsdPhysics.Scene)]
-        if len(scenes) != 1:
-            raise RuntimeError(f"expected one physics scene, found {len(scenes)}")
-        scene = PhysxSchema.PhysxSceneAPI.Apply(scenes[0])
+        # Isaac Sim 5.1's importer writes no physics scene: define it from the job (gravity), then the PhysX step rate.
+        scene_prim, log["physics_scene_created"] = usd_fixups.ensure_physics_scene(stage, job)
+        scene = PhysxSchema.PhysxSceneAPI.Apply(scene_prim)
         scene.CreateTimeStepsPerSecondAttr(job["physics"]["time_steps_per_second"])
-        g = job["physics"]["gravity"]
-        UsdPhysics.Scene(scenes[0]).CreateGravityMagnitudeAttr(math.sqrt(sum(x * x for x in g)))
+        log["mimic_limits_from_urdf"] = usd_fixups.mimic_limits_from_urdf(stage, (out / job["urdf"]).read_text(), job)
         stage.GetRootLayer().customLayerData = {"openamrobot_expansion_sha256": job["expansion_sha256"],
                                                "generated_by": "simulation/tools/isaac_generate_usd.py"}
         stage.Save()
