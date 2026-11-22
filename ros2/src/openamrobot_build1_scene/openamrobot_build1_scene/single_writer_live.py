@@ -56,6 +56,24 @@ def gz_publisher_counts(topics):
     return counts
 
 
+def release(node, subscriptions, spinning, lock=None, stop=None):
+    """End the /tf recording. When another thread spins `node` (rig.Rig's MultiThreadedExecutor, scn09 with
+    spinning=True), destroying a subscription there kills that executor thread (rclpy InvalidHandle, "cannot use
+    Destroyable because destruction was requested": run 44848867373, job 136675191420), after which the rig receives
+    nothing. Then the subscriptions stay until the node is destroyed and only the recording stops (`stop` gets a
+    marker under `lock`). Without another spinner they are destroyed as before."""
+    if stop is not None:
+        if lock is not None:
+            with lock:
+                stop.append(True)
+        else:
+            stop.append(True)
+    if spinning:
+        return
+    for subscription in subscriptions:
+        node.destroy_subscription(subscription)
+
+
 def check(node, command_map, profile, components, settle_s=20.0, spinning=False):
     """-> {"problems": [...], "facts": [...], counts}. `spinning`: another thread already spins `node`."""
     import rclpy
@@ -63,9 +81,12 @@ def check(node, command_map, profile, components, settle_s=20.0, spinning=False)
     from tf2_msgs.msg import TFMessage
     kind = single_writer.kind_of(command_map, profile)
     pairs, lock = set(), threading.Lock()
+    stopped = []
 
     def on_tf(message):
         with lock:
+            if stopped:
+                return
             for transform in message.transforms:
                 pairs.add((transform.child_frame_id, transform.header.frame_id))
     subscriptions = [node.create_subscription(TFMessage, "/tf", on_tf, 100),
@@ -106,8 +127,7 @@ def check(node, command_map, profile, components, settle_s=20.0, spinning=False)
     single, silent = single_writer.gz_topics(command_map, kind, components)
     gz = gz_publisher_counts(single + silent)
     problems += single_writer.gz_problems(command_map, kind, gz, components) if gz else ["gz is not installed: the Gazebo command topics were not checked"]
-    for subscription in subscriptions:
-        node.destroy_subscription(subscription)
+    release(node, subscriptions, spinning, lock=lock, stop=stopped)
     facts = [f"{topic}: {filtered.get(topic, [])}" for topic in command_map["topics"]]
     facts += [f"action {action}: {status[action]}" for action in command_map["actions"]]
     facts += [f"gz {topic}: {count} publishers" for topic, count in gz.items()]

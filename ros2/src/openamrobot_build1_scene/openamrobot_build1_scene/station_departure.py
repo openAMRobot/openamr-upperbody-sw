@@ -239,7 +239,8 @@ def run(rig, log, name, config=None, pose=None):
         for _ in range(5):
             publisher.publish(Twist())
             time.sleep(0.05)
-        rig.node.destroy_publisher(publisher)
+        # The publisher stays until Rig.close(): destroying it while the rig's executor spins in another thread kills
+        # that thread (its QoS event handler is in the wait set; rclpy InvalidHandle, run 44848867373).
         log.quantity("retreat_departure_peak_command", peak, "m/s", low=0.0, high=d["max_speed_m_s"],
                      note=f"published on {d['topic']}, harness only")
         log.quantity("retreat_departure_time", rig.sim_time() - t0, "s of Gazebo time", low=0.0,
