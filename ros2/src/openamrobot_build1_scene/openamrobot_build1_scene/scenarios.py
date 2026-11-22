@@ -19,7 +19,8 @@ from openamrobot_build1_scene import faults
 from openamrobot_build1_scene.arm_frames import (CARTESIAN_MIN_FRACTION, approach_tolerances, CARTESIAN_STEP_M,
                                                   GRASP_ABOVE_ITEM_CENTRE_M, LIFT_RISE_M, in_last_move, reach_waypoints,
                                                   SIDE_GRASP, TCP_FRAME, face_yaw, grasp_line, hand_for_tcp_at, rotate_z, side_grasp,
-                                                  side_grasp_offset, straight_lift, tcp_for_item)
+                                                  side_grasp_offset, straight_lift, tcp_for_item, ITEM_DEPTH_BEHIND_TCP_M,
+                                                  PALM_CLEARANCE_M, PALM_MESH, palm_points, palm_safe_depth)
 from openamrobot_build1_scene.planning_scene import excluded_from_planning
 from openamrobot_build1_scene.rig import (Blocked, LIFT_MIN_RTF, LIFT_REFUSED, LIFT_STOP_M, LIFT_STOP_TOLERANCE_M,
                                           ScenarioFailed, angle_diff)
@@ -506,6 +507,8 @@ def grasp(rig, log):
     if not log.require(found is not None, f"no /tf from {link} to {TCP_FRAME[side]}"):
         return
     log.quantity("tcp_depth_along_fingers", side_grasp_offset(found[0])[0], "m", note=f"{TCP_FRAME[side]} in {link}, from /tf")
+    from ament_index_python.packages import get_package_share_directory
+    palm = palm_points(os.path.join(get_package_share_directory(PALM_MESH[0]), PALM_MESH[1]))   # for palm_safe_depth
     hand = hand_for_tcp_at((item[0], item[1], grasp_z), found[0], yaw)
     back = rotate_z((0.10, 0.0, 0.0), yaw)       # 0.10 m back along the fingers
     approach = (hand[0] - back[0], hand[1] - back[1], hand[2])
@@ -543,7 +546,11 @@ def grasp(rig, log):
             if not log.require(approached is not None, "no /tf of the hand after the approach"):
                 return
             held_orientation = (approached[1].x, approached[1].y, approached[1].z, approached[1].w)
-            tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation)   # the item 9 mm into the fingers
+            # The item 9 mm into the fingers, less where that brings the palm within PALM_CLEARANCE_M of it (arm_frames.py)
+            depth = palm_safe_depth(palm, item, (item[0], item[1], grasp_z), found[0], held_orientation, yaw)
+            log.quantity("item_depth_behind_tcp", depth, "m", note=f"recorded, no limit: {ITEM_DEPTH_BEHIND_TCP_M} m, less "
+                         f"where the palm would come within {PALM_CLEARANCE_M} m of the item (arm_frames.palm_safe_depth)")
+            tcp_x, tcp_y, _ = tcp_for_item((item[0], item[1], grasp_z), held_orientation, depth)
             waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)
             _mark(rig, "grasp_reach_start")
             watcher = LastMoveMark(rig, link, waypoints).start()

@@ -5,6 +5,18 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (22 Nov 2026; scn04 close, the palm on the item; Proposed; simulation only)
+
+- **The item depth in the fingers is cut where the palm would come within 3 mm of the item.** With the item 9 mm behind
+  the TCP, the palm's collision mesh was planned 1.1 to 4.5 mm from the item's robot-side face in the five Baseline 1 legs
+  of 22 Nov; the gap follows the hand pitch the approach ended with. Leg 1 of run 44983640874 (fingers 1.3 degrees down,
+  1.1 mm) recorded `ee_base_link` on the item in the grasp phase (13 samples, 0.349 N) and failed the strict contact
+  gate. `arm_frames.palm_safe_depth` computes the depth from the model's palm mesh (`palm_points`) and the item box:
+  9 mm, less where that leaves under `PALM_CLEARANCE_M` (0.003 m); scn04 logs it as `item_depth_behind_tcp`. In the five
+  legs it is 7.1 mm (leg 1), 8.4 mm (44979089718) and 9 mm (the other three). The gate, its allow-list, limits,
+  thresholds, force caps, the approach and the reach geometry are unchanged. Tests: `test_arm_frames.py` (15 new or
+  changed; the five recorded legs, the palm mesh against the URDF, the tote front wall at the new end point).
+
 ### Fixed (20 Nov 2026; lift permit waits after a change, review of #94; simulation only)
 
 - `Rig.wait_permit_state(fresh)`: after a permit change the CTL-017 emulator state is read only from the second message

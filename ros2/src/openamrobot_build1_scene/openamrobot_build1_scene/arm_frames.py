@@ -198,3 +198,70 @@ def tcp_for_item(item_point, hand_quaternion, depth=ITEM_DEPTH_BEHIND_TCP_M):
     """Where the TCP goes so that the item centre `item_point` sits `depth` behind it along the fingers (toward the palm)."""
     fingers = _apply(quaternion_matrix(hand_quaternion), (0.0, 0.0, -1.0))
     return tuple(item_point[i] + depth * fingers[i] for i in range(3))
+
+
+# The palm against the item's face at the close (Proposed, 22 Nov 2026). With the item ITEM_DEPTH_BEHIND_TCP_M into the
+# fingers, the palm's collision mesh is planned 1.1 to 4.5 mm from the item in the five Baseline 1 legs of 22 Nov, and
+# the gap depends on the hand pitch the approach ended with (held within 0.12 rad): the front of the palm is a bump 10 to
+# 30 mm above the hand axis, so fingers that point down bring it onto the item's robot-side face. Leg 1 of run
+# 44983640874, the only one of the five with the fingers pointing down (1.3 degrees), had the smallest gap (1.1 mm) and
+# the only palm contact (ee_base_link with the item in the grasp phase, 0.349 N). So the depth is cut, for such an
+# orientation only, until the palm's mesh is PALM_CLEARANCE_M from the item box; never deeper than ITEM_DEPTH_BEHIND_TCP_M.
+# The mesh is the one of the model (openarm_description, ee_base_link's collision, its origin and scale: the static
+# tests check them against the expanded URDF), sampled as the static tests sample it.
+PALM_CLEARANCE_M = 0.003
+ITEM_HALF_SIZE_M = (0.0175, 0.0175, 0.07)
+PALM_MESH = ("openarm_description", "assets/end_effector/pinch_gripper/meshes/collision/ee_base_link.stl")
+PALM_MESH_ORIGIN_M = (0.0205, 0.0, 0.0)
+PALM_MESH_SCALE = (1.0, -1.0, 1.0)
+PALM_FRONT_FROM_M = 0.08      # only the part of the palm at least this far along the fingers faces the item
+
+
+def palm_points(stl_path, origin=PALM_MESH_ORIGIN_M, scale=PALM_MESH_SCALE, front_from=PALM_FRONT_FROM_M, grid=8):
+    """Points of the palm's collision mesh (binary STL) in the hand frame: every vertex and a barycentric grid of order
+    `grid` on every triangle, scaled and moved by the collision origin, those at least `front_from` along the fingers."""
+    import struct
+    with open(stl_path, "rb") as f:
+        data = f.read()
+    count = struct.unpack_from("<I", data, 80)[0]
+    weights = [(i / grid, j / grid, (grid - i - j) / grid) for i in range(grid + 1) for j in range(grid + 1 - i)]
+    points = set()
+    for t in range(count):
+        values = struct.unpack_from("<12f", data, 84 + 50 * t)
+        corners = [[values[3 + 3 * k + d] * scale[d] for d in range(3)] for k in range(3)]
+        for a, b, c in weights:
+            p = tuple(a * corners[0][d] + b * corners[1][d] + c * corners[2][d] + origin[d] for d in range(3))
+            if -p[2] >= front_from:
+                points.add(p)
+    return sorted(points)
+
+
+def palm_clearance(points, tcp_point, tcp_offset, hand_quaternion, item_centre, item_yaw, half=ITEM_HALF_SIZE_M):
+    """Smallest distance of the palm `points` (hand frame) to the item box (centre `item_centre`, turned `item_yaw` about
+    z of base_footprint) with the TCP on `tcp_point`; minus the depth when a point is inside."""
+    R = quaternion_matrix(hand_quaternion)
+    offset = _apply(R, tcp_offset)
+    hand = tuple(tcp_point[i] - offset[i] for i in range(3))
+    c, s = math.cos(item_yaw), math.sin(item_yaw)
+    best = None
+    for point in points:
+        p = _apply(R, point)
+        dx, dy, dz = (hand[i] + p[i] - item_centre[i] for i in range(3))
+        local = (abs(c * dx + s * dy), abs(-s * dx + c * dy), abs(dz))
+        outside = math.sqrt(sum(max(local[i] - half[i], 0.0) ** 2 for i in range(3)))
+        distance = outside if outside > 0.0 else -min(half[i] - local[i] for i in range(3))
+        best = distance if best is None else min(best, distance)
+    return best
+
+
+def palm_safe_depth(points, item_centre, grasp_point, tcp_offset, hand_quaternion, item_yaw,
+                    depth=ITEM_DEPTH_BEHIND_TCP_M, clearance=PALM_CLEARANCE_M):
+    """The item depth behind the TCP for scn04's end point: `depth`, or less where the palm `points` would come closer
+    than `clearance` to the item. The TCP goes to tcp_for_item(grasp_point) at the height of `grasp_point`, as in scn04."""
+    for _ in range(8):
+        tcp = tcp_for_item(grasp_point, hand_quaternion, depth)
+        gap = palm_clearance(points, (tcp[0], tcp[1], grasp_point[2]), tcp_offset, hand_quaternion, item_centre, item_yaw)
+        if gap >= clearance - 1e-6:
+            break
+        depth -= clearance - gap
+    return depth
