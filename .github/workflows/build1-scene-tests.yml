@@ -37,6 +37,12 @@ jobs:
             tests: "^test_scn10_profiles$"
           - name: scn10 repeat 3
             tests: "^test_scn10_profiles$"
+          - name: scn10 repeat 4
+            tests: "^test_scn10_profiles$"
+          - name: scn10 repeat 5
+            tests: "^test_scn10_profiles$"
+          - name: scn10 repeat 6
+            tests: "^test_scn10_profiles$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.

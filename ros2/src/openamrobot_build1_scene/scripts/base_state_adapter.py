@@ -56,6 +56,9 @@ class BaseStateAdapter(Node):
         else:
             raise ValueError(f"source {self.source!r}: host_client or firmware_wheel_speeds")
         self.create_subscription(String, "/sil/lift/status", self.on_lift, 10)
+        self.diag_drive = 'none received'
+        self.diag_drive_n = 0
+        self.create_subscription(String, "/sil/drive/status", self.on_diag_drive, 10)
         self.last_tick = None
         self.create_timer(0.02, self.tick)      # 50 Hz of Gazebo time
         self.get_logger().info(f"wheel speeds from {self.source}, r {drive['wheel_radius']} m, separation {drive['wheel_separation']} m")
@@ -78,10 +81,18 @@ class BaseStateAdapter(Node):
         if position is not None:
             self.lift = (float(position) - LIFT_ZERO_MM) / 1000.0
 
+    def on_diag_drive(self, msg):
+        self.diag_drive_n += 1
+        try:
+            d = json.loads(msg.data)
+            self.diag_drive = ' '.join(f'{k}={d.get(k)}' for k in ('mode', 'configured', 'silent', 'sdo_errors', 'sdo_stale_replies', 'samples', 'clock_events', 'statusword'))
+        except ValueError:
+            self.diag_drive = msg.data[:200]
+
     def tick(self):
         self.diag_ticks = getattr(self, 'diag_ticks', 0) + 1
         if self.diag_ticks % 500 == 0:
-            self.get_logger().info(f'DIAG137 ticks {self.diag_ticks} wheel speed samples {getattr(self, "diag_samples", 0)}')
+            self.get_logger().info(f'DIAG137 ticks {self.diag_ticks} wheel speed samples {getattr(self, "diag_samples", 0)} drive status msgs {self.diag_drive_n} last: {self.diag_drive}')
         now = self.get_clock().now()
         if now.nanoseconds == 0:
             return                          # no /clock yet
