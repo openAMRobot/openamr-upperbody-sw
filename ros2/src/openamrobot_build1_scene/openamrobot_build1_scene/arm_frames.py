@@ -63,6 +63,37 @@ APPROACH_ANGLE_TOLERANCE_RAD = 0.12
 # approach ended 0.012 to 0.025 rad off, the fingers stopped at 0.137 to 0.158 rad and held with 1.95 to 2.35 N.
 APPROACH_YAW_TOLERANCE_RAD = 0.02
 
+# PROPOSED (23 Nov 2026, upperbody #134), awaiting the code owner. The approach pose has many joint solutions on a
+# 7-joint arm, and a pose goal lets MoveIt end in any of them. On 22 and 23 Nov 2026 the outliers failed the next step:
+# joint 5 on its limit (reach fraction 0.083), a near-straight arm (0.175), the palm on the item (1.35 N, cap 1.0 N).
+# So the approach pose is solved once by inverse kinematics from this seed and sent as a joint goal. The seed is the
+# commanded end point of the approach of strict run 45069865483 leg 2 (PASS, no palm contact). A solution is used only
+# when IK succeeded and no joint is further than APPROACH_SEED_MAX_TRAVEL_RAD from the seed; otherwise the pose goal
+# of before is sent and the log says so. No tolerance, limit or contact cap changes.
+APPROACH_SEED = {"left": (-0.5428, -0.32574, 0.30464, 1.68953, -0.54288, -0.44611, 0.36682)}
+APPROACH_SEED_MAX_TRAVEL_RAD = 0.6
+IK_SUCCESS = 1      # moveit_msgs/MoveItErrorCodes.SUCCESS
+
+
+def seeded_approach(side, names, positions, error_code, seeds=None, max_travel=APPROACH_SEED_MAX_TRAVEL_RAD):
+    """-> ({joint: position} for openarm_<side>_joint1..7, "") when the IK answer may replace the approach pose goal,
+    or (None, reason). `names` and `positions` are the joint state of the IK answer, `error_code` its MoveItErrorCodes."""
+    seed = (APPROACH_SEED if seeds is None else seeds).get(side)
+    if seed is None:
+        return None, f"no approach seed for the {side} arm"
+    if error_code != IK_SUCCESS:
+        return None, f"inverse kinematics from the seed ended with error code {error_code}"
+    found = dict(zip(names, positions))
+    joints = {}
+    for index, value in enumerate(seed):
+        name = f"openarm_{side}_joint{index + 1}"
+        if name not in found:
+            return None, f"the IK answer has no {name}"
+        if abs(found[name] - value) > max_travel:
+            return None, f"{name} of the IK answer is {abs(found[name] - value):.3f} rad from the seed, above {max_travel}"
+        joints[name] = float(found[name])
+    return joints, ""
+
 
 def approach_tolerances(quaternion, tolerance=APPROACH_ANGLE_TOLERANCE_RAD, yaw_tolerance=APPROACH_YAW_TOLERANCE_RAD):
     """Per-axis orientation tolerances (x, y, z of the hand frame at `quaternion`, as MoveIt's OrientationConstraint reads

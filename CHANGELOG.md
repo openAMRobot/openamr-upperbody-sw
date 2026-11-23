@@ -5,6 +5,12 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (23 Nov 2026; PROPOSED, #134: grasp approach from a seeded IK solution; simulation only)
+
+- `scenarios._approach_goal`, `arm_frames.APPROACH_SEED`: the grasp approach pose is solved by inverse kinematics from one seed
+  and sent as a joint goal, so the arm ends in one configuration. The pose goal of before is the fallback and the log
+  names which was sent. No tolerance, limit or contact cap changes. Awaiting the code owner.
+
 ### Added (22 Nov 2026; evidence branch only: software Stop fault scenarios on the trial-converged platform; simulation only)
 
 - `scn18_stop_during_nav`, `scn19_stop_gate_kill` and the scene workflow job `software Stop faults`: the software Stop of

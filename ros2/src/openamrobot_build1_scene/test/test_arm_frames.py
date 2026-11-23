@@ -175,7 +175,12 @@ def test_the_reach_clears_the_tote_wall_and_the_lift_clears_the_board_above(scen
     # The fingers close on the item: their lower edge is well below the item's top.
     assert item[1][2] + grasp - af.FINGER_HALF_HEIGHT_M < item_top - 0.06
     body = _grasp_body()
-    assert "angle_tolerance=approach_tolerances(quaternion)" in body and "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
+    # The approach tolerances stay on the pose goal, which _approach_goal builds (and sends when no seeded solution is used).
+    with open(os.path.join(HERE, "..", "openamrobot_build1_scene", "scenarios.py"), encoding="utf-8") as f:
+        text = f.read()
+    approach_goal = text[text.index("def _approach_goal("):text.index("def grasp(rig, log):")]
+    assert "angle_tolerance=approach_tolerances(quaternion)" in approach_goal and "_approach_goal(rig, log, side, link, approach, quaternion" in body
+    assert "grasp_z = item[2] + GRASP_ABOVE_ITEM_CENTRE_M" in body
     assert "waypoints = reach_waypoints((tcp_x, tcp_y, grasp_z), found[0], held_orientation)" in body
     assert '_cartesian(rig, log, side, link, waypoints, held_orientation, "grasp_reach", 0.1)' in body
 
@@ -707,3 +712,48 @@ def test_park_arms_judges_the_measured_joints_not_the_status_alone():
     helper = text[text.index("def _require_park_motion("):text.index("def park_arms(")]
     assert "unmoved_joints(" in helper and '"physics"' in helper and '"joint_states"' in helper
     assert text.count("_require_park_motion(rig, log, side, s") == 2     # the calls: park_arms and the video sequence's park
+
+
+# ---------------------------------------------------------------- seeded grasp approach (PROPOSED, #134)
+LEFT = [f"openarm_left_joint{i}" for i in range(1, 8)]
+
+
+def test_a_seeded_ik_answer_near_the_seed_becomes_the_joint_goal():
+    seed = af.APPROACH_SEED["left"]
+    answer = [v + 0.05 for v in seed]
+    joints, reason = af.seeded_approach("left", ["other"] + LEFT, [9.0] + answer, af.IK_SUCCESS)
+    assert reason == "" and list(joints) == LEFT
+    assert joints == pytest.approx(dict(zip(LEFT, answer)))
+
+
+@pytest.mark.parametrize("change, expected", [
+    (dict(error_code=-31), "error code -31"),                                   # NO_IK_SOLUTION
+    (dict(side="right"), "no approach seed for the right arm"),
+    (dict(drop="openarm_left_joint3"), "has no openarm_left_joint3"),
+    (dict(move=("openarm_left_joint5", -1.5708)), "openarm_left_joint5"),        # the joint-limit branch of run 5
+])
+def test_a_seeded_ik_answer_that_cannot_be_used_falls_back_with_a_reason(change, expected):
+    values = dict(zip(LEFT, af.APPROACH_SEED["left"]))
+    if "move" in change:
+        values[change["move"][0]] = change["move"][1]
+    if "drop" in change:
+        del values[change["drop"]]
+    joints, reason = af.seeded_approach(change.get("side", "left"), list(values), list(values.values()),
+                                        change.get("error_code", af.IK_SUCCESS))
+    assert joints is None and expected in reason
+
+
+def test_the_failed_approach_configurations_of_22_nov_are_outside_the_seed_family():
+    """The three approach end points that failed the next step (#134) would not be accepted as seeded solutions."""
+    for end in ((1.38015, -2.33987, -0.94386, 1.74554, -1.57079, 0.5991, 0.9081),      # diagnostics run 5, 5edf592
+                (-0.43192, -0.01579, 0.00925, 1.76375, 0.06474, -0.7314, -0.02381)):   # diagnostics run 2, 418f791
+        joints, reason = af.seeded_approach("left", LEFT, list(end), af.IK_SUCCESS)
+        assert joints is None, reason
+
+
+def test_the_grasp_sends_the_seeded_approach_goal():
+    import ast
+    source = open(os.path.join(os.path.dirname(af.__file__), "scenarios.py"), encoding="utf-8").read()
+    grasp = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.FunctionDef) and n.name == "grasp")
+    calls = {getattr(c.func, "id", "") for c in ast.walk(grasp) if isinstance(c, ast.Call)}
+    assert "_approach_goal" in calls

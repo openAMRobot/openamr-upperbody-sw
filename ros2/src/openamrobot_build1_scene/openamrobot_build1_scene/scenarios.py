@@ -580,6 +580,48 @@ def _pose_goal(group, link, xyz, quaternion, velocity_scale, position_tolerance=
     return goal
 
 
+def _approach_goal(rig, log, side, link, xyz, quaternion, velocity_scale):
+    """The grasp approach goal: the approach pose solved by inverse kinematics from arm_frames.APPROACH_SEED and sent as
+    a joint goal, so the arm ends in one configuration (PROPOSED, #134). The pose goal of before when the seeded
+    solution cannot be used; which one was sent is recorded."""
+    from geometry_msgs.msg import PoseStamped
+    from moveit_msgs.srv import GetPositionIK
+    from openamrobot_build1_scene import arm_frames
+    pose_goal = _pose_goal(f"{side}_arm", link, xyz, quaternion, velocity_scale, angle_tolerance=approach_tolerances(quaternion))
+    seed = arm_frames.APPROACH_SEED.get(side)
+    joints, reason = None, f"no approach seed for the {side} arm"
+    client = rig.node.create_client(GetPositionIK, "/compute_ik")
+    if seed is not None and not client.wait_for_service(timeout_sec=30.0):
+        reason = "no /compute_ik service"
+    elif seed is not None:
+        request = GetPositionIK.Request()
+        ik = request.ik_request
+        ik.group_name, ik.ik_link_name, ik.avoid_collisions = f"{side}_arm", link, True
+        ik.robot_state.is_diff = True
+        ik.robot_state.joint_state.name = _arm_joints(side)
+        ik.robot_state.joint_state.position = [float(v) for v in seed]
+        target = PoseStamped()
+        target.header.frame_id = "base_footprint"
+        target.pose.position.x, target.pose.position.y, target.pose.position.z = (float(v) for v in xyz)
+        (target.pose.orientation.x, target.pose.orientation.y, target.pose.orientation.z,
+         target.pose.orientation.w) = (float(v) for v in quaternion)
+        ik.pose_stamped = target
+        ik.timeout.sec = 2
+        future = client.call_async(request)
+        end = time.monotonic() + 30.0
+        while not future.done() and time.monotonic() < end:
+            time.sleep(0.05)
+        response = future.result() if future.done() else None
+        if response is None:
+            reason = "/compute_ik did not answer"
+        else:
+            state = response.solution.joint_state
+            joints, reason = arm_frames.seeded_approach(side, list(state.name), list(state.position), response.error_code.val)
+    log.observed("grasp_approach_goal_kind", "seeded IK joint goal" if joints else "pose goal", "",
+                 note=reason or "arm_frames.APPROACH_SEED, PROPOSED #134")
+    return _joint_goal(f"{side}_arm", joints, velocity_scale) if joints else pose_goal
+
+
 def grasp(rig, log):
     limits(rig, log, LIMIT_ARM)
     log.event("Gripper states as corrected in openamr-upperbody-sw #66: open is the far joint limit, closed is 0.")
@@ -617,8 +659,7 @@ def grasp(rig, log):
                  note="finger_joint2 against finger_joint1 in the physics (SW-09)")
 
     _mark(rig, "grasp_approach_start")
-    approached_ok = _move_group(rig, log, _pose_goal(f"{side}_arm", link, approach, quaternion, 0.3,
-                                                     angle_tolerance=approach_tolerances(quaternion)), "grasp_approach")
+    approached_ok = _move_group(rig, log, _approach_goal(rig, log, side, link, approach, quaternion, 0.3), "grasp_approach")
     _mark(rig, "grasp_approach_end")
     if not approached_ok:
         return
