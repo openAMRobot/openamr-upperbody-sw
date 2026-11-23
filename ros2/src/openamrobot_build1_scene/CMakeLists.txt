@@ -65,9 +65,7 @@ if(BUILD_TESTING)
       scn14_drive_fast:1500
       scn15_grasp_fast:1800
       scn16_lift_fast:1500
-      scn17_base_yaw_fast:1500
-      scn18_stop_during_nav:1800
-      scn19_stop_gate_kill:1800)
+      scn17_base_yaw_fast:1500)
     foreach(entry ${scenarios})
       string(REPLACE ":" ";" parts ${entry})
       list(GET parts 0 name)

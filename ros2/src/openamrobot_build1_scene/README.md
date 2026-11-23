@@ -207,8 +207,6 @@ is never PASS.
 | `scn15_grasp_fast` | `fast`, Bullet Featherstone | scenario 4 without devices |
 | `scn16_lift_fast` | `fast`, DART | the lift to stops 2, 0, 1, 2, 0 through `lift_controller`. Position on `/joint_states`; an action success without arrival fails |
 | `scn17_base_yaw_fast` | `fast`, DART | equal, then equal and opposite wheel speeds with the castors present. Ground truth yaw against r * (wR - wL) / track and `/odom`. Diagnosis: see `docs/build1_lift_and_base_diagnosis.md` |
-| `scn18_stop_during_nav` | `firmware_sil` | platform #90 software Stop engaged during a Nav2 drive: time and distance to stop, no motion while locked or with a goal sent into the Stop, release, drive finished. Functional stop, not the hardwired E-stop |
-| `scn19_stop_gate_kill` | `firmware_sil` | the Stop gate process ended with SIGKILL during a Nav2 drive: the base has to stop and stay stopped while the goal still commands. Functional check, not safety evidence |
 
 Fault scenarios record observations. Next to each stands the entry of
 [`config/expected_reactions.yaml`](config/expected_reactions.yaml), a simulation-only reference. Those entries are

@@ -5,18 +5,21 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Changed (23 Nov 2026; PROPOSED for #130: Baseline 1 on a platform that carries the #90 command chain; simulation only)
+
+- Platform pin: head of openamr-platform-sw #187 (`2de7b2b`, Proposed there). Interfaces pin `50ed777` in the scene workspace.
+- `rig.release_software_stop` and `software_stop.py`: the rig releases the software Stop of #90 through its public service
+  before the first goal and checks the lifecycle (locked at start, no base motion while locked, release accepted, RUNNING).
+  `build1.launch.py` names the two Nav2 producers for the Stop gate; `command_map.yaml` lists the topics of #90's chain.
+- `baseline1-acceptance.yml`: the rerun of a BLOCKED (no /clock) mission try now runs (the script path was relative to the
+  wrong directory, #135). `wait_for_clock.py` writes the Gazebo server's thread stacks when no /clock arrives (evidence only).
+- The scenario harness prints processes left by an earlier launch at the start of each launch (#133, evidence only).
+
 ### Changed (23 Nov 2026; PROPOSED, #134: grasp approach from a seeded IK solution; simulation only)
 
 - `scenarios._approach_goal`, `arm_frames.APPROACH_SEED`: the grasp approach pose is solved by inverse kinematics from one seed
   and sent as a joint goal, so the arm ends in one configuration. The pose goal of before is the fallback and the log
   names which was sent. No tolerance, limit or contact cap changes. Awaiting the code owner.
-
-### Added (22 Nov 2026; evidence branch only: software Stop fault scenarios on the trial-converged platform; simulation only)
-
-- `scn18_stop_during_nav`, `scn19_stop_gate_kill` and the scene workflow job `software Stop faults`: the software Stop of
-  openamr-platform-sw #90 engaged during a Nav2 drive, and its gate process ended during one. Ground-truth time and
-  distance to stop, motion while stopped, the state trace. The scenarios call the platform's public services and end a
-  process; they add no stop logic. A functional stop in simulation, not the hardwired E-stop and not safety evidence.
 
 ### Changed (22 Nov 2026; code owner on #130: scn17 expected failure, #126; rc.1 forward-only retreat; simulation only)
 
