@@ -7,10 +7,8 @@
 name: Build 1 scene tests
 
 on:
-  pull_request:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [diag/scn07-repeat-on-5212f52-2026-11-23]
 
 permissions:
   contents: read
@@ -38,18 +36,18 @@ jobs:
       matrix:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|baseline1_strict|baseline1_cancel|station_departure|arm_frames|lift_plant|diagnostics|station_marker|canfd_vcan|replay_vcan)$"
-          - name: firmware_sil drive, lift, cancel
-            tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
-          - name: firmware_sil arms, grasp, single writer
-            tests: "^test_scn(03_arms_reach|04_grasp|09_single_writer)$"
-          - name: faults
-            tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
-          - name: profiles fast and fine
-            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
-          - name: fast lift stops and base yaw
-            tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
+          - name: scn07 repeat 1
+            tests: "^test_scn07_cancel_resume$"
+          - name: scn07 repeat 2
+            tests: "^test_scn07_cancel_resume$"
+          - name: scn07 repeat 3
+            tests: "^test_scn07_cancel_resume$"
+          - name: scn07 repeat 4
+            tests: "^test_scn07_cancel_resume$"
+          - name: scn07 repeat 5
+            tests: "^test_scn07_cancel_resume$"
+          - name: scn07 repeat 6
+            tests: "^test_scn07_cancel_resume$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
