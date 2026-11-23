@@ -8,7 +8,7 @@ name: Build 1 scene tests
 
 on:
   push:
-    branches: [diag/scn10-samples-guard-752ab35]
+    branches: [diag/scn10-drive-status-752ab35]
 
 permissions:
   contents: read
