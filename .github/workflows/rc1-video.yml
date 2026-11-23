@@ -9,10 +9,10 @@ permissions:
   contents: read
   actions: read
 env:
-  # The recording to render. Strict Baseline 1 run on the trial-converged platform (command chain of platform PR #90).
-  SOURCE_RUN: "45059525778"
+  # The recording to render. Strict Baseline 1 PASS on the platform owner's convergence (#164 head), leg 1.
+  SOURCE_RUN: "45098474289"
   SOURCE_ARTIFACT: baseline1-acceptance-leg1-attempt1
-  SOURCE_REF: "openamr-upperbody-sw 83f1de4 (evidence branch)  |  openamr-platform-sw e7e2cb6 (trial convergence, not canonical main)"
+  SOURCE_REF: "openamr-upperbody-sw 8fd86e7 (candidate #138 + pin)  |  openamr-platform-sw 752ab35 (platform #164 head, not merged)"
   SOURCE_CHAIN: "Base commands: twist_mux, Software Stop gate (locked at boot, released by the mission), velocity smoother, collision monitor."
 jobs:
   render:
@@ -53,7 +53,7 @@ jobs:
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: rc1-digital-twin-video
+          name: rc1-digital-twin-video-run-45098474289
           path: out/
           if-no-files-found: error
           retention-days: 90
