@@ -61,6 +61,7 @@ class BaseStateAdapter(Node):
         self.get_logger().info(f"wheel speeds from {self.source}, r {drive['wheel_radius']} m, separation {drive['wheel_separation']} m")
 
     def on_host_odom(self, msg):
+        self.diag_samples = getattr(self, 'diag_samples', 0) + 1
         self.wheels = self.odometry.wheel_speeds(msg.twist.twist.linear.x, msg.twist.twist.angular.z)
         self.last_sample = self.get_clock().now()
 
@@ -78,6 +79,9 @@ class BaseStateAdapter(Node):
             self.lift = (float(position) - LIFT_ZERO_MM) / 1000.0
 
     def tick(self):
+        self.diag_ticks = getattr(self, 'diag_ticks', 0) + 1
+        if self.diag_ticks % 500 == 0:
+            self.get_logger().info(f'DIAG137 ticks {self.diag_ticks} wheel speed samples {getattr(self, "diag_samples", 0)}')
         now = self.get_clock().now()
         if now.nanoseconds == 0:
             return                          # no /clock yet
