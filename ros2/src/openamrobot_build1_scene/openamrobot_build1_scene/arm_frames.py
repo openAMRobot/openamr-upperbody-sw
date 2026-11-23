@@ -220,7 +220,7 @@ def worst_tcp_rise(rise, position_tolerance, angle_tolerance, tcp_distance):
 # 40 mm. With it 0.008 to 0.013 m deeper (fixed-pose runs, by tracking) they met it at 0.137 to 0.158 rad and 10 of 10
 # lifted 0.076 to 0.080 m. The palm (ee_base_link, 0.1106 m along the fingers) leaves the item's front face room for
 # 0.138 - 0.1106 - 0.0175 = 0.0099 m.
-ITEM_DEPTH_BEHIND_TCP_M = 0.006      # EXPERIMENT (#134 B): 3.9 mm to the palm instead of 0.9 mm; grip strength to be measured
+ITEM_DEPTH_BEHIND_TCP_M = 0.006      # PROPOSED (#134 B): 3.9 mm to the palm instead of 0.9 mm; 26 legs, 0 palm contacts, 0 slips
 PALM_ALONG_FINGERS_M = 0.1106
 TCP_ALONG_FINGERS_M = 0.138
 
