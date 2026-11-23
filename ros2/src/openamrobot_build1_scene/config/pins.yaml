@@ -14,14 +14,14 @@ pins:
     sha: "d1515b194a22a8801209453bd5f9646058838020"
     use: "read only: the actuator ledger. Not merged, nothing here reads it"
   platform_sw_main:
-    sha: "752ab358eb507bfef2c1e6e6f6e38c236c017bcc"
-    use: "checked out as openamr-platform-sw for the scene tests and arm diagnostics, the same commit as platform_sw_sil and PLATFORM_SW_SHA. EVIDENCE (23 Nov 2026): head of openamr-platform-sw #164 at 752ab35, the owner's convergence of main f45b9cc (#90) with integration/baseline1 1eebde1. Not merged to main yet"
+    sha: "ebe9e36a2d738c6890221a3521e674604c1eff08"
+    use: "checked out as openamr-platform-sw for the scene tests and arm diagnostics, the same commit as platform_sw_sil and PLATFORM_SW_SHA. EVIDENCE (23 Nov 2026): openamr-platform-sw #193 (the #164 head 752ab35 merged with main 13d47f6) at ebe9e36, the owner's convergence of main f45b9cc (#90) with integration/baseline1 1eebde1. Not merged to main yet"
   platform_sw_pr145:
     sha: "8c5bd52fcb534f54c67d6e1801d36be9e5c775fd"
     use: "provisional: only the package ros2/src/openamrobot_sil is checked out and built, and docs/architecture/sil-topology.md is followed. Contains #141 9913d87, #144 53a69e9 (late SDO reply fix) and main 69847ab"
   platform_sw_sil:
-    sha: "752ab358eb507bfef2c1e6e6f6e38c236c017bcc"
-    use: "the package ros2/src/openamrobot_sil and the platform packages of the mission. EVIDENCE (23 Nov 2026): head of openamr-platform-sw #164 at 752ab35, as platform_sw_main"
+    sha: "ebe9e36a2d738c6890221a3521e674604c1eff08"
+    use: "the package ros2/src/openamrobot_sil and the platform packages of the mission. EVIDENCE (23 Nov 2026): openamr-platform-sw #193 (the #164 head 752ab35 merged with main 13d47f6) at ebe9e36, as platform_sw_main"
   platform_sw_pr139:
     sha: "69847ab7c9c6cd49b3022dc1a62f86c044ba10ff"
     use: "merged on platform main (squash): openamrobot_sil without Renode. Never merge #139 again"
