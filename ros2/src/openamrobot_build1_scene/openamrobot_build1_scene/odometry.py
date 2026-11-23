@@ -31,3 +31,20 @@ class DiffDriveOdometry:
         self.right_angle += right * dt
         return {"x": self.x, "y": self.y, "yaw": self.yaw, "v": v, "w": w,
                 "left_angle": self.left_angle, "right_angle": self.right_angle}
+
+
+# Wheel speed source of base_state_adapter.py. PROPOSED (23 Nov 2026, upperbody #137): on 22 and 23 Nov 2026 two scenario
+# runs (scene 45075524313 scn18, scene 45093762359 scn01) had no wheel speed sample from the start. The adapter integrated
+# zero speed and published an odometry of (0, 0) that looked valid; Nav2 drove the base 5.8 m and 3.6 m against a pose
+# that never changed. Without a first sample there is no odometry to publish.
+NO_SAMPLE, STALE, FRESH = "no sample", "stale", "fresh"
+NO_SAMPLE_REPORT_S = 5.0        # Gazebo seconds without a first sample before the adapter reports it (once)
+
+
+def wheel_sample_state(age_s, stale_s):
+    """`age_s`: Gazebo seconds since the last wheel speed sample, None when none has arrived yet.
+    NO_SAMPLE: publish nothing. STALE: integrate zero speed and say so. FRESH: integrate the sample."""
+    if age_s is None:
+        return NO_SAMPLE
+    return STALE if age_s > stale_s else FRESH
+

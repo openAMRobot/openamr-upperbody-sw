@@ -28,7 +28,8 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, String
 from tf2_ros import TransformBroadcaster
 
-from openamrobot_build1_scene.odometry import DiffDriveOdometry, LIFT_ZERO_MM
+from openamrobot_build1_scene.odometry import (DiffDriveOdometry, FRESH, LIFT_ZERO_MM, NO_SAMPLE, NO_SAMPLE_REPORT_S,
+                                               wheel_sample_state)
 
 
 class BaseStateAdapter(Node):
@@ -43,6 +44,8 @@ class BaseStateAdapter(Node):
         self.last_sample = None
         self.lift = None
         self.stale_reported = False
+        self.no_sample_s = 0.0
+        self.no_sample_reported = False
         self.odom_pub = self.create_publisher(Odometry, "/odom", 10)
         self.joint_pub = self.create_publisher(JointState, "/base/joint_states", 10)
         self.broadcaster = TransformBroadcaster(self)
@@ -85,8 +88,19 @@ class BaseStateAdapter(Node):
         self.last_tick = now
         if dt <= 0.0 or dt > 1.0:
             return
-        stale = self.last_sample is None or (now - self.last_sample).nanoseconds * 1e-9 > self.stale_s
-        if stale and not self.stale_reported and self.last_sample is not None:
+        age = None if self.last_sample is None else (now - self.last_sample).nanoseconds * 1e-9
+        sample = wheel_sample_state(age, self.stale_s)
+        if sample == NO_SAMPLE:
+            # No wheel speed has ever arrived: an odometry of zero would look valid and is not (#137). Nothing is published,
+            # so the stack does not become ready on it.
+            self.no_sample_s += dt
+            if self.no_sample_s > NO_SAMPLE_REPORT_S and not self.no_sample_reported:
+                self.no_sample_reported = True
+                self.get_logger().error(f"no wheel speed sample from {self.source} since the start ({NO_SAMPLE_REPORT_S} s of "
+                                        "Gazebo time): /odom and odom -> base_footprint are not published")
+            return
+        stale = sample != FRESH
+        if stale and not self.stale_reported:
             self.get_logger().warning(f"no wheel speed sample for {self.stale_s} s of Gazebo time: integrating zero speed")
         self.stale_reported = stale
         left, right = (0.0, 0.0) if stale else self.wheels

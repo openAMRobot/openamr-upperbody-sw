@@ -5,6 +5,13 @@ All notable changes to this repository. Evidence for the description is static a
 
 ## [Unreleased]
 
+### Fixed (23 Nov 2026; PROPOSED, #137: no odometry before the first wheel speed sample; simulation only)
+
+- `base_state_adapter.py`, `odometry.wheel_sample_state`: without a first wheel speed sample the adapter publishes no `/odom`,
+  no `odom -> base_footprint` and no base joint states, and reports it once. Before, it integrated zero speed in silence and
+  published an odometry of (0, 0); in two runs Nav2 drove the base 3.6 m and 5.8 m against it. The stack now does not
+  become ready ("odometry") in that case. Why the samples were missing in those runs is not known yet.
+
 ### Changed (23 Nov 2026; PROPOSED for #130: Baseline 1 on a platform that carries the #90 command chain; simulation only)
 
 - Platform pin: head of openamr-platform-sw #187 (`2de7b2b`, Proposed there). Interfaces pin `50ed777` in the scene workspace.

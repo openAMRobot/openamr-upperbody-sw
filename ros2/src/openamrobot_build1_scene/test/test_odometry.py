@@ -69,3 +69,25 @@ def test_base_state_adapter_reads_no_gazebo_topic():
         code = f.read().split('"""', 2)[2]
     assert "/sil/gz" not in code and "ground_truth" not in code, "state must come over a bus, not from the plant"
     assert '"/odom"' in code and '"/base/joint_states"' in code
+
+
+def test_without_a_first_wheel_speed_sample_there_is_no_odometry_state():
+    from openamrobot_build1_scene import odometry
+    assert odometry.wheel_sample_state(None, 0.5) == odometry.NO_SAMPLE
+    assert odometry.wheel_sample_state(0.0, 0.5) == odometry.FRESH
+    assert odometry.wheel_sample_state(0.5, 0.5) == odometry.FRESH
+    assert odometry.wheel_sample_state(0.51, 0.5) == odometry.STALE
+
+
+def test_base_state_adapter_publishes_nothing_before_the_first_wheel_speed_sample():
+    """#137: two runs had no wheel speed sample from the start; a published odometry of zero let Nav2 drive 3.6 m and 5.8 m."""
+    from conftest import package_path
+    with open(package_path("scripts", "base_state_adapter.py"), encoding="utf-8") as f:
+        code = f.read()
+    tick = code[code.index("    def tick(self):"):code.index("def main():")]
+    guard = tick.index("if sample == NO_SAMPLE:")
+    assert "return" in tick[guard:tick.index("stale = sample != FRESH")]
+    for publish in ("self.odom_pub.publish(", "self.broadcaster.sendTransform(", "self.joint_pub.publish("):
+        assert guard < tick.index(publish), publish
+    assert "last_sample is None or" not in tick, "a missing first sample must not be folded into stale (integrating zero)"
+
