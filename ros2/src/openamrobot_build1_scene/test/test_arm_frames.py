@@ -428,15 +428,17 @@ def test_the_reach_comes_down_short_of_the_end_and_above_the_grasp_height_and_cl
 # The palm against the item along scn04's reach, from two recorded Baseline 1 missions: the ground truth base pose at
 # arm_approach, the left arm controller's state at the end of the approach (the orientation the reach holds), and the
 # grasp_reach commanded end point the mission logged. Item at its ground truth pose (0.160, -2.835, 0.895), yaw 0.
+# The last number of each entry is the palm's clearance from the item at the end point, computed with
+# ITEM_DEPTH_BEHIND_TCP_M = 0.008 (0.00155 and 0.00441 at 0.009; regenerated 23 Nov 2026, #134).
 REACH_RUNS = {
     # run 44476577635 (control room end to end, ee36e87): grasp_reach_servo_torque_max 1.018 N m, the palm on the item
     "44476577635": ((-0.02065, -2.09111, -1.55065), 0.00081,
                     [-0.45529, -0.02155, -0.08030, 1.74125, 0.10548, -0.63191, -0.14591],
-                    [-0.90234, -0.00542, -0.05834, 0.97391, 0.11682, -0.31423, -0.07811], 0.00155),
+                    [-0.90234, -0.00542, -0.05834, 0.97391, 0.11682, -0.31423, -0.07811], 0.00245),
     # run 44470870769, leg 1 (acceptance, eb920f0): 0.158 N m, no contact
     "44470870769-leg1": ((-0.00872, -2.07965, -1.56224), 0.00078,
                          [-0.50183, -0.01202, -0.01698, 1.64130, -0.07763, -0.49954, 0.01125],
-                         [-0.93651, -0.02215, -0.00937, 0.85183, -0.07229, -0.14584, -0.01797], 0.00441),
+                         [-0.93651, -0.02215, -0.00937, 0.85183, -0.07229, -0.14584, -0.01797], 0.00532),
 }
 # The hand on the tote's front wall, from the build1-arm-diagnostics run 44609269748 of e7a251c (diag_grasp, spawned at the
 # work_shelf station, lift at stop 0): the grasp_approach and grasp_reach commanded end points the runs logged. Run 4 put
