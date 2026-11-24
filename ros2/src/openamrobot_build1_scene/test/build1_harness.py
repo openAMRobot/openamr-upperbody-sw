@@ -59,8 +59,23 @@ def run(test_case, name, log_name=None):
     from openamrobot_build1_scene import rig, scenarios
     function, needs_devices, ready = scenarios.SCENARIOS[name]
     os.environ.setdefault("BUILD1_LOG_DIR", os.path.join(os.getcwd(), "build1_logs"))
-    result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices,
-                                    uses_base=name in scenarios.BASE_SCENARIOS, **ready)
+    # SCRATCH (platform-sw #192, not for merge): 2 Hz trace in this launch's ROS domain, printed after the scenario
+    import subprocess, sys, tempfile
+    trace_file = tempfile.NamedTemporaryFile("w+", prefix="scn_trace_", suffix=".log", delete=False)
+    tracer = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "scn_trace.py")],
+                              stdout=trace_file, stderr=subprocess.STDOUT)
+    try:
+        result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices,
+                                        uses_base=name in scenarios.BASE_SCENARIOS, **ready)
+    finally:
+        tracer.terminate()
+        try:
+            tracer.wait(timeout=10)
+        except Exception:  # noqa: BLE001 - evidence only
+            tracer.kill()
+        trace_file.seek(0)
+        for line in trace_file:
+            print(line.rstrip(), flush=True)
     print(f"BUILD1 {log_name or name}: {result}. Log: {path}")
     if result == "BLOCKED":
         test_case.skipTest(f"BLOCKED: {reason}")

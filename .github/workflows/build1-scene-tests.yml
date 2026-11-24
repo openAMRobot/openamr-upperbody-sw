@@ -4,22 +4,19 @@
 # interfaces on the runner (vcan by modprobe, CAN FD on the arm buses) and runs the package's tests headless.
 # A test that needs virtual CAN and cannot have it is BLOCKED: it is counted apart, and the job does not pass.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
-name: Build 1 scene tests
+name: diag scn01 repeat on c42a972 (scratch)
 
 on:
-  pull_request:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches: [diag/scn01-repeat-on-c42a972-2026-11-24]
 
 permissions:
   contents: read
 
 env:
   PACKAGE: openamrobot_build1_scene
-  # The mission's middleware settings (baseline1-acceptance.yml) instead of the default Fast DDS (#137): on Fast DDS
-  # with localhost discovery the host stand-in's odometry publisher matched no subscriber in 2 of 5 scn10 launches;
-  # on these settings 11 of 11 were clean.
+  # PROPOSED (#137): the mission's middleware settings (baseline1-acceptance.yml) instead of the default Fast DDS.
+  # On Fast DDS the host stand-in's odometry publisher matched no subscriber in 11 of 17 scn10 runs; CycloneDDS 11 of 11.
   RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
   CYCLONEDDS_URI: '<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
@@ -39,18 +36,16 @@ jobs:
       matrix:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|baseline1_strict|baseline1_cancel|station_departure|arm_frames|lift_plant|diagnostics|station_marker|canfd_vcan|replay_vcan)$"
-          - name: firmware_sil drive, lift, cancel
-            tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
-          - name: firmware_sil arms, grasp, single writer
-            tests: "^test_scn(03_arms_reach|04_grasp|09_single_writer)$"
-          - name: faults
-            tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
-          - name: profiles fast and fine
-            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
-          - name: fast lift stops and base yaw
-            tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
+          - name: scn01 repeat 1
+            tests: "^test_scn01_drive$"
+          - name: scn01 repeat 2
+            tests: "^test_scn01_drive$"
+          - name: scn01 repeat 3
+            tests: "^test_scn01_drive$"
+          - name: scn01 repeat 4
+            tests: "^test_scn01_drive$"
+          - name: scn01 repeat 5
+            tests: "^test_scn01_drive$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
