@@ -13,7 +13,7 @@ from rclpy.parameter import Parameter
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist, TwistStamped
 from nav_msgs.msg import Odometry
 from rcl_interfaces.msg import Log
-from sensor_msgs.msg import JointState
+from sensor_msgs.msg import JointState, LaserScan
 from std_msgs.msg import String
 
 NAMES = ("controller_server", "bt_navigator", "planner_server", "collision_monitor", "behavior_server", "velocity_smoother",
@@ -37,6 +37,9 @@ class Trace(Node):
         # SIL drive path below /cmd_vel: host stand-in status, bus audit, emulator state, emulator output to Gazebo,
         # joint states back. Message counts per row and the latest text, so that the silent part can be named.
         self.sil_count, self.sil_text = {}, {}
+        # SCRATCH (platform-sw #204): returns of the raw /scan nearer than 0.45 m, per whole degree of the LiDAR frame.
+        self.body, self.scans, self.range_min = {}, 0, None
+        self.create_subscription(LaserScan, "/scan", self.on_scan, 5)
         for topic in ("/sil/drive/status", "/sil/drive/emulator_state", "/sil/drive_bus/audit"):
             self.create_subscription(String, topic, self.on_sil_text(topic), 20)
         self.create_subscription(Twist, "/sil/drive/gz_cmd_vel", self.on_gz_cmd, 20)
@@ -66,6 +69,22 @@ class Trace(Node):
         self.sil_count["joints"] = self.sil_count.get("joints", 0) + 1
         wheels = [(n, round(v, 3)) for n, v in zip(msg.name, msg.velocity) if "wheel" in n]
         self.sil_text["joints"] = wheels[:4]
+
+    def on_scan(self, msg):
+        self.scans += 1
+        self.range_min = msg.range_min
+        for i, r in enumerate(msg.ranges):
+            if msg.range_min <= r < 0.45:
+                d = int(round(math.degrees(msg.angle_min + i * msg.angle_increment)))
+                e = self.body.setdefault(d, [0, r, r])
+                e[0] += 1
+                e[1] = min(e[1], r)
+                e[2] = max(e[2], r)
+
+    def body_report(self):
+        # degree, share of scans with a return under 0.45 m, least and largest range
+        rows = [[d, round(v[0] / max(1, self.scans), 2), round(v[1], 3), round(v[2], 3)] for d, v in sorted(self.body.items())]
+        return {"scans": self.scans, "range_min": self.range_min, "deg_share_min_max": rows}
 
     def on_log(self, msg):
         if msg.name in NAMES and msg.level >= 20:
@@ -104,6 +123,8 @@ def main():
                     row["sil"] = dict(node.sil_text)
                 node.cmd, node.logs, node.sil_count = {}, [], {}
                 print("TRACE2HZ " + json.dumps(row), flush=True)
+                if rows % 20 == 0:
+                    print("BODYBANDS " + json.dumps(node.body_report()), flush=True)
     except KeyboardInterrupt:
         pass
 
