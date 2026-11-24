@@ -36,15 +36,15 @@ jobs:
       matrix:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: scn01 x4, job 1
+          - name: scn01 x8, job 1
             tests: "^test_scn01_drive$"
-          - name: scn01 x4, job 2
+          - name: scn01 x8, job 2
             tests: "^test_scn01_drive$"
-          - name: scn01 x4, job 3
+          - name: scn01 x8, job 3
             tests: "^test_scn01_drive$"
-          - name: scn01 x4, job 4
+          - name: scn01 x8, job 4
             tests: "^test_scn01_drive$"
-          - name: scn01 x4, job 5
+          - name: scn01 x8, job 5
             tests: "^test_scn01_drive$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
@@ -201,8 +201,8 @@ jobs:
           nproc
           set +e
           rc_all=0
-          for launch in 1 2 3 4; do
-            echo "=== LAUNCH $launch of 4"
+          for launch in 1 2 3 4 5 6 7 8; do
+            echo "=== LAUNCH $launch of 8"
             colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
               --ctest-args -R "$BUILD1_TESTS"
             rc=$?
