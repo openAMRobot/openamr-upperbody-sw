@@ -8,7 +8,7 @@ name: diag body bands of the combined robot on platform 8ea7ef7 (scratch)
 
 on:
   push:
-    branches: [diag/204-body-bands-combined-2026-11-24]
+    branches: [diag/204-body-bands-combined-2026-11-24-off]
 
 permissions:
   contents: read
