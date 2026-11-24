@@ -13,6 +13,8 @@ from rclpy.parameter import Parameter
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist, TwistStamped
 from nav_msgs.msg import Odometry
 from rcl_interfaces.msg import Log
+from sensor_msgs.msg import JointState
+from std_msgs.msg import String
 
 NAMES = ("controller_server", "bt_navigator", "planner_server", "collision_monitor", "behavior_server", "velocity_smoother",
          "bt_navigator_navigate_to_pose_rclcpp_node")
@@ -32,6 +34,14 @@ class Trace(Node):
         self.create_subscription(PoseWithCovarianceStamped, "/amcl_pose", lambda m: self.store("amcl", m.pose.pose), 10)
         self.create_subscription(Odometry, "/build1/ground_truth/odom", lambda m: self.store("truth", m.pose.pose), 10)
         self.create_subscription(Odometry, "/odom", lambda m: self.store("odom", m.pose.pose), 10)
+        # SIL drive path below /cmd_vel: host stand-in status, bus audit, emulator state, emulator output to Gazebo,
+        # joint states back. Message counts per row and the latest text, so that the silent part can be named.
+        self.sil_count, self.sil_text = {}, {}
+        for topic in ("/sil/drive/status", "/sil/drive/emulator_state", "/sil/drive_bus/audit"):
+            self.create_subscription(String, topic, self.on_sil_text(topic), 20)
+        self.create_subscription(Twist, "/sil/drive/gz_cmd_vel", self.on_gz_cmd, 20)
+        self.create_subscription(JointState, "/sil/gz/joint_states", self.on_joints, 20)
+        self.create_subscription(Odometry, "/sil/base/odom", lambda m: self.store("sil_odom", m.pose.pose), 10)
 
     def store(self, key, pose):
         self.pose[key] = (round(pose.position.x, 4), round(pose.position.y, 4), round(yaw(pose.orientation), 4))
@@ -41,6 +51,21 @@ class Trace(Node):
             t = msg.twist if stamped else msg
             self.cmd[topic] = (round(t.linear.x, 4), round(t.angular.z, 4))
         return cb
+
+    def on_sil_text(self, topic):
+        def cb(msg):
+            self.sil_count[topic] = self.sil_count.get(topic, 0) + 1
+            self.sil_text[topic] = msg.data[:400]
+        return cb
+
+    def on_gz_cmd(self, msg):
+        self.sil_count["gz_cmd"] = self.sil_count.get("gz_cmd", 0) + 1
+        self.sil_text["gz_cmd"] = (round(msg.linear.x, 4), round(msg.angular.z, 4))
+
+    def on_joints(self, msg):
+        self.sil_count["joints"] = self.sil_count.get("joints", 0) + 1
+        wheels = [(n, round(v, 3)) for n, v in zip(msg.name, msg.velocity) if "wheel" in n]
+        self.sil_text["joints"] = wheels[:4]
 
     def on_log(self, msg):
         if msg.name in NAMES and msg.level >= 20:
@@ -72,7 +97,12 @@ def main():
                        **node.pose}
                 if node.logs:
                     row["log"] = node.logs
-                node.cmd, node.logs = {}, []
+                row["sil_n"] = node.sil_count
+                rows = getattr(node, "rows", 0) + 1
+                node.rows = rows
+                if rows % 4 == 1:
+                    row["sil"] = dict(node.sil_text)
+                node.cmd, node.logs, node.sil_count = {}, [], {}
                 print("TRACE2HZ " + json.dumps(row), flush=True)
     except KeyboardInterrupt:
         pass

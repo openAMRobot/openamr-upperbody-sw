@@ -36,15 +36,15 @@ jobs:
       matrix:
         include:
           # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: scn01 repeat 1
+          - name: scn01 x4, job 1
             tests: "^test_scn01_drive$"
-          - name: scn01 repeat 2
+          - name: scn01 x4, job 2
             tests: "^test_scn01_drive$"
-          - name: scn01 repeat 3
+          - name: scn01 x4, job 3
             tests: "^test_scn01_drive$"
-          - name: scn01 repeat 4
+          - name: scn01 x4, job 4
             tests: "^test_scn01_drive$"
-          - name: scn01 repeat 5
+          - name: scn01 x4, job 5
             tests: "^test_scn01_drive$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
@@ -200,9 +200,17 @@ jobs:
           mkdir -p "$BUILD1_LOG_DIR"
           nproc
           set +e
-          colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
-            --ctest-args -R "$BUILD1_TESTS"
-          echo "TEST_RC=$?" >> "$GITHUB_ENV"
+          rc_all=0
+          for launch in 1 2 3 4; do
+            echo "=== LAUNCH $launch of 4"
+            colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+              --ctest-args -R "$BUILD1_TESTS"
+            rc=$?
+            echo "=== LAUNCH $launch exit status $rc"
+            [ "$rc" = 0 ] || rc_all=1
+            pkill -9 -f "gz sim" 2>/dev/null; pkill -9 -f component_container 2>/dev/null; sleep 5
+          done
+          echo "TEST_RC=$rc_all" >> "$GITHUB_ENV"
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
 
       # Test cases, not CTest entries: passed, failed, BLOCKED and skipped, from the JUnit XML. The scenario logs with
