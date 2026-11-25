@@ -35,8 +35,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: rviz check with scn01
-            tests: "^test_scn01_drive$"
+          - name: rviz check with scn04 (MoveIt on)
+            tests: "^test_scn04_grasp$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
