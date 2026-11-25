@@ -33,6 +33,7 @@ def description(**arguments):
     domain = str(random.randint(101, 200))
     os.environ.update(ROS_DOMAIN_ID=domain, ROS_AUTOMATIC_DISCOVERY_RANGE="LOCALHOST", GZ_PARTITION=f"build1_{domain}_{os.getpid()}")
     arguments = {"profile": "firmware_sil", "headless": "true", **arguments}
+    arguments["rviz"] = "true"  # SCRATCH (rc.1 RViz gate, not for merge): the workflow provides an Xvfb display
     # The planning scene's pose source of a whole test run (planning_scene.py): map unless the environment asks for the
     # simulation oracle. An explicit argument of the test wins.
     if os.environ.get("BUILD1_PLANNING_POSE_SOURCE"):
@@ -59,8 +60,23 @@ def run(test_case, name, log_name=None):
     from openamrobot_build1_scene import rig, scenarios
     function, needs_devices, ready = scenarios.SCENARIOS[name]
     os.environ.setdefault("BUILD1_LOG_DIR", os.path.join(os.getcwd(), "build1_logs"))
-    result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices,
-                                    uses_base=name in scenarios.BASE_SCENARIOS, **ready)
+    # SCRATCH (rc.1 RViz gate, not for merge): rviz2 with the shipped configuration and a topic and TF check beside it
+    import subprocess, sys, tempfile
+    check_file = tempfile.NamedTemporaryFile("w+", prefix="rviz_check_", suffix=".log", delete=False)
+    checker = subprocess.Popen([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "rviz_check.py")],
+                               stdout=check_file, stderr=subprocess.STDOUT)
+    try:
+        result, reason, path = rig.run(log_name or name, function, needs_devices=needs_devices,
+                                        uses_base=name in scenarios.BASE_SCENARIOS, **ready)
+    finally:
+        checker.terminate()
+        try:
+            checker.wait(timeout=40)
+        except Exception:  # noqa: BLE001 - evidence only
+            checker.kill()
+        check_file.seek(0)
+        for line in check_file:
+            print(line.rstrip(), flush=True)
     print(f"BUILD1 {log_name or name}: {result}. Log: {path}")
     if result == "BLOCKED":
         test_case.skipTest(f"BLOCKED: {reason}")

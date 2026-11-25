@@ -4,12 +4,9 @@
 # interfaces on the runner (vcan by modprobe, CAN FD on the arm buses) and runs the package's tests headless.
 # A test that needs virtual CAN and cannot have it is BLOCKED: it is counted apart, and the job does not pass.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
-name: Build 1 scene tests
+name: diag RViz headless check on d4efb5c (scratch)
 
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -38,19 +35,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: static and vcan
-            tests: "^test_(scene|world_and_map|launch_support|command_map|footprint|odometry|candump|docs_and_pins|gravity|baseline1_phases|baseline1_record|baseline1_strict|baseline1_cancel|station_departure|arm_frames|lift_plant|diagnostics|station_marker|canfd_vcan|replay_vcan)$"
-          - name: firmware_sil drive, lift, cancel
-            tests: "^test_scn(01_drive|02_lift_permit|07_cancel_resume)$"
-          - name: firmware_sil arms, grasp, single writer
-            tests: "^test_scn(03_arms_reach|04_grasp|09_single_writer)$"
-          - name: faults
-            tests: "^test_scn(05_bus_loss|06_stale_sensors|08_arm_power_cut)$"
-          - name: profiles fast and fine
-            tests: "^test_scn(10_profiles|11_profile_sil_fine|12_profile_fast|13_profile_fine|14_drive_fast|15_grasp_fast)$"
-          - name: fast lift stops and base yaw
-            tests: "^test_scn(16_lift_fast|17_base_yaw_fast)$"
+          - name: rviz check with scn01
+            tests: "^test_scn01_drive$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
       # returned no tag on 17 Nov 2026 (rate limit) and made the download 404. The release is pinned here instead.
@@ -178,7 +164,7 @@ jobs:
           echo "$paths"
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
-            ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+            ros-jazzy-moveit ros-jazzy-rviz2 ros-jazzy-moveit-ros-visualization ros-jazzy-nav2-rviz-plugins xvfb ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
 
       - name: Package versions
         run: |
@@ -193,10 +179,21 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           colcon build --packages-up-to "$PACKAGE" openamr_nav_msgs --event-handlers console_cohesion+
 
+      - name: "SCRATCH: Xvfb display for rviz2"
+        run: |
+          sudo apt-get install -y imagemagick x11-apps
+          Xvfb :99 -screen 0 1280x800x24 -nolisten tcp > /tmp/xvfb.log 2>&1 &
+          sleep 3
+          pgrep -a Xvfb
+          mkdir -p /tmp/rviz_shots
+          ( n=0; while true; do sleep 15; n=$((n+1)); import -display :99 -window root "/tmp/rviz_shots/shot_$(printf %03d $n).png" 2>/dev/null; done ) &
+
       - name: colcon test
         working-directory: ws
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: xcb
+          DISPLAY: ':99'
+          LIBGL_ALWAYS_SOFTWARE: '1'
           BUILD1_TESTS: ${{ matrix.tests }}
         run: |
           source /opt/ros/jazzy/setup.bash
@@ -209,6 +206,20 @@ jobs:
             --ctest-args -R "$BUILD1_TESTS"
           echo "TEST_RC=$?" >> "$GITHUB_ENV"
           colcon test-result --test-result-base "build/$PACKAGE" --verbose
+          echo "=== RVIZ2 LOG (launch log lines of the rviz2 process)"
+          grep -rh "rviz2" "$HOME/.ros/log" 2>/dev/null | grep -v "process started with pid" | cut -c1-400 | head -400
+          echo "=== RVIZ2 LOG END"
+          echo "=== SCREENSHOTS of the Xvfb display (file, size, distinct colours, mean brightness)"
+          for f in /tmp/rviz_shots/*.png; do identify -format "%f %wx%h colours=%k mean=%[fx:mean]\n" "$f" 2>/dev/null; done | head -200
+          echo "=== SCREENSHOTS END"
+
+      - name: "SCRATCH: upload the RViz screenshots"
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rviz-screenshots
+          path: /tmp/rviz_shots
+          if-no-files-found: warn
 
       # Test cases, not CTest entries: passed, failed, BLOCKED and skipped, from the JUnit XML. The scenario logs with
       # every measured number go into the job summary.
