@@ -160,7 +160,7 @@ jobs:
         run: |
           source /opt/ros/jazzy/setup.bash
           rosdep update --rosdistro jazzy
-          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" openamr_nav_msgs --paths-only)
+          paths=$(colcon list --base-paths src --packages-up-to "$PACKAGE" openamrobot_station_alignment openamr_nav_msgs --paths-only)
           echo "$paths"
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
@@ -177,7 +177,7 @@ jobs:
         working-directory: ws
         run: |
           source /opt/ros/jazzy/setup.bash
-          colcon build --packages-up-to "$PACKAGE" openamr_nav_msgs --event-handlers console_cohesion+
+          colcon build --packages-up-to "$PACKAGE" openamrobot_station_alignment openamr_nav_msgs --event-handlers console_cohesion+
 
       - name: "SCRATCH: Xvfb display for rviz2"
         run: |
