@@ -93,13 +93,15 @@ class Check(Node):
 def main():
     global STOP
     signal.signal(signal.SIGTERM, lambda *_: globals().__setitem__("STOP", True))
+    signal.signal(signal.SIGINT, lambda *_: globals().__setitem__("STOP", True))
     config = yaml.safe_load(open(CONFIG, encoding="utf-8"))
     fixed = config["Visualization Manager"]["Global Options"].get("Fixed Frame")
     shown = displays(config)
     topics = sorted({t for d in shown for t in d["topics"]})
     started = time.monotonic()
     seen = {"polls": 0, "polls_with_rviz_node": 0, "names": []}
-    rclpy.init()
+    from rclpy.signals import SignalHandlerOptions
+    rclpy.init(signal_handler_options=SignalHandlerOptions.NO)  # the context must stay valid for the last poll
     node = Check(topics)
     try:
         next_poll = 0.0
@@ -114,7 +116,10 @@ def main():
                 next_poll = time.monotonic() + 1.0
     except KeyboardInterrupt:
         pass
-    node.poll()
+    try:
+        node.poll()
+    except Exception as exc:  # noqa: BLE001 - evidence only
+        seen["last_poll_error"] = str(exc)[:200]
     result = {"config": "rviz/build1.rviz", "started_by": "build1.launch.py rviz:=true under Xvfb", "fixed_frame": fixed,
               "wall_s": round(time.monotonic() - started, 1), "rviz_node": seen,
               "displays": [dict(d, topics={t: node.topics[t] for t in d["topics"]}) for d in shown],
