@@ -119,13 +119,20 @@ class ObjectPoseEstimator(Node):
         fx, fy, cx, cy = self.info
         points = box_fit.depth_points(decode_depth(msg), fx, fy, cx, cy, rotation, camera, self.stride, self.max_range)
         points = box_fit.in_region(points, self.region)
-        for name in self.objects:
+        tote_of_this_image = None
+        for name in sorted(self.objects, key=lambda n: n != "tote"):      # the tote first: the item is looked for inside it
             if name == "tote":
                 estimate, reason = box_fit.estimate_tote(points, self.tote_size, self.support_z, camera, fx)
+                tote_of_this_image = estimate
             elif name == "item":
                 rest = self.support_z + self.tote_wall
-                estimate, reason = box_fit.estimate_item(points, self.item_size, rest,
-                                                         self.support_z + self.tote_size[2] + 0.008, camera, fx)
+                if tote_of_this_image is None:
+                    estimate, reason = None, "no tote estimate in this image: the item is only looked for inside the tote"
+                else:
+                    container = (tote_of_this_image.position[:2], self.tote_size[:2], tote_of_this_image.yaw)
+                    estimate, reason = box_fit.estimate_item(points, self.item_size, rest,
+                                                             self.support_z + self.tote_size[2] + 0.008, camera, fx,
+                                                             container=container)
             else:
                 estimate, reason = None, "no method for this object"
             entry = self.counts[name]

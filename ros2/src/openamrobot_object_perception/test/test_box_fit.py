@@ -140,3 +140,46 @@ def test_depth_points_puts_the_optical_axis_where_the_camera_looks():
     points = bf.depth_points(depth, 1.0, 1.0, 1.0, 1.0, rotation, (0.3, 0.0, 1.2))
     centre = points[4]
     assert np.allclose(centre, (0.3 + math.cos(math.radians(30.0)), 0.0, 1.2 - math.sin(math.radians(30.0))))
+
+
+# --- the item is looked for inside the tote (review of 25 Nov 2026) -------------------------------------------------------
+#
+# On ideal depth, estimate_item without a container returned a shelf post (0.04 m square at y = +0.56 / -0.58 m) as the
+# 0.035 m item in 9 of 315 parking poses, 0.42 to 0.74 m from the truth. These are four of those poses and four ordinary ones.
+
+POST_POSES = [(0.03, 0.04, (0.02, -0.03)), (0.0, 0.04, (0.02, -0.03)), (0.3, -0.06, (0.0, 0.03)), (0.3, -0.02, (0.02, 0.0))]
+ORDINARY_POSES = [(0.0, 0.0, (0.0, 0.0)), (0.03, 0.0, (0.0, 0.0)), (0.0, 0.06, (0.02, -0.03)), (0.3, -0.05, (0.0, 0.0))]
+
+
+def fit_inside_tote(boxes):
+    points, camera, fx = look(boxes)
+    tote, _ = bf.estimate_tote(points, TOTE, LEVEL, camera, fx)
+    if tote is None:
+        return None, "no tote estimate"
+    return bf.estimate_item(points, ITEM, LEVEL + WALL, LEVEL + TOTE[2] + 0.008, camera, fx,
+                            container=(tote.position[:2], TOTE[:2], tote.yaw))
+
+
+@pytest.mark.parametrize("item_yaw, base_turn, base_shift", POST_POSES + ORDINARY_POSES)
+def test_an_item_estimate_is_never_a_shelf_post(item_yaw, base_turn, base_shift):
+    boxes, _tote, item = scene(item_yaw=item_yaw, base_turn=base_turn, base_shift=base_shift)
+    estimate, why = fit_inside_tote(boxes)
+    if estimate is None:
+        assert "outside the tote" in why or "no group fits" in why, why      # nothing is better than a wrong pose
+        return
+    position, _yaw = errors(estimate, item, ITEM)
+    assert position < 0.005, (position, estimate.position, item[0], why)
+
+
+@pytest.mark.parametrize("item_yaw, base_turn, base_shift", ORDINARY_POSES)
+def test_the_container_does_not_hide_an_item_that_is_found_without_it(item_yaw, base_turn, base_shift):
+    boxes, _tote, item = scene(item_yaw=item_yaw, base_turn=base_turn, base_shift=base_shift)
+    estimate, why = fit_inside_tote(boxes)
+    assert estimate is not None, why
+    assert errors(estimate, item, ITEM)[0] < 0.0015
+
+
+def test_inside_footprint_follows_the_yaw():
+    assert bf.inside_footprint((1.0, 0.19), (1.0, 0.0), (0.30, 0.40), 0.0)
+    assert not bf.inside_footprint((1.0, 0.19), (1.0, 0.0), (0.30, 0.40), math.pi / 2)
+    assert bf.inside_footprint((1.0, 0.19), (1.0, 0.0), (0.30, 0.40), math.pi / 2, margin=0.05)

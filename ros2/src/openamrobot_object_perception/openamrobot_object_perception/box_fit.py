@@ -161,13 +161,24 @@ def _yaw_sigma(residual_rms, pixel, inliers, extent):
     return max(residual_rms, pixel / math.sqrt(12.0)) * math.sqrt(12.0 / max(inliers, 1)) / max(extent, 1e-3)
 
 
+def inside_footprint(xy, centre, size, yaw, margin=0.0):
+    """True when the point `xy` lies in the rectangle of `size` (x, y) turned by `yaw` about `centre`, grown by `margin`."""
+    dx, dy = xy[0] - centre[0], xy[1] - centre[1]
+    c, s = math.cos(-yaw), math.sin(-yaw)
+    return abs(c * dx - s * dy) <= size[0] / 2.0 + margin and abs(s * dx + c * dy) <= size[1] / 2.0 + margin
+
+
 def estimate_item(points, size, rest_z, band_low, camera_position, fx, min_points=40, height_tolerance=0.012,
-                  width_tolerance=0.01, face_tolerance=0.0015, name="item"):
+                  width_tolerance=0.01, face_tolerance=0.0015, name="item", container=None):
     """A box of `size` (x, y, z) standing on a surface at height `rest_z` (the tote floor), its top above `band_low`
     (the tote rim). -> (Estimate or None, reason). Points between `band_low` and 0.03 m above the expected top are
     grouped; a group is the item when it stops below the band top (a post or a column continues), its top is within
     `height_tolerance` of rest_z + size z (a lifted or fallen item is not taken), it fits inside the item's diagonal and
-    its camera-facing face is as wide as one side of the item."""
+    its camera-facing face is as wide as one side of the item.
+
+    `container` is ((x, y), (size x, size y), yaw) of the tote the item stands in, from the tote estimate of the same
+    image. A group whose centre lies outside it is not the item: a shelf post is 0.04 m square and as tall as the band,
+    and without this it was taken for a 0.035 m item in 9 of 315 parking poses on ideal depth (review of 25 Nov 2026)."""
     expected_top = rest_z + size[2]
     band_high = expected_top + 0.03
     band = points[(points[:, 2] > band_low) & (points[:, 2] < band_high)]
@@ -182,7 +193,9 @@ def estimate_item(points, size, rest_z, band_low, camera_position, fx, min_point
             continue
         top = float(group[:, 2].max())
         spread = float(np.max(np.linalg.norm(group[:, :2] - group[:, :2].mean(axis=0), axis=1)))
-        if top > band_high - 0.008:
+        if container is not None and not inside_footprint(group[:, :2].mean(axis=0), *container):
+            rejected.append("outside the tote")
+        elif top > band_high - 0.008:
             rejected.append("taller than the item")
         elif abs(top - expected_top) > height_tolerance:
             rejected.append(f"top {top:.3f} m, expected {expected_top:.3f} m")
