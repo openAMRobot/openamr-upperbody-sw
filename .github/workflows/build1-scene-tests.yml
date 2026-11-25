@@ -4,7 +4,7 @@
 # interfaces on the runner (vcan by modprobe, CAN FD on the arm buses) and runs the package's tests headless.
 # A test that needs virtual CAN and cannot have it is BLOCKED: it is counted apart, and the job does not pass.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
-name: diag scn04 grasp from the pose estimate, repeat (scratch)
+name: diag scn04 grasp from the pose estimate, repeat on CycloneDDS (scratch)
 
 on:
   workflow_dispatch:
@@ -13,6 +13,8 @@ permissions:
   contents: read
 
 env:
+  RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+  CYCLONEDDS_URI: '<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery></Domain></CycloneDDS>'
   PACKAGE: openamrobot_build1_scene
   PACKAGE_DIR: ws/src/openamr-upperbody-sw/ros2/src/openamrobot_build1_scene
 
@@ -146,6 +148,8 @@ jobs:
           rosdep install --rosdistro jazzy --from-paths $paths --ignore-src -y -r
           sudo apt-get install -y python3-can ros-jazzy-ros-gz ros-jazzy-gz-ros2-control ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
             ros-jazzy-moveit ros-jazzy-joint-state-publisher ros-jazzy-launch-testing-ament-cmake ros-jazzy-ament-cmake-pytest
+          sudo apt-get install -y ros-jazzy-rmw-cyclonedds-cpp
+          dpkg -s ros-jazzy-rmw-cyclonedds-cpp > /dev/null
 
       - name: Package versions
         run: |
