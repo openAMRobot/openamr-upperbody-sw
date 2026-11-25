@@ -319,6 +319,10 @@ jobs:
           echo "=== SURVIVORS gz sim: $(pgrep -fc 'gz sim')"
           echo "=== SURVIVORS ros or install processes: $(pgrep -fc 'ws/install|/opt/ros/jazzy')"
           pgrep -af 'gz sim|ws/install|/opt/ros/jazzy' | cut -c1-160 | sed 's/^/=== SURVIVOR /'
+          # Variant B: end what the interrupted launch left behind, so the mission starts on a clean process table.
+          pkill -INT -f 'ws/install|/opt/ros/jazzy|gz sim'; sleep 8; pkill -KILL -f 'ws/install|/opt/ros/jazzy|gz sim'; sleep 2
+          echo "=== SURVIVORS after cleanup: $(pgrep -fc 'gz sim|ws/install|/opt/ros/jazzy')"
+          ros2 daemon stop > /dev/null 2>&1; echo "=== ros2 daemon stopped rc $?"
           mkdir -p "$BUILD1_LOG_DIR"
           try=0
           while :; do
