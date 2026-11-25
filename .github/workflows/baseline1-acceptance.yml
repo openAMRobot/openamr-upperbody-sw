@@ -307,6 +307,19 @@ jobs:
           echo "station alignment: BASELINE1_STATION_ALIGNMENT=${BASELINE1_STATION_ALIGNMENT} (camera: simulation-only test sensor of openamr-platform-sw #167, pending the description's base camera)"
           echo "### Leg ${{ matrix.leg }} (${BASELINE1_SEQUENCE}): station alignment ${BASELINE1_STATION_ALIGNMENT}, ${RMW_IMPLEMENTATION}, CYCLONEDDS_URI ${CYCLONEDDS_URI}" >> "$GITHUB_STEP_SUMMARY"
           set +e
+          # DIAGNOSTIC (upperbody #135, scratch): a deliberate first launch of the same mission, interrupted after 75 s
+          # wall time, so that the mission below is always a second launch in the same job.
+          echo "=== DELIBERATE FIRST LAUNCH start $(date -u +%H:%M:%S)"
+          timeout -s INT -k 40 75 colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
+            --ctest-args -R '^test_baseline1_mission$' > "$PWD/deliberate_first_launch.log" 2>&1
+          echo "=== DELIBERATE FIRST LAUNCH rc $? end $(date -u +%H:%M:%S), log lines $(wc -l < "$PWD/deliberate_first_launch.log")"
+          grep -cE "/clock|Successfully switched controllers" "$PWD/deliberate_first_launch.log" | sed 's/^/=== DELIBERATE FIRST LAUNCH clock or controller lines: /'
+          mv "$BUILD1_LOG_DIR" "$PWD/build1_logs_deliberate_first"
+          for i in $(seq 1 30); do pgrep -f "gz sim" > /dev/null || break; sleep 1; done
+          echo "=== SURVIVORS gz sim: $(pgrep -fc 'gz sim')"
+          echo "=== SURVIVORS ros or install processes: $(pgrep -fc 'ws/install|/opt/ros/jazzy')"
+          pgrep -af 'gz sim|ws/install|/opt/ros/jazzy' | cut -c1-160 | sed 's/^/=== SURVIVOR /'
+          mkdir -p "$BUILD1_LOG_DIR"
           try=0
           while :; do
             try=$((try + 1))
