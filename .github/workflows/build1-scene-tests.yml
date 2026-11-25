@@ -4,7 +4,7 @@
 # interfaces on the runner (vcan by modprobe, CAN FD on the arm buses) and runs the package's tests headless.
 # A test that needs virtual CAN and cannot have it is BLOCKED: it is counted apart, and the job does not pass.
 # Simulation evidence only: never hardware, physical acceptance or safety evidence. No secrets, no hardware.
-name: diag scn01 repeat on c42a972 (scratch)
+name: diag drive-only pause injection, scn01 (scratch)
 
 on:
   push:
@@ -35,16 +35,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # CTest names. Static tests and the virtual CAN tests need no simulator.
-          - name: scn01 x8, job 1
+          - name: inject x3, job 1
             tests: "^test_scn01_drive$"
-          - name: scn01 x8, job 2
+          - name: inject x3, job 2
             tests: "^test_scn01_drive$"
-          - name: scn01 x8, job 3
+          - name: inject x3, job 3
             tests: "^test_scn01_drive$"
-          - name: scn01 x8, job 4
-            tests: "^test_scn01_drive$"
-          - name: scn01 x8, job 5
+          - name: inject x3, job 4
             tests: "^test_scn01_drive$"
     steps:
       # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API, which
@@ -201,8 +198,8 @@ jobs:
           nproc
           set +e
           rc_all=0
-          for launch in 1 2 3 4 5 6 7 8; do
-            echo "=== LAUNCH $launch of 8"
+          for launch in 1 2 3; do
+            echo "=== LAUNCH $launch of 3"
             colcon test --packages-select "$PACKAGE" --event-handlers console_direct+ --return-code-on-test-failure \
               --ctest-args -R "$BUILD1_TESTS"
             rc=$?

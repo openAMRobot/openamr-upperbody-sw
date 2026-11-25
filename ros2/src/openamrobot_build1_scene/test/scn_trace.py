@@ -82,6 +82,37 @@ class Trace(Node):
                     break
 
 
+INJECT = {"armed_at": None, "done_at": None, "reported": False}
+
+
+def inject(node, now):
+    """SCRATCH fault injection (upperbody-sw #137 B, not for merge): once the host reports the drive configured and the
+    emulator reports it enabled, stop the drive emulator process alone for 2.5 s of wall time (SIGSTOP, SIGCONT). This is
+    what a scheduling stall of that one process does: only its clock watch sees /clock stand still. No logic is changed."""
+    import os, signal, subprocess
+    status = node.sil_text.get("/sil/drive/status", "")
+    emulator = node.sil_text.get("/sil/drive/emulator_state", "")
+    if INJECT["done_at"] is None:
+        if '"configured": true' in status and '"enabled": true' in emulator:
+            if INJECT["armed_at"] is None:
+                INJECT["armed_at"] = now
+            elif now - INJECT["armed_at"] >= 3.0:
+                out = subprocess.run(["pgrep", "-af", "zlac8015d"], capture_output=True, text=True).stdout.strip().splitlines()
+                pids = [int(line.split()[0]) for line in out if "pgrep" not in line and "scn_trace" not in line]
+                print("INJECT stop " + json.dumps({"pids": pids, "cmdlines": [line[:120] for line in out],
+                                                   "status": status[:300], "emulator": emulator[:300]}), flush=True)
+                for pid in pids:
+                    os.kill(pid, signal.SIGSTOP)
+                time.sleep(2.5)
+                for pid in pids:
+                    os.kill(pid, signal.SIGCONT)
+                INJECT["done_at"] = time.monotonic()
+                print("INJECT cont " + json.dumps({"pids": pids}), flush=True)
+    elif not INJECT["reported"] and time.monotonic() - INJECT["done_at"] >= 10.0:
+        INJECT["reported"] = True
+        print("INJECT after10s " + json.dumps({"status": status[:400], "emulator": emulator[:400]}), flush=True)
+
+
 def main():
     rclpy.init()
     node = Trace()
@@ -104,8 +135,13 @@ def main():
                     row["sil"] = dict(node.sil_text)
                 node.cmd, node.logs, node.sil_count = {}, [], {}
                 print("TRACE2HZ " + json.dumps(row), flush=True)
+                inject(node, now)
     except KeyboardInterrupt:
         pass
+    finally:
+        print("INJECT final " + json.dumps({"injected": INJECT["done_at"] is not None,
+                                            "status": node.sil_text.get("/sil/drive/status", "")[:400],
+                                            "emulator": node.sil_text.get("/sil/drive/emulator_state", "")[:400]}), flush=True)
 
 
 if __name__ == "__main__":
