@@ -7,8 +7,7 @@
 name: diag drive-only pause injection, scn01 (scratch)
 
 on:
-  push:
-    branches: [diag/scn01-repeat-on-c42a972-2026-11-24]
+  workflow_dispatch:
 
 permissions:
   contents: read
