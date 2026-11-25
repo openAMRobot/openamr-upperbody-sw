@@ -206,6 +206,23 @@ def test_the_mission_step_reruns_only_a_try_the_blocked_rule_accepts():
     assert "'BLOCKED'" in result
 
 
+def test_a_rerun_ends_what_the_stopped_launch_left_behind_and_prints_the_count():
+    """Upperbody #135: after a BLOCKED try the next launch must not meet processes of the stopped one. In the
+    diagnostic of 25 Nov 2026, 2 of 4 second launches failed with such processes alive and 10 of 10 passed after
+    they were ended. The clean-up belongs to the rerun branch only, after the evidence was moved, before `continue`."""
+    with open(WORKFLOW, encoding="utf-8") as f:
+        workflow = yaml.safe_load(f)
+    mission = next(s for s in workflow["jobs"]["baseline1"]["steps"] if s.get("id") == "mission")["run"]
+    moved = mission.index('mv "$BUILD1_LOG_DIR" "$moved"')
+    listed = mission.index("leftover=$(pgrep -af 'gz sim|ws/install|/opt/ros/jazzy'")
+    ended = mission.index("pkill -KILL -f 'gz sim|ws/install|/opt/ros/jazzy'")
+    counted = mission.index("processes left before try $((try + 1)): $(pgrep -fc 'gz sim|ws/install|/opt/ros/jazzy')")
+    again = mission.index("continue", moved)
+    assert moved < listed < ended < counted < again
+    assert mission.index("pkill -INT -f 'gz sim|ws/install|/opt/ros/jazzy'") < ended
+    assert mission.count("pkill") == 2, "the clean-up must not run before the first try or after the last one"
+
+
 def test_the_phase_table_names_no_clock_as_blocked_when_the_fail_fast_fired(tmp_path):
     wall = Wall(1000.0)
     gate = clock_gate.Gate(launch_start=1000.0, now=wall)

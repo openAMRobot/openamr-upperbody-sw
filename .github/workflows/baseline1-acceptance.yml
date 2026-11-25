@@ -332,6 +332,18 @@ jobs:
               # The stopped launch's simulator stops through its helper; wait for it before the next try.
               for i in $(seq 1 30); do pgrep -f "gz sim" > /dev/null || break; sleep 1; done
               pgrep -af "gz sim" && echo "a gz sim process is still running before try $((try + 1))"
+              # Proposed (upperbody #135): the wait above covers only gz sim. Other processes of the stopped launch
+              # (seen: controller_server, ros2 bag record, parameter_bridge) can outlive it and meet the next launch.
+              # List them, end them, and print what is left, so the next try starts on a clean process table.
+              leftover=$(pgrep -af 'gz sim|ws/install|/opt/ros/jazzy' | cut -c1-160)
+              if [ -n "$leftover" ]; then
+                echo "processes of try ${try} still alive before try $((try + 1)):"
+                echo "$leftover"
+                pkill -INT -f 'gz sim|ws/install|/opt/ros/jazzy'; sleep 8
+                pkill -KILL -f 'gz sim|ws/install|/opt/ros/jazzy'; sleep 2
+              fi
+              echo "processes left before try $((try + 1)): $(pgrep -fc 'gz sim|ws/install|/opt/ros/jazzy')"
+              ros2 daemon stop > /dev/null 2>&1 || true
               mkdir -p "$BUILD1_LOG_DIR"
               continue
             fi
