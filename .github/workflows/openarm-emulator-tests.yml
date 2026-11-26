@@ -31,9 +31,20 @@ jobs:
       group: openarm-emulator-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
-      - uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # 0.7.19
-        with:
-          required-ros-distributions: jazzy
+      # ros-tooling/setup-ros looks the latest ros-apt-source tag up through the unauthenticated GitHub API; when that
+      # returns no tag the download is a 404 before any test runs (26 Nov 2026: model tests 45735467586 attempt 1,
+      # emulator tests 45817609565 attempt 1). Same pinned set-up as the scene, diagnostics and acceptance workflows.
+      - name: "ENV/INFRA: ROS 2 Jazzy from packages.ros.org (pinned ros2-apt-source 1.3.0)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl locales software-properties-common
+          sudo add-apt-repository -y universe
+          curl --fail --location --retry 5 --retry-delay 5 -o /tmp/ros2-apt-source.deb \
+            "https://github.com/ros-infrastructure/ros-apt-source/releases/download/1.3.0/ros2-apt-source_1.3.0.noble_all.deb"
+          sudo dpkg -i /tmp/ros2-apt-source.deb
+          sudo apt-get update
+          sudo apt-get install -y ros-jazzy-ros-base ros-dev-tools
+          sudo rosdep init || echo "rosdep init: already initialized"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

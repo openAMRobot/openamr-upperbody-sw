@@ -87,9 +87,9 @@ env:
   # RC.1 FINAL PIN (26 Nov 2026): ddd20ab = openamr-platform-sw branch release/2.0.0-rc.1, that is 334e0ad plus the
   # documentation-only publication cleanup #210 (README.md, STATE.md, one file under docs/). Platform main is not
   # used for rc.1: it contains #204, which is outside the candidate.
-  # RC.1 CANDIDATE 2 (26 Nov 2026): 4948644 = ddd20ab plus one change, the SIL effective track 0.411 m
+  # RC.1 CANDIDATE 2 (26 Nov 2026): 2ac4070 = ddd20ab plus one change, the SIL effective track 0.411 m
   # (openamrobot_sil config, its test and one architecture paragraph; upperbody #136). Nothing else differs.
-  PLATFORM_SW_SHA: 4948644061912bb5a0d730e1b4213c26a869d9e0
+  PLATFORM_SW_SHA: 2ac40702deaf3533f9612a1e05d1ea9bb41b996c
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
