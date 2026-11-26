@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Diagnostic only. Launches the default profile headless and prints the runtime inventory to the job log.
-set -u
+set +u
 source /opt/ros/jazzy/setup.bash; source install/setup.bash
 setsid ros2 launch openamrobot_build1_scene build1.launch.py headless:=true create_vcan:=false > launch.log 2>&1 &
 LP=$!
