@@ -29,4 +29,4 @@ def test_the_copy_is_the_reviewed_snapshot():
 def test_the_platform_pin_carries_the_platform_sw_126_masses_and_the_93_tof_pitch():
     provenance = load("mass_provenance.yaml")
     assert "platform-sw #126" in provenance and "platform-sw #93" in provenance
-    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "8e7a45428d06b015cdf488ca8e182c450039afbc"
+    assert yaml.safe_load(load("upstream_pins.yaml"))["pins"]["openamr_platform_sw"] == "4948644061912bb5a0d730e1b4213c26a869d9e0"
