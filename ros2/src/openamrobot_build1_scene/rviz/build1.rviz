@@ -122,8 +122,8 @@ Visualization Manager:
       Shaft Length: 0.6
   - Class: rviz_default_plugins/Odometry
     Name: Ground truth
-    Enabled: true
-    Value: true
+    Enabled: false
+    Value: false
     Topic:
       Value: /build1/ground_truth/odom
       Depth: 5

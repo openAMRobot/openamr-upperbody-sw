@@ -84,7 +84,10 @@ env:
   # RC.1 PIN (25 Nov 2026): 334e0ad = openamr-platform-sw main, the frozen rc.1 candidate d4efb5c (Alex's GO,
   # main with #202 and #205) plus the #180 licence metadata (NOTICE.md, STATE.md, two package.xml licence tags).
   # Gates ran on 3b5ee9b with d4efb5c; the two platform trees differ only in those 4 metadata files.
-  PLATFORM_SW_SHA: 334e0ad7898e294fa817ed12c61c6534abdf2ab6
+  # RC.1 FINAL PIN (26 Nov 2026): ddd20ab = openamr-platform-sw branch release/2.0.0-rc.1, that is 334e0ad plus the
+  # documentation-only publication cleanup #210 (README.md, STATE.md, one file under docs/). Platform main is not
+  # used for rc.1: it contains #204, which is outside the candidate.
+  PLATFORM_SW_SHA: ddd20ab3a85d98bb78c4c5f014952c4a0717ef92
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
@@ -332,7 +335,9 @@ jobs:
               # The stopped launch's simulator stops through its helper; wait for it before the next try.
               for i in $(seq 1 30); do pgrep -f "gz sim" > /dev/null || break; sleep 1; done
               pgrep -af "gz sim" && echo "a gz sim process is still running before try $((try + 1))"
-              # Proposed (upperbody #135): the wait above covers only gz sim. Other processes of the stopped launch
+              # CI only (upperbody #135): a hosted runner executes one job on a single-use machine, so these name
+              # patterns can match only processes of this job. Do not copy this to a shared or physical machine.
+              # The wait above covers only gz sim. Other processes of the stopped launch
               # (seen: controller_server, ros2 bag record, parameter_bridge) can outlive it and meet the next launch.
               # List them, end them, and print what is left, so the next try starts on a clean process table.
               leftover=$(pgrep -af 'gz sim|ws/install|/opt/ros/jazzy' | cut -c1-160)
