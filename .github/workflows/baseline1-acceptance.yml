@@ -87,7 +87,7 @@ env:
   # RC.1 FINAL PIN (26 Nov 2026): ddd20ab = openamr-platform-sw branch release/2.0.0-rc.1, that is 334e0ad plus the
   # documentation-only publication cleanup #210 (README.md, STATE.md, one file under docs/). Platform main is not
   # used for rc.1: it contains #204, which is outside the candidate.
-  PLATFORM_SW_SHA: ddd20ab3a85d98bb78c4c5f014952c4a0717ef92
+  PLATFORM_SW_SHA: d46a7e4d4a7274d57e1853b0cc55ec51e36e210a
   # openamrobot-interfaces main 50ed777: openamr_nav_msgs with StopState, which #167's node imports from 99ec17f on
   # (the same pin as openamr-platform-sw station-alignment-tests.yml).
   INTERFACES_SHA: 50ed777be7990edbd3465f33fd97a158e7e3b88b
