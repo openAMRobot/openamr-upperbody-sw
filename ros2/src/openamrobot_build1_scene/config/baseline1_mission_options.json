@@ -1,0 +1,66 @@
+{
+  "_comment": "SPDX-License-Identifier: MIT. Declared options of the Baseline 1 mission (openamrobot_build1_scene/baseline1.py). Proposed for Alex and Mohamed, 20 Nov 2026; a change is a reviewed change of this file. Simulation evidence only.",
+  "cancel_check": {
+    "_comment": "baseline1_cancel.py. On only when BASELINE1_CANCEL_CHECK=1 (the acceptance workflow sets it and declares it). Position end_of_mission (Alex 20 Nov 2026; goal and pass rule awaiting Mohamed and Alex): the last step of the retreat phase, after the turn-and-forward retreat, so the odometry guard at the station (nav_to_station) is evaluated before it and no turn follows it. One short NavigateToPose goal straight ahead of the base on open floor (not needed by the mission), cancelled through the public action once the base has moved cancel_at_m, then the base must stay still. CANCELED (5) is the only pass. Values Proposed; the stop bounds reuse scn07_cancel_resume where one exists.",
+    "env": "BASELINE1_CANCEL_CHECK",
+    "position": "end_of_mission",
+    "positions": [
+      "end_of_mission"
+    ],
+    "action": "/navigate_to_pose",
+    "_behavior_tree_comment": "openamr-platform-sw #164's station tree, whose station goal checker (0.025 m) cannot accept the 0.5 m goal before the cancel. bt_navigator's default checker (xy_goal_tolerance 0.35 m) accepted it after 0.15 m, the cancel distance: a race, lost in diagnostic run 44800204846 (SUCCEEDED, cancel refused). Changed 20 Nov 2026 evening; goal distance, cancel distance and pass rule unchanged.",
+    "behavior_tree": "navigate_to_station.xml",
+    "goal_xy_tolerance_m": 0.025,
+    "goal_distance_m": 0.5,
+    "cancel_at_m": 0.15,
+    "mid_way_m": [
+      0.08,
+      0.4
+    ],
+    "min_speed_at_cancel_m_s": 0.02,
+    "move_timeout_sim_s": 60.0,
+    "result_timeout_sim_s": 15.0,
+    "expected_status": 5,
+    "max_time_to_stop_sim_s": 4.0,
+    "max_distance_after_cancel_m": 0.1,
+    "hold_window_sim_s": 3.0,
+    "hold_sample_sim_s": 0.1,
+    "max_hold_displacement_m": 0.01,
+    "max_hold_yaw_change_rad": 0.02,
+    "max_cmd_vel_abs": 0.001,
+    "cmd_vel_topic": "/cmd_vel"
+  },
+  "retreat": {
+    "_comment": "station_departure.py. BASELINE1_RETREAT selects how the retreat phase leaves the station. Default forward (turn and forward, no reverse; Alex 20 Nov 2026), set and declared by the acceptance workflow. backup sends no goal and fails: the no-reverse Nav2 behaviour set (openamr-platform-sw #178) has no backup behaviour; departure is a prepared alternative, not enabled. Simulation only.",
+    "env": "BASELINE1_RETREAT",
+    "default": "forward",
+    "options": [
+      "backup",
+      "departure",
+      "forward"
+    ],
+    "distance_m": 0.3,
+    "speed_m_s": 0.1,
+    "departure": {
+      "_comment": "A declared station departure: one straight move back, only in the retreat phase, published by the test harness on cmd_vel_smoothed (collision_monitor's input, below velocity_smoother) on the integration branch. Allowed only when the Nav2 configuration has no reverse path, so it is the one reverse of the run.",
+      "phase": "retreat",
+      "max_distance_m": 0.3,
+      "max_speed_m_s": 0.1,
+      "max_time_sim_s": 10.0,
+      "topic": "/cmd_vel_smoothed",
+      "rate_hz": 20.0,
+      "simulation_only": true
+    },
+    "forward": {
+      "_comment": "Turn in place by turn_rad with Nav2's spin behaviour, then a forward NavigateToPose goal forward_m ahead. turn_clearance_measured_m is the smallest shelf clearance of an in-place half turn measured by openamr-upperbody-sw #93 (b4e46dd): closed shelf, base 0.088 m past the station, arms in park, lift L1000. Geometry only. The forward goal uses openamr-platform-sw's navigate_to_station_retreat.xml (PROPOSED, #117: station stage only, StationRetreat Regulated Pure Pursuit controller, station goal checker 0.025 m); the default checker's 0.35 m would accept a 0.30 m goal before the base moves.",
+      "turn_rad": 3.141592653589793,
+      "turn_clearance_measured_m": 0.141,
+      "min_clearance_m": 0.05,
+      "forward_m": 0.3,
+      "spin_action": "/spin",
+      "drive_action": "/navigate_to_pose",
+      "max_reverse_speed_m_s": 0.01,
+      "drive_tree": "navigate_to_station_retreat.xml"
+    }
+  }
+}

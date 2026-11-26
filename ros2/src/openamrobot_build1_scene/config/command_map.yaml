@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: MIT
+# One dynamics owner and one command path per joint and per run profile, and the one writer of every state and
+# command topic. README.md shows this map as tables. test_command_map.py checks it against the model, and
+# single_writer_check.py checks the running system against it.
+#
+# Run profiles as in the phase 1 baseline (audits, digital-twin/phase1/run_profiles.md):
+#   fast, fine            no device. `direct` below.
+#   firmware_sil, faults  devices on virtual CAN. `devices` below. faults injects, it changes no owner.
+#   geometry              no physics: not a profile of this scene.
+# Conflict numbers (SW-..) are those of digital-twin/phase1/single_writer_map.md.
+# Simulation only.
+schema_version: 1
+dynamics_owner: gazebo          # of every joint, in every profile. The emulators emulate CAN devices only.
+profiles: {fast: direct, fine: direct, firmware_sil: devices, faults: devices}
+
+joints:
+  left_wheel_joint: &wheel
+    group: drive
+    direct: "/cmd_vel > build1_control_bridge > gz /cmd_vel > DiffDrive plugin of the base > Gazebo"
+    devices: "/cmd_vel > sil_stm32_host_client > vcan_drive (SDO 60FFh, or RPDO 0x201 with stm32:=renode_readonly) > sil_zlac8015d > /sil/drive/gz_cmd_vel > wheel_command_adapter > /build1/drive/{side}_wheel_cmd_vel > build1_control_bridge > JointController of that wheel > Gazebo"
+  right_wheel_joint: *wheel
+  lift_joint:
+    group: lift
+    direct: "MoveIt or an action client > lift_controller in /controller_manager > effort interface of gz_ros2_control > Gazebo"
+    devices: "/sil/lift/command and /sil/lift/permit > sil_stm32_host_client > vcan_aux (RPDO1 0x210, permit 0x410) > sil_ctl017 > /sil/lift/gz_cmd_vel > build1_control_bridge > JointController of the lift > Gazebo"
+  left_arm: &arm
+    group: arm
+    joints: [openarm_left_joint1, openarm_left_joint2, openarm_left_joint3, openarm_left_joint4, openarm_left_joint5, openarm_left_joint6, openarm_left_joint7]
+    direct: "MoveIt or an action client > {side}_arm_controller in /controller_manager > position interface of gz_ros2_control > Gazebo"
+    devices: "MoveIt or an action client > {side}_arm_controller in /controller_manager > openarm_hardware/OpenArmHW > vcan_arm (CAN FD, MIT frames) > {side}_arm_emulator in /sim/controller_manager > effort interface of gz_ros2_control > Gazebo"
+    # The position of the MIT frame comes from the trajectory controller. Its tau field comes from the effort interface of
+    # the same joint: gravity_feedforward > {side}_arm_gravity_controller. One driver writes the one frame per motor.
+    devices_feed_forward: "gravity_feedforward > /{side}_arm_gravity_controller/commands > {side}_arm_gravity_controller in /controller_manager > effort interface of OpenArmHW > tau of the same MIT frame"
+  right_arm:
+    <<: *arm
+    joints: [openarm_right_joint1, openarm_right_joint2, openarm_right_joint3, openarm_right_joint4, openarm_right_joint5, openarm_right_joint6, openarm_right_joint7]
+  left_gripper: &gripper
+    group: gripper
+    joints: [openarm_left_finger_joint1]
+    direct: "{side}_gripper_controller in /controller_manager > position interface of gz_ros2_control > Gazebo"
+    devices: "{side}_gripper_controller in /controller_manager > openarm_hardware/OpenArmHW > vcan_arm (CAN FD) > {side}_arm_emulator in /sim/controller_manager > effort interface of gz_ros2_control > Gazebo"
+  right_gripper:
+    <<: *gripper
+    joints: [openarm_right_finger_joint1]
+
+# Joints that follow another joint and have no command path from a controller (SW-09). Their one owner depends on
+# the physics engine: with Bullet Featherstone the engine's mimic constraint, with any other engine
+# finger_mimic_follower.py through a position controller on the joint. Never both.
+mimic_joints: [openarm_left_finger_joint2, openarm_right_finger_joint2]
+mimic_owner: {engine: "mimic constraint of the physics engine", follower: "/finger_mimic_follower"}
+
+# Topics with exactly the writers listed.
+#   writers          in every profile
+#   writers_direct   added in fast and fine
+#   writers_devices  added in firmware_sil and faults
+#   writers_when     added when that launch component runs (nav2, moveit)
+# Two writers are allowed only where the pinned upstream design has two and `arbitration` names who decides.
+topics:
+  /clock: {writers: [/build1_control_bridge]}
+  /odom: {writers_direct: [/build1_control_bridge], writers_devices: [/base_state_adapter]}
+  /joint_states: {writers: [/joint_state_publisher]}
+  /base/joint_states: {writers_direct: [/build1_control_bridge], writers_devices: [/base_state_adapter]}
+  /arm/joint_states: {writers: [/joint_state_broadcaster]}
+  /sim/joint_states: {writers_devices: [/sim/joint_state_broadcaster]}
+  /tf:
+    writers: [/robot_state_publisher]
+    writers_direct: [/build1_control_bridge]
+    writers_devices: [/base_state_adapter]
+    writers_when: {nav2: [/amcl]}
+    arbitration: "disjoint frames. tf_frames below says which node owns which child frame"
+  /tf_static: {writers: [/robot_state_publisher]}
+  /cmd_vel: {writers_when: {nav2: [/collision_monitor]}, command: true}
+  /cmd_vel_smoothed: {writers_when: {nav2: [/velocity_smoother]}, command: true}
+  # Platform #90 command arbitration: sources -> twist_mux -> safety_stop_gate_node -> velocity_smoother.
+  /cmd_vel_joy: {writers_when: {nav2: [/ui_cmd_vel_relay_node]}, command: true}
+  /cmd_vel_mux: {writers_when: {nav2: [/twist_mux]}, command: true}
+  /cmd_vel_gated: {writers_when: {nav2: [/safety_stop_gate_node]}, command: true}
+  /cmd_vel_stop: {writers_when: {nav2: [/safety_stop_gate_node]}, command: true}
+  /cmd_vel_nav:
+    writers_when: {nav2: [/controller_server, /behavior_server]}
+    command: true
+    arbitration: "Nav2 design: the behaviour tree runs the controller or one behaviour at a time. Both feed the velocity smoother, not the drive"
+  /sil/drive/gz_cmd_vel: {writers_devices: [/sil_zlac8015d], command: true}
+  /build1/drive/left_wheel_cmd_vel: {writers_devices: [/wheel_command_adapter], command: true}
+  /build1/drive/right_wheel_cmd_vel: {writers_devices: [/wheel_command_adapter], command: true}
+  /sil/lift/gz_cmd_vel: {writers_devices: [/sil_ctl017], command: true}
+  /build1/fingers/left_finger2_cmd_pos: {writers_when: {follower: [/finger_mimic_follower]}, command: true}
+  /build1/fingers/right_finger2_cmd_pos: {writers_when: {follower: [/finger_mimic_follower]}, command: true}
+  /local_costmap/footprint: {writers_when: {nav2: [/footprint_publisher]}}
+  /global_costmap/footprint: {writers_when: {nav2: [/footprint_publisher]}}
+  /planning_scene: {writers_when: {moveit: [/planning_scene_loader]}}
+  /left_arm_gravity_controller/commands: {writers_devices: [/gravity_feedforward], command: true}
+  /right_arm_gravity_controller/commands: {writers_devices: [/gravity_feedforward], command: true}
+  # Operator inputs. Nothing in the launch writes them: a person or a test does, one at a time.
+  /sil/lift/command: {command: true, operator_input: true}
+  /sil/lift/permit: {command: true, operator_input: true}
+  /sil/lift/permit_silent: {command: true, operator_input: true}
+  /sil/stm32/can1_silent: {command: true, operator_input: true}
+  /sil/drive/inject: {command: true, operator_input: true}
+  /sil/lift/inject: {command: true, operator_input: true}
+  /sil/bms/inject: {command: true, operator_input: true}
+
+# Action servers: exactly one server each, in the node named.
+actions:
+  /left_arm_controller/follow_joint_trajectory: {server: /left_arm_controller}
+  /right_arm_controller/follow_joint_trajectory: {server: /right_arm_controller}
+  /left_gripper_controller/gripper_cmd: {server: /left_gripper_controller}
+  /right_gripper_controller/gripper_cmd: {server: /right_gripper_controller}
+  /lift_controller/follow_joint_trajectory: {server: /lift_controller, only: direct}
+
+# /tf: the chain every profile publishes, and who owns which child frame.
+# The chain is the one of the model: base_footprint is the root link and the parent of base_link (SW-10).
+tf_chain: [odom, base_footprint, base_link]
+tf_frames:
+  direct: {/build1_control_bridge: {base_footprint: odom}}
+  devices: {/base_state_adapter: {base_footprint: odom}}
+  nav2: {/amcl: {odom: map}}
+
+# ros2_control: each controlled joint has exactly one claimed command interface of each kind it lists.
+#   direct   one controller manager, in Gazebo. Position, claimed by the trajectory and gripper controllers, except
+#            lift_joint: effort, claimed by lift_controller (config/lift_controller_gazebo.yaml; DART cannot lift the joint
+#            off its lower limit through the position interface, docs/build1_lift_and_base_diagnosis.md).
+#   devices  /sim/controller_manager in Gazebo: effort, claimed by the arm emulator of that side. The lift has no
+#            ros2_control interface there at all. /controller_manager with the real driver: position, and on the arm
+#            joints also effort, claimed by {side}_arm_gravity_controller: the two are the q and the tau fields of one
+#            MIT frame, written by the one driver (docs/build1_arm_diagnosis.md).
+controller_managers:
+  direct:
+    - {name: /controller_manager, claimed: position, joints: [arm, gripper, lift], claimed_by_group: {lift: effort}}
+  devices:
+    - {name: /sim/controller_manager, claimed: effort, joints: [arm, gripper], absent_joints: [lift_joint]}
+    - {name: /controller_manager, claimed: position, joints: [arm, gripper], also_claimed: {effort: [arm]}}
+
+# Gazebo transport topics that carry a command. One publisher each: the control bridge.
+gz_command_topics:
+  direct: [/cmd_vel]
+  devices: [/build1/gz/left_wheel_cmd_vel, /build1/gz/right_wheel_cmd_vel, /sil/gz/lift_cmd_vel]
+gz_command_topics_when:
+  follower: [/build1/gz/left_finger2_cmd_pos, /build1/gz/right_finger2_cmd_pos]
+# Gazebo command topics that must have no publisher at all in that profile.
+gz_silent_topics:
+  devices: [/cmd_vel]
+
+# Nodes the check ignores: the tools that observe or inject.
+ignored_node_prefixes: [/build1_scn, /build1_single_writer, /_ros2cli, /rviz, /transform_listener_impl]

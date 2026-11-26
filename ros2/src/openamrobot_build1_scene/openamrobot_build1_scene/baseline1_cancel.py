@@ -1,0 +1,317 @@
+# SPDX-License-Identifier: MIT
+"""Baseline 1 cancellation check, in the test harness, not a stop gate. Position end_of_mission (Alex, 20 Nov 2026);
+goal and pass rule awaiting Mohamed and Alex.
+
+On only when the declared mission option BASELINE1_CANCEL_CHECK=1 is set (the acceptance workflow sets it and declares
+it). At the end of the mission (baseline1.end_of_mission_cancel, the last step of the retreat phase, after the odometry
+guard at the station): one short NavigateToPose goal straight ahead of the base on open floor, which the mission does
+not need; once the base has moved cancel_at_m, the goal is cancelled through
+the public action interface (the action's cancel service, as any client would). Then:
+- the terminal status must be CANCELED (5). Whatever the stack returns is recorded as cancel_goal_status;
+- the base stops within max_time_to_stop_sim_s and max_distance_after_cancel_m;
+- over a declared hold window after the stop, ground truth and odometry move less than max_hold_displacement_m and
+  max_hold_yaw_change_rad, and every /cmd_vel message is zero (the last one before the window counts too, since the
+  base keeps the last command it was given). The hold window is judged by each message's publication time
+  (rclpy message info source_timestamp, system clock) against wall-clock instants the step takes, so a message
+  published before the window but delivered late by the busy executor is not counted in it; without source_timestamp
+  the callback sim time is used, as before, and the fallback is logged (PROPOSED measurement change, 22 Nov 2026).
+CANCELED is the only pass.
+
+verdict() and the helpers have no ROS import: test/test_baseline1_cancel.py runs them on recorded samples. step() runs
+inside the mission. Every check name starts with cancel_, which baseline1_gates.stop_cancel requires.
+Simulation evidence only: a functional check of the action interface, never hardware, physical or safety evidence.
+"""
+import json
+import math
+import os
+
+CANCELED = 5                     # action_msgs/GoalStatus
+CANCEL_ERROR_NONE = 0            # action_msgs/CancelGoal.Response
+SOURCE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config",
+                           "baseline1_mission_options.json")
+
+
+def load(path=None):
+    """The cancel_check section of config/baseline1_mission_options.json: the source tree, else the installed share."""
+    candidates = [path] if path else [SOURCE_FILE]
+    if not path:
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            candidates.append(os.path.join(get_package_share_directory("openamrobot_build1_scene"), "config",
+                                           "baseline1_mission_options.json"))
+        except Exception:  # noqa: BLE001 - no ament index outside a sourced workspace
+            pass
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            with open(candidate, encoding="utf-8") as f:
+                return json.load(f)["cancel_check"]
+    raise FileNotFoundError(f"baseline1_mission_options.json not found in {candidates}")
+
+
+def enabled(config=None, environ=None):
+    environ = os.environ if environ is None else environ
+    name = (config or {}).get("env", "BASELINE1_CANCEL_CHECK")
+    return environ.get(name, "0") == "1"
+
+
+def tree_path(name):
+    """The behaviour tree file of the goal: '' is bt_navigator's default; a bare file name is resolved in the installed
+    openamrobot_nav2 share (behavior_trees/). Without that share (the static tests) the bare name is returned; in a run
+    bt_navigator would then refuse the goal and cancel_goal_accepted fails, so nothing passes on a wrong tree."""
+    if not name or os.path.isabs(name):
+        return name or ""
+    try:
+        from ament_index_python.packages import get_package_share_directory
+        return os.path.join(get_package_share_directory("openamrobot_nav2"), "behavior_trees", name)
+    except (ImportError, LookupError):
+        return name
+
+
+def goal_reached_before_cancel(config):
+    """True when the goal checker can accept the goal before the cancel is sent: the base is within
+    goal_xy_tolerance_m of the goal once it has moved goal_distance_m - goal_xy_tolerance_m, which must stay above
+    the end of the mid-way window, or the cancel races a SUCCEEDED (diagnostic run 44800204846: default tree, 0.35 m
+    tolerance on a 0.5 m goal: SUCCEEDED after 0.088 m of ground-truth travel, return code 3)."""
+    return config["goal_distance_m"] - config["goal_xy_tolerance_m"] <= config["mid_way_m"][1]
+
+
+def goal_pose(start, distance):
+    """(x, y, yaw) `distance` straight ahead of `start`, same heading."""
+    x, y, yaw = start
+    return x + distance * math.cos(yaw), y + distance * math.sin(yaw), yaw
+
+
+def _angle(a, b):
+    return math.atan2(math.sin(a - b), math.cos(a - b))
+
+
+def displacement(samples):
+    """samples [(t, x, y, yaw)] -> (largest distance from the first sample, largest |yaw change|), or (None, None)."""
+    points = [s for s in samples if s is not None and None not in s]
+    if len(points) < 2:
+        return None, None
+    _t0, x0, y0, yaw0 = points[0]
+    return (max(math.hypot(x - x0, y - y0) for _t, x, y, _yaw in points),
+            max(abs(_angle(yaw, yaw0)) for _t, _x, _y, yaw in points))
+
+
+def _magnitude(message):
+    _t, vx, vy, wz = message
+    return max(abs(vx), abs(vy), abs(wz))
+
+
+def cmd_vel_in_window(messages, t0, t1):
+    """messages [(t, vx, vy, wz)] -> (peak |component| in [t0, t1] including the last message before t0, number of
+    messages in the window). The last message before the window counts: the base keeps the last command it was
+    given. None when no message was ever received before t1 (nothing to judge)."""
+    before = [m for m in messages if m[0] < t0]
+    inside = [m for m in messages if t0 <= m[0] <= t1]
+    judged = inside + before[-1:]
+    if not judged:
+        return None, 0
+    return max(_magnitude(m) for m in judged), len(inside)
+
+
+def source_ns(info):
+    """The publication time of one message from rclpy's message info (a dict with source_timestamp, ns since the epoch,
+    system clock, set by the DDS writer), or None when it is missing or 0."""
+    if info is None:
+        return None
+    value = info.get("source_timestamp") if isinstance(info, dict) else getattr(info, "source_timestamp", None)
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def hold_messages(record):
+    """(messages, window, basis) the hold check judges. By publication time when every recorded message carries a
+    source_timestamp and the step took the wall-clock window: then the window holds exactly the messages published in
+    it and the last one published before it, whatever the executor's delivery delay. Otherwise the callback sim time,
+    as before (basis 'fallback')."""
+    published, wall = record.get("cmd_vel_published"), record.get("window_wall_ns")
+    if published and wall and all(m[0] is not None for m in published):
+        return sorted(published, key=lambda m: m[0]), tuple(wall), "publication"
+    return record.get("cmd_vel") or [], record.get("window") or (None, None), "fallback"
+
+
+def last_nonzero_after(messages, t_cancel, threshold):
+    """Seconds from the cancel to the last /cmd_vel message above `threshold` (0.0 when none after the cancel)."""
+    late = [m[0] for m in messages if m[0] >= t_cancel and _magnitude(m) > threshold]
+    return (max(late) - t_cancel) if late else 0.0
+
+
+def verdict(record, config):
+    """The checks of one cancellation step, as dicts for rig.Log.quantity: name, value, unit, low, high, note.
+    A value that was not measured is None and fails its check: a missing record is never a pass."""
+    c = config
+    lo, hi = c["mid_way_m"]
+    checks = [dict(name="cancel_goal_accepted", value=bool(record.get("accepted")), unit="bool", low=True, high=True,
+                   note=f"short NavigateToPose goal on {c['action']}, {c['goal_distance_m']} m straight ahead")]
+    if not record.get("accepted"):
+        return checks
+    checks += [
+        dict(name="cancel_progress_at_cancel", value=record.get("progress_m"), unit="m", low=lo, high=hi,
+             note=f"ground truth from the start at the cancel: mid-way of the {c['goal_distance_m']} m goal"),
+        dict(name="cancel_base_speed_at_cancel", value=record.get("speed_m_s"), unit="m/s",
+             low=c["min_speed_at_cancel_m_s"], high=None, note="the base was moving when the cancel was sent"),
+        dict(name="cancel_request_accepted", value=record.get("return_code") == CANCEL_ERROR_NONE
+             and (record.get("goals_canceling") or 0) >= 1, unit="bool", low=True, high=True,
+             note=f"CancelGoal return_code {record.get('return_code')!r}, goals canceling "
+                  f"{record.get('goals_canceling')!r} (0 is ERROR_NONE)"),
+        dict(name="cancel_goal_status", value=record.get("status"), unit="GoalStatus", low=c["expected_status"],
+             high=c["expected_status"], note="5 CANCELED, 4 SUCCEEDED, 6 ABORTED, None: no result in time"),
+        dict(name="cancel_time_to_stop", value=record.get("time_to_stop_s"), unit="s of Gazebo time", low=0.0,
+             high=c["max_time_to_stop_sim_s"], note="from the cancel until below 0.01 m/s and 0.02 rad/s for 0.5 s"
+                                                    " (rig.wait_stopped); limit of scn07"),
+        dict(name="cancel_distance_after_cancel", value=record.get("distance_after_cancel_m"), unit="m", low=0.0,
+             high=c["max_distance_after_cancel_m"], note="ground truth from the cancel to the stop"),
+    ]
+    t0, t1 = record.get("window") or (None, None)
+    truth_d, truth_yaw = displacement(record.get("hold_truth") or [])
+    odom_d, odom_yaw = displacement(record.get("hold_odom") or [])
+    window = f"over {c['hold_window_sim_s']} s of Gazebo time after the stop"
+    checks += [
+        dict(name="cancel_hold_ground_truth_displacement", value=truth_d, unit="m", low=0.0,
+             high=c["max_hold_displacement_m"], note=window),
+        dict(name="cancel_hold_ground_truth_yaw_change", value=truth_yaw, unit="rad", low=0.0,
+             high=c["max_hold_yaw_change_rad"], note=window),
+        dict(name="cancel_hold_odometry_displacement", value=odom_d, unit="m", low=0.0,
+             high=c["max_hold_displacement_m"], note=window + ", /odom"),
+        dict(name="cancel_hold_odometry_yaw_change", value=odom_yaw, unit="rad", low=0.0,
+             high=c["max_hold_yaw_change_rad"], note=window + ", /odom"),
+    ]
+    messages = record.get("cmd_vel") or []
+    held, (h0, h1), basis = hold_messages(record)
+    peak, count = cmd_vel_in_window(held, h0, h1) if h0 is not None else (None, 0)
+    by = ("publication time (source_timestamp)" if basis == "publication"
+          else "callback sim time (fallback: no source_timestamp)")
+    checks += [
+        dict(name="cancel_hold_cmd_vel_peak", value=peak, unit="m/s or rad/s", low=0.0, high=c["max_cmd_vel_abs"],
+             note=f"largest |component| of {c['cmd_vel_topic']} in the hold window ({count} messages) and of the last "
+                  f"message before it, by {by}"),
+    ]
+    if record.get("t_cancel") is not None:
+        checks.append(dict(name="cancel_cmd_vel_nonzero_after_cancel", value=last_nonzero_after(
+            messages, record["t_cancel"], c["max_cmd_vel_abs"]), unit="s of Gazebo time", low=0.0,
+            high=c["max_time_to_stop_sim_s"], note=f"last nonzero {c['cmd_vel_topic']} message after the cancel"))
+    return checks
+
+
+def _cancel(handle, wall_s=30.0):
+    """Send the cancel request of one goal handle. -> (return_code, number of goals canceling), (None, None) on no
+    answer."""
+    import time
+    future = handle.cancel_goal_async()
+    end = time.monotonic() + wall_s
+    while not future.done() and time.monotonic() < end:
+        time.sleep(0.01)
+    if not future.done() or future.result() is None:
+        return None, None
+    response = future.result()
+    return int(response.return_code), len(response.goals_canceling)
+
+
+class CmdVelRecorder:
+    """The /cmd_vel messages of one step, as (t, vx, vy, wz). stop() ends the recording; the subscription itself stays
+    until the rig's node is destroyed. Destroying it while the rig's MultiThreadedExecutor spins in its own thread
+    kills that thread (rclpy InvalidHandle, "cannot use Destroyable because destruction was requested": run
+    44848867373, job 136675191420), after which the rig receives nothing: no /clock, no /sil/drive/status, so
+    host_client_drive_thread_alive reads False at the end of the run while the host client is alive.
+
+    on_message_info is the subscription callback: two required parameters, so rclpy passes the message info
+    (rclpy/subscription.py binds one argument, then two). `published` holds (source_timestamp ns or None, vx, vy, wz)
+    for the hold window; `messages` keeps the callback sim time for the sim-time checks."""
+
+    def __init__(self, clock):
+        self.clock, self.messages, self.published, self.recording = clock, [], [], True
+
+    def on_message(self, m):
+        if self.recording:
+            self.messages.append((self.clock(), m.linear.x, m.linear.y, m.angular.z))
+
+    def on_message_info(self, m, info):
+        if self.recording:
+            self.published.append((source_ns(info), m.linear.x, m.linear.y, m.angular.z))
+            self.on_message(m)
+
+    def stop(self):
+        self.recording = False
+        return list(self.messages)
+
+
+def step(rig, log, pose=None, config=None):
+    """Run the cancellation step against the running stack and log its checks. `pose()` gives the map pose of the base
+    (baseline1.map_pose); without it ground truth is used, as the map starts at the world frame."""
+    import time
+    from geometry_msgs.msg import Twist
+    from nav2_msgs.action import NavigateToPose
+    c = config or load()
+    log.data.setdefault("baseline1", {})["cancel_check"] = {"enabled": True, "config": c}
+    recorder = CmdVelRecorder(rig.sim_time)
+    rig.node.create_subscription(Twist, c["cmd_vel_topic"], recorder.on_message_info, 50)
+    wall = {}
+    rig.wait_stopped(10.0)
+    start = rig.truth()
+    here = pose() if pose is not None else None
+    gx, gy, gyaw = goal_pose(here or start, c["goal_distance_m"])
+    goal = NavigateToPose.Goal()
+    goal.pose.header.frame_id = "map"
+    goal.pose.pose.position.x, goal.pose.pose.position.y = float(gx), float(gy)
+    goal.pose.pose.orientation.z, goal.pose.pose.orientation.w = math.sin(gyaw / 2.0), math.cos(gyaw / 2.0)
+    goal.behavior_tree = tree_path(c.get("behavior_tree", ""))
+    log.event(f"cancel check: goal x {gx:.3f} y {gy:.3f} yaw {gyaw:.3f} (map) on {c['action']}, cancel after "
+              f"{c['cancel_at_m']} m")
+    handle = rig.send_goal(c["action"], "nav2_msgs.action", "NavigateToPose", goal)
+    record = {"accepted": handle is not None}
+    if handle is not None:
+        def moved():
+            now = rig.truth()
+            return math.hypot(now[0] - start[0], now[1] - start[1])
+        rig.wait(lambda: moved() >= c["cancel_at_m"], c["move_timeout_sim_s"], "cancel check: base under way")
+        at = rig.truth()
+        record.update(progress_m=moved(), speed_m_s=rig.truth_speed()[0], t_cancel=rig.sim_time())
+        wall["cancel"] = time.time_ns()
+        record["return_code"], record["goals_canceling"] = _cancel(handle)
+        t_call = rig.sim_time()
+        settle = rig.wait_stopped(10.0)
+        wall["stopped"] = time.time_ns()
+        record["time_to_stop_s"] = None if settle is None else t_call + settle - record["t_cancel"]
+        record["distance_after_cancel_m"] = math.hypot(rig.truth()[0] - at[0], rig.truth()[1] - at[1])
+        record["status"], _ = rig.wait_result(handle, c["result_timeout_sim_s"], "cancel check: terminal status")
+        t0 = rig.sim_time()
+        w0 = time.time_ns()
+        truth, odom = [], []
+        while rig.sim_time() - t0 < c["hold_window_sim_s"]:
+            t = rig.sim_time()
+            truth.append((t, *rig.truth()))
+            odom.append((t, *rig.odom()))
+            rig.sleep_sim(c["hold_sample_sim_s"])
+        t1 = rig.sim_time()
+        w1 = time.time_ns()
+        truth.append((t1, *rig.truth()))
+        odom.append((t1, *rig.odom()))
+        record.update(window=(t0, t1), hold_truth=truth, hold_odom=odom, cmd_vel=list(recorder.messages),
+                      cmd_vel_published=list(recorder.published), window_wall_ns=(w0, w1))
+        record.update({f"wall_{k}_ns": v for k, v in wall.items()})
+        _held, _window, basis = hold_messages(record)
+        missing = sum(1 for m in record["cmd_vel_published"] if m[0] is None)
+        record["cmd_vel_time_basis"] = basis
+        if basis == "fallback":
+            log.event(f"cancel check: {missing} of {len(record['cmd_vel_published'])} {c['cmd_vel_topic']} messages "
+                      "without source_timestamp; hold window judged by callback sim time (fallback)")
+        else:
+            late = [m[0] for m in record["cmd_vel_published"] if m[0] >= wall["cancel"]
+                    and _magnitude(m) > c["max_cmd_vel_abs"]]
+            record["last_nonzero_published_after_cancel_wall_s"] = (max(late) - wall["cancel"]) / 1e9 if late else 0.0
+    # Not destroyed: see CmdVelRecorder. Recording ends here; the record above is unchanged by it.
+    recorder.stop()
+    for check in verdict(record, c):
+        log.quantity(check["name"], check["value"], check["unit"], low=check["low"], high=check["high"],
+                     note=check["note"])
+    summary = {k: v for k, v in record.items() if k not in ("hold_truth", "hold_odom", "cmd_vel", "cmd_vel_published")}
+    summary["cmd_vel_messages"] = len(record.get("cmd_vel") or [])
+    summary["behavior_tree"] = goal.behavior_tree
+    log.data["baseline1"]["cancel_check"]["record"] = summary
+    return record

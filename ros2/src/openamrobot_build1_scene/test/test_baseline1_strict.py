@@ -1,0 +1,547 @@
+# SPDX-License-Identifier: MIT
+"""The strict Baseline 1 verdict of the acceptance workflow (scripts/baseline1_strict_verdict.py), without ROS.
+
+PASS needs two legs of one dispatch, each 8 of 8, on identical pinned commits, CycloneDDS with the raised participant
+index at runtime, station alignment on and used, the sim-oracle profile declared, and the gates of baseline1_gates.py:
+mission result PASS, component counters alive for the whole run, Stop and cancellation checks, no unaccounted contact,
+complete evidence. Every other case is FAIL, and one leg is NOT STRICT.
+"""
+import json
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "scripts"))
+import baseline1_strict_verdict as strict  # noqa: E402
+from openamrobot_build1_scene import baseline1_gates as gates  # noqa: E402
+from test_baseline1_phases import run_mission  # noqa: E402
+
+URI = ('<CycloneDDS><Domain Id="any"><Discovery><MaxAutoParticipantIndex>120</MaxAutoParticipantIndex></Discovery>'
+       '</Domain></CycloneDDS>')
+PINS = {"openamr-upperbody-sw": "a" * 40, "openamr-platform-sw": "b" * 40, "openamrobot-interfaces": "c" * 40,
+        "openarm_ros2": "d" * 40, "openarm_can": "e" * 40, "openarm_description": "f" * 40}
+
+
+def declaration(leg, **changes):
+    value = {"leg": leg, "run_id": 1, "run_attempt": 1, "pins": dict(PINS), "profile": "sim-oracle", "station_approach": "1",
+             "station_alignment": "1", "rmw_implementation": "rmw_cyclonedds_cpp", "rmw_runtime": "rmw_cyclonedds_cpp",
+             "cyclonedds_uri": URI, "seed": "20261117", "build_ok": 1, "env_ok": 1, "env_reason": "",
+             "cancel_check": "1", "retreat": "forward"}
+    value.update(changes)
+    return value
+
+
+STOP_CHECKS = ("stop_settle_time", "stop_base_speed", "stop_base_yaw_rate", "authorize_motion_without_permit",
+               "authorize_command_refused", "authorize_permit_fresh")
+COUNTERS = ("live_drive_samples", "live_bms_answers", "live_lift_permit_rx", "live_joint_states")
+GRASP = {"phase": "grasp", "a": "openarm_left_ee_link1", "b": "item::link::collision", "first_t": 12.0, "last_t": 13.0,
+         "count": 40, "max_force_n": 6.1}
+
+
+def check(name, value=True):
+    return {"name": name, "value": value, "ok": value is True or isinstance(value, float), "low": None, "high": None}
+
+
+def mission(failing_reach=False, action=strict.ALIGNMENT_ACTION, pose_source="ground_truth", cancel=True,
+            dead_counter=None, events=(GRASP,), sensors_on=True):
+    """A mission log as baseline1.mission writes it: phases, trace with the work counters, contacts, run identity."""
+    _log, tracker = run_mission(failing_reach=failing_reach)
+    records = tracker.result()
+    stop = next(r for r in records if r["phase"] == "stop_authorize")
+    stop["quantities"] += [check(name) for name in STOP_CHECKS]
+    if cancel:
+        stop["quantities"].append(check("cancel_lift_goal_held_still"))
+    trace = []
+    for i in range(60):                       # 0.5 s of Gazebo time per sample, 30 s in all
+        sample = {"sim": float(i) * 0.5, "phase": None}
+        for key in COUNTERS:
+            sample[key] = (min(i, 10) if key == dead_counter else i)   # the dead counter stops at 5 s
+        trace.append(sample)
+    return {"result": "FAIL" if failing_reach else "PASS", "phases": records, "failures": [], "trace": trace,
+            "run": {"profile": "firmware_sil", "planning_pose_source": pose_source},
+            "baseline1": {"navigate_action": action, "seed": 20261117},
+            "contacts": {"sensors_on": sensors_on, "sensor_links": [f"link{i}" for i in range(21)],
+                         "messages": {"openarm_left_ee_link1": 40}, "events": list(events)}}
+
+
+def write_leg(root, leg, decl=None, data=None, buses=gates.load()["evidence"]["can_buses"], bag=True):
+    leg_dir = root / f"baseline1-acceptance-leg{leg}-attempt1"
+    logs = leg_dir / "ws" / "build1_logs"
+    logs.mkdir(parents=True)
+    (leg_dir / "declaration.json").write_text(json.dumps(decl if decl is not None else declaration(leg)))
+    if data is not False:
+        (logs / "baseline1_mission.json").write_text(json.dumps(data or mission()))
+    if bag:
+        (logs / "bag").mkdir()
+        (logs / "bag" / "metadata.yaml").write_text("rosbag2_bagfile_information: {}\n")
+    for bus in buses:
+        (logs / f"record_candump_{bus}.log").write_text(f"(1.0) {bus} 601#2300\n")
+    return str(leg_dir)
+
+
+def verdict(tmp_path, legs, *extra):
+    out = tmp_path / "verdict.json"
+    rc = strict.main([*legs, "--out", str(out), *extra])
+    return rc, json.loads(out.read_text())
+
+
+def test_two_legs_8_of_8_on_the_same_pins_pass(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2)])
+    assert (rc, record["verdict"], record["problems"]) == (0, "PASS", [])
+    assert record["pins"] == PINS and [leg["phases_passed"] for leg in record["legs"]] == [8, 8]
+
+
+def test_one_leg_short_of_8_of_8_fails(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, data=mission(failing_reach=True))])
+    assert (rc, record["verdict"]) == (1, "FAIL")
+    assert any("leg 2" in p and "phases passed" in p for p in record["problems"])
+
+
+def test_different_pinned_commits_fail(tmp_path):
+    pins = dict(PINS, **{"openamr-platform-sw": "9" * 40})
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=declaration(2, pins=pins))])
+    assert (rc, record["verdict"]) == (1, "FAIL") and "the legs ran on different pinned commits" in record["problems"]
+
+
+def test_a_missing_leg_or_mission_log_fails(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1)])
+    assert (rc, record["verdict"]) == (1, "FAIL")
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = verdict(other, [write_leg(other, 1), write_leg(other, 2, data=False)])
+    assert rc == 1 and any("no baseline1_mission.json" in p for p in record["problems"])
+
+
+def test_fast_dds_or_the_default_participant_cap_fail(tmp_path):
+    fast = declaration(2, rmw_runtime="rmw_fastrtps_cpp")
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=fast)])
+    assert rc == 1 and any("middleware 'rmw_fastrtps_cpp'" in p for p in record["problems"])
+    other = tmp_path / "b"
+    other.mkdir()
+    low = URI.replace(">120<", ">32<")
+    rc, record = verdict(other, [write_leg(other, 1, decl=declaration(1, cyclonedds_uri=low)),
+                                 write_leg(other, 2, decl=declaration(2, cyclonedds_uri=low))])
+    assert rc == 1 and any("MaxAutoParticipantIndex 32" in p for p in record["problems"])
+
+
+def test_alignment_must_be_declared_and_used(tmp_path):
+    direct = mission(action="/navigate_to_pose")
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1, data=direct), write_leg(tmp_path, 2)])
+    assert rc == 1 and any("not /station_alignment/navigate_to_station" in p for p in record["problems"])
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = verdict(other, [write_leg(other, 1, decl=declaration(1, station_alignment="0")),
+                                 write_leg(other, 2, decl=declaration(2, station_alignment="0"))])
+    assert rc == 1 and any("station_alignment declared '0'" in p for p in record["problems"])
+
+
+def test_the_sim_oracle_profile_must_be_declared_in_the_run_identity(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1, data=mission(pose_source="map")), write_leg(tmp_path, 2)])
+    assert rc == 1 and any("planning_pose_source 'map'" in p for p in record["problems"])
+
+
+def test_one_validation_leg_is_never_strict(tmp_path, capsys):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1)], "--expect", "1")
+    assert (rc, record["verdict"], record["problems"]) == (1, "NOT STRICT", [])
+    assert "never the strict two-run acceptance" in capsys.readouterr().out
+
+
+def test_find_reads_one_leg_at_the_root_and_two_legs_in_their_own_directories(tmp_path):
+    """download-artifact: one matching artifact lands straight in the path, several land in one directory each."""
+    single = tmp_path / "single"
+    leg_dir = write_leg(single, 1)
+    for name in os.listdir(leg_dir):
+        os.rename(os.path.join(leg_dir, name), single / name)
+    rc, record = verdict(tmp_path, ["--find", str(single), "--expect", "1"])
+    assert (record["verdict"], record["problems"]) == ("NOT STRICT", [])
+    double = tmp_path / "double"
+    write_leg(double, 1), write_leg(double, 2)
+    rc, record = verdict(tmp_path, ["--find", str(double)])
+    assert (rc, record["verdict"]) == (0, "PASS") and len(record["legs"]) == 2
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    rc, record = verdict(tmp_path, ["--find", str(empty)])
+    assert (rc, record["verdict"]) == (1, "FAIL") and "legs found [], expected 1 to 2" in record["problems"]
+
+
+# ---------------------------------------------------------------- gates added 20 Nov 2026 (Alex's acceptance rules)
+def two(tmp_path, data1=None, data2=None, **kw):
+    return verdict(tmp_path, [write_leg(tmp_path, 1, data=data1, **kw), write_leg(tmp_path, 2, data=data2, **kw)])
+
+
+def test_legs_of_different_dispatches_fail(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=declaration(2, run_id=2))])
+    assert rc == 1 and any("different dispatches" in p for p in record["problems"])
+
+
+def test_a_failed_check_outside_the_phases_fails(tmp_path):
+    """rig.run adds the component liveness checks of #95 after the mission function: outside every phase."""
+    data = mission()
+    data["result"], data["failures"] = "FAIL", ["host_client_bms_alive = False bool, allowed True to True"]
+    rc, record = two(tmp_path, data2=data)
+    assert rc == 1 and any("outside the phases: host_client_bms_alive" in p for p in record["problems"])
+    assert any("mission result 'FAIL'" in p for p in record["problems"])
+
+
+def test_a_component_that_stops_during_the_run_fails(tmp_path):
+    rc, record = two(tmp_path, data2=mission(dead_counter="live_bms_answers"))
+    assert rc == 1 and any("liveness battery" in p and "did not advance for 24.5 s" in p for p in record["problems"])
+
+
+def test_a_run_without_the_work_counters_fails(tmp_path):
+    data = mission()
+    for sample in data["trace"]:
+        del sample["live_lift_permit_rx"]
+    rc, record = two(tmp_path, data2=data)
+    assert rc == 1 and any("liveness lift: counter live_lift_permit_rx not recorded" in p for p in record["problems"])
+
+
+def test_a_stop_check_that_did_not_run_fails(tmp_path):
+    data = mission()
+    stop = next(r for r in data["phases"] if r["phase"] == "stop_authorize")
+    stop["quantities"] = [q for q in stop["quantities"] if q["name"] != "authorize_command_refused"]
+    rc, record = two(tmp_path, data2=data)
+    assert rc == 1 and any("check authorize_command_refused did not run" in p for p in record["problems"])
+
+
+def test_a_mission_without_a_cancellation_check_fails(tmp_path):
+    """A mission without the cancellation step (BASELINE1_CANCEL_CHECK not 1) cannot pass the strict verdict."""
+    rc, record = two(tmp_path, data1=mission(cancel=False), data2=mission(cancel=False))
+    assert rc == 1 and any("cancellation: 0 cancellation checks ran" in p for p in record["problems"])
+
+
+def test_an_unaccounted_contact_fails_and_an_allowed_one_passes(tmp_path):
+    palm = {"phase": "retreat", "a": "openarm_left_ee_base_link", "b": "fixtures::work_shelf_board_1",
+            "first_t": 20.0, "last_t": 20.2, "count": 3, "max_force_n": 4.9}
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, palm)))
+    assert rc == 1 and any("unaccounted contact in retreat: openarm_left_ee_base_link" in p for p in record["problems"])
+    other = tmp_path / "b"
+    other.mkdir()
+    early = dict(GRASP, phase="arm_approach")           # a finger on the item before the grasp is not intended
+    rc, record = two(other, data2=mission(events=(early,)))
+    assert rc == 1 and any("unaccounted contact in arm_approach" in p for p in record["problems"])
+
+
+def test_contact_sensors_off_or_not_recorded_fail(tmp_path):
+    rc, record = two(tmp_path, data2=mission(sensors_on=False))
+    assert rc == 1 and any("contact sensors were not on" in p for p in record["problems"])
+    other = tmp_path / "b"
+    other.mkdir()
+    data = mission()
+    del data["contacts"]
+    rc, record = two(other, data2=data)
+    assert rc == 1 and any("contacts: not recorded" in p for p in record["problems"])
+
+
+def test_incomplete_evidence_fails(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, bag=False, buses=("vcan_drive",))])
+    assert rc == 1
+    assert any("no ROS bag" in p for p in record["problems"]) and any("no candump of vcan_bms" in p for p in record["problems"])
+    other = tmp_path / "b"
+    other.mkdir()
+    data = mission()
+    data["baseline1"]["seed"] = 1
+    del data["run"]
+    short = dict(PINS, openarm_can="e" * 7)
+    rc, record = verdict(other, [write_leg(other, 1, decl=declaration(1, pins=short)),
+                                 write_leg(other, 2, decl=declaration(2, pins=short), data=data)])
+    assert rc == 1
+    assert any("openarm_can missing or not a full hash" in p for p in record["problems"])
+    assert any("mission seed 1 differs" in p for p in record["problems"])
+
+
+def test_contact_events_are_grouped_per_phase_and_pair():
+    rows = [{"t": 1.0, "a": "x", "b": "y", "fn": 2.0}, {"t": 1.5, "a": "x", "b": "y", "fn": -3.0},
+            {"t": 9.0, "a": "x", "b": "y", "fn": float("nan")}]
+    events = gates.contact_events(rows, lambda t: "grasp" if t < 5 else None)
+    assert [(e["phase"], e["count"], e["max_force_n"]) for e in events] == [("grasp", 2, 3.0), ("outside", 1, 0.0)]
+
+
+def test_a_leg_that_does_not_declare_the_cancellation_option_fails(tmp_path):
+    decl = declaration(2)
+    del decl["cancel_check"]
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), write_leg(tmp_path, 2, decl=decl)])
+    assert rc == 1 and any("setting cancel_check not declared" in p for p in record["problems"])
+
+
+# ------------------------------------------------------------------ #98's residual end-point contact (Mohamed, 20 Nov)
+WALL = {"phase": "arm_approach", "window": "grasp_reach_last_move", "a": "openarm_left_ee_base_link",
+        "b": "tote::link::front_collision", "first_t": 11.0, "last_t": 11.4, "count": 5, "max_force_n": 5.2}
+
+
+def _allowed(event):
+    return gates.contact_allowed(event, gates.load()["contacts"]["allowed"])
+
+
+def test_the_residual_wall_contact_is_allowed_only_as_mohameds_exact_case():
+    assert _allowed(WALL) is not None
+    assert _allowed(dict(WALL, a="openarm_left_ee_link1")) is not None
+    assert _allowed(dict(WALL, a="tote::link::front_collision",
+                         b="robot::openarm_left_ee_base_link::openarm_left_ee_base_link_collision")) is not None
+    assert _allowed(dict(WALL, max_force_n=6.0)) is not None
+    for other in (dict(WALL, max_force_n=6.01), dict(WALL, window=None), dict(WALL, window="other"),
+                  dict(WALL, a="openarm_left_ee_link2"), dict(WALL, a="openarm_left_link7"),
+                  dict(WALL, a="openarm_right_ee_base_link"), dict(WALL, b="tote::link::back_collision"),
+                  dict(WALL, b="fixtures::work_shelf_board_1"), dict(WALL, phase="grasp"),
+                  dict(WALL, phase="lift_object")):
+        assert _allowed(other) is None, other
+
+
+def test_the_wall_contact_passes_the_strict_gate_in_its_window_and_fails_outside_it(tmp_path):
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, WALL)))
+    assert rc == 0, record["problems"]
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = two(other, data2=mission(events=(GRASP, dict(WALL, window=None))))
+    assert rc == 1 and any("unaccounted contact in arm_approach: openarm_left_ee_base_link" in p for p in record["problems"])
+
+
+def test_windows_come_from_the_marks_and_events_carry_their_window():
+    definitions = gates.load()["contacts"]["windows"]
+    marks = [("grasp_reach_start", 10.0), ("grasp_reach_end", 9.0), ("grasp_reach_last_move_start", 11.0),
+             ("grasp_reach_end", 12.0), ("closed", 13.0)]
+    found = gates.windows(marks, {k: v for k, v in definitions.items() if not k.startswith("_")})
+    assert found == {"grasp_reach_last_move": [11.0, 12.0], "grasp_last_move_to_close": [11.0, 13.0]}
+    assert gates.windows([("grasp_reach_end", 12.0)], {"w": ["grasp_reach_last_move_start", "grasp_reach_end"]}) == {}
+    rows = [{"t": 10.5, "a": "x", "b": "y", "fn": 1.0}, {"t": 11.5, "a": "x", "b": "y", "fn": 2.0}]
+    events = gates.contact_events(rows, lambda t: "arm_approach", gates.window_of(found))
+    assert [(e["window"], e["count"]) for e in events] == [(None, 1), ("grasp_reach_last_move", 1)]
+
+
+def test_the_payload_resting_on_its_shelf_is_environment_only():
+    """Diagnostic run 44800204846: payload::link::body_collision on fixtures::link::work_shelf_board_1_collision in
+    every phase (max 2.45 N, the 1 kg box at rest). Allowed as an environment contact; a robot link on the payload is not."""
+    rest = {"phase": "nav_to_station", "a": "fixtures::link::work_shelf_board_1_collision",
+            "b": "payload::link::body_collision", "count": 31364, "max_force_n": 2.45}
+    assert _allowed(rest) is not None
+    assert _allowed(dict(rest, a="openarm_left_ee_link1")) is None
+    assert _allowed(dict(rest, b="openamrobot::openarm_left_link6::openarm_left_link6_collision")) is None
+    # this exact pair only: another fixture, another payload link or a force above the box's own weight is not allowed
+    assert _allowed(dict(rest, a="fixtures::link::work_shelf_board_0_collision")) is None
+    assert _allowed(dict(rest, a="fixtures::link::floor_collision")) is None
+    assert _allowed(dict(rest, b="payload::link::lid_collision")) is None
+    assert _allowed(dict(rest, max_force_n=9.82)) is None
+
+
+# ---------------------------------------------------------------- no /clock: BLOCKED (gate owner decision on #77, 22 Nov 2026)
+from openamrobot_build1_scene import clock_gate  # noqa: E402
+
+JOBS = [{"name": "Baseline 1 whole-robot mission, leg 1", "id": 1001, "html_url": "https://example.invalid/job/1001"},
+        {"name": "Baseline 1 whole-robot mission, leg 2", "id": 1002, "html_url": "https://example.invalid/job/1002"},
+        {"name": "Strict Baseline 1 verdict", "id": 1003, "html_url": "https://example.invalid/job/1003"}]
+
+
+def no_clock_record(fired=True):
+    """What wait_for_clock.py writes: the bound passed without a message (fired) or the first message came at 9 s."""
+    now = [1000.0]
+    gate = clock_gate.Gate(launch_start=1000.0, now=lambda: now[0])
+    if not fired:
+        now[0] = 1009.0
+        gate.on_clock(0.002)
+    now[0] = 1000.0 + clock_gate.BOUND_S + 1.0
+    return gate.record()
+
+
+def write_gate(log_dir, fired=True):
+    os.makedirs(log_dir, exist_ok=True)
+    clock_gate.write_record(str(log_dir), no_clock_record(fired))
+
+
+def blocked_leg(root, leg, decl=None, data=False):
+    """A leg whose launch ended with "no /clock" before phase 1: no mission log, the gate record, the declaration."""
+    leg_dir = write_leg(root, leg, decl=decl, data=data, buses=(), bag=False)
+    write_gate(os.path.join(leg_dir, "ws", "build1_logs"))
+    return leg_dir
+
+
+def moved_try(leg_dir, attempt, data=None):
+    """A try the workflow moved aside as BLOCKED (ws/build1_logs_blocked_try<N>/)."""
+    path = os.path.join(leg_dir, "ws", f"build1_logs_blocked_try{attempt}")
+    write_gate(path)
+    if data is not None:
+        with open(os.path.join(path, "baseline1_mission.json"), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    return path
+
+
+def jobs_file(tmp_path):
+    path = tmp_path / "jobs.jsonl"
+    path.write_text("\n".join(json.dumps(job) for job in JOBS) + "\n")
+    return str(path)
+
+
+def test_a_no_clock_leg_before_phase_1_is_blocked_not_pass_and_not_fail(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), blocked_leg(tmp_path, 2)], "--jobs", jobs_file(tmp_path))
+    assert (rc, record["verdict"], record["problems"]) == (1, "BLOCKED", [])
+    assert [leg["status"] for leg in record["legs"]] == ["PASS", "BLOCKED"]
+    (item,) = record["blocked"]
+    assert (item["leg"], item["try"], item["final"], item["job"]) == (2, 1, True, 1002)
+    assert item["reason"].startswith("BLOCKED (sim infrastructure): no /clock")
+
+
+def test_the_strict_record_lists_every_blocked_try_with_its_job_and_reason(tmp_path, capsys):
+    leg1 = write_leg(tmp_path, 1)
+    moved_try(leg1, 1), moved_try(leg1, 2)
+    leg2 = blocked_leg(tmp_path, 2)
+    moved_try(leg2, 1)
+    rc, record = verdict(tmp_path, [leg1, leg2], "--jobs", jobs_file(tmp_path))
+    assert record["verdict"] == "BLOCKED"
+    assert [(b["leg"], b["try"], b["final"], b["job"]) for b in record["blocked"]] == [
+        (1, 1, False, 1001), (1, 2, False, 1001), (2, 1, False, 1002), (2, 2, True, 1002)]
+    out = capsys.readouterr().out
+    assert "BLOCKED (sim infrastructure) mission tries: 4" in out and "job 1002 https://example.invalid/job/1002" in out
+
+
+def test_a_blocked_try_that_was_rerun_does_not_break_two_consecutive_8_of_8(tmp_path):
+    leg1 = write_leg(tmp_path, 1)
+    moved_try(leg1, 1)
+    rc, record = verdict(tmp_path, [leg1, write_leg(tmp_path, 2)], "--jobs", jobs_file(tmp_path))
+    assert (rc, record["verdict"], record["problems"]) == (0, "PASS", [])
+    assert [(b["leg"], b["try"], b["final"]) for b in record["blocked"]] == [(1, 1, False)]
+
+
+def test_a_no_clock_try_that_reached_phase_1_counts_as_it_ended(tmp_path):
+    """The fail-fast record does not make a leg BLOCKED once the mission started phase 1: the leg counts as it ends."""
+    started = mission(failing_reach=True)
+    leg2 = write_leg(tmp_path, 2, data=started)
+    write_gate(os.path.join(leg2, "ws", "build1_logs"))
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), leg2])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+    other = tmp_path / "b"
+    other.mkdir()
+    leg1 = write_leg(other, 1)
+    moved_try(leg1, 1, data=started)
+    rc, record = verdict(other, [leg1, write_leg(other, 2)])
+    assert (rc, record["verdict"]) == (1, "FAIL")
+    assert any("try 1 was rerun but is not BLOCKED" in p and "reached phase 1" in p for p in record["problems"])
+
+
+def test_no_clock_is_not_blocked_when_something_else_in_the_leg_failed(tmp_path):
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), blocked_leg(tmp_path, 2, decl=declaration(2, build_ok=0))])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+    other = tmp_path / "b"
+    other.mkdir()
+    failed = {"result": "FAIL", "reason": "x", "phases": [], "failures": ["live_drive_samples = False"]}
+    rc, record = verdict(other, [write_leg(other, 1), blocked_leg(other, 2, data=failed)])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+
+
+def test_a_gate_record_that_did_not_fire_is_not_blocked(tmp_path):
+    leg2 = write_leg(tmp_path, 2, data=False, buses=(), bag=False)
+    write_gate(os.path.join(leg2, "ws", "build1_logs"), fired=False)
+    rc, record = verdict(tmp_path, [write_leg(tmp_path, 1), leg2])
+    assert (rc, record["verdict"], record["blocked"]) == (1, "FAIL", [])
+
+
+def test_one_validation_leg_that_is_blocked_is_not_strict_and_listed(tmp_path):
+    rc, record = verdict(tmp_path, [blocked_leg(tmp_path, 1)], "--expect", "1")
+    assert (rc, record["verdict"], [leg["status"] for leg in record["legs"]]) == (1, "NOT STRICT", ["BLOCKED"])
+
+
+def test_the_workflow_reruns_only_what_the_blocked_try_rule_accepts(tmp_path, capsys):
+    fired, ok = tmp_path / "fired", tmp_path / "ok"
+    write_gate(fired), write_gate(ok, fired=False)
+    assert strict.main(["--blocked-try", str(fired)]) == 0
+    assert strict.main(["--blocked-try", str(ok)]) == 1
+    assert strict.main(["--blocked-try", str(tmp_path / "missing")]) == 1
+    (fired / "baseline1_mission.json").write_text(json.dumps(mission()))
+    assert strict.main(["--blocked-try", str(fired)]) == 1
+    assert "reached phase 1" in capsys.readouterr().out
+
+
+# ------------------------------------------------------------------ the palm on the item in grasp (Mohamed, #77, 22 Nov)
+PALM_ITEM = {"phase": "grasp", "window": "grasp_last_move_to_close", "a": "item::link::body_collision",
+             "b": "openamrobot::openarm_left_ee_base_link::openarm_left_ee_base_link_collision",
+             "first_t": 13.2, "last_t": 13.8, "count": 13, "max_force_n": 0.349}
+WALL_ENTRY_98 = {"a": "openarm_left_(ee_base_link|ee_link1)(::|$)", "b": "^tote::(link::)?front_collision$",
+                 "phases": ["arm_approach"], "window": "grasp_reach_last_move", "max_force_n": 6.0}
+MARKS = [("grasp_reach_start", 10.0), ("grasp_reach_last_move_start", 11.0), ("grasp_reach_end", 12.0),
+         ("closed", 14.0), ("grasp_lift_start", 15.0)]
+SPANS = [("arm_approach", 9.0, 12.5), ("grasp", 12.5, 15.0), ("lift_object", 15.0, 20.0)]
+
+
+def _phase_of(t):
+    return next((name for name, start, end in SPANS if start <= t <= end), None)
+
+
+def _events(rows):
+    found = gates.windows(MARKS, {k: v for k, v in gates.load()["contacts"]["windows"].items() if not k.startswith("_")})
+    return gates.contact_events(rows, _phase_of, gates.window_of(found))
+
+
+def _leg1_rows():
+    """A synthetic trace with the values of run 44983640874 leg 1 (job 137089357676): 13 samples of the item's world
+    sensor on the left palm in grasp, largest normal force 0.349 N. The sample times were not readable (the contact
+    artifact was not downloaded); they are placed in grasp before the close."""
+    forces = [0.05, 0.12, 0.2, 0.349, 0.31, 0.28, 0.22, 0.18, 0.15, 0.1, 0.08, 0.06, 0.03]
+    return [{"t": 13.2 + 0.05 * i, "a": PALM_ITEM["a"], "b": PALM_ITEM["b"], "fn": -fn} for i, fn in enumerate(forces)]
+
+
+def test_the_palm_on_the_item_is_allowed_only_in_grasp_up_to_the_close_at_most_1_n():
+    assert _allowed(PALM_ITEM) is not None
+    assert _allowed(dict(PALM_ITEM, a="openarm_left_ee_base_link", b="item::link::body_collision")) is not None
+    assert _allowed(dict(PALM_ITEM, max_force_n=1.0)) is not None
+    for other in (dict(PALM_ITEM, max_force_n=1.2), dict(PALM_ITEM, max_force_n=1.001),
+                  dict(PALM_ITEM, window=None), dict(PALM_ITEM, window="grasp_reach_last_move"),
+                  dict(PALM_ITEM, phase="arm_approach"), dict(PALM_ITEM, phase="lift_object"),
+                  dict(PALM_ITEM, phase="retreat", window=None),
+                  dict(PALM_ITEM, b="openamrobot::openarm_right_ee_base_link::openarm_right_ee_base_link_collision"),
+                  dict(PALM_ITEM, b="openamrobot::openarm_left_link7::openarm_left_link7_collision"),
+                  dict(PALM_ITEM, a="tote::link::front_collision"), dict(PALM_ITEM, a="item::link::lid_collision"),
+                  dict(PALM_ITEM, a="payload::link::body_collision")):
+        assert _allowed(other) is None, other
+
+
+def test_a_palm_item_contact_of_1_2_n_in_grasp_fails_the_strict_gate(tmp_path):
+    rows = [dict(r, fn=-1.2) if i == 3 else r for i, r in enumerate(_leg1_rows())]
+    (event,) = _events(rows)
+    assert (event["phase"], event["window"], event["max_force_n"]) == ("grasp", "grasp_last_move_to_close", 1.2)
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, event)))
+    assert rc == 1 and any("unaccounted contact in grasp (grasp_last_move_to_close): item::link::body_collision" in p
+                           for p in record["problems"])
+
+
+def test_a_palm_item_contact_outside_the_grasp_window_fails_the_strict_gate(tmp_path):
+    # after the close, still in grasp: no window
+    (after_close,) = _events([dict(r, t=14.2 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert (after_close["phase"], after_close["window"]) == ("grasp", None)
+    rc, record = two(tmp_path, data2=mission(events=(GRASP, after_close)))
+    assert rc == 1 and any("unaccounted contact in grasp: item::link::body_collision" in p for p in record["problems"])
+    # on the last reach move, in arm_approach: the #98 window, which does not name the item
+    (on_reach,) = _events([dict(r, t=11.2 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert (on_reach["phase"], on_reach["window"]) == ("arm_approach", "grasp_reach_last_move")
+    other = tmp_path / "b"
+    other.mkdir()
+    rc, record = two(other, data2=mission(events=(GRASP, on_reach)))
+    assert rc == 1 and any("unaccounted contact in arm_approach (grasp_reach_last_move)" in p for p in record["problems"])
+    # during the lift
+    (lifting,) = _events([dict(r, t=16.0 + 0.05 * i) for i, r in enumerate(_leg1_rows())])
+    assert lifting["phase"] == "lift_object"
+    third = tmp_path / "c"
+    third.mkdir()
+    rc, record = two(third, data2=mission(events=(GRASP, lifting)))
+    assert rc == 1 and any("unaccounted contact in lift_object" in p for p in record["problems"])
+
+
+def test_the_98_tote_entry_is_unchanged_and_keeps_its_window_where_the_grasp_window_overlaps_it():
+    entries = [e for e in gates.load()["contacts"]["allowed"] if e["b"] == WALL_ENTRY_98["b"]]
+    assert len(entries) == 1 and {k: v for k, v in entries[0].items() if k != "reason"} == WALL_ENTRY_98
+    (wall,) = _events([{"t": 11.5, "a": WALL["a"], "b": WALL["b"], "fn": 5.2}])
+    assert (wall["phase"], wall["window"]) == ("arm_approach", "grasp_reach_last_move") and _allowed(wall) is not None
+    assert _allowed(dict(WALL, phase="grasp", window="grasp_last_move_to_close")) is None
+
+
+def test_the_leg1_trace_of_run_44983640874_passes_and_the_record_reports_the_touch(tmp_path, capsys):
+    (event,) = _events(_leg1_rows())
+    assert (event["phase"], event["window"], event["count"], event["max_force_n"]) == \
+        ("grasp", "grasp_last_move_to_close", 13, 0.349)
+    rc, record = two(tmp_path, data1=mission(events=(GRASP, event)))
+    assert rc == 0, record["problems"]
+    reported = [c for c in record["legs"][0]["allowed_contacts"] if c["a"] == event["a"]]
+    assert reported == [{"phase": "grasp", "window": "grasp_last_move_to_close", "a": event["a"], "b": event["b"],
+                         "count": 13, "max_force_n": 0.349, "max_force_cap_n": 1.0,
+                         "reason": reported[0]["reason"]}] and "#77" in reported[0]["reason"]
+    out = capsys.readouterr().out
+    assert "Allowed contacts (reported, not problems):" in out
+    assert f"- leg 1 grasp (grasp_last_move_to_close): {event['a']} with {event['b']}, 13 samples, max 0.349 N, cap 1.0 N" in out
