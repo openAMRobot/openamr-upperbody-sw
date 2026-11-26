@@ -1,0 +1,31 @@
+# DIAGNOSTIC ONLY, never for merge (upperbody #136). Reads artifacts of finished strict legs; starts no simulation.
+name: diag 136 odometry bags
+on:
+  push:
+    branches: ['diag/136-odometry-bag-analysis-**']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  analyse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        run: ['45746635231', '45735474913', '45746655009']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the leg artifacts of run ${{ matrix.run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p art
+          gh run download ${{ matrix.run }} --repo "$GITHUB_REPOSITORY" --dir art --pattern 'baseline1-acceptance-leg*'
+          find art -maxdepth 3 | head -80
+          find art -name metadata.yaml
+          du -sh art/*
+      - name: Analyse
+        run: |
+          python3 -m pip install --quiet --break-system-packages rosbags
+          python3 tools/diag/odometry_bag_analysis.py art
