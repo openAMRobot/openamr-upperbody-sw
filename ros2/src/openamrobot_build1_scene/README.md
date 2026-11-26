@@ -239,14 +239,14 @@ host test client then reports 26.4 V and 55 %, values that only the trace holds.
 
 ## RViz checklist
 
-`rviz:=true` opens `rviz/build1.rviz`. Fixed frame `map`. Tick each line.
+`rviz:=true` opens `rviz/build1.rviz`. Fixed frame `map`. It needs `nav2:=true` and `moveit:=true` (the defaults): without Nav2 the frame `map` does not exist, without MoveIt the two planning displays stay empty. The "Ground truth" display is switched off in the file: its messages carry the frame `world`, which is not in TF, so RViz cannot place them (upperbody #143). rviz2 can report a non-zero exit when the launch is closed (#143). Tick each line.
 
 | Check | Display | What to see |
 |---|---|---|
 | TF tree | TF | one tree: `map` > `odom` > `base_footprint` > `base_link` > lift > arms. No frame flickers |
 | Joint states | RobotModel | wheels turn when the base drives, the lift carriage rises, the fingers open |
 | Footprint | Footprint (local costmap) | the octagon of the base. It grows when an arm reaches past it |
-| Odometry | Odometry | arrow on the robot. Compare with the ground truth arrow: the gap is the odometry error |
+| Odometry | Odometry | arrow on the robot. The ground truth arrow is not shown by default, see above |
 | Scan | LaserScan | `/scan_filtered`: shelf posts, obstacles, dock. No return on the robot's own body |
 | Depth | Base depth, Head depth | depth images of the base and head cameras. Simulation cameras, unverified parameters |
 | Camera topics | Dock camera, Wrist cameras | `/rgb_image` shows the dock tags from the origin. Wrist images follow the hands |
