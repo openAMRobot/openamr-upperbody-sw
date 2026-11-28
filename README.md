@@ -116,6 +116,9 @@ OpenArm 2.0 components come from the official [OpenArm](https://github.com/enact
 
 ## Engineering details
 
+Operator UI integration preparation: [upperbody model handoff](docs/architecture/upperbody_ui_handoff.md)
+(Proposed, documentation only; implementation follows the owner-agreed gates).
+
 > **Status:** Development. `openamrobot_upperbody_description` provides the option B upper-body description and its tests. The combined base + upper body + arm model (option B's lift model on platform-sw's `base_footprint`, two OpenArm v2.0 arms rooted on its mount frames), the `ros2_control` profiles, the Gazebo, MoveIt and bringup packages and their verification are implemented and verified in simulation and on mock hardware only: see [`docs/verification.md`](docs/verification.md) and the package READMEs. Nothing here is a hardware result.
 
 ### What lives here
